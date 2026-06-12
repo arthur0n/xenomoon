@@ -1,0 +1,6 @@
+node_modules/
+logs/
+package-lock.json
+
+# Hand-tuned markup — keep prettier off it for now (mirrors lint-staged).
+*.html

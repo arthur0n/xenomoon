@@ -82,7 +82,7 @@ There is **no template**. The agents, skills, and verification tools live _insid
 
 ```bash
 npm install
-node ui/server.js game   # or any path to a Godot project
+node ui/server/index.js game   # or any path to a Godot project (or: npm start game)
 # open http://localhost:3117
 ```
 

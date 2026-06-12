@@ -1,0 +1,30 @@
+{
+  "include": ["ui/**/*.js"],
+  "exclude": ["node_modules", "logs"],
+  "compilerOptions": {
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": true,
+
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "lib": ["ES2022", "dom", "dom.iterable"],
+
+    // Max strictness — same bar as sharpmoney. On untyped JS this surfaces a
+    // backlog (mostly implicit-any on params); chip away with JSDoc, it is the
+    // documented ramp. `npm run check` reports it; it does NOT gate commits.
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // One config carries both the DOM lib (for ui/agent-ui.js) and node types
+    // (for ui/server.js). The browser file nominally "sees" node globals —
+    // accepted for a 3-file project; ESLint's per-file globals is what
+    // actually catches global misuse.
+    "types": ["node"]
+  }
+}

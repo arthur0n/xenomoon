@@ -24,3 +24,15 @@ export const el = (tag, cls, text) => {
   if (text != null) n.textContent = text;
   return n;
 };
+
+/** Pre-fill the composer with a starter prompt and focus it. Lives here (not
+ * in composer.js) so feature modules can use it without importing the
+ * composer → websocket → project-tree cycle.
+ * @param {string} text */
+export function fillComposer(text) {
+  const t = $input("composer-input");
+  t.value = text;
+  t.style.height = "auto";
+  t.style.height = Math.min(t.scrollHeight, 120) + "px";
+  t.focus();
+}

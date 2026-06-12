@@ -4,7 +4,7 @@
 import { setupResizer, restorePanelWidths } from "./resize.js";
 import { initActivityLog } from "./activity-log.js";
 import { initApprovalsPill } from "./approvals.js";
-import { loadState } from "./project-tree.js";
+import { loadState, initProjectTabs } from "./project-tree.js";
 import { loadSessions } from "./sessions.js";
 import { initComposer } from "./composer.js";
 import { send } from "./websocket.js";
@@ -16,6 +16,7 @@ setupResizer("resize-activity", "--activity-w", "right", 260, 560);
 initActivityLog();
 initApprovalsPill();
 initComposer();
+initProjectTabs();
 
 $input("mode-select").onchange = () => {
   send({ type: "policy", value: $input("mode-select").value });

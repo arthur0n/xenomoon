@@ -1,5 +1,5 @@
 // Composer — the message input box, its auto-grow, send, and quick-fill chips.
-import { $, $$, $input } from "./dom.js";
+import { $, $$, $input, fillComposer } from "./dom.js";
 import { addUser } from "./chat.js";
 import { send } from "./websocket.js";
 
@@ -32,9 +32,7 @@ export function initComposer() {
   });
   $$(".chip[data-fill]").forEach((chip) => {
     chip.addEventListener("click", () => {
-      textarea.value = chip.getAttribute("data-fill") ?? "";
-      autoGrow();
-      textarea.focus();
+      fillComposer(chip.getAttribute("data-fill") ?? "");
     });
   });
 }

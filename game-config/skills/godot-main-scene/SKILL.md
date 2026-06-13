@@ -53,6 +53,15 @@ func load_level(path: String) -> void:
 		current_level = null
 	current_level = (load(path) as PackedScene).instantiate()
 	_level_host.add_child(current_level)
+
+	# Player must exist in the level the instant it's instantiated — this
+	# wiring is synchronous. A level that spawns its Player via call_deferred()
+	# (or any runtime builder) arrives too late; the rig is never wired (silent).
+	var player := current_level.find_child("Player") as Player
+	if player != null:
+		var rig: CameraRig = %CameraRig
+		rig.target = player
+		player.camera_rig = rig
 ```
 
 3. Set it as the entry point in `project.godot` under `[application]`: `run/main_scene="res://main.tscn"` (editor: Project Settings → Application → Run → Main Scene).
@@ -68,13 +77,14 @@ func load_level(path: String) -> void:
 
 ## Error → Fix
 
-| Symptom                                                   | Fix                                                                                                                              |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| "Can't change state while flushing queries" on level swap | Swap was triggered from a physics signal inside the dying level → `load_level.call_deferred(path)`                               |
-| Screen black after Main loads level                       | Level renders outside the SubViewport (LevelHost in wrong place), or no current camera — CameraRig missing/not current           |
-| Lighting/environment doubles or flickers during swap      | Old level freed with `queue_free()` while new one added same frame → use `free()` as in the script                               |
-| UI got pixelated                                          | UI node ended up inside the SubViewport — move it to a CanvasLayer under Main                                                    |
-| Level works in F6 but not under Main                      | Level script assumes it's the scene root (`get_parent()` of root, `$/root/Level` paths) — levels must not depend on their parent |
+| Symptom                                                   | Fix                                                                                                                                                                                                                                          |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Can't change state while flushing queries" on level swap | Swap was triggered from a physics signal inside the dying level → `load_level.call_deferred(path)`                                                                                                                                           |
+| Screen black after Main loads level                       | Level renders outside the SubViewport (LevelHost in wrong place), or no current camera — CameraRig missing/not current                                                                                                                       |
+| Lighting/environment doubles or flickers during swap      | Old level freed with `queue_free()` while new one added same frame → use `free()` as in the script                                                                                                                                           |
+| UI got pixelated                                          | UI node ended up inside the SubViewport — move it to a CanvasLayer under Main                                                                                                                                                                |
+| Level works in F6 but not under Main                      | Level script assumes it's the scene root (`get_parent()` of root, `$/root/Level` paths) — levels must not depend on their parent                                                                                                             |
+| Player moves but camera never follows it (no error)       | Level spawns its Player via `call_deferred()` / a runtime builder — `load_level()` wires the rig synchronously at `add_child`. The Player must be a baked node in the level `.tscn` (present before `instantiate()` returns), never deferred |
 
 ## Scope boundary
 

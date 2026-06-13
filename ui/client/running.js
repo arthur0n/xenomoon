@@ -3,6 +3,7 @@
 // and an elapsed timer. Replaces the old single-agent status bar.
 import { $, el } from "./dom.js";
 import { paint, agentLabel } from "./agents.js";
+import { send } from "./websocket.js";
 
 /** @typedef {{ label: string, desc: string, started: number, elapsed?: HTMLElement }} Running */
 /** @type {Map<string, Running>} */
@@ -42,6 +43,13 @@ function render() {
     chip.append(r.elapsed);
     box.append(chip);
   }
+  const stop = el("button", "running-stop", "■ Stop");
+  stop.title =
+    "Interrupt the current turn — stops the running sub-agents (the session stays alive)";
+  stop.onclick = () => {
+    send({ type: "stop" });
+  };
+  box.append(stop);
   box.style.display = "";
   timer ??= setInterval(tick, 1000);
   tick();

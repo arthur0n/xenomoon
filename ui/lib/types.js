@@ -108,6 +108,7 @@
  *   | { type: "reply", id: number, payload: Reply }
  *   | { type: "policy", value: string }
  *   | { type: "task_update", op: "update" | "remove", id: string, status?: string }
+ *   | { type: "stop" }
  * )} ClientMsg */
 /** Pauses the session, sends the prompt, resolves when the browser replies.
  * @typedef {(type: string, payload: Record<string, unknown>) => Promise<Reply>} WaitFor */

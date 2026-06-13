@@ -140,7 +140,7 @@ function makeCanUseTool({ session, sessionAllowed, waitFor, log, agentByTool, fo
 
 /**
  * Drive the Claude Code session and stream its messages to the browser.
- * @param {{ resumeId: string | null, policy: string, inbox: ReturnType<typeof createInbox>, send: (obj: OutMsg) => void, canUseTool: import("@anthropic-ai/claude-agent-sdk").CanUseTool, abort: AbortController, waitFor: WaitFor, agentByTool: Map<string, string>, formAgentQueue: string[] }} deps
+ * @param {{ resumeId: string | null, policy: string, inbox: ReturnType<typeof createInbox>, send: (obj: OutMsg) => void, canUseTool: import("@anthropic-ai/claude-agent-sdk").CanUseTool, abort: AbortController, waitFor: WaitFor, agentByTool: Map<string, string>, formAgentQueue: string[], session: { policy: string, query?: { interrupt?: () => Promise<void> } } }} deps
  */
 function runSession({
   resumeId,
@@ -152,6 +152,7 @@ function runSession({
   waitFor,
   agentByTool,
   formAgentQueue,
+  session,
 }) {
   void (async () => {
     try {
@@ -164,7 +165,7 @@ function runSession({
       } else {
         send({ type: "status", text: `session starting in ${PROJECT_DIR}` });
       }
-      for await (const message of query({
+      const q = query({
         prompt: inbox.iterable,
         options: {
           ...(resumeId ? { resume: resumeId } : {}),
@@ -184,7 +185,9 @@ function runSession({
             }),
           },
         },
-      })) {
+      });
+      session.query = q;
+      for await (const message of q) {
         // Map each tool_use id to the agent that produced it, so canUseTool can
         // label concurrent approvals (subagent_type is on the message directly).
         if (message.type === "assistant") {
@@ -205,7 +208,7 @@ function runSession({
 
 /**
  * @param {import("ws").RawData} raw
- * @param {{ log: (dir: string, obj: OutMsg) => void, send: (obj: OutMsg) => void, inbox: ReturnType<typeof createInbox>, pending: Pending, session: { policy: string } }} deps
+ * @param {{ log: (dir: string, obj: OutMsg) => void, send: (obj: OutMsg) => void, inbox: ReturnType<typeof createInbox>, pending: Pending, session: { policy: string, query?: { interrupt?: () => Promise<void> } } }} deps
  */
 function handleClientMessage(raw, { log, send, inbox, pending, session }) {
   /** @type {ClientMsg} */
@@ -234,6 +237,11 @@ function handleClientMessage(raw, { log, send, inbox, pending, session }) {
     // User toggled a status or removed a task from the UI — mutate the store
     // and broadcast the new list back.
     send({ type: "tasks", tasks: applyOp(msg, new Date().toISOString()) });
+  } else if (msg.type === "stop") {
+    // Interrupt the current turn — stops in-flight sub-agents but keeps the
+    // session alive for the next input.
+    void session.query?.interrupt?.();
+    send({ type: "status", text: "stopping the current turn — interrupting running agents…" });
   }
 }
 
@@ -262,6 +270,7 @@ export function handleConnection(ws, req) {
   const inbox = createInbox();
   /** @type {Pending} */
   const pending = new Map();
+  /** @type {{ policy: string, query?: { interrupt?: () => Promise<void> } }} */
   const session = { policy: DEFAULT_POLICY };
   /** @type {Set<string>} */
   const sessionAllowed = new Set(); // tools approved with "Always" this session
@@ -290,6 +299,7 @@ export function handleConnection(ws, req) {
     waitFor,
     agentByTool,
     formAgentQueue,
+    session,
   });
 
   ws.on("message", (raw) => {

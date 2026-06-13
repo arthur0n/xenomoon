@@ -2125,6 +2125,23 @@ input.cmd::placeholder {
   border-radius: 2px;
 }
 
+/* Stop button on the running-agents strip — interrupts the current turn */
+.running-stop {
+  margin-left: auto;
+  padding: 2px 10px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--red);
+  background: color-mix(in oklab, var(--red) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--red) 38%, transparent);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.running-stop:hover {
+  background: color-mix(in oklab, var(--red) 22%, transparent);
+}
+
 .draw-level-canvas {
   display: block;
   width: 560px;

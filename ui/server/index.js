@@ -10,7 +10,7 @@ import { mkdirSync } from "node:fs";
 import { WebSocketServer } from "ws";
 import { PORT, PROJECT_DIR, PROJECT_FOUND, CONFIG_FILE, LOG_DIR } from "./config.js";
 import { projectState } from "./project-state.js";
-import { recentSessions } from "./transcripts.js";
+import { recentSessions, deleteSession } from "./transcripts.js";
 import { serveStatic } from "./static.js";
 import { handleConnection } from "./session.js";
 
@@ -25,6 +25,13 @@ const server = http.createServer((req, res) => {
   if (req.url === "/api/sessions") {
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify(recentSessions()));
+    return;
+  }
+  if (req.method === "DELETE" && req.url?.startsWith("/api/sessions/")) {
+    const id = decodeURIComponent(req.url.slice("/api/sessions/".length));
+    const ok = deleteSession(id);
+    res.writeHead(ok ? 200 : 404, { "content-type": "application/json" });
+    res.end(JSON.stringify({ deleted: ok }));
     return;
   }
   serveStatic(req, res);

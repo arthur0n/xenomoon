@@ -25,8 +25,8 @@ const FIELD = z.object({
     .describe("Pre-filled value; array of option labels for multiselect"),
 });
 
-/** @param {import("../lib/types.js").WaitFor} waitFor */
-export function makeFormTool(waitFor) {
+/** @param {import("../lib/types.js").WaitFor} waitFor @param {string[]} formAgentQueue */
+export function makeFormTool(waitFor, formAgentQueue) {
   return tool(
     "form",
     "Show the user a form and wait for their answers. Use it over AskUserQuestion when you " +
@@ -40,7 +40,9 @@ export function makeFormTool(waitFor) {
       submitLabel: z.string().optional().describe('Submit button label, default "Submit"'),
     },
     async (input) => {
-      const reply = await waitFor("form", { input });
+      // canUseTool pushed this call's agent just before the handler ran (FIFO).
+      const agent = formAgentQueue.shift() ?? "main";
+      const reply = await waitFor("form", { input, agent });
       return {
         content: [
           {

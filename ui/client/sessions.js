@@ -12,8 +12,30 @@ function sessionCard(s) {
   const card = el("div", "session-card");
   card.style.cursor = "pointer";
   card.title = "Resume this session";
-  card.append(el("span", "name", s.title));
+
+  const nameRow = el("span", "name");
+  nameRow.append(s.title);
+  const delBtn = el("button", "session-del-btn", "×");
+  delBtn.title = "Delete session";
+  delBtn.onclick = (e) => {
+    e.stopPropagation();
+    if (delBtn.classList.contains("confirm")) {
+      void fetch(`/api/sessions/${encodeURIComponent(s.id)}`, { method: "DELETE" }).then(() =>
+        loadSessions(),
+      );
+    } else {
+      delBtn.classList.add("confirm");
+      delBtn.textContent = "del?";
+      setTimeout(() => {
+        delBtn.classList.remove("confirm");
+        delBtn.textContent = "×";
+      }, 2000);
+    }
+  };
+  nameRow.append(delBtn);
+  card.append(nameRow);
   card.append(el("span", "meta", s.when.replace("T", " · ")));
+
   card.onclick = () => {
     card.classList.add("loading");
     const meta = card.querySelector(".meta");

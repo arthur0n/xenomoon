@@ -36,13 +36,14 @@
  * @property {Todo[]} [todos]
  * @property {Question[]} [questions]
  */
-/** @typedef {{ type: string, text?: string, id?: string, name?: string, input?: ToolInput }} ContentBlock */
+/** @typedef {{ type: string, text?: string, id?: string, name?: string, input?: ToolInput, tool_use_id?: string }} ContentBlock */
 /**
  * @typedef {object} SdkEvent
  * @property {string} type
  * @property {string} [subtype]
  * @property {string} [model]
  * @property {string | null} [parent_tool_use_id]
+ * @property {string} [subagent_type] - sub-agent label on messages it produced
  * @property {number} [total_cost_usd]
  * @property {number} [duration_ms]
  * @property {{ input_tokens?: number, output_tokens?: number }} [usage]
@@ -73,9 +74,9 @@
  * @typedef {(
  *   | { type: "status", text: string }
  *   | { type: "event", message: SdkEvent }
- *   | { type: "ask", id: number, input: { questions?: Question[] } }
- *   | { type: "form", id: number, input: FormSpec }
- *   | { type: "permission", id: number, toolName: string, input: ToolInput }
+ *   | { type: "ask", id: number, input: { questions?: Question[] }, agent?: string }
+ *   | { type: "form", id: number, input: FormSpec, agent?: string }
+ *   | { type: "permission", id: number, toolName: string, input: ToolInput, agent?: string }
  *   | { type: "policy", value: string }
  *   | { type: "history", items?: HistoryItem[] }
  * )} ServerMsg */

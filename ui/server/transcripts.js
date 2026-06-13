@@ -1,7 +1,7 @@
 // Session listing & replay, read from Claude Code's own .jsonl transcript
 // store — so EVERY session in this project is resumable, terminal ones
 // included (agent-*.jsonl = sub-agent transcripts, skipped).
-import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, statSync, rmSync } from "node:fs";
 import path from "node:path";
 import { parseJSON } from "../lib/json.js";
 import { TRANSCRIPT_DIR } from "./config.js";
@@ -61,6 +61,17 @@ export function recentSessions() {
         : null;
     })
     .filter((s) => s !== null);
+}
+
+/** Delete a session transcript. Returns false if the id is invalid or the file
+ * does not exist.
+ * @param {string} id @returns {boolean} */
+export function deleteSession(id) {
+  if (!/^[\w-]+$/.test(id)) return false;
+  const file = path.join(TRANSCRIPT_DIR, `${id}.jsonl`);
+  if (!existsSync(file)) return false;
+  rmSync(file);
+  return true;
 }
 
 // Chat history (main-loop messages only) for replay when resuming. Tool calls

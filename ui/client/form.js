@@ -2,7 +2,7 @@
 // lifecycle as renderAsk — card in chat, mini in panel, one reply.
 import { el } from "./dom.js";
 import { send } from "./websocket.js";
-import { registerPending, settle } from "./approvals.js";
+import { registerPending, settle, agentChip } from "./approvals.js";
 
 /** @param {Extract<import("../lib/types.js").ServerMsg, { type: "form" }>} m */
 export function renderForm(m) {
@@ -13,7 +13,10 @@ export function renderForm(m) {
   const readers = []; // per field: { f, wrap, read: () => current value }
 
   const chatCard = el("div", "card approval");
-  const head = el("div", "card-head", form.title ?? "Form");
+  const head = el("div", "card-head");
+  const headChip = agentChip(m.agent);
+  if (headChip) head.append(headChip, " ");
+  head.append(form.title ?? "Form");
   const body = el("div", "approval-body");
   if (form.description) body.append(el("div", "form-desc", form.description));
 
@@ -123,7 +126,11 @@ export function renderForm(m) {
 
   // Panel mini: passive pointer to the chat card
   const panelCard = el("div", "approval-mini");
-  panelCard.append(el("div", "approval-mini-row", `📋 ${(form.title ?? "form").slice(0, 60)}`));
+  const miniRow = el("div", "approval-mini-row");
+  const rowChip = agentChip(m.agent);
+  if (rowChip) miniRow.append(rowChip, " ");
+  miniRow.append(`📋 ${(form.title ?? "form").slice(0, 60)}`);
+  panelCard.append(miniRow);
   const jump = el("button", "btn", "Fill in chat →");
   jump.onclick = () => {
     chatCard.scrollIntoView({ behavior: "smooth", block: "center" });

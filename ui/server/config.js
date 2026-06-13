@@ -60,6 +60,11 @@ export const EDIT_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]
 // interaction, so it bypasses the permission policy.
 export const FORM_TOOL = "mcp__ui__form";
 
+// In-process MCP tool the orchestrator calls to manage its persistent task
+// list (see task-tool.js). Like the form tool it's a UI-control surface, not a
+// real side effect, so it bypasses the permission policy.
+export const TASK_TOOL = "mcp__ui__tasks";
+
 // The main loop is an orchestrator: pinned model (not the user's default) and a
 // routing-focused system prompt, editable in ui/orchestrator.md.
 export const MODEL =

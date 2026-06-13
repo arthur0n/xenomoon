@@ -8,10 +8,13 @@ import { createSdkMcpServer, query } from "@anthropic-ai/claude-agent-sdk";
 import { parseJSON } from "../lib/json.js";
 import { sessionHistory } from "./transcripts.js";
 import { makeFormTool } from "./form-tool.js";
+import { makeTaskTool } from "./task-tool.js";
+import { readTasks, applyOp } from "./tasks-store.js";
 import {
   DEFAULT_POLICY,
   EDIT_TOOLS,
   FORM_TOOL,
+  TASK_TOOL,
   MODEL,
   ORCHESTRATOR_PROMPT,
   POLICIES,
@@ -115,6 +118,10 @@ function makeCanUseTool({ session, sessionAllowed, waitFor, log, agentByTool, fo
       formAgentQueue.push(agent);
       return { behavior: "allow", updatedInput: input };
     }
+    if (toolName === TASK_TOOL) {
+      // UI-control tool: mutates the task board, never pauses — auto-allow.
+      return { behavior: "allow", updatedInput: input };
+    }
     if (
       session.policy === "all" ||
       (session.policy === "edits" && EDIT_TOOLS.has(toolName)) ||
@@ -149,6 +156,8 @@ function runSession({
   void (async () => {
     try {
       send({ type: "policy", value: policy });
+      // Paint the persisted task board immediately (fresh or resumed session).
+      send({ type: "tasks", tasks: readTasks() });
       if (resumeId) {
         send({ type: "history", items: sessionHistory(resumeId) });
         send({ type: "status", text: `resumed session ${resumeId.slice(0, 8)}…` });
@@ -171,7 +180,7 @@ function runSession({
             ui: createSdkMcpServer({
               name: "ui",
               version: "0.1.0",
-              tools: [makeFormTool(waitFor, formAgentQueue)],
+              tools: [makeFormTool(waitFor, formAgentQueue), makeTaskTool(send)],
             }),
           },
         },
@@ -196,9 +205,9 @@ function runSession({
 
 /**
  * @param {import("ws").RawData} raw
- * @param {{ log: (dir: string, obj: OutMsg) => void, inbox: ReturnType<typeof createInbox>, pending: Pending, session: { policy: string } }} deps
+ * @param {{ log: (dir: string, obj: OutMsg) => void, send: (obj: OutMsg) => void, inbox: ReturnType<typeof createInbox>, pending: Pending, session: { policy: string } }} deps
  */
-function handleClientMessage(raw, { log, inbox, pending, session }) {
+function handleClientMessage(raw, { log, send, inbox, pending, session }) {
   /** @type {ClientMsg} */
   let msg;
   try {
@@ -221,6 +230,10 @@ function handleClientMessage(raw, { log, inbox, pending, session }) {
     }
   } else if (msg.type === "policy" && POLICIES.includes(msg.value)) {
     session.policy = msg.value;
+  } else if (msg.type === "task_update") {
+    // User toggled a status or removed a task from the UI — mutate the store
+    // and broadcast the new list back.
+    send({ type: "tasks", tasks: applyOp(msg, new Date().toISOString()) });
   }
 }
 
@@ -280,7 +293,7 @@ export function handleConnection(ws, req) {
   });
 
   ws.on("message", (raw) => {
-    handleClientMessage(raw, { log, inbox, pending, session });
+    handleClientMessage(raw, { log, send, inbox, pending, session });
   });
   ws.on("close", () => {
     handleClose({ inbox, pending, abort, endLog: end });

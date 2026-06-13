@@ -8,6 +8,7 @@ import { resumeId } from "./state.js";
 import { addUser, addAgentMsg, addBanner, updateThinking, clearThinking } from "./chat.js";
 import { addLog, VERB_KIND, toolDetail } from "./activity-log.js";
 import { renderTodos } from "./todos.js";
+import { renderTasks } from "./tasks.js";
 import { renderAsk, renderPermission } from "./approvals.js";
 import { renderForm } from "./form.js";
 import { startAgent, stopAgent, clearAll } from "./running.js";
@@ -147,6 +148,9 @@ function handleMessage(ev) {
       break;
     case "policy":
       $input("mode-select").value = m.value;
+      break;
+    case "tasks":
+      renderTasks(m.tasks);
       break;
     case "ask":
       renderAsk(m);

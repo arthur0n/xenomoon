@@ -97,17 +97,22 @@ function makeWaitFor(send, pending) {
 }
 
 /**
- * @param {{ session: { policy: string }, sessionAllowed: Set<string>, waitFor: WaitFor, log: (dir: string, obj: OutMsg) => void }} deps
+ * @param {{ session: { policy: string }, sessionAllowed: Set<string>, waitFor: WaitFor, log: (dir: string, obj: OutMsg) => void, agentByTool: Map<string, string>, formAgentQueue: string[] }} deps
  * @returns {import("@anthropic-ai/claude-agent-sdk").CanUseTool}
  */
-function makeCanUseTool({ session, sessionAllowed, waitFor, log }) {
-  return async (toolName, input) => {
+function makeCanUseTool({ session, sessionAllowed, waitFor, log, agentByTool, formAgentQueue }) {
+  return async (toolName, input, opts) => {
+    // Which agent raised this call (main loop or a sub-agent), so the UI can
+    // label concurrent approvals. opts.toolUseID is set by the SDK.
+    const agent = agentByTool.get(opts.toolUseID) ?? "main";
     if (toolName === "AskUserQuestion") {
-      const answers = await waitFor("ask", { input });
+      const answers = await waitFor("ask", { input, agent });
       return { behavior: "allow", updatedInput: { ...input, ...answers } };
     }
     if (toolName === FORM_TOOL) {
-      // The tool handler does the waiting; nothing to gate here.
+      // The tool handler does the waiting; hand it this call's agent (FIFO,
+      // since canUseTool and the handler run 1:1 and order-aligned per tool).
+      formAgentQueue.push(agent);
       return { behavior: "allow", updatedInput: input };
     }
     if (
@@ -118,7 +123,7 @@ function makeCanUseTool({ session, sessionAllowed, waitFor, log }) {
       log("auto", { type: "permission", toolName, policy: session.policy });
       return { behavior: "allow", updatedInput: input };
     }
-    const { allow, always } = await waitFor("permission", { toolName, input });
+    const { allow, always } = await waitFor("permission", { toolName, input, agent });
     if (allow && always) sessionAllowed.add(toolName);
     return allow
       ? { behavior: "allow", updatedInput: input }
@@ -128,9 +133,19 @@ function makeCanUseTool({ session, sessionAllowed, waitFor, log }) {
 
 /**
  * Drive the Claude Code session and stream its messages to the browser.
- * @param {{ resumeId: string | null, policy: string, inbox: ReturnType<typeof createInbox>, send: (obj: OutMsg) => void, canUseTool: import("@anthropic-ai/claude-agent-sdk").CanUseTool, abort: AbortController, waitFor: WaitFor }} deps
+ * @param {{ resumeId: string | null, policy: string, inbox: ReturnType<typeof createInbox>, send: (obj: OutMsg) => void, canUseTool: import("@anthropic-ai/claude-agent-sdk").CanUseTool, abort: AbortController, waitFor: WaitFor, agentByTool: Map<string, string>, formAgentQueue: string[] }} deps
  */
-function runSession({ resumeId, policy, inbox, send, canUseTool, abort, waitFor }) {
+function runSession({
+  resumeId,
+  policy,
+  inbox,
+  send,
+  canUseTool,
+  abort,
+  waitFor,
+  agentByTool,
+  formAgentQueue,
+}) {
   void (async () => {
     try {
       send({ type: "policy", value: policy });
@@ -156,11 +171,19 @@ function runSession({ resumeId, policy, inbox, send, canUseTool, abort, waitFor 
             ui: createSdkMcpServer({
               name: "ui",
               version: "0.1.0",
-              tools: [makeFormTool(waitFor)],
+              tools: [makeFormTool(waitFor, formAgentQueue)],
             }),
           },
         },
       })) {
+        // Map each tool_use id to the agent that produced it, so canUseTool can
+        // label concurrent approvals (subagent_type is on the message directly).
+        if (message.type === "assistant") {
+          const label = message.subagent_type ?? "main";
+          for (const b of message.message?.content ?? []) {
+            if (b.type === "tool_use" && b.id) agentByTool.set(b.id, label);
+          }
+        }
         send({ type: "event", message });
       }
       send({ type: "status", text: "session ended" });
@@ -230,10 +253,31 @@ export function handleConnection(ws, req) {
   /** @type {Set<string>} */
   const sessionAllowed = new Set(); // tools approved with "Always" this session
   const abort = new AbortController(); // tears the CLI down on disconnect
+  /** @type {Map<string, string>} */
+  const agentByTool = new Map(); // tool_use id -> agent label (main | subagent_type)
+  /** @type {string[]} */
+  const formAgentQueue = []; // FIFO: agent label per pending mcp__ui__form call
   const waitFor = makeWaitFor(send, pending);
-  const canUseTool = makeCanUseTool({ session, sessionAllowed, waitFor, log });
+  const canUseTool = makeCanUseTool({
+    session,
+    sessionAllowed,
+    waitFor,
+    log,
+    agentByTool,
+    formAgentQueue,
+  });
 
-  runSession({ resumeId, policy: session.policy, inbox, send, canUseTool, abort, waitFor });
+  runSession({
+    resumeId,
+    policy: session.policy,
+    inbox,
+    send,
+    canUseTool,
+    abort,
+    waitFor,
+    agentByTool,
+    formAgentQueue,
+  });
 
   ws.on("message", (raw) => {
     handleClientMessage(raw, { log, inbox, pending, session });

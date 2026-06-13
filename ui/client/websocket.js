@@ -10,7 +10,7 @@ import { addLog, VERB_KIND, toolDetail } from "./activity-log.js";
 import { renderTodos } from "./todos.js";
 import { renderAsk, renderPermission } from "./approvals.js";
 import { renderForm } from "./form.js";
-import { showRunning, hideRunning } from "./status-bar.js";
+import { startAgent, stopAgent, clearAll } from "./running.js";
 import { loadState } from "./project-tree.js";
 
 /** @typedef {import("../lib/types.js").ServerMsg} ServerMsg */
@@ -63,10 +63,12 @@ function handleInit(msg) {
 function handleToolUse(b, who) {
   if (b.name === "Task" || b.name === "Agent") {
     const label = b.input?.subagent_type ?? "agent";
-    if (b.id) subagents.set(b.id, label);
+    if (b.id) {
+      subagents.set(b.id, label);
+      startAgent(b.id, label, b.input?.description); // adds a chip to the running panel
+    }
     updateThinking("Spawn", b.input?.description ?? label);
     addLog({ kind: "spawn", agent: who, child: label, detail: b.input?.description ?? "" });
-    showRunning(label, b.input?.description ?? "");
   } else if (b.name === "TodoWrite" && Array.isArray(b.input?.todos)) {
     renderTodos(b.input?.todos ?? []);
   } else {
@@ -95,14 +97,22 @@ function handleBlock(b, who) {
 
 /** @param {SdkEvent} msg */
 function handleAssistant(msg) {
-  const who = subagents.get(msg.parent_tool_use_id ?? "") ?? "main";
+  // subagent_type is on the message directly; fall back to the spawn-id map.
+  const who = msg.subagent_type ?? subagents.get(msg.parent_tool_use_id ?? "") ?? "main";
   for (const b of msg.message?.content ?? []) handleBlock(b, who);
+}
+
+/** A sub-agent finished when its Task tool_result arrives. @param {SdkEvent} msg */
+function handleUser(msg) {
+  for (const b of msg.message?.content ?? []) {
+    if (b.type === "tool_result" && b.tool_use_id) stopAgent(b.tool_use_id);
+  }
 }
 
 /** @param {SdkEvent} msg */
 function handleResult(msg) {
   clearThinking();
-  hideRunning();
+  clearAll(); // backstop: clear any still-running agents at end of turn
   totalCost += msg.total_cost_usd ?? 0;
   const u = msg.usage ?? {};
   totalTokens += (u.input_tokens ?? 0) + (u.output_tokens ?? 0);
@@ -121,6 +131,7 @@ function handleResult(msg) {
 function handleEvent(msg) {
   if (msg.type === "system" && msg.subtype === "init") handleInit(msg);
   else if (msg.type === "assistant") handleAssistant(msg);
+  else if (msg.type === "user") handleUser(msg);
   else if (msg.type === "result") handleResult(msg);
 }
 

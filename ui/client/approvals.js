@@ -4,7 +4,15 @@
 // reuses registerPending / settle from here.
 import { $, el } from "./dom.js";
 import { send } from "./websocket.js";
+import { paint } from "./agents.js";
 import { VERB_KIND, shorten, stripEnvPrefix } from "./activity-log.js";
+
+/** A colored chip naming the agent that raised a card (omitted for the main
+ * loop). Lets concurrent approvals from different agents be told apart.
+ * @param {string} [agent] @returns {HTMLElement | null} */
+export function agentChip(agent) {
+  return agent && agent !== "main" ? paint(el("span", "card-agent", agent), agent) : null;
+}
 
 /** @type {Map<number, { chatCard: HTMLElement, panelCard: HTMLElement }>} */
 const pendingCards = new Map(); // id -> { chatCard, panelCard }
@@ -85,6 +93,8 @@ export function renderPermission(m) {
   // Inline chat card (interactive, primary)
   const chatCard = el("div", "card approval");
   const head = el("div", "card-head");
+  const headChip = agentChip(m.agent);
+  if (headChip) head.append(headChip, " ");
   head.append(el("span", `verb-pill verb-${kind}`, m.toolName), ` waiting for your approval`);
   const body = el("div", "approval-body");
   body.append(mkCmd(), mkActions());
@@ -93,6 +103,8 @@ export function renderPermission(m) {
   // Panel mini (interactive too — both resolve together)
   const panelCard = el("div", "approval-mini");
   const row = el("div", "approval-mini-row");
+  const rowChip = agentChip(m.agent);
+  if (rowChip) row.append(rowChip, " ");
   row.append(el("span", `verb-pill verb-${kind}`, m.toolName));
   panelCard.append(row, mkCmd(), mkActions());
 
@@ -106,7 +118,10 @@ export function renderAsk(m) {
 
   // Inline chat card holds the form (selection state lives in one place)
   const chatCard = el("div", "card approval");
-  const head = el("div", "card-head", "Question for you");
+  const head = el("div", "card-head");
+  const headChip = agentChip(m.agent);
+  if (headChip) head.append(headChip, " ");
+  head.append("Question for you");
   const body = el("div", "approval-body");
   questions.forEach((q, qi) => {
     body.append(el("div", "approval-mini-row", q.question));
@@ -159,9 +174,11 @@ export function renderAsk(m) {
 
   // Panel mini: passive pointer to the chat card
   const panelCard = el("div", "approval-mini");
-  panelCard.append(
-    el("div", "approval-mini-row", `❓ ${questions[0]?.question?.slice(0, 60) ?? "question"}`),
-  );
+  const miniRow = el("div", "approval-mini-row");
+  const rowChip = agentChip(m.agent);
+  if (rowChip) miniRow.append(rowChip, " ");
+  miniRow.append(`❓ ${questions[0]?.question?.slice(0, 60) ?? "question"}`);
+  panelCard.append(miniRow);
   const jump = el("button", "btn", "Answer in chat →");
   jump.onclick = () => {
     chatCard.scrollIntoView({ behavior: "smooth", block: "center" });

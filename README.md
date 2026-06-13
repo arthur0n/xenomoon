@@ -2,7 +2,7 @@
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Godot 4.x](https://img.shields.io/badge/Godot-4.x-blue.svg)
-![Skills: 10](https://img.shields.io/badge/Skills-10-purple.svg)
+![Skills: 11](https://img.shields.io/badge/Skills-11-purple.svg)
 ![Agents: 7](https://img.shields.io/badge/Agents-7-orange.svg)
 ![Status: POC](https://img.shields.io/badge/Status-POC-yellow.svg)
 
@@ -219,9 +219,16 @@ This project doesn't exist in a vacuum. These people and projects shaped how it 
 
 **[Matt Pocock](https://github.com/mattpocock/skills/)** — the idea that skills should be _procedures_, not references. One canonical path, observable outcomes, no ambiguity about what "done" means.
 
-**[Eduardo Schildt](https://www.youtube.com/watch?v=iPbYzFWECz4)** — grounded exploration of AI-assisted game development workflows in practice, not just in theory.
+**[Eduardo Schildt](https://www.youtube.com/@eduardoschildt)** - Game designer and artist who loves making games and sharing what I learn through game dev tutorials.
 
-**[Brackeys](https://www.youtube.com/watch?v=ke5KpqcoiIU)** — returning to teach Godot at a moment when the ecosystem needed it. A reminder that clarity and enthusiasm aren't mutually exclusive.
+- [Donation page](https://ko-fi.com/eduardoschildt)
+- [Demo Projects](https://pixelagegames.itch.io/)
+
+**[Brackeys](https://www.youtube.com/@Brackeys)** — Top-quality game development tutorials on everything from Unity, Godot and programming to game design. A reminder that clarity and enthusiasm aren't mutually exclusive.
+
+- [Donation Page](paypal.com/donate/?hosted_button_id=VCMM2PLRRX8GU)
+- [Discord](discord.gg/brackeys)
+- [Games](https://brackeysgames.itch.io/)
 
 **[Jan Mesarč — GodotPrompter](https://github.com/jame581/GodotPrompter)** — the most complete Godot × Claude Code library out there: ~48 skills covering 2D, 3D, UI, audio, multiplayer, C#, optimization and more, plus 9 specialized agents. Parts of this project's plugin scaffolding are adapted from it (MIT, with thanks). If you want broad Godot coverage for Claude Code today, use GodotPrompter — it's excellent.
 

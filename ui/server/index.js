@@ -14,6 +14,7 @@ import { projectState } from "./project-state.js";
 import { recentSessions, deleteSession } from "./transcripts.js";
 import { writeTranscript } from "./transcript-write.js";
 import { writeAsset } from "./asset-write.js";
+import { writeLevel } from "./level-write.js";
 import { readTasks } from "./tasks-store.js";
 import { serveStatic } from "./static.js";
 import { handleConnection } from "./session.js";
@@ -67,6 +68,31 @@ function handleAssetPost(req, res) {
   });
 }
 
+/** Read a drawn blockout grid (JSON) and write it into the game's
+ * levels/drawn/current.json; respond with the project-relative path or an error.
+ * @param {import("node:http").IncomingMessage} req @param {import("node:http").ServerResponse} res */
+function handleLevelPost(req, res) {
+  /** @type {Buffer[]} */
+  const chunks = [];
+  req.on("data", (/** @type {Buffer} */ c) => {
+    chunks.push(c);
+  });
+  req.on("end", () => {
+    /** @type {{ path: string } | { error: string }} */
+    let result;
+    try {
+      const body = /** @type {{ grid?: unknown }} */ (
+        parseJSON(Buffer.concat(chunks).toString("utf8"))
+      );
+      result = writeLevel(body.grid ?? null);
+    } catch {
+      result = { error: "bad request" };
+    }
+    res.writeHead("error" in result ? 400 : 200, { "content-type": "application/json" });
+    res.end(JSON.stringify(result));
+  });
+}
+
 mkdirSync(LOG_DIR, { recursive: true });
 
 const server = http.createServer((req, res) => {
@@ -98,6 +124,10 @@ const server = http.createServer((req, res) => {
   }
   if (req.method === "POST" && req.url === "/api/asset") {
     handleAssetPost(req, res);
+    return;
+  }
+  if (req.method === "POST" && req.url === "/api/level") {
+    handleLevelPost(req, res);
     return;
   }
   serveStatic(req, res);

@@ -9,6 +9,7 @@ import { loadSessions } from "./sessions.js";
 import { initComposer } from "./composer.js";
 import { initTranscript } from "./transcript.js";
 import { initGetAssets } from "./get-assets.js";
+import { initDrawLevel } from "./draw-level.js";
 import { send } from "./websocket.js";
 import { $, $input } from "./dom.js";
 
@@ -20,6 +21,7 @@ initApprovalsPill();
 initComposer();
 initProjectTabs();
 initGetAssets();
+initDrawLevel();
 initTranscript();
 
 $input("mode-select").onchange = () => {

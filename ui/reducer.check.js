@@ -117,4 +117,54 @@ check("result clears foreground chips, keeps background, folds usage and busy", 
   assert.equal(s.usage.tokens, 150);
 });
 
+check("idle clears busy + every running chip (the stuck-running backstop)", () => {
+  let s = reduce(
+    initialState(),
+    assistant([
+      {
+        type: "tool_use",
+        id: "bg",
+        name: "Task",
+        input: { subagent_type: "b", run_in_background: true },
+      },
+    ]),
+  );
+  s = reduce(s, assistant([{ type: "text", text: "thinking" }])); // sets busy
+  assert.equal(s.running.length, 1);
+  assert.equal(s.busy, true);
+  s = reduce(s, { type: "idle" });
+  assert.equal(s.running.length, 0); // even background chips clear: the session is over
+  assert.equal(s.busy, false);
+  assert.equal(s.thinking.active, false);
+});
+
+check("idle is identity-preserving when nothing is live", () => {
+  const s0 = initialState();
+  assert.equal(reduce(s0, { type: "idle" }), s0);
+});
+
+check("a background permission_denied logs to activity AND raises a banner", () => {
+  const s = reduce(initialState(), {
+    type: "permission_denied",
+    toolName: "Write",
+    agent: "skill-researcher",
+    reason: "asyncAgent",
+    background: true,
+  });
+  assert.equal(s.activity.at(-1)?.kind, "deny");
+  assert.equal(s.chat.at(-1)?.kind, "banner");
+});
+
+check("a foreground permission_denied logs to activity only (no banner)", () => {
+  const s = reduce(initialState(), {
+    type: "permission_denied",
+    toolName: "Bash",
+    agent: "main",
+    reason: "rule",
+    background: false,
+  });
+  assert.equal(s.activity.at(-1)?.kind, "deny");
+  assert.equal(s.chat.length, 0);
+});
+
 console.log(`\n${passed} checks passed`);

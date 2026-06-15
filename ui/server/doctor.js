@@ -1,27 +1,18 @@
-// Health check for a game wired by the framework. Verifies onboarding actually
-// landed: the Godot project, the installed agents + skills, the rtk hook, and
-// (advisory) rtk on PATH. Exits non-zero on any HARD failure so it can gate
-// `bootstrap` and CI.
+// Health check for a game driven by the framework. Verifies the framework SOURCE (the
+// xenodot plugin) is intact, the game is a valid engine project, and the per-game working
+// files (tools copied, library linked) are materialized. Materializes first (idempotent),
+// then checks. Exits non-zero on any HARD failure so it can gate `new` and CI.
 //
 // Usage: npm run doctor                  (the configured game, see config.js)
 //        npm run doctor -- /path/to/game
 //        node ui/server/doctor.js /path/to/game
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, lstatSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { parseJSON } from "../lib/json.js";
-import { PROJECT_DIR } from "./config.js";
+import { PROJECT_DIR, FRAMEWORK_PLUGIN_DIR, ENGINE, ENGINE_LABEL } from "./config.js";
+import { prepareGame } from "./materialize.js";
 
-/**
- * @typedef {{ command?: string }} HookCmd
- * @typedef {{ hooks?: HookCmd[] }} HookEntry
- * @typedef {{ hooks?: { PreToolUse?: HookEntry[] } }} Settings
- */
-
-const claude = path.join(PROJECT_DIR, ".claude");
-
-/** Count files with a suffix in a dir (0 if missing).
- * @param {string} dir @param {string} suffix @returns {number} */
+/** Count files with a suffix in a dir (0 if missing). @param {string} dir @param {string} suffix */
 function countFiles(dir, suffix) {
   try {
     return readdirSync(dir).filter((f) => f.endsWith(suffix)).length;
@@ -30,26 +21,12 @@ function countFiles(dir, suffix) {
   }
 }
 
-/** Count immediate subdirectories (0 if missing). @param {string} dir @returns {number} */
+/** Count immediate subdirectories (0 if missing). @param {string} dir */
 function countDirs(dir) {
   try {
     return readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).length;
   } catch {
     return 0;
-  }
-}
-
-/** @returns {boolean} */
-function hookInstalled() {
-  try {
-    const s = /** @type {Settings} */ (
-      parseJSON(readFileSync(path.join(claude, "settings.json"), "utf8"))
-    );
-    return (s.hooks?.PreToolUse ?? []).some((e) =>
-      (e.hooks ?? []).some((h) => typeof h.command === "string" && h.command.includes("rtk hook")),
-    );
-  } catch {
-    return false;
   }
 }
 
@@ -63,19 +40,44 @@ function hasRtk() {
   }
 }
 
-const agents = countFiles(path.join(claude, "agents"), ".md");
-const skills = countDirs(path.join(claude, "skills"));
+/** @returns {boolean} */
+function libraryLinked() {
+  try {
+    return lstatSync(path.join(PROJECT_DIR, "library")).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+// Bring the game's generated files up to date (tools copied, library linked), then check.
+prepareGame(PROJECT_DIR);
+
+const pluginAgents = countFiles(path.join(FRAMEWORK_PLUGIN_DIR, "agents"), ".md");
+const pluginSkills = countDirs(path.join(FRAMEWORK_PLUGIN_DIR, "skills"));
 
 /** @type {{ ok: boolean, hard: boolean, label: string }[]} */
 const checks = [
   {
-    ok: existsSync(path.join(PROJECT_DIR, "project.godot")),
+    ok: existsSync(path.join(FRAMEWORK_PLUGIN_DIR, ".claude-plugin", "plugin.json")),
     hard: true,
-    label: "project.godot present",
+    label: "xenodot plugin manifest present",
   },
-  { ok: agents > 0, hard: true, label: `agents installed (${agents})` },
-  { ok: skills > 0, hard: true, label: `skills installed (${skills})` },
-  { ok: hookInstalled(), hard: true, label: "rtk hook in .claude/settings.json" },
+  {
+    ok: pluginAgents > 0 && pluginSkills > 0,
+    hard: true,
+    label: `plugin capabilities (${pluginAgents} agents, ${pluginSkills} skills)`,
+  },
+  {
+    ok: existsSync(path.join(PROJECT_DIR, ENGINE.projectFile)),
+    hard: true,
+    label: `${ENGINE.projectFile} present (${ENGINE_LABEL} project)`,
+  },
+  {
+    ok: existsSync(path.join(PROJECT_DIR, "tools", "validate.sh")),
+    hard: true,
+    label: "tools/ materialized into the game (gitignored)",
+  },
+  { ok: libraryLinked(), hard: false, label: "library/ symlinked to the plugin" },
   { ok: hasRtk(), hard: false, label: "rtk on PATH (optional — hook no-ops without it)" },
 ];
 
@@ -92,3 +94,10 @@ if (hardFails > 0) {
   process.exit(1);
 }
 console.log("doctor: OK");
+console.log(
+  "  Terminal use: install the plugin once —\n" +
+    "    /plugin marketplace add " +
+    path.dirname(FRAMEWORK_PLUGIN_DIR) +
+    "\n    /plugin install xenodot@xenodot-forge\n" +
+    "  (The web UI loads the plugin automatically — no install needed.)",
+);

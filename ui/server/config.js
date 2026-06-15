@@ -12,6 +12,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const UI_DIR = path.join(__dirname, "..");
 /** The framework root (the folder you cloned/forked). */
 export const FRAMEWORK_DIR = path.join(UI_DIR, "..");
+/** The framework's capabilities (agents, skills, tools, hooks) packaged as a local
+ * Claude Code plugin — the single source of truth. Loaded into every session via the
+ * SDK `plugins` option (see session.js), so a game project needs no copied agents or
+ * skills; it stays pure game and the plugin provides the framework regardless of cwd. */
+export const FRAMEWORK_PLUGIN_DIR = path.join(FRAMEWORK_DIR, "plugin");
 /** Saved-path config written by `npm run setup` — gitignored, so each fork
  * remembers its own game project without committing it. */
 export const CONFIG_FILE = path.join(FRAMEWORK_DIR, ".xenodot.json");
@@ -75,6 +80,13 @@ export const ENGINE_LABEL = ENGINE.name.charAt(0).toUpperCase() + ENGINE.name.sl
 // an explicit engine.bin) is left untouched. Load-time side effect, by design.
 if (ENGINE.bin) process.env.GODOT = ENGINE.bin;
 
+// Expose the plugin and its knowledge base to the spawned session so framework agents
+// can locate the library (and the framework itself, for promotion / self-improvement)
+// regardless of the game cwd — they read/write via these paths, granted by
+// `additionalDirectories` (see session.js). Inherited by the Claude Code subprocess.
+process.env.XENODOT_PLUGIN = FRAMEWORK_PLUGIN_DIR;
+process.env.XENODOT_LIBRARY = path.join(FRAMEWORK_PLUGIN_DIR, "library");
+
 /** Whether PROJECT_DIR actually holds an engine project (Godot or a fork) —
  * drives the startup warning and the UI's empty-state banner. */
 export const PROJECT_FOUND = existsSync(path.join(PROJECT_DIR, ENGINE.projectFile));
@@ -104,6 +116,13 @@ export const TASK_TOOL = "mcp__ui__tasks";
 // Like the task tool it only files a task-board item (a UI-control surface, no real
 // side effect), so it bypasses the permission policy.
 export const ASSET_TOOL = "mcp__ui__request_asset";
+
+// In-process MCP tool a (typically backgrounded) agent calls to ask the user a
+// question WITHOUT blocking — it files a question onto the board and returns
+// immediately, where mcp__ui__form would pause the session waiting on a reply
+// (impossible for a fire-and-forget worker). The orchestrator relays the answer on
+// a later turn. UI-control surface, no real side effect, so it bypasses the policy.
+export const ASK_TOOL = "mcp__ui__ask";
 
 // The main loop is an orchestrator: pinned model (not the user's default) and a
 // routing-focused system prompt, editable in ui/orchestrator.md.

@@ -20,22 +20,9 @@ const lastTag = latestTag();
 const tag = nextTag(lastTag, type);
 const pkgVersion = tagToPkgVersion(tag);
 
-// game-config/ is VENDORED from the game project's own repo — its agents/skills
-// are the game's work, not framework features. Flag changes at release time so
-// they're attributed to the game repo, not listed as framework changes.
-try {
-  const changed = execFileSync("git", ["diff", "--name-only", lastTag, "--", "game-config"], {
-    encoding: "utf8",
-  }).trim();
-  if (changed) {
-    const n = changed.split("\n").filter(Boolean).length;
-    console.log(
-      `release: ⚠ ${n} game-config/ file(s) changed since ${lastTag} — vendored from the`,
-    );
-    console.log("         game repo (github.com/Coghatch-ai/diceofate). Attribute those there;");
-    console.log("         do NOT list them as framework changes in the release notes.");
-  }
-} catch {}
+// The plugin (xenodot-forge/plugin/) is the framework's OWN source of truth now — its
+// agents/skills/tools are framework features and changes to them ARE framework changes
+// (no longer vendored from a game repo), so they need no special release-note handling.
 
 const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
 const pkgPath = path.join(repoRoot, "package.json");

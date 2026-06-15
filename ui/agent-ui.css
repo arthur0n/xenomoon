@@ -160,6 +160,23 @@ body.hide-activity #resize-activity {
   display: none;
 }
 
+/* Collapse the left side panel to nothing — the chat (and activity) reclaim the
+   width. Built for tall/narrow monitors; toggled from the topbar (rail-toggle).
+   The sidebar is dropped from flow, so its grid track is removed too (mirrors
+   hide-activity); leaving a 0-width track would misplace the surviving panels. */
+body.sidebar-collapsed .sidebar,
+body.sidebar-collapsed #resize-sidebar {
+  display: none;
+}
+
+body.sidebar-collapsed .app-body {
+  grid-template-columns: minmax(0, 1fr) var(--activity-w);
+}
+
+body.sidebar-collapsed.hide-activity .app-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 /* ---------------- Panel resize handles ---------------- */
 
 .panel-resizer {
@@ -252,6 +269,44 @@ body.resizing iframe {
     var(--border) 65%
   );
   pointer-events: none;
+}
+
+/* Panel collapse toggles — small stamped keys at each end of the bench (left for
+   the side panel, right for the activity panel). The glyph flips «/» with state;
+   on portrait monitors the side panel starts collapsed. */
+.rail-toggle {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.rail-toggle:hover {
+  color: var(--accent-text);
+  border-color: var(--accent-border);
+  background: var(--panel-3);
+}
+
+/* Snug each key against its end of the topbar. */
+#sidebar-toggle {
+  margin-left: -4px;
+}
+
+#activity-toggle {
+  margin-right: -4px;
 }
 
 .brand {
@@ -2296,6 +2351,34 @@ input.cmd::placeholder {
   font-size: 9px;
 }
 
+/* Identity tag — the activity-panel echo of the task board's owner stamp: a
+   struck sigil + the agent's role (the shared "Xenodot" prefix dropped, since
+   it's every agent's), painted in that agent's color so the stream reads by hue
+   at a glance. Inline (not flex) so the role's baseline lines up with the time. */
+.agent-tag {
+  white-space: nowrap;
+}
+
+.agent-tag-sigil {
+  display: inline-grid;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -2px;
+  border-radius: 1px;
+  font-family: var(--font-display);
+  font-size: 8px;
+  font-weight: 700;
+  color: color-mix(in oklab, var(--bg) 86%, var(--agent-color, var(--accent)));
+  background: var(--agent-color, var(--accent));
+}
+
+.agent-tag-role {
+  font-weight: 600;
+  color: var(--agent-color, var(--text-2));
+}
+
 /* Spawn rows: agent cell holds "main ▸ child", spans to the row end */
 .log-row.spawn .log-agent {
   grid-column: 2 / -1;
@@ -2781,4 +2864,28 @@ input.cmd::placeholder {
 .asset-path-row .form-input {
   flex: 1;
   margin: 6px 0 0;
+}
+
+/* Async question (mcp__ui__ask) — inline answer affordance on a task-board row. */
+.task-answer {
+  margin: 6px 0 2px;
+}
+.task-answer-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.task-answer-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.task-answer-input {
+  flex: 1;
+  min-width: 0;
+}
+.task-answer-done {
+  font-style: italic;
+  opacity: 0.85;
 }

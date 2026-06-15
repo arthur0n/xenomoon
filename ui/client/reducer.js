@@ -34,11 +34,49 @@ export function reduce(s, msg) {
     case "form":
     case "permission":
       return { ...s, approvals: [...s.approvals, toApproval(msg)] };
+    case "permission_denied":
+      return foldDenied(s, msg);
+    case "idle":
+      return foldIdle(s);
     case "event":
       return reduceEvent(s, msg.message);
     default:
       return s;
   }
+}
+
+/** A tool was auto-denied (no interactive approver). Always log it to the
+ * activity stream; for a backgrounded denial — which the user can't see
+ * inline — also raise a chat banner so the friction is loud, not silent.
+ * @param {State} s @param {Extract<ServerMsg, { type: "permission_denied" }>} msg @returns {State} */
+function foldDenied(s, msg) {
+  const reason = msg.background ? "background" : (msg.reason ?? "denied");
+  const row = {
+    kind: "deny",
+    agent: msg.agent ?? "main",
+    verb: "Denied",
+    detail: `${msg.toolName} · ${reason}`,
+  };
+  const next = { ...s, activity: [...s.activity, row] };
+  if (!msg.background) return next;
+  const text = `${agentLabel(msg.agent ?? "agent")} couldn't use ${msg.toolName} (background auto-deny) — run it foreground or grant a permission mode.`;
+  return { ...next, chat: [...next.chat, { kind: "banner", text }] };
+}
+
+/** Session/turn truly settled (every SDK stream exit path emits this). Clear the
+ * busy flag, the thinking indicator and the whole running strip — the backstop
+ * for any turn that ended without a `result` event (error, abort, early end), the
+ * main cause of a stuck "agent running". Identity-preserving when nothing is live.
+ * @param {State} s @returns {State} */
+function foldIdle(s) {
+  if (!s.busy && !s.running.length && !s.thinking.active) return s;
+  return {
+    ...s,
+    busy: false,
+    thinking: { active: false, label: "" },
+    running: [],
+    session: { ...s.session, status: s.session.status || "idle" },
+  };
 }
 
 /** @param {State} s @param {HistoryItem[]} items @returns {State} */

@@ -45,7 +45,7 @@ function nextId(list) {
   return `t${max + 1}`;
 }
 
-/** @param {Task[]} list @param {{ title?: string, owner?: string, note?: string, status?: string, agent?: string }} spec @param {string} now @returns {Task} */
+/** @param {Task[]} list @param {{ title?: string, owner?: string, note?: string, status?: string, agent?: string, kind?: "question", options?: string[], answer?: string }} spec @param {string} now @returns {Task} */
 function makeTask(list, spec, now) {
   return {
     id: nextId(list),
@@ -60,6 +60,12 @@ function makeTask(list, spec, now) {
     // orchestrator; "background" = a bridged background worker; otherwise the
     // sub-agent's subagent_type. Internal — the client renderer ignores it.
     agent: spec.agent ? String(spec.agent).slice(0, 80) : undefined,
+    // Async-question fields (mcp__ui__ask). Absent on ordinary tasks.
+    ...(spec.kind === "question" ? { kind: /** @type {const} */ ("question") } : {}),
+    ...(Array.isArray(spec.options) && spec.options.length
+      ? { options: spec.options.map((o) => String(o).slice(0, 120)).slice(0, 8) }
+      : {}),
+    ...(spec.answer != null ? { answer: String(spec.answer).slice(0, 1000) } : {}),
     created: now,
   };
 }
@@ -67,7 +73,7 @@ function makeTask(list, spec, now) {
 /**
  * Apply one mutation and persist. Returns the new list (caller broadcasts it).
  * Unknown ids are ignored so a stale UI click can't throw.
- * @param {{ op: string, title?: string, owner?: string, note?: string, status?: string, id?: string, _by?: string, tasks?: Array<{ title?: string, owner?: string, note?: string }> }} op
+ * @param {{ op: string, title?: string, owner?: string, note?: string, status?: string, id?: string, _by?: string, answer?: string, tasks?: Array<{ title?: string, owner?: string, note?: string }> }} op
  * @param {string} now ISO timestamp (the caller stamps it — keeps this testable)
  * @returns {Task[]}
  */
@@ -93,6 +99,14 @@ export function applyOp(op, now) {
           : {}),
         ...(op.owner != null && OWNERS.has(op.owner)
           ? { owner: /** @type {Task["owner"]} */ (op.owner) }
+          : {}),
+        // Answering an async question resolves it: record the answer and mark it
+        // done (so the board stops nagging; the orchestrator reads it next turn).
+        ...(op.answer != null
+          ? {
+              answer: String(op.answer).slice(0, 1000),
+              status: /** @type {Task["status"]} */ ("done"),
+            }
           : {}),
       };
     });
@@ -131,6 +145,25 @@ export function addBackgroundTask(title, note, now) {
   list.push(task);
   writeTasks(list);
   return { list, id: task.id };
+}
+
+/** File an async question onto the board (see mcp__ui__ask / ask-tool.js) as an
+ * `owner:"user"` item the user answers inline. owner:"user" keeps it clear of the
+ * pruner and the sub-agent task-closers, so it survives until the user answers and
+ * the orchestrator relays it — exactly the durability a fire-and-forget worker's
+ * question needs. @param {string} question @param {string[] | undefined} options
+ * @param {string | undefined} agent @param {string} now @returns {Task[]} */
+export function addQuestion(question, options, agent, now) {
+  const list = readTasks();
+  list.push(
+    makeTask(
+      list,
+      { title: question, options, owner: "user", status: "pending", agent, kind: "question" },
+      now,
+    ),
+  );
+  writeTasks(list);
+  return list;
 }
 
 /** Mark `done` every open (not-done) `owner:"agent"` task, optionally scoped to

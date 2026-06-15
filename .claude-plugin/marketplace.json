@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "xenodot-forge",
+  "metadata": {
+    "description": "Xenodot Forge — agents, skills, tools and hooks for AI-assisted Godot-family game development."
+  },
+  "owner": { "name": "Xenodot Forge" },
+  "plugins": [
+    {
+      "name": "xenodot",
+      "description": "Agents (design → build → verify pipeline), godot-* skills, verification tools and safety hooks for building Godot / Redot / Blazium games with Claude Code.",
+      "version": "0.1.5",
+      "author": { "name": "Xenodot Forge" },
+      "source": "./plugin",
+      "category": "development",
+      "tags": ["godot", "gamedev", "agents", "skills"]
+    }
+  ]
+}

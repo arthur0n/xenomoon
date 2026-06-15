@@ -10,6 +10,7 @@ import { sessionHistory } from "./transcripts.js";
 import { makeFormTool } from "./form-tool.js";
 import { makeTaskTool } from "./task-tool.js";
 import { makeAssetTool } from "./asset-tool.js";
+import { makeAskTool } from "./ask-tool.js";
 import {
   readTasks,
   applyOp,
@@ -24,11 +25,13 @@ import {
   FORM_TOOL,
   TASK_TOOL,
   ASSET_TOOL,
+  ASK_TOOL,
   MODEL,
   EFFORT,
   ORCHESTRATOR_PROMPT,
   POLICIES,
   PROJECT_DIR,
+  FRAMEWORK_PLUGIN_DIR,
   LOG_DIR,
 } from "./config.js";
 
@@ -142,6 +145,11 @@ function makeCanUseTool({ session, sessionAllowed, waitFor, log, agentByTool, fo
       // UI-control tool: files a user-owned asset request, never pauses — auto-allow.
       return { behavior: "allow", updatedInput: input };
     }
+    if (toolName === ASK_TOOL) {
+      // UI-control tool: files an async question on the board, never pauses —
+      // auto-allow. Stamp the calling agent (`_by`) so the question owner is known.
+      return { behavior: "allow", updatedInput: { ...input, _by: agent } };
+    }
     if (
       session.policy === "all" ||
       (session.policy === "edits" && EDIT_TOOLS.has(toolName)) ||
@@ -230,9 +238,32 @@ function trackToolUses(message, { agentByTool, bgSpawns }) {
   }
 }
 
+/** Surface an SDK headless/auto-deny to the browser. When a backgrounded
+ * (headless) sub-agent calls a tool that needs an interactive decision, the SDK
+ * can't reach our canUseTool approver and auto-denies — see SDKPermissionDeniedMessage,
+ * decision_reason_type "asyncAgent". Without this it dies as a silent is_error
+ * deep in a sub-agent transcript; here it becomes a visible activity-log row (and
+ * a banner for background denials) so the friction is identifiable, not silent.
+ * @param {import("@anthropic-ai/claude-agent-sdk").SDKPermissionDeniedMessage} message
+ * @param {{ agentByTool: Map<string, string>, send: (obj: OutMsg) => void }} deps */
+function surfaceDenial(message, { agentByTool, send }) {
+  // A backgrounded worker's tool_use may not be in agentByTool (it runs detached,
+  // so its assistant messages don't all cross the parent stream) — fall back to a
+  // "background" label rather than mislabeling the denial as the orchestrator.
+  const background = message.decision_reason_type === "asyncAgent";
+  const agent = agentByTool.get(message.tool_use_id) ?? (background ? "background" : "main");
+  send({
+    type: "permission_denied",
+    toolName: message.tool_name,
+    agent,
+    reason: message.decision_reason_type,
+    background,
+  });
+}
+
 /** Per-message bookkeeping on the SDK stream: track tool_use→agent, bridge
  * background workers onto the board, deterministically close each sub-agent's own
- * tasks when it finishes, and sweep stragglers at turn end.
+ * tasks when it finishes, surface auto-denials, and sweep stragglers at turn end.
  * @param {import("@anthropic-ai/claude-agent-sdk").SDKMessage} message
  * @param {{ agentByTool: Map<string, string>, bgSpawns: Set<string>, bgBoard: Map<string, string>, runningByTask: Map<string, string>, send: (obj: OutMsg) => void }} deps
  */
@@ -250,8 +281,24 @@ function trackMessage(message, { agentByTool, bgSpawns, bgBoard, runningByTask, 
   } else if (message.type === "system" && message.subtype === "task_notification") {
     bridgeSettle({ taskId: message.task_id, status: message.status }, { bgBoard, send });
     settleAgentTasks(message.task_id, { runningByTask, send });
+  } else if (message.type === "system" && message.subtype === "permission_denied") {
+    surfaceDenial(message, { agentByTool, send });
   } else if (message.type === "result") {
     sweepStragglers({ runningByTask, send });
+  }
+}
+
+/** Session-teardown settle: when the SDK stream ends or errors (the whole CLI
+ * subprocess — and thus every in-flight background worker — is gone), remove each
+ * bridged background board task and close each still-running sub-agent's tasks, so
+ * the board doesn't keep a dead worker as in_progress forever.
+ * @param {{ bgBoard: Map<string, string>, runningByTask: Map<string, string>, send: (obj: OutMsg) => void }} deps */
+function settleAllBackground({ bgBoard, runningByTask, send }) {
+  for (const taskId of [...bgBoard.keys()]) {
+    bridgeSettle({ taskId, status: "stopped" }, { bgBoard, send });
+  }
+  for (const taskId of [...runningByTask.keys()]) {
+    settleAgentTasks(taskId, { runningByTask, send });
   }
 }
 
@@ -271,6 +318,12 @@ function runSession({
   formAgentQueue,
   session,
 }) {
+  /** @type {Set<string>} */
+  const bgSpawns = new Set(); // tool_use ids spawned with run_in_background
+  /** @type {Map<string, string>} */
+  const bgBoard = new Map(); // sdk task_id -> bridged board task id
+  /** @type {Map<string, string>} */
+  const runningByTask = new Map(); // sdk task_id -> subagent_type (in-flight sub-agents)
   void (async () => {
     try {
       send({ type: "policy", value: policy });
@@ -287,7 +340,19 @@ function runSession({
         options: {
           ...(resumeId ? { resume: resumeId } : {}),
           cwd: PROJECT_DIR,
-          // Pick up the project's .claude/ (agents, skills) and CLAUDE.md.
+          // The framework's agents/skills/hooks come from the plugin (single source
+          // of truth), not from copies in the game — so the game folder stays pure.
+          // Plugins load regardless of cwd. noMcp: the UI owns its MCP tools (below),
+          // so don't wire the plugin's own MCP. Capabilities namespace as `xenodot:`.
+          plugins: [{ type: "local", path: FRAMEWORK_PLUGIN_DIR, skipMcpDiscovery: true }],
+          // The framework knowledge base (plugin/library) and skill/agent sources live
+          // in the plugin, OUTSIDE the game cwd. Mount the plugin as an extra working
+          // root so researcher agents can read it AND write new knowledge / promoted
+          // capabilities back into the framework (the self-improvement loop) — all
+          // still gated by the permission policy + the destructive-action hooks.
+          additionalDirectories: [FRAMEWORK_PLUGIN_DIR],
+          // Pick up the game's CLAUDE.md + any game-local .claude/ (game-specific
+          // agents/skills the user hasn't promoted to the framework yet).
           settingSources: ["user", "project", "local"],
           model: MODEL,
           // Orchestrator routes more than it reasons; sub-agents override via their
@@ -306,18 +371,13 @@ function runSession({
                 makeFormTool(waitFor, formAgentQueue),
                 makeTaskTool(send),
                 makeAssetTool(send),
+                makeAskTool(send),
               ],
             }),
           },
         },
       });
       session.query = q;
-      /** @type {Set<string>} */
-      const bgSpawns = new Set(); // tool_use ids spawned with run_in_background
-      /** @type {Map<string, string>} */
-      const bgBoard = new Map(); // sdk task_id -> bridged board task id
-      /** @type {Map<string, string>} */
-      const runningByTask = new Map(); // sdk task_id -> subagent_type (in-flight sub-agents)
       for await (const message of q) {
         trackMessage(message, { agentByTool, bgSpawns, bgBoard, runningByTask, send });
         send({ type: "event", message });
@@ -326,6 +386,14 @@ function runSession({
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       send({ type: "status", text: `session error: ${reason}` });
+    } finally {
+      // Every exit path lands here — normal end, an SDK error, or the iterator
+      // ending early. The client clears `busy` and the running strip only on a
+      // `result` event; an abnormal turn/session end never emits one, leaving the
+      // UI stuck on "agent running". Settle dead background workers off the board,
+      // then signal idle so the client clears busy + every chip.
+      settleAllBackground({ bgBoard, runningByTask, send });
+      send({ type: "idle" });
     }
   })();
 }

@@ -8,9 +8,8 @@ if [ -t 1 ]; then
   [ -n "$XREL" ] && node ui/server/release-stage.js "$XREL"
 fi
 
-# Keep the README badges and the vendored game config in sync with the paired
-# game project, then lint + format the staged files (lint-staged also tidies the
-# re-staged README). Both scripts git-add what they touch so it lands in the commit.
+# Keep the README badges in sync with the plugin (the framework's source of truth),
+# then lint + format the staged files (lint-staged also tidies the re-staged README).
+# update-badges git-adds what it touches so it lands in the commit.
 node ui/server/update-badges.js
-node ui/server/claude-sync.js
 npx lint-staged

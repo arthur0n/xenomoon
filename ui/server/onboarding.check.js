@@ -1,20 +1,19 @@
-// Automated onboarding test — proves a clean consumer can go from a fresh clone
-// of the framework to a wired, runnable game. Bare-node, no test runner (same
-// style as ui/reducer.check.js):
+// Automated onboarding test — proves a clean consumer can go from a fresh clone of the
+// framework to a wired, runnable game, with the game staying PURE: the framework loads from
+// the xenodot plugin, nothing is copied in. Bare-node, no test runner (same style as
+// ui/reducer.check.js):
 //   node ui/server/onboarding.check.js        # Tier 1; Tier 2 runs if Godot is found
 //
-// Tier 1 (deterministic, no Claude/Godot): export the framework EXACTLY as a
-//   forker receives it — `git archive` of the tracked tree, so node_modules,
-//   .xenodot.json and logs are excluded and an un-committed file is invisible
-//   (the real "did we actually ship it?" test). Install into a fixture game that
-//   already owns a settings.json, then assert agents/skills land and the rtk hook
-//   MERGES without clobbering the consumer's permissions.
-// Tier 2 (guarded): if a Godot binary resolves, headless-boot the installed
-//   starter and assert no engine errors. Skipped cleanly otherwise.
+// Tier 1 (deterministic, no Claude/Godot): export the framework EXACTLY as a forker
+//   receives it — `git archive` of the tracked tree, so node_modules, .xenodot.json and
+//   logs are excluded and an un-committed file is invisible (the real "did we ship it?"
+//   test). Then run `forge new` into a fresh game and assert the plugin ships, the game is
+//   a valid project with tools materialized + library linked, and NO framework agents/skills
+//   leaked into the game.
+// Tier 2 (guarded): if a Godot binary resolves, headless-boot the scaffolded starter.
 //
-// NOTE: new/edited framework files must be `git add`-ed before running locally —
-// the archive sees the index + working tree of TRACKED files only. That mirrors
-// what actually ships to a forker. CI runs post-commit, so HEAD has everything.
+// NOTE: new/edited framework files must be `git add`-ed before running locally — the archive
+// sees TRACKED files only. CI runs post-commit, so HEAD has everything.
 import assert from "node:assert/strict";
 import {
   mkdtempSync,
@@ -24,13 +23,12 @@ import {
   readFileSync,
   readdirSync,
   existsSync,
-  cpSync,
+  lstatSync,
 } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseJSON } from "../lib/json.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server
 const FRAMEWORK_DIR = path.join(here, "..", "..");
@@ -52,25 +50,9 @@ const countDirs = (dir) =>
     ? readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).length
     : 0;
 
-/**
- * @typedef {{ command?: string }} HookCmd
- * @typedef {{ matcher?: string, hooks?: HookCmd[] }} HookEntry
- * @typedef {{ permissions?: unknown, hooks?: { PreToolUse?: HookEntry[] } }} Settings
- */
-/** @param {string} file @returns {Settings} */
-const readSettings = (file) => /** @type {Settings} */ (parseJSON(readFileSync(file, "utf8")));
-/** @param {Settings} s @returns {HookEntry[]} */
-const rtkHooks = (s) =>
-  (s.hooks?.PreToolUse ?? []).filter((e) =>
-    (e.hooks ?? []).some((h) => typeof h.command === "string" && h.command.includes("rtk hook")),
-  );
-
 const work = mkdtempSync(path.join(tmpdir(), "xeno-onboard-"));
 try {
   // ---- Build the "as shipped" framework tree from TRACKED files only ----
-  // `git stash create` snapshots index + working tree as a commit object without
-  // touching the repo; empty when clean → fall back to HEAD. Archiving that ref
-  // is precisely what a forker pulls.
   const stashRef = execFileSync("git", ["stash", "create"], { cwd: FRAMEWORK_DIR })
     .toString()
     .trim();
@@ -85,76 +67,63 @@ try {
   writeFileSync(tarFile, tarBuf);
   execFileSync("tar", ["-xf", tarFile, "-C", fw]);
 
-  const installer = path.join(fw, "ui", "server", "claude-install.js");
-  const doctor = path.join(fw, "ui", "server", "doctor.js");
-  const srcAgents = path.join(fw, "game-config", "agents");
-  const srcSkills = path.join(fw, "game-config", "skills");
+  const pluginAgents = path.join(fw, "plugin", "agents");
+  const pluginSkills = path.join(fw, "plugin", "skills");
 
-  check("framework ships installer, game-config and starter (committed)", () => {
-    assert.ok(existsSync(installer), "claude-install.js must be in the shipped tree");
+  check("framework ships the xenodot plugin and starter (committed)", () => {
     assert.ok(
-      existsSync(srcAgents) && existsSync(srcSkills),
-      "game-config/{agents,skills} must ship",
+      existsSync(path.join(fw, "plugin", ".claude-plugin", "plugin.json")),
+      "plugin/.claude-plugin/plugin.json must ship",
+    );
+    assert.ok(
+      countMd(pluginAgents) > 0 && countDirs(pluginSkills) > 0,
+      "plugin/{agents,skills} must ship with content",
     );
     assert.ok(existsSync(path.join(fw, "starter", "project.godot")), "starter/ must ship");
-  });
-
-  const EXPECT_AGENTS = countMd(srcAgents);
-  const EXPECT_SKILLS = countDirs(srcSkills);
-
-  // ---- Fixture game: starter + a PRE-EXISTING settings.json carrying perms ----
-  const game = path.join(work, "game");
-  cpSync(path.join(fw, "starter"), game, { recursive: true });
-  mkdirSync(path.join(game, ".claude"), { recursive: true });
-  const SENTINEL = { permissions: { allow: ["Bash(echo hello)"] } };
-  const settingsFile = path.join(game, ".claude", "settings.json");
-  writeFileSync(settingsFile, JSON.stringify(SENTINEL, null, 2) + "\n");
-
-  const agentsDir = path.join(game, ".claude", "agents");
-  const skillsDir = path.join(game, ".claude", "skills");
-  /** @param {string[]} extra @returns {string} */
-  const install = (extra = []) =>
-    execFileSync("node", [installer, game, ...extra], { stdio: "pipe" }).toString();
-
-  // ---- Tier 1a: first install ----
-  install();
-  check("agents + skills installed at full count", () => {
-    assert.ok(EXPECT_AGENTS > 0 && EXPECT_SKILLS > 0, "fixture must have something to install");
-    assert.equal(countMd(agentsDir), EXPECT_AGENTS);
-    assert.equal(countDirs(skillsDir), EXPECT_SKILLS);
-  });
-  check("rtk hook MERGED into existing settings.json, permissions preserved", () => {
-    const s = readSettings(settingsFile);
-    assert.equal(rtkHooks(s).length, 1, "exactly one rtk hook present after install");
-    assert.deepEqual(
-      s.permissions,
-      SENTINEL.permissions,
-      "consumer permissions must survive the merge",
+    assert.ok(
+      existsSync(path.join(fw, ".claude-plugin", "marketplace.json")),
+      "marketplace.json must ship (terminal install)",
     );
   });
 
-  // ---- Tier 1b: idempotent re-run ----
-  install();
-  check("re-install is idempotent (no duplicate hook, counts stable)", () => {
-    assert.equal(rtkHooks(readSettings(settingsFile)).length, 1, "still exactly one rtk hook");
-    assert.equal(countMd(agentsDir), EXPECT_AGENTS);
+  // ---- forge new → a fresh game, then assert it's wired AND pure ----
+  const game = path.join(work, "game");
+  execFileSync("node", [path.join(fw, "ui", "server", "new.js"), game], { stdio: "pipe" });
+
+  check("forge new scaffolds a runnable, wired game", () => {
+    assert.ok(existsSync(path.join(game, "project.godot")), "project.godot scaffolded");
+    assert.ok(existsSync(path.join(game, "CLAUDE.md")), "thin CLAUDE.md present");
+    assert.ok(
+      existsSync(path.join(game, ".claude", "settings.json")),
+      "game .claude/settings.json present",
+    );
+    assert.ok(
+      existsSync(path.join(game, "tools", "validate.sh")),
+      "tools/ materialized from the plugin",
+    );
   });
 
-  // ---- Tier 1c: --force prunes orphans, re-mirrors, still preserves perms ----
-  const orphan = path.join(agentsDir, "zzz-orphan.md");
-  writeFileSync(orphan, "# orphan agent upstream no longer ships\n");
-  install(["--force"]);
-  check("--force prunes orphan agents yet preserves settings permissions", () => {
-    assert.ok(!existsSync(orphan), "orphan agent must be pruned under --force");
-    assert.equal(countMd(agentsDir), EXPECT_AGENTS);
-    const s = readSettings(settingsFile);
-    assert.deepEqual(s.permissions, SENTINEL.permissions, "--force must not clobber permissions");
-    assert.equal(rtkHooks(s).length, 1, "hook still present (once) after --force");
+  check("library/ is symlinked to the plugin (single source)", () => {
+    const lib = path.join(game, "library");
+    assert.ok(lstatSync(lib).isSymbolicLink(), "library/ must be a symlink");
   });
 
-  // ---- Tier 1d: doctor passes on the installed game ----
-  check("doctor reports a healthy install", () => {
-    execFileSync("node", [doctor, game], { stdio: "pipe" }); // non-zero exit throws
+  check("the game stays PURE — no framework agents/skills copied in", () => {
+    assert.ok(!existsSync(path.join(game, ".claude", "agents")), ".claude/agents must NOT exist");
+    assert.ok(!existsSync(path.join(game, ".claude", "skills")), ".claude/skills must NOT exist");
+  });
+
+  check("game gitignores the generated framework paths", () => {
+    const gi = readFileSync(path.join(game, ".gitignore"), "utf8");
+    for (const p of ["/tools/", "/library"]) {
+      assert.ok(gi.includes(p), `.gitignore must ignore ${p}`);
+    }
+  });
+
+  // doctor already ran inside `forge new` (it throws on a hard failure, which would have
+  // failed the new.js call above). Re-run explicitly as a belt-and-suspenders check.
+  check("doctor reports a healthy game", () => {
+    execFileSync("node", [path.join(fw, "ui", "server", "doctor.js"), game], { stdio: "pipe" });
   });
 
   // ---- Tier 2: guarded headless Godot boot ----

@@ -15,6 +15,13 @@ import { subscribe, update } from "./store.js";
 // would sit on "stopping…" forever. Idempotent with the real notification.
 const STOP_FALLBACK_MS = 4000;
 
+// Last-resort backstop: a chip older than this is force-dropped even with the
+// socket still open, for the one gap the server settle + `idle` + onclose don't
+// cover — a single worker that dies without the SDK emitting its task_notification
+// while the session lives on. Deliberately generous so it never culls a real
+// long-running build; the server-side settle clears legitimate work far sooner.
+const MAX_CHIP_AGE_MS = 30 * 60 * 1000;
+
 /** @type {ReturnType<typeof setInterval> | undefined} */
 let timer;
 
@@ -24,8 +31,20 @@ function fmt(seconds) {
   return m ? `${m}m ${seconds % 60}s` : `${seconds}s`;
 }
 
-/** Update every visible chip's elapsed label from its `data-started`. */
+/** Drop any chip past the backstop age. Identity-preserving when nothing is stale,
+ * so it never forces a redundant repaint. */
+function sweepStale() {
+  const now = Date.now();
+  update((s) => {
+    const kept = s.running.filter((r) => now - r.started < MAX_CHIP_AGE_MS);
+    return kept.length === s.running.length ? s : { ...s, running: kept };
+  });
+}
+
+/** Update every visible chip's elapsed label from its `data-started`, and run the
+ * staleness backstop. */
 function tick() {
+  sweepStale();
   const now = Date.now();
   for (const node of $("running-agents").querySelectorAll(".running-agent")) {
     const started = Number(/** @type {HTMLElement} */ (node).dataset.started);

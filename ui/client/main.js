@@ -1,7 +1,7 @@
 // Client entry point. Loaded by index.html as <script type="module">; pulls in
 // every feature module and performs the cross-cutting top-level wiring. The
 // websocket module opens the session as a side effect of being imported.
-import { setupResizer, restorePanelWidths } from "./resize.js";
+import { setupResizer, restorePanelWidths, initPanelToggles } from "./resize.js";
 import { initStatusbar } from "./statusbar.js";
 import { initChat } from "./chat.js";
 import { initRunning } from "./running.js";
@@ -19,6 +19,7 @@ import { send } from "./websocket.js";
 import { $, $input } from "./dom.js";
 
 restorePanelWidths();
+initPanelToggles();
 setupResizer("resize-sidebar", "--sidebar-w", "left", 180, 420);
 setupResizer("resize-activity", "--activity-w", "right", 260, 560);
 initStatusbar();

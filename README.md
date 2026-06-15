@@ -56,16 +56,19 @@ ui/         Web UI (Node) — run sessions from a browser.
 ```
 
 **The framework is independent of your game — it contains no game folder.** It
-_points at_ your Godot project wherever that project lives (by default a sibling
-folder named `game/`, next to this one), reads it in place, and never copies,
-vendors, or tracks it. Your project stays in its own git repo; the framework
-just drives Claude Code against it.
+_points at_ your Godot project wherever it lives (by default a sibling folder named
+`game/`), reads it in place, and never tracks it. Your project stays in its own git
+repo; the framework drives Claude Code against it.
 
-There is **no template**. The agents, skills, and verification tools live
-_inside your game project_ (`<project>/.claude/`, `<project>/tools/`) and evolve
-with it through the framework's own loops: bug triage, skill research, friction
-reports. One live copy — the framework uses what's there. The reference project
-during this POC is [DiceOfFate](https://github.com/Coghatch-ai/dicefate).
+**The framework's capabilities ship as a Claude Code plugin** (`plugin/`) — the agents,
+`godot-*` skills, verification tools, safety hooks and knowledge base, the single source of
+truth. The web UI loads it automatically (the Agent SDK `plugins` option); terminal Claude
+Code installs it once. Nothing is copied into your game, so **your game stays pure game** —
+only its own scenes, scripts and design docs are committed. Per-game working files (`tools/`,
+`library/`) appear as gitignored, generated paths. New, game-specific skills you author start
+local in `<game>/.claude/`, and you **promote** the ones worth sharing into the plugin
+(`npm run promote -- …`). The reference project during this POC is
+[DiceOfFate](https://github.com/Coghatch-ai/dicefate).
 
 ## Requirements
 
@@ -94,25 +97,33 @@ your-workspace/
    cd xenodot-forge && npm install
    ```
 
-2. Bootstrap a game next to it. `--starter` scaffolds a minimal, **runnable**
-   Godot project; the command then installs the agents + skills + rtk hook into
-   it and runs a health check:
+2. Create a game next to it. `forge new` scaffolds a minimal, **runnable** Godot
+   project (or wires an existing one in place), remembers its path, and materializes
+   the plugin's per-game files (the verify tools + the knowledge-base link), then runs
+   a health check. It does **not** copy agents/skills in — those load from the plugin.
 
    ```bash
-   npm run bootstrap -- ../game --starter
+   npm run new -- ../game
    ```
 
-   - **Have a Godot project already?** Point bootstrap at it and drop `--starter`
-     — it wires the project in place, merging the hook **without touching your
-     `settings.json` permissions**: `npm run bootstrap -- /path/to/your/game`.
-   - **Want a richer reference than the bare starter?** Clone DiceOfFate as your
-     game first: `git clone https://github.com/Coghatch-ai/dicefate ../game`, then
-     `npm run bootstrap -- ../game`.
+   - **Have a Godot project already?** Point it at the project — it wires it in place
+     and adds the gitignore rules for the generated paths: `npm run new -- /path/to/your/game`.
+   - **Want a richer reference?** Clone DiceOfFate as your game first:
+     `git clone https://github.com/Coghatch-ai/dicefate ../game`, then `npm run new -- ../game`.
 
-3. **Install runs before you start Claude** — that's the step that puts the agents
-   in the project. Now start Claude Code from inside the game so they're found:
+3. Run it. The **web UI** loads the plugin automatically — no install step:
 
    ```bash
+   npm start          # http://localhost:3117 — drives your game via the plugin
+   ```
+
+   To use **terminal Claude Code** in the game instead, install the plugin once
+   (`forge new` / `doctor` print the exact commands):
+
+   ```bash
+   # in Claude Code, once:
+   #   /plugin marketplace add /path/to/xenodot-forge
+   #   /plugin install xenodot@xenodot-forge
    cd ../game && claude
    ```
 
@@ -122,40 +133,38 @@ your-workspace/
    one buildable slice. That's a feature.
 
 Verify a project is wired correctly at any time with `npm run doctor` (or
-`npm run doctor -- /path/to/game`) — it checks the Godot project, the installed
-agents + skills, and the rtk hook.
+`npm run doctor -- /path/to/game`) — it checks the plugin, the Godot project, and the
+materialized tools/library, and prints the one-time terminal plugin-install commands.
 
-## What gets installed
+## What ships
 
-`bootstrap` does the work; this is what it deploys. The framework ships its
-Claude Code setup in two parts:
+The framework's Claude Code setup is in two parts:
 
-- **Framework spine** (`.claude/`) — rules + the rtk hook for working _on the
-  framework_. Committed, so your fork already has it; nothing to install.
-- **Game config** (`game-config/`) — the rtk hook + the godot agents + skills the
-  framework deploys _into a game_. `bootstrap` installs these; the raw step is
-  `npm run claude:install` (after `npm run setup -- ../game`).
+- **Framework spine** (`.claude/`) — rules + the rtk hook for working _on the framework_
+  (the Node/TS web UI). Committed; nothing to install.
+- **The xenodot plugin** (`plugin/`) — the agents, `godot-*` skills, the game-agnostic
+  verification tools (the validate gate, verify/gen scripts), safety hooks, and the
+  knowledge base (`library/`). The **single source of truth** for what a game gets. The web
+  UI loads it via the Agent SDK `plugins` option; terminal Claude Code installs it once from
+  the bundled marketplace (`.claude-plugin/marketplace.json`). Capabilities namespace as
+  `xenodot:<name>`.
 
-`claude:install` is **non-destructive** — it never overwrites your agents (they
-evolve in place), and it **merges** its `rtk` hook into your
-`.claude/settings.json` without disturbing the permissions you already have. Pass
-`--force` for a clean reset of the shipped agents + skills (settings are still
-merged, never clobbered):
+Nothing is copied into your game. The only per-game files the framework materializes are
+gitignored and regenerated on demand: `tools/` (copied — Godot runs `.gd` helpers from
+`res://`) and `library/` (a symlink to the plugin's knowledge base). Your committed game
+stays pure game.
+
+**Growing the framework.** A new skill/agent/tool starts **game-local** in `<game>/.claude/`
+and is usable immediately. When one proves broadly useful, promote it into the plugin so every
+game gets it — the orchestrator offers this; the executor is:
 
 ```bash
-npm run claude:install -- --force
+npm run promote -- skills <name>     # or: agents <name> | tools <file>
 ```
 
-The hook is `rtk hook claude`, guarded so it **no-ops safely if `rtk` isn't
-installed** — Bash keeps working. Get rtk for the token savings; the agents work
-either way. On first use you may need to approve the project hook once via
-`/hooks` in Claude Code.
-
-> **Maintaining a fork:** `game-config/` is kept current automatically — a
-> pre-commit step (`npm run claude:sync`) re-vendors your reference game's
-> `.claude/` agents + skills on every commit, so what you ship never drifts. The
-> whole clone → install → run path is guarded by `npm run test:onboarding` (and
-> CI), so it can't silently break.
+The hook is `rtk hook claude`, guarded so it **no-ops safely if `rtk` isn't installed**. The
+whole clone → new → run path is guarded by `npm run test:onboarding` (and CI), so it can't
+silently break.
 
 ## Using the web UI
 
@@ -168,7 +177,7 @@ cd xenodot-forge
 npm start                    # opens http://localhost:3117
 ```
 
-`bootstrap` (or `npm run setup`) already saved your game's path to `.xenodot.json`
+`npm run new` (or `npm run setup`) already saved your game's path to `.xenodot.json`
 (gitignored), so `npm start` finds it with no arguments. The framework only
 **reads** your project — it stays in its own repo.
 
@@ -225,12 +234,9 @@ git commit -m "…"          # post-commit creates the tag
 `package.json` tracks the 3-part sub-version; the 4th build digit lives only in
 the git tag (npm versions must be valid 3-part semver).
 
-> **Vendored game config is not a framework change.** Anything under
-> `game-config/` is synced from the game project's own repo
-> ([DiceOfFate](https://github.com/Coghatch-ai/diceofate)) — those agents/skills
-> are the game's work, not framework features. Attribute them to the game repo;
-> don't list them in framework release notes. `npm run release` prints a reminder
-> when `game-config/` changed since the last tag, so you can verify before cutting.
+> **The plugin is the framework.** Changes under `plugin/` (agents, skills, tools, the
+> knowledge base) ARE framework changes — list them in release notes as normal. Game-specific
+> capabilities stay game-local until you `npm run promote` them into the plugin.
 
 ## Status
 

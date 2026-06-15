@@ -84,6 +84,9 @@
  * @property {"pending" | "in_progress" | "done"} status
  * @property {string} [note] - optional one-line detail
  * @property {string} [agent] - internal: creating agent ("main" | "background" | a subagent_type), used to close a sub-agent's tasks when it finishes
+ * @property {"question"} [kind] - a question filed via mcp__ui__ask (async human-gate); renders an answer input instead of a status tick
+ * @property {string[]} [options] - question only: suggested answers the user can one-click
+ * @property {string} [answer] - question only: the user's answer (set via task_update; the orchestrator relays it)
  * @property {string} created - ISO timestamp
  */
 
@@ -100,6 +103,8 @@
  *   | { type: "policy", value: string }
  *   | { type: "history", items?: HistoryItem[] }
  *   | { type: "tasks", tasks: Task[] }
+ *   | { type: "permission_denied", toolName: string, agent?: string, reason?: string, background?: boolean }
+ *   | { type: "idle" }
  * )} ServerMsg */
 
 /** A row in the activity log.
@@ -115,7 +120,7 @@
  *   | { type: "user_input", text: string }
  *   | { type: "reply", id: number, payload: Reply }
  *   | { type: "policy", value: string }
- *   | { type: "task_update", op: "update" | "remove", id: string, status?: string }
+ *   | { type: "task_update", op: "update" | "remove", id: string, status?: string, answer?: string }
  *   | { type: "stop" }
  *   | { type: "stop_task", taskId: string }
  * )} ClientMsg */

@@ -64,6 +64,46 @@ function armRetire(id) {
   );
 }
 
+/** @param {string} id @param {string} answer */
+function submitAnswer(id, answer) {
+  const text = answer.trim();
+  if (!text) return;
+  send({ type: "task_update", op: "update", id, answer: text });
+}
+
+/** Inline answer affordance for an async question (mcp__ui__ask): one-click option
+ * buttons (if the asker supplied any) plus a free-text box. Built once per row; the
+ * answered read-only state is swapped in by updateRow. @param {Task} t @returns {HTMLElement} */
+function buildAnswerBox(t) {
+  const box = el("div", "task-answer");
+  if (t.options?.length) {
+    const opts = el("div", "task-answer-options");
+    for (const opt of t.options) {
+      const b = el("button", "btn", opt);
+      b.onclick = () => {
+        submitAnswer(t.id, opt);
+      };
+      opts.append(b);
+    }
+    box.append(opts);
+  }
+  const row = el("div", "task-answer-row");
+  const input = /** @type {HTMLInputElement} */ (document.createElement("input"));
+  input.className = "task-answer-input";
+  input.type = "text";
+  input.placeholder = "Your answer…";
+  const send_ = el("button", "btn primary", "Send");
+  send_.onclick = () => {
+    submitAnswer(t.id, input.value);
+  };
+  input.onkeydown = (e) => {
+    if (/** @type {KeyboardEvent} */ (e).key === "Enter") submitAnswer(t.id, input.value);
+  };
+  row.append(input, send_);
+  box.append(row);
+  return box;
+}
+
 /** @param {Task} t @returns {HTMLElement} */
 function createRow(t) {
   const row = el("div", "task-row");
@@ -80,6 +120,8 @@ function createRow(t) {
   const titleRow = el("div", "task-title-row");
   titleRow.append(el("span", "owner-chip"), el("span", "task-title"));
   body.append(titleRow, el("div", "task-note"));
+  // A question carries its own inline answer UI; ordinary tasks don't.
+  if (t.kind === "question") body.append(buildAnswerBox(t));
   const remove = el("button", "task-remove", "×");
   remove.title = "remove task";
   remove.onclick = () => {
@@ -151,6 +193,13 @@ function updateRow(row, t) {
   if (note) {
     note.textContent = t.note ?? "";
     note.style.display = t.note ? "" : "none";
+  }
+  // Once a question is answered, swap its input for the read-only answer — guarded
+  // so an unanswered question's in-progress typing survives unrelated re-renders.
+  const answerBox = /** @type {HTMLElement | null} */ (row.querySelector(".task-answer"));
+  if (answerBox && t.kind === "question" && t.answer && answerBox.dataset.answered !== "1") {
+    answerBox.dataset.answered = "1";
+    answerBox.replaceChildren(el("div", "task-answer-done", `✓ ${t.answer}`));
   }
 }
 

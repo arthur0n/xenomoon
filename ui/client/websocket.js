@@ -32,6 +32,10 @@ ws.onclose = () => {
     connection: { open: false },
     busy: false,
     thinking: { active: false, label: "" },
+    // The socket is the session — once it closes, no chip can ever settle (the
+    // server can't reach us with a task_notification/idle). Drop the running
+    // strip too, or orphaned chips sit on "agent running" until a refresh.
+    running: [],
     session: { ...s.session, status: "ended — refresh for a new session" },
   }));
 };
@@ -59,6 +63,8 @@ function handleMessage(ev) {
     case "tasks":
     case "status":
     case "history":
+    case "permission_denied":
+    case "idle":
       break; // fully handled by the store
   }
 }

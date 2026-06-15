@@ -2,7 +2,7 @@
 // drifts from what's actually on disk.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
-import { PROJECT_DIR, PROJECT_FOUND, ENGINE } from "./config.js";
+import { PROJECT_DIR, PROJECT_FOUND, ENGINE, FRAMEWORK_PLUGIN_DIR } from "./config.js";
 
 /**
  * @param {string} dir
@@ -34,6 +34,40 @@ function firstHeading(file) {
   }
 }
 
+/** Collect agents (name + model) across dirs; earlier dirs win on name clash (plugin first,
+ * then the game's own unpromoted agents). @param {string[]} dirs */
+function collectAgents(dirs) {
+  /** @type {Map<string, { name: string, model: string | null }>} */
+  const seen = new Map();
+  for (const d of dirs) {
+    if (!existsSync(d)) continue;
+    for (const f of readdirSync(d)) {
+      if (!f.endsWith(".md")) continue;
+      const name = f.replace(/\.md$/, "");
+      if (seen.has(name)) continue;
+      let model = null;
+      try {
+        model = readFileSync(path.join(d, f), "utf8").match(/^model:\s*(\S+)/m)?.[1] ?? null;
+      } catch {
+        /* unreadable — leave model null */
+      }
+      seen.set(name, { name, model });
+    }
+  }
+  return [...seen.values()];
+}
+
+/** Collect skill folder names across dirs (deduped, plugin first). @param {string[]} dirs */
+function collectSkills(dirs) {
+  /** @type {Set<string>} */
+  const seen = new Set();
+  for (const d of dirs) {
+    if (!existsSync(d)) continue;
+    for (const e of readdirSync(d, { withFileTypes: true })) if (e.isDirectory()) seen.add(e.name);
+  }
+  return [...seen];
+}
+
 /** @returns {import("../lib/types.js").ProjectState} */
 export function projectState() {
   const dir = PROJECT_DIR;
@@ -44,8 +78,6 @@ export function projectState() {
     );
     if (match?.[1]) name = match[1];
   } catch {}
-  const agentsDir = path.join(dir, ".claude", "agents");
-  const skillsDir = path.join(dir, ".claude", "skills");
   return {
     name,
     dir,
@@ -72,20 +104,15 @@ export function projectState() {
       }),
     scenes: walk(dir, [".tscn"], [], dir),
     scripts: walk(dir, [".gd"], [], dir),
-    agents: existsSync(agentsDir)
-      ? readdirSync(agentsDir)
-          .filter((f) => f.endsWith(".md"))
-          .map((f) => {
-            const model = readFileSync(path.join(agentsDir, f), "utf8").match(
-              /^model:\s*(\S+)/m,
-            )?.[1];
-            return { name: f.replace(/\.md$/, ""), model: model ?? null };
-          })
-      : [],
-    skills: existsSync(skillsDir)
-      ? readdirSync(skillsDir, { withFileTypes: true })
-          .filter((d) => d.isDirectory())
-          .map((d) => d.name)
-      : [],
+    // Capabilities come from the xenodot plugin (the framework source); a game may also
+    // carry its own unpromoted agents/skills in .claude/. Show both, plugin first.
+    agents: collectAgents([
+      path.join(FRAMEWORK_PLUGIN_DIR, "agents"),
+      path.join(dir, ".claude", "agents"),
+    ]),
+    skills: collectSkills([
+      path.join(FRAMEWORK_PLUGIN_DIR, "skills"),
+      path.join(dir, ".claude", "skills"),
+    ]),
   };
 }

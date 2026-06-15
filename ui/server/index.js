@@ -20,6 +20,7 @@ import { listLevels } from "./level-read.js";
 import { readTasks } from "./tasks-store.js";
 import { serveStatic } from "./static.js";
 import { handleConnection } from "./session.js";
+import { prepareGame } from "./materialize.js";
 
 /** Read a request body and write it as a transcript; respond with the path or an error.
  * @param {import("node:http").IncomingMessage} req @param {import("node:http").ServerResponse} res */
@@ -99,6 +100,14 @@ function handleLevelPost(req, res) {
 }
 
 mkdirSync(LOG_DIR, { recursive: true });
+
+// Materialize the framework's per-game files into the game (gitignored): tools copied,
+// library symlinked. The plugin is the single source; the committed game stays pure.
+if (PROJECT_FOUND) {
+  const { tools, lib } = prepareGame(PROJECT_DIR);
+  if (tools.copied) console.log(`tools: refreshed ${tools.copied} file(s) in ${PROJECT_DIR}/tools`);
+  if (lib.linked && lib.reason === "created") console.log(`library: linked → plugin/library`);
+}
 
 const server = http.createServer((req, res) => {
   if (req.url === "/api/state") {

@@ -2,9 +2,25 @@
 // display formatters (shorten / stripEnvPrefix / toolDetail) shared with the
 // approval cards and the websocket dispatcher.
 import { $, $$, el } from "./dom.js";
-import { paint, agentLabel } from "./agents.js";
+import { paint, agentLabel, agentInitial, agentRole } from "./agents.js";
 import { view } from "./state.js";
 import { subscribe, getState } from "./store.js";
+
+/** A compact identity tag for the stream: the agent's struck sigil + its role,
+ * painted in the agent's color — the activity-panel echo of the task board's
+ * owner stamp. The shared "Xenodot" brand prefix is dropped (it's every agent's,
+ * so it reads as noise here); the full name rides on the title for hover. Pure
+ * and deterministic from the agent id, so the agent itself sets nothing.
+ * @param {string} name @returns {HTMLElement} */
+function agentTag(name) {
+  const tag = paint(el("span", "agent-tag"), name);
+  tag.title = agentLabel(name);
+  tag.append(
+    el("span", "agent-tag-sigil", agentInitial(name)),
+    el("span", "agent-tag-role", agentRole(name)),
+  );
+  return tag;
+}
 
 // The pure formatters now live in format.js (DOM-free, so the reducer can share
 // them); re-exported here for approvals.js, which reads them alongside `shorten`.
@@ -56,7 +72,7 @@ function ensureAgentOption(agent) {
   seenAgents.add(agent);
   const sel = $("agent-filter");
   if (!sel) return;
-  const opt = /** @type {HTMLOptionElement} */ (el("option", "", agentLabel(agent)));
+  const opt = /** @type {HTMLOptionElement} */ (el("option", "", agentRole(agent)));
   opt.value = agent;
   sel.append(opt);
 }
@@ -93,15 +109,13 @@ function buildLogRow(entry) {
   ensureAgentOption(entry.agent);
   ensureAgentOption(entry.child);
   row.append(el("span", "log-time", nowStr()));
+  const who = el("span", "log-agent");
   if (entry.kind === "spawn") {
-    const who = el("span", "log-agent");
-    who.append(paint(el("span", "", agentLabel(entry.agent)), entry.agent));
-    who.append(el("span", "arrow", " ▸ "));
-    who.append(paint(el("span", "", agentLabel(entry.child ?? "")), entry.child ?? ""));
-    row.append(who);
+    who.append(agentTag(entry.agent), el("span", "arrow", " ▸ "), agentTag(entry.child ?? ""));
   } else {
-    row.append(paint(el("span", "log-agent", agentLabel(entry.agent)), entry.agent));
+    who.append(agentTag(entry.agent));
   }
+  row.append(who);
   if (entry.kind === "say") {
     row.append(el("span", "log-text", entry.text));
   } else {

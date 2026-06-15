@@ -1,15 +1,11 @@
-// Keep the README's "Skills" / "Agents" badges in sync with the paired game
-// project. Counts skill folders and agent files in the project the framework
-// points at (honoring .xenodot.json — see config.js), rewrites the badges in
-// README.md, and re-stages it. Wired into .husky/pre-commit so the counts can
-// never drift from reality. Run manually with: npm run badges
-//
-// If no engine project (Godot or a fork) is configured/found, it skips silently
-// (exit 0) — a fork without a game checked out should still be able to commit.
+// Keep the README's "Skills" / "Agents" badges in sync with what the framework actually
+// ships — the xenodot plugin (the single source of truth). Counts skill folders and agent
+// files in plugin/, rewrites the badges in README.md, and re-stages it. Wired into
+// .husky/pre-commit so the counts can never drift. Run manually with: npm run badges
 import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { PROJECT_DIR, PROJECT_FOUND, FRAMEWORK_DIR, ENGINE_LABEL } from "./config.js";
+import { FRAMEWORK_DIR, FRAMEWORK_PLUGIN_DIR } from "./config.js";
 
 /** @param {string} dir @param {(d: import("node:fs").Dirent) => boolean} keep @returns {number | null} */
 function count(dir, keep) {
@@ -29,18 +25,13 @@ function setBadge(text, label, n) {
   return text.replace(re, `$1${n}$2${n}`);
 }
 
-if (!PROJECT_FOUND) {
-  console.warn(
-    `update-badges: no ${ENGINE_LABEL} project at ${PROJECT_DIR} — leaving badges unchanged.`,
-  );
-  process.exit(0);
-}
-
-const claude = path.join(PROJECT_DIR, ".claude");
-const skills = count(path.join(claude, "skills"), (d) => d.isDirectory());
-const agents = count(path.join(claude, "agents"), (d) => d.isFile() && d.name.endsWith(".md"));
+const skills = count(path.join(FRAMEWORK_PLUGIN_DIR, "skills"), (d) => d.isDirectory());
+const agents = count(
+  path.join(FRAMEWORK_PLUGIN_DIR, "agents"),
+  (d) => d.isFile() && d.name.endsWith(".md"),
+);
 if (skills === null || agents === null) {
-  console.warn(`update-badges: no .claude/skills or .claude/agents in ${PROJECT_DIR} — skipping.`);
+  console.warn("update-badges: plugin/{skills,agents} not found — skipping.");
   process.exit(0);
 }
 

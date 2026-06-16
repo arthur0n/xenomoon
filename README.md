@@ -81,17 +81,23 @@ local in `<game>/.claude/`, and you **promote** the ones worth sharing into the 
 
 ## Quickstart
 
-The framework and your game are two separate repos, side by side:
+The framework and your **Godot game folder** are two separate repos, side by side:
 
 ```
 your-workspace/
 ├── xenodot-forge/     ← this framework (your fork)
-└── game/              ← your Godot project (its own git repo)
+└── game/              ← your Godot game folder (any name; its own git repo)
 ```
+
+> **`game/` is a placeholder, not a required name.** Your Godot game folder can be
+> named anything and live anywhere — even nested, e.g. `journeyone/fpspoc-2/`. Wherever
+> this README shows `../game`, substitute the real path to your Godot project folder.
 
 **One command takes you from a fresh clone to a wired, runnable game.**
 
-1. Fork this framework, then clone your fork and install deps:
+1. **Fork this framework on GitHub** ([what's a fork?](https://docs.github.com/en/get-started/quickstart/fork-a-repo) —
+   use the **Fork** button on the [repo page](https://github.com/arthur0n/xenodot-forge)),
+   then clone your fork and install deps:
 
    ```bash
    git clone <your-fork-of-xenodot-forge> xenodot-forge
@@ -104,12 +110,14 @@ your-workspace/
    a health check. It does **not** copy agents/skills in — those load from the plugin.
 
    ```bash
-   npm run new -- ../game
+   npm run new -- ../game     # ../game = path to YOUR Godot game folder (any name/location)
    ```
 
-   - **Have a Godot project already?** Point it at the project — it wires it in place
-     and adds the gitignore rules for the generated paths: `npm run new -- /path/to/your/game`.
-   - **Want a richer reference?** Clone DiceOfFate as your game first:
+   - **Have a Godot project already?** Point it at the folder — it wires it in place
+     and adds the gitignore rules for the generated paths. Use the real path, which can
+     be absolute or nested: `npm run new -- /path/to/your/game` or
+     `npm run new -- ../journeyone/fpspoc-2`.
+   - **Want a richer reference?** Clone DiceOfFate as your Godot game folder first:
      `git clone https://github.com/Coghatch-ai/dicefate ../game`, then `npm run new -- ../game`.
 
 3. Run it. The **web UI** loads the plugin automatically — no install step:

@@ -31,6 +31,14 @@ Rule of thumb: **survives a level swap → Main (or autoload); describes one pla
 - **Autoload**: state that outlives nodes (score, settings, run progress). Don't park it on Main nodes — Main is structure, not a data bag.
 - **Cameras**: exactly one current Camera3D per viewport. Once Main owns the CameraRig, levels must not ship a camera (delete level-local cameras when migrating); until then, Main must `make_current()` its own camera after loading a level.
 
+### Run-state autoload (persist state across a swap)
+
+When some state must outlive a level (run progress, carried-over counters), use a **thin data-only autoload** — fields and nothing else, no gameplay logic. The write/read seam: one node (typically `main.gd`, around the swap) writes the values plus an `active` flag _before_ loading the next level; the incoming level reads them on load and clears `active` (read-and-clear, so the carry happens exactly once). Paths that want a fresh start (a manual level-cycle, a new game) simply skip the autoload — leave `active` false and seed defaults.
+
+Keep it a data bag, not a manager: no signals, no per-frame logic, no orchestration — Main and the levels own the flow; the autoload only holds the values between them.
+
+Gate gotcha: under this project's strict gate the autoload's script `class_name` must **differ** from its autoload key, and persisted fields are `static var` accessed via the `class_name` (not the singleton name) — see godot-code-rules (`SHADOWED_GLOBAL_IDENTIFIER` on an autoload script).
+
 ## Steps
 
 1. Create `main.tscn` at the project root per the structure above; set `unique_name_in_owner` on LevelHost.
@@ -63,6 +71,8 @@ func load_level(path: String) -> void:
 		rig.target = player
 		player.camera_rig = rig
 ```
+
+> **`owned=true` stops at instanced-scene boundaries.** `find_child(name, recursive, owned=true)` only returns nodes whose `.owner` is the node you call it on. A node living inside an instanced sub-scene (the Player's own `Camera3D`, a prop's internals) is owned by THAT sub-scene's root, so an `owned=true` search from the level/Main root will NOT find it — use `owned=false` to search into instanced sub-scenes. (Conversely, do not re-own those internals to make `owned=true` work — that breaks the instance and bloats the `.tscn`; see godot-gridmap-level. A level builder that recursively re-owned a Player instance is exactly what made this search return null on the second level.)
 
 3. Set it as the entry point in `project.godot` under `[application]`: `run/main_scene="res://main.tscn"` (editor: Project Settings → Application → Run → Main Scene).
 4. Record in CLAUDE.md Project conventions: entry point path + "levels load under Main/LevelHost; never change_scene_to_file".

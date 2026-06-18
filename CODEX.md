@@ -18,9 +18,13 @@ the `codex:codex-rescue` subagent, and its structured review output, unchanged.
 
 - **Node.js ≥ 18.18** (the plugin's floor).
 - The **`@openai/codex` CLI** installed (`npm i -g @openai/codex`).
-- A **`codex login`** session — a **ChatGPT account (incl. the Free tier) _or_ an OpenAI API
-  key**. Codex owns the credential (stored in `auth.json` under `CODEX_HOME`, default
+- A **`codex login`** session — either a **ChatGPT account with Codex access** _or_ an **OpenAI
+  API key**. Codex owns the credential (stored in `auth.json` under `CODEX_HOME`, default
   `~/.codex`); **Xenodot never sees or stores it**.
+- A **model the account can actually route** — see [Auth & models](#auth--models). On a ChatGPT
+  login this is the common gotcha: the `*-codex` model variants are **rejected**, so reviews
+  fail until you point Codex at a general model like `gpt-5.5`. (`codex login` succeeding does
+  **not** mean a given model will route.)
 
 ## Setup (one command)
 
@@ -28,7 +32,8 @@ the `codex:codex-rescue` subagent, and its structured review output, unchanged.
 npm run codex:setup     # checks the CLI (offers to install it), clones the review plugin
                         # into the gitignored vendor/ dir, and flips the codex switch on
 codex login             # one-time browser sign-in or API key  (or, in a session:  ! codex login)
-npm run codex:check     # verify: CLI present? logged in? plugin vendored?
+                        # ChatGPT login? also set model="gpt-5.5" — see Auth & models below
+npm run codex:check     # verify: CLI present? logged in? plugin vendored? model routable?
 ```
 
 `npm run codex:setup -- --reset` undoes it (disables the switch and removes the vendored
@@ -45,6 +50,31 @@ button that runs the same readiness probe).
   keys, no URLs. Override per-process with `CODEX_ENABLED=true|false`.
 - `session.js` appends the plugin to the SDK `plugins` array **only** when `codex.enabled`
   **and** the plugin is actually vendored. Disabled or absent → nothing changes.
+
+### Auth & models
+
+Codex routes through the model set in `~/.codex/config.toml` (`model = "…"`), and which models
+are allowed depends on **how you logged in**:
+
+- **ChatGPT-account login** (`codex login`): use a **general model** — `gpt-5.5` (OpenAI's
+  recommended Codex coding model) or `gpt-5.4-mini` (faster). The **`*-codex` variants**
+  (`gpt-5.x-codex`, `gpt-5.1-codex-max`, `codex-mini-latest`, …) are **rejected** with
+  `400 … not supported when using Codex with a ChatGPT account`. Set a routable default once:
+
+  ```bash
+  codex -c model=gpt-5.5 exec --sandbox read-only "ok"   # confirm it routes
+  # then make it the default — edit ~/.codex/config.toml:
+  #   model = "gpt-5.5"
+  ```
+
+- **API-key login** (`codex login --with-api-key`, funded OpenAI Platform account): the
+  deprecated/extra models (including some `*-codex` and older `gpt-5.x`) are also available —
+  use a key only if you specifically need one of those. Note: Codex keeps **one active auth at
+  a time**, so `--with-api-key` replaces a ChatGPT login (switch back with `codex login`).
+
+`npm run codex:check` guards this: it reads your default model and **warns** (and the ⚙ Settings
+"Test Codex" button shows it) when a `*-codex` model is paired with a ChatGPT login — the exact
+combination that makes every review fail.
 
 ## Reviewing the **game**
 
@@ -89,6 +119,10 @@ UI use the same local Codex.)
 ## Troubleshooting
 
 - `npm run codex:check` is the fast verdict: CLI on PATH? `codex login status` OK? plugin
-  vendored? It prints exactly what's missing.
+  vendored? default model routable? It prints exactly what's missing.
+- **"both Codex models were rejected by the ChatGPT account"** / `… model is not supported when
+using Codex with a ChatGPT account` → your default model is a `*-codex` variant. Set
+  `model = "gpt-5.5"` in `~/.codex/config.toml` (or pass `codex -c model=gpt-5.5`), or switch to
+  an API key. See [Auth & models](#auth--models); `npm run codex:check` warns about this.
 - "Switched on, but the plugin isn't vendored" in Settings → run `npm run codex:setup`.
 - `codex` not found after install → open a new terminal so it's on `PATH`, then re-run setup.

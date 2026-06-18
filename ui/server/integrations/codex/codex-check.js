@@ -13,7 +13,8 @@
 // OS credential store) and 1 otherwise — so we shell that as the source of truth and never
 // store a key ourselves. The plugin is "vendored" once `npm run codex:setup` clones it.
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { getCodexConfig, CODEX_PLUGIN_DIR } from "../../core/config.js";
@@ -21,6 +22,8 @@ import { getCodexConfig, CODEX_PLUGIN_DIR } from "../../core/config.js";
 /** The verdict of one probe. `cli` = the `codex` binary is on PATH; `authOk` = `codex login
  * status` reports credentials; `vendored` = the plugin is cloned on disk (loadable). `ok` = all
  * three (Codex is ready to review). `enabled` mirrors the saved switch, for the summary line.
+ * `authMethod`/`model` describe HOW it'll route; `caveat` warns when that combination won't —
+ * e.g. a *-codex model on a ChatGPT-account login (rejected by OpenAI; needs gpt-5.5 or a key).
  * @typedef {{
  *   ok: boolean,
  *   enabled: boolean,
@@ -28,7 +31,10 @@ import { getCodexConfig, CODEX_PLUGIN_DIR } from "../../core/config.js";
  *   version?: string,
  *   authOk: boolean,
  *   authMode?: string,
+ *   authMethod?: "chatgpt" | "apiKey",
+ *   model?: string,
  *   vendored: boolean,
+ *   caveat?: string,
  *   error?: string,
  * }} CodexCheck */
 
@@ -39,6 +45,40 @@ function runCodex(argv, timeoutMs) {
   const r = spawnSync("codex", argv, { encoding: "utf8", timeout: timeoutMs });
   const out = (r.stdout || r.stderr || "").trim();
   return { status: r.status, out };
+}
+
+/** Codex's default model — `model = "…"` from $CODEX_HOME/config.toml (default ~/.codex), or
+ * null if unset/absent. This is what `codex review`/the plugin route to when no per-call
+ * override is given. @returns {string | null} */
+function configuredModel() {
+  const env = process.env.CODEX_HOME;
+  const home = env?.trim() ? env : path.join(homedir(), ".codex");
+  try {
+    return (
+      readFileSync(path.join(home, "config.toml"), "utf8").match(
+        /^\s*model\s*=\s*["']([^"']+)["']/m,
+      )?.[1] ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** Classify the `codex login status` headline into an auth method.
+ * @param {string} [authMode] @returns {"chatgpt" | "apiKey" | undefined} */
+function authMethodOf(authMode) {
+  if (/chatgpt/i.test(authMode ?? "")) return "chatgpt";
+  if (/api[\s-]?key/i.test(authMode ?? "")) return "apiKey";
+  return undefined;
+}
+
+/** Warn when a *-codex model is paired with a ChatGPT login — OpenAI rejects those there
+ * (`400 … not supported when using Codex with a ChatGPT account`), the exact trap that makes
+ * every review fail despite a successful login. @param {"chatgpt" | "apiKey" | undefined} authMethod
+ * @param {string} [model] @returns {string | undefined} */
+function chatgptCodexCaveat(authMethod, model) {
+  if (authMethod !== "chatgpt" || !model || !/codex/i.test(model)) return undefined;
+  return `default model "${model}" is a *-codex variant — rejected on ChatGPT-account auth. Set model="gpt-5.5" in ~/.codex/config.toml (or use an API key: \`codex login --with-api-key\`).`;
 }
 
 /** Inspect the local Codex install. Synchronous (cheap local spawns); returns a verdict the
@@ -67,6 +107,12 @@ export function checkCodex(timeoutMs = 8000) {
   const authOk = auth.status === 0;
   const firstLine = auth.out.split("\n")[0]?.trim();
   const authMode = authOk && firstLine ? firstLine : undefined;
+  const authMethod = authMethodOf(authMode);
+  // A *-codex model (e.g. gpt-5.1-codex-max) is rejected on a ChatGPT-account login — OpenAI
+  // only routes general models there (gpt-5.5, gpt-5.4-mini). "Logged in" wouldn't catch this;
+  // the model does. Warn before the first review fails.
+  const model = configuredModel() ?? undefined;
+  const caveat = authOk ? chatgptCodexCaveat(authMethod, model) : undefined;
 
   return {
     // cli is already proven (we returned early otherwise) — ready iff logged in AND vendored.
@@ -76,7 +122,10 @@ export function checkCodex(timeoutMs = 8000) {
     version,
     authOk,
     authMode,
+    authMethod,
+    model,
     vendored,
+    caveat,
     error: authOk
       ? vendored
         ? undefined
@@ -106,11 +155,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         ? `  ✓ review plugin vendored → ${CODEX_PLUGIN_DIR}`
         : "  ✗ review plugin not vendored — run `npm run codex:setup`.",
     );
+    if (r.model) console.log(`  · default model: ${r.model}`);
+    if (r.caveat) console.log(`  ⚠ ${r.caveat}`);
     console.log(
-      r.ok
-        ? "✓ Codex is ready — type `/codex:review` in a session (or terminal Claude Code) to review."
-        : "• Codex is not fully set up yet (see above).",
+      r.caveat
+        ? "• Codex is installed, but the configured model will be rejected — fix it above, then re-check."
+        : r.ok
+          ? "✓ Codex is ready — type `/codex:review` in a session (or terminal Claude Code) to review."
+          : "• Codex is not fully set up yet (see above).",
     );
-    if (!r.ok) process.exitCode = 1;
+    if (!r.ok || r.caveat) process.exitCode = 1;
   }
 }

@@ -77,7 +77,12 @@ async function testCodex() {
     const r = /** @type {import("../../../lib/types.js").CodexCheck} */ (
       await postJSON("/api/codex/check", {})
     );
-    if (r.ok) {
+    if (r.ok && r.caveat) {
+      // Installed + logged in, but the configured model won't route (e.g. a *-codex
+      // model on a ChatGPT login). Surface it loudly — "Ready" would be a lie.
+      status.className = "settings-status bad";
+      status.textContent = `⚠ ${r.caveat}`;
+    } else if (r.ok) {
       const ver = r.version ? ` — codex v${r.version}` : "";
       const mode = r.authMode ? ` (${r.authMode})` : "";
       status.className = "settings-status ok";

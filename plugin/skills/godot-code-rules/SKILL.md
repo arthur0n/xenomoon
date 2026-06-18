@@ -97,7 +97,7 @@ tools/validate.sh
 
 Steps: 1 format (`gdformat --check`) → 2 lint (`gdlint`) → 3 parse + analyzer warnings-as-errors → 4 scene properties (godot-verify layer 1) → 5 headless smoke run (layer 2). Stops at first failure; ends with `validate: OK`.
 
-- Never weaken `project.godot [debug]` warnings or `gdlintrc` caps to make the gate pass.
+- Never weaken the gate to make it pass — not `project.godot [debug]` warnings, not `gdlintrc` caps, and not `validate.sh` itself (including the layer-2 smoke-grep exclusion list). `tools/` is the plugin-materialized gate (gitignored); a local edit does not commit and is overwritten on re-materialization. A new benign-noise exclusion is a deliberate upstream change, not something to slip into a feature task — report it as friction.
 - Never pipe gate output through `rtk grep` — hides FAIL lines; use plain `grep`.
 
 ## Error → Fix

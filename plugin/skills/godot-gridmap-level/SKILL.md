@@ -51,6 +51,7 @@ Add `GridMap`, assign MeshLibrary `.tres`, set `cell_size = Vector3(metres_per_c
 - **Props (code 4 / `items`):** group same-id cells → one instance at computed world pos `Vector3(col*cell_size.x, y, row*cell_size.z)` + offset. Never eyeballed.
 - **Collision is pipeline default** (not parked). Prop holder = `StaticBody3D` + `CollisionShape3D` + unique `BoxShape3D` sized to model AABB. Compute AABB headlessly: instance model, walk `MeshInstance3D`s accumulating `Transform3D` from holder origin, enclose 8 corners. Box, never trimesh.
 - **Multi-cell same-id = ONE instance** at group centre, not N copies.
+- **Owner on instanced props:** after `scene_root.add_child(prop); prop.owner = scene_root`, ALSO walk the prop's instanced subtree setting `child.owner = scene_root` recursively — nested children keep their source-scene owner and are dropped from `PackedScene.pack()` otherwise (the prop bakes as an empty node). Top-level-only owner is enough for leaf nodes, not for instanced scenes.
 
 ### 4. Editor importer (`@tool extends GridMap`)
 
@@ -123,6 +124,8 @@ func _init() -> void:
 Run: `$GODOT --headless --path . --script scripts/build_<name>.gd`
 
 **One build path per scene, one tracked location.** The builder is game-authored content — keep it in `scripts/` (tracked), NOT in `tools/` (gitignored, reserved for plugin-generated files and clobbered on regen). Never let a second copy drift; don't duplicate JSON-parsing logic.
+
+**Splitting a builder that nears the 500-line cap.** Partition BY PHASE, not by lettered slice: a bare `class_name <Level>Geometry` / `<Level>Props` / `<Level>Hazards` helper of `static func`s (NOT `extends RefCounted`), each taking `scene_root` + grid params, called in order from the `build_<name>.gd` orchestrator. Phase names are stable and self-documenting; lettered "slices" (`SliceE`) hide what moved where. The orchestrator stays the only `SceneTree` script. (See `build_firing_yard.gd`.)
 
 **The baked `.tscn` is generated output — never hand-edit it.** Any node, property, or dependency a fix adds directly to the baked scene (a `NavigationRegion3D`, a marker, a group) is silently overwritten on the next builder run, and the bug returns looking like a fresh regression. Every persistent node AND every baked asset the scene needs MUST be produced by the builder. Baked resources (navmesh, MeshLibrary) load from a tracked `.tres` the builder instances — e.g. `add_navmesh()` loads `res://levels/<level>_navmesh.tres` into a `NavigationRegion3D` the builder adds; do not bake the region into the `.tscn` by hand. Re-bake that `.tres` whenever the floor/level geometry changes — the builder does not regenerate it.
 

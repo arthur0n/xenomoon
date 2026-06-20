@@ -7,9 +7,9 @@
 
 ## What this is
 
-[Xenodot Forge](https://github.com/arthur0n/xenodot-forge) is a Claude Code framework that builds Godot games through a deliberate, human-gated pipeline — **designer → dev → verify → you** — instead of a chat box. Xenomoon is a fork that **white-labels that framework into a domain-neutral one**: the same pipeline, retargetable to any kind of work, not just games.
+Xenomoon is a Claude Code framework that drives a deliberate, human-gated pipeline — **designer → dev → verify → you** — instead of a chat box. It's **domain-neutral**: you install it per project, lock it to a domain, and it runs that same pipeline for whatever you're building — games, apps, anything.
 
-Godot is what we forked _from_ — it stays as the reference domain, not one of our products.
+Godot is just the reference domain we forked from — not one of our products.
 
 ## What we're trying to do
 

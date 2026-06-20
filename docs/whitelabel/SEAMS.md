@@ -29,7 +29,7 @@ code, plus why it's unavoidable.
 
 | `ui/server/cli/doctor.js` | Capability + `validate.sh` checks are HARD only when `DOMAIN.populated`; an empty domain installs/runs cleanly. | Doctor gates `new`/CI; emptiness is a legal starting state for a learning domain. |
 | `ui/server/cli/gen-manifest.js` | The manifest `commands` block ← `DOMAIN.commands`. | Build/verify commands are per-domain. |
-| `README.md` | One brief blockquote: experimental white-label direction + link to `docs/whitelabel/VISION.md`. | The project's front-page note must live in the README. |
+| `README.md` | **Fully replaced** with a xenomoon front page (what it is / what we're trying to do / where we are). Upstream-name refs kept on `arthur0n` lines so the rebrand codemod preserves them. | Our product's front page — fully diverged. Expect conflicts on upstream README changes; resolve by keeping ours. |
 
 For the default `godot` domain every value above equals the old literal, so behavior is
 byte-for-byte unchanged (the onboarding gate proves it). The `config.js` and `new.js` rows have

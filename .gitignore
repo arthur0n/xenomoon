@@ -12,3 +12,6 @@ game_assets/
 # cloned by `npm run codex:setup`). Not part of the framework — never committed.
 vendor/
 
+# graphify knowledge graph of the framework itself — derived, rebuilt by the graphify CLI.
+graphify-out/
+

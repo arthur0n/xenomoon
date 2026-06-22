@@ -48,6 +48,16 @@ function hasRtk() {
 }
 
 /** @returns {boolean} */
+function hasGraphify() {
+  try {
+    execFileSync("graphify", ["--version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** @returns {boolean} */
 function libraryLinked() {
   try {
     return lstatSync(path.join(PROJECT_DIR, "library")).isSymbolicLink();
@@ -112,6 +122,12 @@ const checks = [
     label: `${RES_ASSET_MOUNT}/ symlinked to the external asset library`,
   },
   { ok: hasRtk(), hard: false, label: "rtk on PATH (optional — hook no-ops without it)" },
+  {
+    ok: hasGraphify(),
+    hard: false,
+    label:
+      "graphify on PATH (optional — codebase knowledge-graph; install: uv tool install graphifyy)",
+  },
 ];
 
 console.log(`doctor: checking ${PROJECT_DIR}`);

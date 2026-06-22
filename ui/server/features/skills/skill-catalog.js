@@ -39,8 +39,15 @@ export const BUILTIN_SKILLS = [
  * Always enabled regardless of skillOverrides — turning these off would break routing. This is the
  * `orchestrator`-token audience that gen-skill-scope.js cross-checks against the skill tags.
  * `autonomous-main-goal` is hive-only (the self-drive loop) — a plugin skill tagged `[orchestrator]`.
+ * `graphify` lets the orchestrator query the game's knowledge graph (graphify-out/) for codebase /
+ * architecture questions before manual grep — a thin plugin wrapper over the `graphify` CLI.
  * @type {string[]} */
-export const ORCHESTRATOR_FRAMEWORK_SKILLS = ["caveman", "quick", "autonomous-main-goal"];
+export const ORCHESTRATOR_FRAMEWORK_SKILLS = [
+  "caveman",
+  "quick",
+  "autonomous-main-goal",
+  "graphify",
+];
 
 /** Parse the first `name:` and `description:` values from YAML frontmatter.
  * @param {string} text @returns {{ name: string, description: string } | null} */

@@ -16,6 +16,9 @@ assets/
 /x-shared-assets
 /transcripts/
 
+# graphify knowledge graph — derived, rebuilt by the graphify CLI + the auto-update hook
+/graphify-out/
+
 # Xenodot task board (per-game runtime state)
 .xenodot/
 

@@ -1,9 +1,11 @@
 # Upstream sync — pull framework changes in, never push back
 
 This repo is a **fork** of the framework **`arthur0n/xenodot-forge`**. The relationship is
-**one-way**: we **only ever fetch** from the source to pull its improvements into our own product,
-**xenomoon**. We **never push to the fork source** — a `pre-push` hook (`.husky/pre-push`)
-hard-blocks any push whose target is `arthur0n/xenodot-forge`.
+**one-way**: we **only ever fetch** from the source to pull its (curated) improvements into our own
+product, **xenomoon**. We **never push to any `xenodot-forge` repo** — a `pre-push` hook
+(`.husky/pre-push`) hard-blocks any push whose target URL contains `xenodot-forge` (the source
+`arthur0n/xenodot-forge` **and** our GitHub fork-of-it `Pexelins/xenodot-forge`). Our one publish
+target is the `xenomoon` remote.
 
 ## Branch & repo model
 
@@ -17,14 +19,15 @@ retired — `main` is now the trunk). When syncing, `upstream/main` is read dire
 Remotes:
 
 ```
-xenomoon  https://github.com/arthur0n/xenomoon.git        OUR repo — we publish here
-origin    https://github.com/Pexelins/xenodot-forge.git   our GitHub fork of the source (backup)
+xenomoon  https://github.com/arthur0n/xenomoon.git        OUR repo — the ONLY push target
+origin    https://github.com/Pexelins/xenodot-forge.git   our fork-of-the-source — FETCH/backup ONLY (push blocked: a xenodot-forge repo)
 upstream  https://github.com/arthur0n/xenodot-forge.git   the forked source — FETCH ONLY, never push
 ```
 
 > Pushes from this repo go out as **Pexelins** via a repo-local credential pin in `.git/config`
-> (it overrides the machine keychain, which may hold another account's token). The pre-push hook is
-> the backstop that keeps any push off the `upstream` source.
+> (it overrides the machine keychain, which may hold another account's token) and target the
+> `xenomoon` remote only. The pre-push hook is the backstop: it blocks any push to a `xenodot-forge`
+> repo — the `upstream` source and the `origin` fork-of-it alike.
 
 > The trunk is rebranded (xenomoon) and the rebrand is **committed**. `scripts/rebrand.mjs` is a
 > **post-merge fixer**: after merging upstream's xenodot into our xenomoon trunk, re-run it to
@@ -46,8 +49,8 @@ git commit -am 'rebrand: re-flip merged upstream'
 node scripts/rebrand.mjs --check     # exits 0
 npm install && npm run test:onboarding   # 7/7
 
-# 4. Publish to OUR repo.
-git push xenomoon main               # the pre-push hook blocks this only if the target is the fork source
+# 4. Publish to OUR repo (the only allowed target).
+git push xenomoon main               # the pre-push hook blocks any push to a xenodot-forge repo
 ```
 
 `scripts/sync-upstream.sh` automates steps 1–2 (+ the onboarding gate).

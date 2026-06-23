@@ -70,7 +70,7 @@ Not yet: more domain packs beyond `webapp` / `app`, OpenClaw/Hermes adapters, a 
 
 ## Tracking upstream
 
-We follow [arthur0n/xenodot-forge](https://github.com/arthur0n/xenodot-forge) closely, but the flow is **one-way**: we **fetch** its improvements and **never push back** to it (a `pre-push` hook enforces this). Our xenomoon trunk is `main`, published to our own repo; on each pull we merge upstream's changes in, strip the re-merged Godot payload (`scripts/strip-godot.mjs`), and re-apply the committed xenomoon rebrand (`scripts/rebrand.mjs`). The workflow is in [docs/whitelabel/SYNC.md](docs/whitelabel/SYNC.md).
+We follow [arthur0n/xenodot-forge](https://github.com/arthur0n/xenodot-forge) closely, but the flow is **one-way**: we **fetch** its improvements and **never push back** to any `xenodot-forge` repo (a `pre-push` hook hard-blocks that). Our xenomoon trunk is `main`, published **only** to the `xenomoon` remote (`arthur0n/xenomoon`); on each pull we merge upstream's changes in, strip the re-merged Godot payload (`scripts/strip-godot.mjs`), and re-apply the committed xenomoon rebrand (`scripts/rebrand.mjs`). The workflow is in [docs/whitelabel/SYNC.md](docs/whitelabel/SYNC.md).
 
 ## License
 

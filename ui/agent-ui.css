@@ -1,44 +1,45 @@
 /* ============================================================
    XenoMoon — UI styles
-   "Lunar metal": warm silver / antique-beige instruments over a
-   deep space-charcoal void. Moonlit panels, sharp corners, stamped
-   labels; a faded alien-green accent used sparingly.
-   Palette: Deep Space Charcoal · Soft Black Navy · Warm Lunar
-     Silver · Antique Moon Beige · Pale Silver · Soft Steel Gray ·
-     Muted Taupe · Dark Graphite · (accent) Faded Alien Green.
+   "Lunar etching": warm bronze / antique-tan line-work over a
+   deep space-navy void — the engraved logo, made interface.
+   Moonlit panels, sharp corners, stamped labels; the bronze is the
+   one accent, lit to moon-gold on success.
+   Palette: Void Ink Navy · Soft Black Navy · Lunar Bronze ·
+     Antique Moon Tan · Warm Moon-White · Pale Sand · Soft Steel ·
+     Muted Taupe · Dark Graphite · (success) Moon Gold.
    Bricolage Grotesque (display) · Archivo (UI) · IBM Plex Mono.
    ============================================================ */
 
 :root {
-  /* XenoMoon — warm lunar silver / antique moon beige over deep space charcoal.
-     A premium "moon metal" feel; the alien identity survives only as a faint
-     green accent, used sparingly. */
-  --accent: #c9bba8; /* Warm Lunar Silver — primary brand / interactive */
-  --accent-text: #d9cdbb; /* lifted silver — accent used as text/links */
-  --accent-bright: #efe8da; /* warm near-white — hottest emphasis */
+  /* XenoMoon — warm lunar bronze / antique moon tan etched over a deep
+     space-navy void, straight off the engraved emblem. The bronze is the
+     identity; nothing here is green. */
+  --accent: #c2a17a; /* Lunar Bronze — the logo line-work; primary brand / interactive */
+  --accent-text: #d5b993; /* lifted tan — accent used as text/links */
+  --accent-bright: #e7d5b7; /* warm moon-white — hottest emphasis */
   --accent-dim: color-mix(in oklab, var(--accent) 14%, transparent);
   --accent-border: color-mix(in oklab, var(--accent) 40%, transparent);
 
-  /* Deep Space Charcoal void under Soft Black Navy panels — the lunar night. */
-  --bg: #080c0f; /* Deep Space Charcoal */
-  --panel: #0b1117; /* Soft Black Navy — sunk for depth */
+  /* Void Ink Navy void under Soft Black Navy panels — the lunar night. */
+  --bg: #060c13; /* Void Ink Navy — the emblem's ground */
+  --panel: #0d131a; /* Soft Black Navy — sunk for depth */
   --panel-2: color-mix(in oklab, var(--panel), white 6%);
   --panel-3: color-mix(in oklab, var(--panel), white 12%);
-  --well: #05080b; /* inset well, sunk below bg */
-  --border: color-mix(in oklab, #8e9494 16%, transparent); /* faint steel hairline */
-  --border-strong: color-mix(in oklab, #8e9494 30%, transparent);
+  --well: #03060b; /* inset well, sunk below bg */
+  --border: color-mix(in oklab, #80878d 16%, transparent); /* faint steel hairline */
+  --border-strong: color-mix(in oklab, #80878d 30%, transparent);
 
-  --text: #e6e1d8; /* Pale Silver — primary */
-  --text-2: #b7b2a8; /* dimmed silver — secondary */
+  --text: #e8e2d6; /* Pale Sand — primary */
+  --text-2: #b9b2a4; /* dimmed sand — secondary */
   /* Tertiary clears WCAG AA on --panel — soft steel that reads cleanly. */
-  --text-3: #8e9494; /* Soft Steel Gray */
+  --text-3: #8a9098; /* Soft Steel */
   /* Decoration only — glyphs/markers/rules that are seen, never read. */
-  --text-4: #6f665c; /* Muted Taupe Gray */
+  --text-4: #6f665c; /* Muted Taupe */
 
-  /* Muted lunar semantics: faded alien green = the one xeno nod (success),
-     antique brass = caution, weathered iron = danger, steel = info, mauve = tag. */
-  --green: #9bbe4b; /* Faded Alien Green */
-  --amber: #c9a85e;
+  /* Mono lunar semantics, no green anywhere: moon-gold lights up for success,
+     brass = caution, weathered iron = danger, steel = info, mauve = tag. */
+  --green: #d5bc70; /* Moon Gold — success / healthy (the lit highlight) */
+  --amber: #daa576; /* Brass — caution */
   --red: #c16a52;
   --blue: #7fa0b5;
   --purple: #a38fa0;
@@ -81,14 +82,14 @@
   --plate-sheen: linear-gradient(
     115deg,
     transparent 28%,
-    oklch(0.95 0.03 110 / 0.03) 47%,
+    oklch(0.95 0.03 80 / 0.03) 47%,
     transparent 66%
   );
 
   /* Milled hairlines — faint vertical tooling marks for chrome panels. */
   --plate-mill: repeating-linear-gradient(
     90deg,
-    oklch(0.95 0.03 110 / 0.014) 0 1px,
+    oklch(0.95 0.03 80 / 0.014) 0 1px,
     transparent 1px 3px
   );
 
@@ -227,16 +228,16 @@ body.resizing iframe {
      than the oxblood plates. The vertical ramp is the giveaway: dark rim up
      top, a bright specular band a third of the way down, rolling off into
      shadow at the underside. Grain rides on top in soft-light. */
-  background-color: oklch(0.215 0.02 134);
+  background-color: oklch(0.215 0.02 80);
   background-image:
     var(--metal-grain),
     linear-gradient(
       180deg,
-      oklch(0.205 0.018 134) 0%,
-      oklch(0.245 0.018 134) 14%,
-      oklch(0.305 0.016 132) 32%,
-      oklch(0.245 0.019 134) 56%,
-      oklch(0.15 0.022 134) 100%
+      oklch(0.205 0.018 80) 0%,
+      oklch(0.245 0.018 80) 14%,
+      oklch(0.305 0.016 80) 32%,
+      oklch(0.245 0.019 80) 56%,
+      oklch(0.15 0.022 80) 100%
     );
   background-blend-mode: soft-light, normal;
   position: relative;
@@ -244,7 +245,7 @@ body.resizing iframe {
   /* Lit rim at the crown, dark hairline at the underside, and a drop shadow
      so the cylinder sits proud of the columns below. */
   box-shadow:
-    inset 0 1px 0 oklch(0.96 0.05 118 / 0.16),
+    inset 0 1px 0 oklch(0.96 0.05 80 / 0.16),
     inset 0 -1px 0 oklch(0 0 0 / 0.4),
     0 5px 14px -5px oklch(0 0 0 / 0.55);
 }
@@ -342,7 +343,7 @@ body.resizing iframe {
 }
 
 /* Wordmark echoes the emblem's stamped banner: tracked caps, "FORGE"
-   quenched to alien lime as a second tier. */
+   lifted to warm moon-tan as a second tier. */
 .brand-word {
   display: inline-flex;
   align-items: baseline;
@@ -418,7 +419,7 @@ body.resizing iframe {
   background: var(--amber);
 }
 
-/* Autonomous Mode flag in the top bar — dim when off, Forge-green + pulsing when on */
+/* Autonomous Mode flag in the top bar — dim when off, moon-gold + pulsing when on */
 .auto-pill {
   display: flex;
   align-items: center;
@@ -686,7 +687,7 @@ body.resizing iframe {
 }
 
 /* Context-window meter — how full the orchestrator transcript is this session.
-   Crosses green -> amber -> red so the user knows when to compact/reset before a
+   Crosses moon-gold -> brass -> iron-red so the user knows when to compact/reset before a
    long session gets expensive (every turn re-reads the whole prefix). */
 .ctx-meter {
   height: 4px;
@@ -1518,7 +1519,7 @@ body.resizing iframe {
     inset 16px 0 26px -20px oklch(0 0 0 / 0.85),
     inset -16px 0 26px -20px oklch(0 0 0 / 0.85),
     inset 0 15px 22px -18px oklch(0 0 0 / 0.7),
-    inset 0 1px 0 0 oklch(0.95 0.03 112 / 0.05);
+    inset 0 1px 0 0 oklch(0.95 0.03 80 / 0.05);
   position: relative;
   z-index: 0;
   overflow: hidden;
@@ -1876,7 +1877,7 @@ body.resizing iframe {
 .todo.done .tick {
   background: var(--green);
   border-color: var(--green);
-  color: oklch(0.22 0.04 165);
+  color: oklch(0.22 0.04 80);
 }
 
 .todo.running {
@@ -1911,7 +1912,7 @@ body.resizing iframe {
 }
 
 /* Approval card — hot metal on the bench: brass caution stripes
-   across the head, and it cools to verdigris once handled. */
+   across the head, and it cools to moon-gold once handled. */
 .approval {
   border-color: color-mix(in oklab, var(--amber) 38%, transparent);
   background: color-mix(in oklab, var(--amber) 4%, var(--panel));
@@ -1988,13 +1989,13 @@ input.cmd::placeholder {
 }
 
 .btn:hover {
-  border-color: oklch(0.86 0.06 118 / 0.28);
+  border-color: oklch(0.86 0.06 80 / 0.28);
 }
 
 .btn.primary {
   background: var(--accent);
   border-color: transparent;
-  color: oklch(0.16 0.04 140);
+  color: oklch(0.16 0.04 80);
 }
 
 .btn.primary:hover {
@@ -2169,12 +2170,12 @@ input.cmd::placeholder {
      metal, weathered by tarnish, and recessed for depth the same way the
      center well is: dark hugs the walls, a lit lip catches at the top. */
   border-top: 1px solid var(--border-strong);
-  background-color: oklch(0.185 0.012 134);
+  background-color: oklch(0.185 0.012 80);
   background-image:
     var(--tarnish), var(--metal-grain),
     linear-gradient(
       180deg,
-      oklch(0.95 0.02 115 / 0.028) 0%,
+      oklch(0.95 0.02 80 / 0.028) 0%,
       transparent 28%,
       oklch(0 0 0 / 0.12) 100%
     );
@@ -2187,7 +2188,7 @@ input.cmd::placeholder {
     inset 16px 0 26px -20px oklch(0 0 0 / 0.85),
     inset -16px 0 26px -20px oklch(0 0 0 / 0.85),
     inset 0 -14px 20px -16px oklch(0 0 0 / 0.7),
-    inset 0 1px 0 oklch(0.96 0.02 115 / 0.07);
+    inset 0 1px 0 oklch(0.96 0.02 80 / 0.07);
 }
 
 /* Forge-console fittings scribed into the tray, behind the inputs (z-index:
@@ -2887,7 +2888,7 @@ input.cmd::placeholder {
 
 /* External Hermes coworker personas — one base pill whose hue comes from the persona's `color`,
    set inline as `--hermes-pill` by the activity log (see ui/lib/personas/). Distinct from
-   bash-green/task-purple so relayed progress reads as "not one of our Xenomoons". Falls back to
+   the bronze cast/task-purple so relayed progress reads as "not one of our Xenomoons". Falls back to
    teal when a relay carries no color. Adding a persona needs no CSS. */
 .verb-hermes {
   --hermes-pill: oklch(0.78 0.1 195);
@@ -2965,13 +2966,13 @@ input.cmd::placeholder {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.86 0.05 120 / 0.11);
+  background: oklch(0.86 0.05 80 / 0.11);
   border: 3px solid transparent;
   background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: oklch(0.86 0.06 120 / 0.2);
+  background-color: oklch(0.86 0.06 80 / 0.2);
   background-clip: padding-box;
   border: 3px solid transparent;
 }
@@ -2992,7 +2993,7 @@ input.cmd::placeholder {
   }
 }
 
-/* Empty-state banner: shown when the target folder has no Godot project. */
+/* Empty-state banner: shown when the target folder has no project for the active domain. */
 .project-banner {
   margin: 8px 0 10px;
   padding: 10px 12px;
@@ -3073,100 +3074,6 @@ input.cmd::placeholder {
   color: var(--accent-text);
 }
 
-/* Draw-level modal: single-colour grid painter (client/draw-level.js) */
-.draw-level-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.draw-level-palette {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.draw-level-swatch {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
-  font: inherit;
-  font-size: 12px;
-  color: var(--text-2);
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-
-.draw-level-swatch[aria-pressed="true"] {
-  color: var(--text);
-  background: var(--panel-3);
-  border-color: var(--accent-border);
-}
-
-.draw-level-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 2px;
-}
-
-.draw-level-load {
-  font: inherit;
-  font-size: 11px;
-  color: var(--text-2);
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 2px 6px;
-  cursor: pointer;
-}
-
-/* Id stepper for the Item / Room tools — hidden while a non-numbered tool is active */
-.draw-level-number {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--text-2);
-}
-
-.draw-level-num-label {
-  color: var(--text-3);
-}
-
-.draw-level-num-btn {
-  font: inherit;
-  font-size: 13px;
-  line-height: 1;
-  color: var(--text);
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 2px 8px;
-  cursor: pointer;
-}
-
-.draw-level-num-btn:hover {
-  background: var(--panel-3);
-  border-color: var(--accent-border);
-}
-
-.draw-level-num-val {
-  width: 42px;
-  font: inherit;
-  font-size: 12px;
-  text-align: center;
-  color: var(--text);
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 2px 4px;
-}
-
 /* Stop button on the running-agents strip — interrupts the current turn */
 .running-stop {
   margin-left: auto;
@@ -3202,19 +3109,6 @@ input.cmd::placeholder {
 .running-agent .chip-stop:hover {
   color: var(--red);
   border-color: color-mix(in oklab, var(--red) 40%, transparent);
-}
-
-.draw-level-canvas {
-  display: block;
-  width: 560px;
-  max-width: 100%;
-  aspect-ratio: 560 / 384;
-  height: auto;
-  background: var(--well);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  cursor: crosshair;
-  touch-action: none;
 }
 
 .modal .form-label {

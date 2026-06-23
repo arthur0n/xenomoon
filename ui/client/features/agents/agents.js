@@ -23,16 +23,15 @@ let nextIdx = 0;
 // hue everywhere it appears — chat avatar, activity log, running strip, and the
 // task board's owner stamp — so you can track one agent across panels by color
 // alone. Hues are pulled from PALETTE above so the cast stays on-theme; only
-// the casting is opinionated (the Developer works the hot iron, so amber; the
-// Refactor inspects, so cold steel-cyan; …). `main` keeps the lime accent below.
+// the casting is opinionated (the Developer works the hot iron, so amber;
+// Triage diagnoses, so red; …). `main` keeps the lime accent below.
 // Agents outside this map still draw from the rotating PALETTE.
 /** @type {Record<string, string>} */
 const ROLE_COLOR = {
-  "game-designer": "oklch(0.74 0.13 300)", // violet — concept work
-  "level-designer": "oklch(0.74 0.12 255)", // blue — space & blockout
-  "godot-dev": "oklch(0.78 0.13 85)", // amber — hot iron at the forge
-  "godot-refactor": "oklch(0.78 0.1 210)", // cyan — inspection steel
-  "addon-researcher": "oklch(0.76 0.13 150)", // verdigris — the library
+  "senior-dev": "oklch(0.74 0.13 300)", // violet — solution design
+  developer: "oklch(0.78 0.13 85)", // amber — hot iron, the implementer
+  "bug-triage": "oklch(0.71 0.16 25)", // red — triage & diagnosis
+  "skill-researcher": "oklch(0.76 0.13 150)", // verdigris — the library
   "transcript-researcher": "oklch(0.74 0.15 345)", // magenta — raw signal
   hermes: "#3b2aff", // electric indigo — the external Hermes researcher (not a Xenomoon)
 };
@@ -54,12 +53,13 @@ function stripNs(name) {
 /** @type {Record<string, string>} */
 const DISPLAY = {
   main: "Xenomoon Hive",
-  "game-designer": "Xenomoon Designer",
-  "level-designer": "Xenomoon Level Designer",
-  "godot-dev": "Xenomoon Developer",
-  "godot-refactor": "Xenomoon Refactor",
-  "addon-researcher": "Xenomoon Researcher",
+  "bug-triage": "Xenomoon Triage",
+  "senior-dev": "Xenomoon Senior",
+  developer: "Xenomoon Developer",
+  "skill-researcher": "Xenomoon Researcher",
+  "cli-researcher": "Xenomoon CLI Researcher",
   "transcript-researcher": "Xenomoon Transcript",
+  "handoff-summarizer": "Xenomoon Handoff",
   hermes: "Hermes: Researcher",
   "codex-rescue": "Codex: Reviewer",
 };
@@ -70,8 +70,8 @@ export function agentLabel(name) {
   if (DISPLAY[name]) return DISPLAY[name];
   const bare = stripNs(name);
   if (DISPLAY[bare]) return DISPLAY[bare];
-  // Fallback for any agent not in the map: brand first, domain prefix dropped.
-  const role = bare.replace(/^(godot|game|addon|level|transcript)-/, "").replace(/-/g, " ");
+  // Fallback for any agent not in the map: brand first, dashes to spaces.
+  const role = bare.replace(/-/g, " ");
   const titled = role.replace(/\b\w/g, (c) => c.toUpperCase());
   return `Xenomoon ${titled}`;
 }

@@ -2,18 +2,18 @@
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "xenomoon-forge",
   "metadata": {
-    "description": "Xenomoon Forge — agents, skills, tools and hooks for AI-assisted Godot-family game development."
+    "description": "Xenomoon Forge — a domain-neutral, self-improving agent framework you install per project and lock to a domain (React/Node web app, …)."
   },
   "owner": { "name": "Xenomoon Forge" },
   "plugins": [
     {
       "name": "xenomoon",
-      "description": "Agents (design → build → verify pipeline), godot-* skills, verification tools and safety hooks for building Godot / Redot / Blazium games with Claude Code.",
+      "description": "The CORE plugin: meta skills, safety hooks, handoff-summarizer and the researcher learning loop loaded into every project session, alongside the active domain pack.",
       "version": "0.1.7",
       "author": { "name": "Xenomoon Forge" },
       "source": "./plugin",
       "category": "development",
-      "tags": ["godot", "gamedev", "agents", "skills"]
+      "tags": ["agents", "skills", "webapp", "framework"]
     }
   ]
 }

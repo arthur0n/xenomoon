@@ -5,7 +5,7 @@
 # so it holds even under acceptEdits / bypassPermissions and for cheaper models.
 # Git-specific destruction has its own guard (block-destructive-git.sh); this covers
 # the rest. Keep the patterns high-signal so ordinary work (builds, tools/validate.sh,
-# $GODOT --headless …) is never blocked.
+# a long-running build command) is never blocked.
 #
 # Blocks:  rm -rf/-fr (recursive+force), dd of=…, mkfs…, shred, truncate, `> /dev/…`
 # Reads the PreToolUse payload on stdin; emits a deny decision (exit 0) only on a match.

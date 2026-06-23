@@ -1,2 +1,0 @@
-# Marker: when this library is symlinked into a game, Godot skips scanning it.
-# It holds framework knowledge (.md), never engine resources.

@@ -17,7 +17,7 @@ Your **last action** is to **Write your full report** to the handoff path the or
 Report fields — **`gate` FIRST** (the tail can clip; lead with the load-bearing fact):
 
 ```
-gate: PASS | FAIL <layer/why>   — tools/validate.sh (+ godot-verify) output, or why you couldn't run it
+gate: PASS | FAIL <layer/why>   — the project's validate/build/test output, or why you couldn't run it
 files: <path — one-line reason>   (created/modified, repo-relative; one per line)
 done: <what works now, one line>
 caveats: <gotchas the caller must know, or none>

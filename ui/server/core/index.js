@@ -1,6 +1,5 @@
-// POC web UI server for the engine-agnostic agent workflow (Godot or a
-// compatible fork — Redot / Blazium). Bridges a browser (WebSocket) to a Claude
-// Code session (Agent SDK).
+// POC web UI server for the domain-neutral agent workflow. Bridges a browser
+// (WebSocket) to a Claude Code session (Agent SDK).
 //
 // Usage: node ui/server/core/index.js /path/to/your/project
 //
@@ -17,7 +16,6 @@ import {
   CONFIG_FILE,
   LOG_DIR,
   ENGINE_LABEL,
-  RES_ASSET_MOUNT,
   saveHermesConfig,
   hermesPublicConfig,
   getHermesConfig,
@@ -30,9 +28,6 @@ import { maybeStartHermesGateway } from "../integrations/hermes/hermes-gateway.j
 import { projectState } from "./http/project-state.js";
 import { recentSessions, deleteSession } from "../features/transcripts/transcripts.js";
 import { writeTranscript } from "../features/transcripts/transcript-write.js";
-import { writeAsset, writeAssetFromPath } from "../features/assets/asset-write.js";
-import { writeLevel } from "../features/levels/level-write.js";
-import { listLevels } from "../features/levels/level-read.js";
 import { readTasks, reapHandoffs } from "../features/tasks/tasks-store.js";
 import { serveStatic } from "./http/static.js";
 import { reclaimPortIfBusy } from "./http/port.js";
@@ -68,61 +63,6 @@ function handleTranscriptPost(req, res) {
         parseJSON(Buffer.concat(chunks).toString("utf8"))
       );
       result = writeTranscript(body.name ?? "", body.text ?? "");
-    } catch {
-      result = { error: "bad request" };
-    }
-    res.writeHead("error" in result ? 400 : 200, { "content-type": "application/json" });
-    res.end(JSON.stringify(result));
-  });
-}
-
-/** Save an asset the UI supplied (a native-picker base64 data URL, or a local file path
- * the user picked/named) into the chosen place — the game's assets/ (default) or the external
- * shared-asset library (place="shared") — into textures/ or models/ routed by file type;
- * respond with the res://-relative path or an error.
- * @param {import("node:http").IncomingMessage} req @param {import("node:http").ServerResponse} res */
-function handleAssetPost(req, res) {
-  /** @type {Buffer[]} */
-  const chunks = [];
-  req.on("data", (/** @type {Buffer} */ c) => {
-    chunks.push(c);
-  });
-  req.on("end", () => {
-    /** @type {{ path: string } | { error: string }} */
-    let result;
-    try {
-      const body =
-        /** @type {{ name?: string, dataUrl?: string, srcPath?: string, place?: "game"|"shared" }} */ (
-          parseJSON(Buffer.concat(chunks).toString("utf8"))
-        );
-      result = body.srcPath
-        ? writeAssetFromPath(body.name ?? "", body.srcPath, body.place)
-        : writeAsset(body.name ?? "", body.dataUrl ?? "", body.place);
-    } catch {
-      result = { error: "bad request" };
-    }
-    res.writeHead("error" in result ? 400 : 200, { "content-type": "application/json" });
-    res.end(JSON.stringify(result));
-  });
-}
-
-/** Read a drawn blockout grid (JSON) and write it into the game's
- * levels/drawn/current.json; respond with the project-relative path or an error.
- * @param {import("node:http").IncomingMessage} req @param {import("node:http").ServerResponse} res */
-function handleLevelPost(req, res) {
-  /** @type {Buffer[]} */
-  const chunks = [];
-  req.on("data", (/** @type {Buffer} */ c) => {
-    chunks.push(c);
-  });
-  req.on("end", () => {
-    /** @type {{ path: string } | { error: string }} */
-    let result;
-    try {
-      const body = /** @type {{ grid?: unknown }} */ (
-        parseJSON(Buffer.concat(chunks).toString("utf8"))
-      );
-      result = writeLevel(body.grid ?? null);
     } catch {
       result = { error: "bad request" };
     }
@@ -246,14 +186,12 @@ function handleHermesCheckPost(req, res) {
 
 mkdirSync(LOG_DIR, { recursive: true });
 
-// Materialize the framework's per-game files into the game (gitignored): tools copied,
-// library symlinked. The plugin is the single source; the committed game stays pure.
+// Materialize the framework's per-project files (only domains that opt in — gitignored):
+// tools copied, library symlinked. The plugin is the single source; the project stays pure.
 if (PROJECT_FOUND) {
-  const { tools, lib, assets } = prepareGame(PROJECT_DIR);
+  const { tools, lib } = prepareGame(PROJECT_DIR);
   if (tools.copied) console.log(`tools: refreshed ${tools.copied} file(s) in ${PROJECT_DIR}/tools`);
   if (lib.linked && lib.reason === "created") console.log(`library: linked → plugin/library`);
-  if (assets.linked && assets.reason === "created")
-    console.log(`${RES_ASSET_MOUNT}: linked → external asset library`);
   const skillSetup = applySkillSetup();
   if (skillSetup.applied)
     console.log("skills: applied skill-setup overrides from .xenomoon/skill-setup.json");
@@ -283,7 +221,7 @@ function handleSkillSetupPost(req, res) {
   });
 }
 
-/** Save skillOverrides sent by the settings panel into the game's .claude/settings.json.
+/** Save skillOverrides sent by the settings panel into the project's .claude/settings.json.
  * @param {import("node:http").IncomingMessage} req @param {import("node:http").ServerResponse} res */
 function handleSkillsPost(req, res) {
   /** @type {Buffer[]} */
@@ -364,7 +302,6 @@ const GET_ROUTES = {
   "/api/state": projectState,
   "/api/sessions": recentSessions,
   "/api/tasks": readTasks,
-  "/api/levels": listLevels,
   "/api/usage": computeUsage,
   "/api/skills": skillsConfig,
   "/api/agent-skills": listAgentSkills,
@@ -375,8 +312,6 @@ const GET_ROUTES = {
  * @type {Record<string, (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => void>} */
 const POST_ROUTES = {
   "/api/transcript": handleTranscriptPost,
-  "/api/asset": handleAssetPost,
-  "/api/level": handleLevelPost,
   "/api/settings": handleSettingsPost,
   "/api/skills": handleSkillsPost,
   "/api/setup/skills": handleSkillSetupPost,
@@ -426,10 +361,10 @@ function onListening() {
         "",
         `⚠  No ${ENGINE_LABEL} project at: ${PROJECT_DIR}`,
         "   The UI will open but show no sessions or files until it points at one.",
-        "   Point it at your game (the framework only reads it — it stays in place):",
-        "     • once:      npm run setup -- /path/to/your/game",
-        "     • one-off:   npm start /path/to/your/game",
-        `   Current target is set in ${CONFIG_FILE} (or defaults to ../game).`,
+        "   Point it at your project (the framework only reads it — it stays in place):",
+        "     • once:      npm run setup -- /path/to/your/project",
+        "     • one-off:   npm start /path/to/your/project",
+        `   Current target is set in ${CONFIG_FILE} (or defaults to ../project).`,
         "",
       ].join("\n"),
     );

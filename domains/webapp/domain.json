@@ -1,8 +1,8 @@
 {
   "name": "webapp",
   "label": "Web App",
-  "description": "Empty starter package for React + Node.js web apps. Ships NO pre-baked capabilities — it learns the project. Experimental POC; not a committed product surface.",
-  "populated": false,
+  "description": "Head-start package for React + Node.js web apps. Ships a proven, human-gated, issue-driven pipeline (bug-triage → senior-dev → developer) with /feedback /triage /solution /implement /build, then learns each project's conventions on top.",
+  "populated": true,
   "engine": {
     "name": "node",
     "projectFile": "package.json",

@@ -22,13 +22,12 @@ first="$(printf '%s' "$cmd" | awk '{print $1; exit}')"
 rtk=false
 [ "$first" = "rtk" ] && rtk=true
 
-# Exempt = commands with no rtk filter (per agent docs): the Godot binary, project scripts, and
-# trivial shell builtins. These shouldn't count as rtk "violations".
+# Exempt = commands with no rtk filter (per agent docs): project scripts and trivial shell
+# builtins. These shouldn't count as rtk "violations".
 exempt=false
 case "$first" in
   cd|export|source|.|:|true|false|echo) exempt=true ;;
-  *godot|*/godot|"$GODOT"|'$GODOT') exempt=true ;;
-  tools/*|./tools/*|*validate.sh) exempt=true ;;
+  tools/*|./tools/*) exempt=true ;;
 esac
 
 # Command head for context (first 80 chars, single line).

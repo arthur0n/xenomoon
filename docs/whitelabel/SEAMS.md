@@ -45,9 +45,9 @@ it; `new.js` is now the deterministic `--domain` install (writes the lock, wires
 
 ### Deferred seams (still Godot-flavored; degrade harmlessly, route later)
 
-- `ui/server/core/session.js` — loads the single `plugin/` (already domain-routed via
-  `config.js` `FRAMEWORK_PLUGIN_DIR`); a domain may later load a shared core **plus** its own
-  pack (a multi-plugin decision, not a path swap).
+- `ui/server/core/session.js` — **RESOLVED**: now loads the **CORE plugin + the active domain
+  pack** (`CORE_PLUGIN_DIR` + `FRAMEWORK_PLUGIN_DIR`), so every domain gets the basic-install CORE
+  (caveman/quick, safety hooks, researchers) alongside its own capabilities.
 - `ui/server/core/engine-bin.js` / `$GODOT` — engine-binary probing is Godot-specific; a
   non-godot project still gets `$GODOT` set (harmless, unused). Make it domain-aware.
 - `gen-manifest.js` render block + `project.godot` INI parsing — Godot-specific; yields empty
@@ -60,6 +60,27 @@ it; `new.js` is now the deterministic `--domain` install (writes the lock, wires
 
 These are upstream additions we deliberately do NOT carry. Each merge that re-introduces them must
 re-drop them (the merge brings them back because lineage is preserved — that's by design).
+`scripts/strip-godot.mjs` automates the FILE deletions; `npm run check:godot` (part of `validate`)
+asserts the tree is Godot-free. The in-file edits below are merge conflicts you re-apply by hand.
+
+- **The whole Godot payload — STRIPPED (Godot is upstream-only).** xenomoon is domain-neutral;
+  Godot stays the exclusive upstream product and we pull only its domain-agnostic improvements.
+  `scripts/strip-godot.mjs` deletes, on every sync: `domains/godot/`, `starter/`, `plugin/tools/`,
+  the CORE knowledge base `plugin/library/{addons,transcripts,verdicts,sources,tools,research}` +
+  `.gdignore` (the library ships empty; per-domain libraries hold real research),
+  the Godot CORE-plugin agents (`plugin/agents/godot-*` + `game-designer`, `level-designer`,
+  `art-director`, `asset-advisor`, `addon-researcher`, `bug-triage`), the Godot CORE-plugin skills
+  (`plugin/skills/godot-*`, `gd-utilities-*`), the Godot "Hive" `ui/orchestrator.md`, the asset/level
+  UI features (`ui/server/features/{assets,levels}`, `ui/client/features/{assets,level-editor}`), and
+  `ui/server/mcp-tools/asset-tool.js`. It NEVER touches `domains/**` except `domains/godot/` (a domain
+  pack owns its own capabilities — the webapp domain ships its OWN `bug-triage`).
+  **In-file divergences to re-apply on conflict** (the merge re-adds the wiring): remove the
+  asset/level imports + handlers + routes from `ui/server/core/index.js`; the `request_asset` tool
+  from `ui/server/mcp-tools/ui-server.js`, `ASSET_TOOL` from `config.js`, and its entry in
+  `ui-control.js`; `ASSET_LIBRARY` from `session.js` `additionalDirectories`; and the
+  `initGetAssets`/`initDrawLevel` wiring + the Get-assets/Draw-level modals from
+  `ui/client/core/main.js` + `ui/index.html`. Also keep the CORE-plugin load in `session.js`
+  (`CORE_PLUGIN_DIR` alongside `FRAMEWORK_PLUGIN_DIR`).
 
 - **godot-docs (upstream `000f4b7`) — NOT carried.** The opt-in Godot-docs MCP + `godot-docs-evangelist`
   agent is godot-specific and pulls the `@nuskey8/godot-docs-mcp` dependency — no value for our

@@ -41,9 +41,9 @@ import {
   POLICIES,
   PROJECT_DIR,
   FRAMEWORK_PLUGIN_DIR,
+  CORE_PLUGIN_DIR,
   CODEX_PLUGIN_DIR,
   getCodexConfig,
-  ASSET_LIBRARY,
   LOG_DIR,
 } from "./config.js";
 
@@ -418,6 +418,18 @@ function runSession({
         getCodexConfig().enabled && existsSync(CODEX_PLUGIN_DIR)
           ? [{ type: "local", path: CODEX_PLUGIN_DIR, skipMcpDiscovery: true }]
           : [];
+      // CORE plugin (the basic install: meta skills, safety hooks, handoff-summarizer +
+      // researchers) loads for EVERY domain; the active domain's pack layers on top — skipped only
+      // if a domain reuses the core path, so it's never loaded twice.
+      /** @type {import("@anthropic-ai/claude-agent-sdk").SdkPluginConfig[]} */
+      const frameworkPlugins = [{ type: "local", path: CORE_PLUGIN_DIR, skipMcpDiscovery: true }];
+      if (FRAMEWORK_PLUGIN_DIR !== CORE_PLUGIN_DIR) {
+        frameworkPlugins.push({
+          type: "local",
+          path: FRAMEWORK_PLUGIN_DIR,
+          skipMcpDiscovery: true,
+        });
+      }
       const q = query({
         prompt: inbox.iterable,
         options: {
@@ -425,12 +437,12 @@ function runSession({
           // Every agent — orchestrator and all sub-agents, foreground or background — runs in this
           // one working tree. No per-agent git-worktree isolation, BY DESIGN: faster and simpler.
           // The trade-off: concurrent builders editing overlapping/adjacent files can race (one's
-          // half-applied edit fails the other's godot-verify, or clobbers its writes). We accept that
+          // half-applied edit fails the other's verify gate, or clobbers its writes). We accept that
           // residual and mitigate it in the orchestrator's dispatch rules (orchestrator.md →
           // "Concurrent builders share one working tree"), not with isolation here.
           cwd: PROJECT_DIR,
           // The framework's agents/skills/hooks come from the plugin (single source
-          // of truth), not from copies in the game — so the game folder stays pure.
+          // of truth), not from copies in the project — so the project folder stays pure.
           // Plugins load regardless of cwd. noMcp: the UI owns its MCP tools (below),
           // so don't wire the plugin's own MCP. Capabilities namespace as `xenomoon:`.
           // The xenomoon spine is always loaded. The OPTIONAL Codex reviewer is a SECOND local
@@ -441,19 +453,13 @@ function runSession({
           // commands (`/codex:review`) expand from the user's prompt text (typed in the UI),
           // and its `codex:codex-rescue` subagent becomes delegable. skipMcpDiscovery: the UI
           // owns MCP. We do NOT enable its opt-in review-gate Stop hook (on-demand only).
-          plugins: [
-            { type: "local", path: FRAMEWORK_PLUGIN_DIR, skipMcpDiscovery: true },
-            ...codexPlugin,
-          ],
-          // The framework knowledge base (plugin/library) and skill/agent sources live
-          // in the plugin, OUTSIDE the game cwd. Mount the plugin as an extra working
-          // root so researcher agents can read it AND write new knowledge / promoted
-          // capabilities back into the framework (the self-improvement loop). ASSET_LIBRARY
-          // (the external shared-asset dir, mounted in the game as res://x-shared-assets) is
-          // also outside cwd, so mount it too — asset-advisor reads/verifies sourced files
-          // there and godot-dev imports them. All still gated by the permission policy + hooks.
-          additionalDirectories: [FRAMEWORK_PLUGIN_DIR, ASSET_LIBRARY],
-          // Pick up the game's CLAUDE.md + any game-local .claude/ (game-specific
+          plugins: [...frameworkPlugins, ...codexPlugin],
+          // The CORE + active-domain plugins (agents/skills/hooks) and their knowledge base
+          // (library/) live OUTSIDE the project cwd. Mount them as extra working roots so
+          // researcher agents can read them AND write new knowledge / promoted capabilities
+          // back into the framework (the self-improvement loop). Gated by policy + hooks.
+          additionalDirectories: [CORE_PLUGIN_DIR, FRAMEWORK_PLUGIN_DIR],
+          // Pick up the project's CLAUDE.md + any project-local .claude/ (project-specific
           // agents/skills the user hasn't promoted to the framework yet).
           settingSources: ["user", "project", "local"],
           // Bare-name pre-approval for the read/research/exec toolset, so a
@@ -468,8 +474,8 @@ function runSession({
           effort: EFFORT,
           // Skill index = a tight allowlist (resolveSessionSkills): the framework meta floor
           // (caveman, quick) + the built-ins the user enabled via the skill wizard
-          // (skillOverrides). DOMAIN skills are excluded — both the framework `godot-*` skills
-          // and the game's own `.claude/skills` — because the orchestrator only routes; those
+          // (skillOverrides). DOMAIN skills are excluded — both the framework's domain-specific skills
+          // and the project's own `.claude/skills` — because the orchestrator only routes; those
           // belong to the implementer agents. A context filter, not a sandbox: unlisted skills
           // stay on disk and remain loadable by the agents that list them.
           skills: resolveSessionSkills(),
@@ -519,7 +525,7 @@ function runSession({
   })();
 }
 
-/** Execute an approved promotion: move the capability game→plugin and mark it
+/** Execute an approved promotion: move the capability project→plugin and mark it
  * promoted, all server-side, so the user's one click on the board IS the
  * deliberate promotion (no orchestrator round-trip, no raw shell). A skip
  * (already in the plugin, source missing) leaves the entry approved and reports
@@ -536,7 +542,7 @@ function runPromotion(id, send) {
   send({
     type: "status",
     text: result.ok
-      ? `Promoted ${entry.kind.replace(/s$/, "")} "${entry.name}" → framework plugin. Start a new session to load it as xenomoon:${entry.name.replace(/\.md$/, "")}.`
+      ? `Promoted ${entry.kind.replace(/s$/, "")} "${entry.name}" → the active domain pack. Start a new session to load it.`
       : `Couldn't promote "${entry.name}": ${result.msg}`,
   });
 }

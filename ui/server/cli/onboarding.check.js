@@ -1,19 +1,16 @@
-// Automated onboarding test — proves a clean consumer can go from a fresh clone of the
-// framework to a wired, runnable game, with the game staying PURE: the framework loads from
-// the xenomoon plugin, nothing is copied in. Bare-node, no test runner (same style as
-// ui/reducer.check.js):
-//   node ui/server/onboarding.check.js        # Tier 1; Tier 2 runs if Godot is found
+// Automated onboarding test — proves a clean consumer can go from a fresh clone of the framework
+// to a wired project, with the project staying PURE: the framework loads from the domain pack's
+// plugin, nothing is copied in. Bare-node, no test runner (same style as ui/reducer.check.js):
+//   node ui/server/cli/onboarding.check.js
 //
-// Tier 1 (deterministic, no Claude/Godot): export the framework EXACTLY as a forker
-//   receives it — `git archive` of the tracked tree, so node_modules, .xenomoon.json and
-//   logs are excluded and an un-committed file is invisible (the real "did we ship it?"
-//   test). Then run `forge new` into a fresh game and assert the plugin ships, the game is
-//   a valid project with tools materialized + library linked, and NO framework agents/skills
-//   leaked into the game.
-// Tier 2 (guarded): if a Godot binary resolves, headless-boot the scaffolded starter.
+// Exports the framework EXACTLY as a forker receives it — `git archive` of the tracked tree, so
+// node_modules, .xenomoon.json and logs are excluded and an un-committed file is invisible (the
+// real "did we ship it?" test). Then `forge new --domain webapp` into a fresh project (a minimal
+// package.json app) and assert the CORE + webapp packs ship, the fork is Godot-free, the project
+// binds + doctor passes, and NOTHING leaked into the project.
 //
-// NOTE: new/edited framework files must be `git add`-ed before running locally — the archive
-// sees TRACKED files only. CI runs post-commit, so HEAD has everything.
+// NOTE: new/edited framework files must be `git add`-ed before running locally — the archive sees
+// TRACKED files only (git stash create). CI runs post-commit, so HEAD has everything.
 import assert from "node:assert/strict";
 import {
   mkdtempSync,
@@ -23,13 +20,12 @@ import {
   readFileSync,
   readdirSync,
   existsSync,
-  lstatSync,
 } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveEngineBin } from "../core/engine-bin.js";
+import { parseJSON } from "../../lib/json.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
@@ -68,90 +64,96 @@ try {
   writeFileSync(tarFile, tarBuf);
   execFileSync("tar", ["-xf", tarFile, "-C", fw]);
 
-  const pluginAgents = path.join(fw, "plugin", "agents");
-  const pluginSkills = path.join(fw, "plugin", "skills");
-
-  check("framework ships the xenomoon plugin and starter (committed)", () => {
+  check("framework ships the CORE plugin + the webapp domain pack (committed)", () => {
     assert.ok(
       existsSync(path.join(fw, "plugin", ".claude-plugin", "plugin.json")),
-      "plugin/.claude-plugin/plugin.json must ship",
+      "CORE plugin/.claude-plugin/plugin.json must ship",
     );
     assert.ok(
-      countMd(pluginAgents) > 0 && countDirs(pluginSkills) > 0,
-      "plugin/{agents,skills} must ship with content",
+      countMd(path.join(fw, "plugin", "agents")) > 0 &&
+        countDirs(path.join(fw, "plugin", "skills")) > 0,
+      "CORE plugin/{agents,skills} must ship with content",
     );
-    assert.ok(existsSync(path.join(fw, "starter", "project.godot")), "starter/ must ship");
+    assert.ok(
+      existsSync(path.join(fw, "domains", "webapp", "domain.json")) &&
+        existsSync(path.join(fw, "domains", "webapp", "orchestrator.md")) &&
+        existsSync(path.join(fw, "domains", "webapp", "plugin", ".claude-plugin", "plugin.json")),
+      "the webapp domain pack (domain.json + orchestrator.md + plugin) must ship",
+    );
     assert.ok(
       existsSync(path.join(fw, ".claude-plugin", "marketplace.json")),
       "marketplace.json must ship (terminal install)",
     );
   });
 
-  // ---- forge new → a fresh game, then assert it's wired AND pure ----
-  // Domain is now explicit (no privileged default) — this onboarding path tests the godot domain.
-  const game = path.join(work, "game");
+  check("the shipped fork is Godot-free (strip-godot guarantee)", () => {
+    assert.ok(!existsSync(path.join(fw, "domains", "godot")), "domains/godot must NOT ship");
+    assert.ok(!existsSync(path.join(fw, "starter")), "starter/ must NOT ship");
+    assert.ok(
+      !existsSync(path.join(fw, "ui", "orchestrator.md")),
+      "the Godot Hive ui/orchestrator.md must NOT ship",
+    );
+  });
+
+  // ---- forge new --domain webapp → a fresh project (a minimal package.json app) ----
+  // webapp installs IN PLACE and writes nothing into the project (it binds via the framework's
+  // own .xenomoon.json), so the project must stay byte-for-byte its own.
+  const project = path.join(work, "app");
+  mkdirSync(project, { recursive: true });
+  writeFileSync(
+    path.join(project, "package.json"),
+    JSON.stringify(
+      { name: "onboarding-fixture", scripts: { build: "true", test: "true", lint: "true" } },
+      null,
+      2,
+    ) + "\n",
+  );
   execFileSync(
     "node",
-    [path.join(fw, "ui", "server", "cli", "new.js"), game, "--domain", "godot"],
-    {
-      stdio: "pipe",
-    },
+    [path.join(fw, "ui", "server", "cli", "new.js"), project, "--domain", "webapp"],
+    { stdio: "pipe" },
   );
 
-  check("forge new scaffolds a runnable, wired game", () => {
-    assert.ok(existsSync(path.join(game, "project.godot")), "project.godot scaffolded");
-    assert.ok(existsSync(path.join(game, "CLAUDE.md")), "thin CLAUDE.md present");
+  check("forge new binds the project to the webapp domain (framework .xenomoon.json)", () => {
+    const cfg = /** @type {{domain?: string, projectDir?: string}} */ (
+      parseJSON(readFileSync(path.join(fw, ".xenomoon.json"), "utf8"))
+    );
+    assert.equal(cfg.domain, "webapp", "framework .xenomoon.json domain must be webapp");
+    assert.equal(
+      path.resolve(cfg.projectDir ?? ""),
+      path.resolve(project),
+      "framework .xenomoon.json projectDir must point at the project",
+    );
+  });
+
+  check("the project stays PURE — webapp materializes nothing into it", () => {
+    assert.ok(!existsSync(path.join(project, "tools")), "tools/ must NOT be copied in");
+    assert.ok(!existsSync(path.join(project, "library")), "library/ must NOT be linked in");
     assert.ok(
-      existsSync(path.join(game, ".claude", "settings.json")),
-      "game .claude/settings.json present",
+      !existsSync(path.join(project, ".claude", "agents")),
+      ".claude/agents must NOT exist",
     );
     assert.ok(
-      existsSync(path.join(game, "tools", "validate.sh")),
-      "tools/ materialized from the plugin",
+      !existsSync(path.join(project, ".claude", "skills")),
+      ".claude/skills must NOT exist",
+    );
+    assert.ok(
+      !existsSync(path.join(project, ".xenomoon-project.json")),
+      "no project lock written for a non-materialize domain",
+    );
+    assert.ok(
+      existsSync(path.join(project, "package.json")),
+      "the project's own package.json is untouched",
     );
   });
 
-  check("library/ is symlinked to the plugin (single source)", () => {
-    const lib = path.join(game, "library");
-    assert.ok(lstatSync(lib).isSymbolicLink(), "library/ must be a symlink");
-  });
-
-  check("the game stays PURE — no framework agents/skills copied in", () => {
-    assert.ok(!existsSync(path.join(game, ".claude", "agents")), ".claude/agents must NOT exist");
-    assert.ok(!existsSync(path.join(game, ".claude", "skills")), ".claude/skills must NOT exist");
-  });
-
-  check("game gitignores the generated framework paths", () => {
-    const gi = readFileSync(path.join(game, ".gitignore"), "utf8");
-    for (const p of ["/tools/", "/library"]) {
-      assert.ok(gi.includes(p), `.gitignore must ignore ${p}`);
-    }
-  });
-
-  // doctor already ran inside `forge new` (it throws on a hard failure, which would have
-  // failed the new.js call above). Re-run explicitly as a belt-and-suspenders check.
-  check("doctor reports a healthy game", () => {
-    execFileSync("node", [path.join(fw, "ui", "server", "cli", "doctor.js"), game], {
+  // doctor already ran inside `forge new` (it throws on a hard failure, which would have failed the
+  // new.js call above). Re-run explicitly as a belt-and-suspenders check.
+  check("doctor reports a healthy webapp project", () => {
+    execFileSync("node", [path.join(fw, "ui", "server", "cli", "doctor.js"), project], {
       stdio: "pipe",
     });
   });
-
-  // ---- Tier 2: guarded headless Godot boot ----
-  const godot = resolveEngineBin();
-  if (godot) {
-    execFileSync(godot, ["--headless", "--path", game, "--import"], { stdio: "pipe" });
-    const out = execFileSync(godot, ["--headless", "--path", game, "--quit-after", "3"], {
-      stdio: "pipe",
-    }).toString();
-    check("starter boots headless with no engine errors (Tier 2)", () => {
-      const bad = out
-        .split("\n")
-        .filter((l) => /SCRIPT ERROR|Parse Error|ERROR:|Failed to load/.test(l));
-      assert.equal(bad.length, 0, `Godot reported errors:\n${bad.join("\n")}`);
-    });
-  } else {
-    console.log("skip  Tier 2 headless Godot boot — no Godot binary (set GODOT=/path/to/godot)");
-  }
 
   console.log(`\nonboarding: ${passed} checks passed.`);
 } finally {

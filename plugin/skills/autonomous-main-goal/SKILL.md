@@ -17,7 +17,7 @@ A **Main Goal** is a standing objective the user sets (header modal → `.xenomo
 ## Each check cycle (`[Autonomous check #N]`)
 
 1. **Assess** progress vs the goal — what's done, what's next.
-2. **Dispatch the next slice** — route it to the right agent (usually `godot-dev`), exactly as you would route a normal user request. One slice per tick — steady progress, not a re-plan from scratch.
+2. **Dispatch the next slice** — route it to the right agent (the orchestrator dispatches the active domain's builder), exactly as you would route a normal user request. One slice per tick — steady progress, not a re-plan from scratch.
 3. **Record status** — `mcp__ui__autonomous { op: "progress" }` with a one-line status; keep the board current.
 4. **If blocked** — stamp progress noting what the user must decide, and surface it with `mcp__ui__ask`. Don't spin on a blocked slice; move to the next unblocked one if there is one.
 

@@ -55,20 +55,20 @@ const SAVED = (() => {
   }
 })();
 
-/** Where the framework reads the game project from. The framework is
+/** Where the framework reads the bound project from. The framework is
  * independent of the project: it points at this folder in place and never
  * vendors or tracks it. Resolution order (first hit wins):
  *   1. a path argument:        `npm start /path/to/project`
  *   2. the GAME_DIR env var
  *   3. the saved path:         `.xenomoon.json` (set once via `npm run setup`)
- *   4. default sibling:        `../game` (next to the framework folder)
+ *   4. default sibling:        `../project` (next to the framework folder)
  */
 function resolveProjectDir() {
   const argPath = args.find((a) => !a.startsWith("--"));
   if (argPath) return path.resolve(argPath);
   if (process.env.GAME_DIR) return path.resolve(process.env.GAME_DIR);
   if (SAVED.projectDir) return path.resolve(SAVED.projectDir);
-  return path.resolve(FRAMEWORK_DIR, "..", "game");
+  return path.resolve(FRAMEWORK_DIR, "..", "project");
 }
 
 export const PROJECT_DIR = resolveProjectDir();
@@ -84,21 +84,24 @@ export const DOMAIN = resolveActiveDomain(PROJECT_DIR, FRAMEWORK_DIR);
 /** The active domain's capability plugin (agents, skills, tools, hooks) packaged as a local
  * Claude Code plugin — the single source of truth, loaded into every session via the SDK
  * `plugins` option (see session.js) so a project needs no copied capabilities; it stays pure
- * and the plugin provides the framework regardless of cwd. The path comes from the domain pack
- * (`godot` → the top-level `plugin/`); a non-godot domain ships its own under `domains/<name>/`. */
+ * and the plugin provides the framework regardless of cwd. The path comes from the active domain
+ * pack (`domains/<name>/plugin`). It loads ALONGSIDE the CORE plugin (see CORE_PLUGIN_DIR). */
 export const FRAMEWORK_PLUGIN_DIR = path.join(FRAMEWORK_DIR, DOMAIN.plugin);
 
-/** The target engine: Godot or a source-compatible fork (Redot / Blazium). The
- * forks share Godot's project format, scene files, GDScript and CLI, so swapping
- * the binary is the whole switch — see docs/engines.md. Resolution (first hit
- * wins): env (`ENGINE_NAME` / `ENGINE_PROJECT_FILE` / `ENGINE_BIN`) →
- * `.xenomoon.json` `engine` field → the active domain's defaults (Godot for the
- * default `godot` domain).
- *   - `projectFile`: on-disk marker used to detect a project. `project.godot` by
- *     default, which the forks also use, so detection works for them unchanged.
- *   - `bin`: optional engine executable the verify gate runs; when set it is
- *     exported to sessions as `$GODOT` (see session.js). Otherwise the game's
- *     `tools/validate.sh` resolves it from `$GODOT`/PATH. */
+/** The CORE capability plugin — the domain-agnostic "basic install" loaded into EVERY session
+ * regardless of domain: the meta skills (caveman, quick, agent-report, tasks-mcp,
+ * autonomous-main-goal), the safety hooks, handoff-summarizer and the researcher learning loop.
+ * The active domain's pack (FRAMEWORK_PLUGIN_DIR) layers its specifics on top. */
+export const CORE_PLUGIN_DIR = path.join(FRAMEWORK_DIR, "plugin");
+
+/** The active domain's engine/runtime descriptor. Resolution (first hit wins):
+ * env (`ENGINE_NAME` / `ENGINE_PROJECT_FILE` / `ENGINE_BIN`) → `.xenomoon.json`
+ * `engine` field → the active domain's defaults (`domain.json` `engine`).
+ *   - `projectFile`: on-disk marker used to detect a project (e.g. `package.json`
+ *     for the Node/webapp domain).
+ *   - `bin`: optional engine executable a binary-backed domain's verify gate runs;
+ *     when set it is exported to sessions as `$GODOT` (a legacy env name retained for
+ *     the upstream Godot toolchain). A package-script domain (Node) needs none. */
 export const ENGINE = {
   name: process.env.ENGINE_NAME ?? SAVED.engine?.name ?? DOMAIN.engine.name,
   projectFile:
@@ -214,11 +217,6 @@ export const FORM_TOOL = "mcp__ui__form";
 // list (see task-tool.js). Like the form tool it's a UI-control surface, not a
 // real side effect, so it bypasses the permission policy.
 export const TASK_TOOL = "mcp__ui__tasks";
-
-// In-process MCP tool the agent calls to request one art asset (see asset-tool.js).
-// Like the task tool it only files a task-board item (a UI-control surface, no real
-// side effect), so it bypasses the permission policy.
-export const ASSET_TOOL = "mcp__ui__request_asset";
 
 // In-process MCP tool a (typically backgrounded) agent calls to ask the user a
 // question WITHOUT blocking — it files a question onto the board and returns
@@ -385,7 +383,7 @@ export function saveCodexConfig(patch) {
 // backgrounded researchers were denied Read/Bash/WebSearch/WebFetch despite the
 // settings allowlist). Passed as SDK `allowedTools` (see session.js). Deliberately
 // NOT Write/Edit — those are granted to backgrounded sub-agents by the plugin's
-// `allow-game-edits.sh` PreToolUse hook (game/library paths, `.claude/` excluded).
+// `allow-project-edits.sh` PreToolUse hook (project/library paths, `.claude/` excluded).
 // We do NOT use a per-agent `permission-mode: acceptEdits` for this: the CLI drops
 // escalating modes that come from a repo/plugin trust tier (see
 // filterEscalatingDefaultMode), so a plugin agent's acceptEdits is a no-op — which is

@@ -1,5 +1,5 @@
 {
-  "description": "Xenomoon Forge hooks — block destructive git/shell ops before they run, grant sub-agent game/library edits so backgrounded workers aren't auto-denied, re-inject the caveman terse-output rule on every sub-agent tool call so it survives long turns, and log sub-agent rtk-prefix usage (observe-only). (rtk enforcement itself is the user's own global hook, not shipped here — this only measures whether sub-agents follow the instruction.)",
+  "description": "Xenomoon Forge hooks — block destructive git/shell ops before they run, grant sub-agent project/library edits so backgrounded workers aren't auto-denied, re-inject the caveman terse-output rule on every sub-agent tool call so it survives long turns, and log sub-agent rtk-prefix usage (observe-only). (rtk enforcement itself is the user's own global hook, not shipped here — this only measures whether sub-agents follow the instruction.)",
   "hooks": {
     "PreToolUse": [
       {
@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/allow-game-edits.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/allow-project-edits.sh\""
           }
         ]
       },

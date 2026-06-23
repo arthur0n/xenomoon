@@ -1,5 +1,5 @@
 // set_skill tool: assign / unassign a FRAMEWORK skill to an agent's index, when the user asks the
-// hive to recalibrate ("give godot-combat the foliage skill"). It edits the framework registry — the
+// hive to recalibrate ("give the builder the accessibility-audit skill"). It edits the framework registry — the
 // skill's `agents:` audience tag (source of truth) + the agent's frontmatter `skills:` — so the change
 // is real and version-controlled, and it applies on the NEXT session (the SDK loads agent frontmatter
 // at session start). Deliberately NOT in the auto-allow set (unlike promote, which only files a
@@ -13,8 +13,8 @@ export function makeSetSkillTool() {
   return tool(
     "set_skill",
     "Assign or unassign a FRAMEWORK skill to/from an agent's skill index — use ONLY when the user " +
-      "explicitly asks to change which skills an agent has (e.g. 'give godot-combat the foliage " +
-      "skill', 'take screen-effects off godot-visuals'). Edits the framework registry (the skill's " +
+      "explicitly asks to change which skills an agent has (e.g. 'give the builder the accessibility-audit " +
+      "skill', 'take screen-effects off the reviewer'). Edits the framework registry (the skill's " +
       "audience tag + the agent's frontmatter) and applies on the NEXT session — tell the user to " +
       "restart. Do NOT use it to load a skill for yourself (use the Skill tool). Framework agents " +
       "only; the hive's own skills are fixed.",
@@ -22,9 +22,11 @@ export function makeSetSkillTool() {
       agent: z
         .string()
         .describe(
-          "The framework agent to recalibrate, e.g. godot-combat, art-director, asset-advisor.",
+          "The framework agent to recalibrate, e.g. the active domain's builder, art-director, asset-advisor.",
         ),
-      skill: z.string().describe("The framework skill name, e.g. godot-foliage, godot-enemy-ai."),
+      skill: z
+        .string()
+        .describe("The framework skill name, e.g. accessibility-audit, performance-pass."),
       on: z.boolean().describe("true = give the agent this skill; false = take it away."),
       // Internal: the requesting agent, set by the server — do not set it yourself.
       _by: z.string().optional().describe("internal — server-set; ignore"),

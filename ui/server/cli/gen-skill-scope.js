@@ -11,7 +11,7 @@
 // Tag vocabulary (in a skill's `agents: [...]`): bare agent names, plus reserved tokens —
 //   all          → the orchestrator + every agent          (e.g. caveman)
 //   workers      → every agent that manages the board (has the mcp__ui__tasks tool)
-//   builders     → godot-dev, godot-refactor + the domain specialists (the code-writers)
+//   builders     → the active domain's general builder + its specialists (the code-writers)
 //   orchestrator → the main session only (cross-checked against ORCHESTRATOR_FRAMEWORK_SKILLS)
 import { ORCHESTRATOR_FRAMEWORK_SKILLS } from "../features/skills/skill-catalog.js";
 import { ORCH, loadRegistry } from "../features/skills/skill-registry.js";
@@ -77,7 +77,8 @@ for (const [id, have] of actual) {
 //     load). Fix by adding it to skills:, OR — if the skill belongs to another agent and the body is
 //     just cross-referencing it — reword the prose so it doesn't read as a self-claim. (You cannot
 //     simply add a builder-scoped skill to a non-builder here: that trips the D2 audience check above.)
-//   - the skill is NOT on disk and looks godot-/gd- → WARNING (heuristic: may be a game-local skill).
+//   - the skill is NOT on disk and matches the project-local naming heuristic (the `^godot-|^gd-`
+//     regex below) → WARNING (may be a project-local skill in the project's own .claude/skills/).
 for (const [name, a] of agents) {
   const listed = new Set(a.skills);
   for (const ref of bodySkillRefs(a.body)) {
@@ -90,8 +91,8 @@ for (const [name, a] of agents) {
     } else if (/^godot-|^gd-/.test(ref)) {
       warnings.push(
         `agent \`${name}\` body references \`${ref}\` as a skill, but it is not a FRAMEWORK skill ` +
-          `(may be a game-local skill in the game's .claude/skills/ — a framework agent shouldn't ` +
-          `hard-depend on a game-specific skill; and per-agent frontmatter scoping can hide it)`,
+          `(may be a project-local skill in the project's .claude/skills/ — a framework agent shouldn't ` +
+          `hard-depend on a project-specific skill; and per-agent frontmatter scoping can hide it)`,
       );
     }
   }

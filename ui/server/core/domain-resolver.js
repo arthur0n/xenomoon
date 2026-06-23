@@ -29,18 +29,20 @@ const SELF_FRAMEWORK_DIR = path.join(SELF_DIR, "..", "..", "..");
  * @typedef {Object} DomainDescriptor
  * @property {string} name      the domain's id (matches its domains/<name>/ folder)
  * @property {string} label     human label for UI/CLI copy
- * @property {boolean} populated whether the domain ships pre-baked capabilities (godot) or
+ * @property {boolean} populated whether the domain ships pre-baked capabilities (webapp) or
  *           starts empty and learns the project (new domains). Drives whether `doctor`'s
  *           agent/skill/tool checks are hard or informational.
  * @property {{ name: string, projectFile: string, needsBinary: boolean }} engine
  *           on-disk project marker + engine/runtime name; needsBinary = the engine runs through an
- *           external binary the verify gate resolves/exports (Godot family) vs. package scripts (Node)
+ *           external binary the verify gate resolves/exports (a binary-backed engine like the
+ *           upstream Godot product — a deferred seam) vs. package scripts (Node/webapp)
  * @property {{ scenes: string[], scripts: string[], ignore: string[] }} inventory
  *           file extensions the live project inventory scans for, plus directory names to skip
  *           (e.g. node_modules, dist) — dot-dirs are always skipped
  * @property {boolean} materializeIntoProject whether install writes framework working files INTO the
  *           project tree (tools/ library/ x-shared-assets/ .xenomoon/ + a committed lock + .gitignore
- *           rules) — true only for a domain that needs real files at a project path (Godot's res://).
+ *           rules) — true only for a domain that needs real files at a fixed in-project path (the kind
+ *           a binary-backed engine like the upstream Godot product uses; a deferred seam).
  *           Default false: the framework writes nothing into the bound project.
  * @property {string|null} starter starter folder to scaffold (relative to the framework dir),
  *           or null for an install-into-existing domain that never scaffolds
@@ -110,32 +112,35 @@ function normalizeDescriptor(raw, name) {
     name: strOr(raw.name, name),
     label: strOr(raw.label, name.charAt(0).toUpperCase() + name.slice(1)),
     // Empty (learning) domains default to NOT populated; only a domain that ships pre-baked
-    // capabilities (godot) declares populated:true and so stays under doctor's hard checks.
+    // capabilities (webapp) declares populated:true and so stays under doctor's hard checks.
     populated: raw.populated === true,
     engine: {
       name: /** @type {string} */ (engineName),
       projectFile: /** @type {string} */ (projectFile),
-      // Optional: does this engine run via an external binary (Godot family) vs package scripts
-      // (Node)? Default false — a new domain needs no $GODOT-style probe.
+      // Optional: does this engine run via an external binary (a binary-backed engine like the
+      // upstream Godot product — a deferred seam) vs package scripts (Node/webapp)? Default false
+      // — the webapp / Node domain needs no $GODOT-style probe.
       needsBinary: raw.engine?.needsBinary === true,
     },
     inventory: {
       scenes: /** @type {string[]} */ (scenes),
       scripts: /** @type {string[]} */ (scripts),
       // Optional: directory names the inventory scan skips (e.g. node_modules). Defaults to none,
-      // preserving the godot domain's whole-tree scan.
+      // preserving a whole-tree scan (as a binary-backed engine like the upstream Godot product
+      // would want).
       ignore: strArrayOr(ignore),
     },
     // Optional: a domain that only installs into existing projects (e.g. app) declares no starter.
     starter: isNonEmptyString(starter) ? /** @type {string} */ (starter) : null,
     plugin: /** @type {string} */ (plugin),
     // Optional: the code-writer agent ids the `builders` skill-audience token resolves to. Lives in
-    // the domain pack so skill scoping is per-domain, not hardcoded to godot's builders in the spine.
+    // the domain pack so skill scoping is per-domain, not hardcoded to one domain's builders in the spine.
     builders: strArrayOr(builders),
     orchestrator: /** @type {string} */ (orchestrator),
     commands: /** @type {Record<string,string>} */ (commands ?? {}),
     // Optional: write framework working files INTO the project tree? Default false (agnostic) — only
-    // a domain that needs real files at a project path (Godot's res://) opts in with true.
+    // a domain that needs real files at a fixed in-project path (the kind a binary-backed engine like
+    // the upstream Godot product uses; a deferred seam) opts in with true.
     materializeIntoProject: raw.materializeIntoProject === true,
   };
 }

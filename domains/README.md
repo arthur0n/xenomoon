@@ -1,34 +1,38 @@
 # Domain packs
 
-A **domain pack** is what retargets this framework from one kind of work to another
-(Godot games today; Salesforce development next) without forking the spine. The spine
-(`ui/`, `.claude/`) stays domain-agnostic and reads per-domain values from the active
-pack via `ui/server/core/domain-resolver.js`. This whole directory is **additive** —
-upstream owns nothing here, so it never causes a merge conflict on a sync.
+A **domain pack** retargets this framework from one kind of work to another (React/Node web apps
+today; Salesforce, etc. next) without forking the spine. The spine (`ui/`, `.claude/`, the CORE
+`plugin/`) stays domain-agnostic and reads per-domain values from the active pack via
+`ui/server/core/domain-resolver.js`. This whole directory is **additive** — upstream owns nothing
+here, so it never causes a merge conflict on a sync.
+
+Godot is NOT a domain here. It stays the exclusive upstream product (`arthur0n/xenodot-forge`); this
+fork pulls only domain-agnostic improvements, and `scripts/strip-godot.mjs` keeps it Godot-free.
 
 ## Selecting the active domain
 
-First hit wins: `XENOMOON_DOMAIN` env → `.xenomoon.json` `"domain"` key → `godot` (default).
+The project's lock (`.xenomoon-project.json`, written by `forge new --domain <name>`) is
+**authoritative**. With no lock: `XENOMOON_DOMAIN` env → the framework's `.xenomoon.json` `"domain"`
+key. There is **no silent default** — an unbound project fails loudly, so it is never driven as the
+wrong domain.
 
 ## What a pack declares (`domains/<name>/domain.json`)
 
-| Field                                    | Used by                | Meaning                                                     |
-| ---------------------------------------- | ---------------------- | ----------------------------------------------------------- |
-| `engine.name` / `engine.projectFile`     | `config.js` (`ENGINE`) | runtime name + on-disk project marker                       |
-| `inventory.scenes` / `inventory.scripts` | `project-state.js`     | file extensions the live inventory scans                    |
-| `starter`                                | `new.js`               | starter folder to scaffold (relative to the framework root) |
+| Field                                       | Used by                | Meaning                                                          |
+| ------------------------------------------- | ---------------------- | ---------------------------------------------------------------- |
+| `engine.name` / `engine.projectFile`        | `config.js` (`ENGINE`) | runtime name + on-disk project marker                            |
+| `engine.needsBinary`                        | `config.js`            | engine runs via an external binary (false for Node)              |
+| `inventory.scenes` / `.scripts` / `.ignore` | `project-state.js`     | file extensions the live inventory scans, plus dirs to skip      |
+| `plugin`                                    | `session.js`           | the domain's capability plugin (loaded alongside CORE `plugin/`) |
+| `orchestrator`                              | `config.js`            | the routing prompt loaded into the session                       |
+| `commands`                                  | `gen-manifest.js`      | build/verify commands written into the manifest                  |
+| `populated`                                 | `doctor.js`            | ships capabilities (hard checks) vs. learns the project          |
+| `materializeIntoProject`                    | `materialize.js`       | write framework files into the project tree (default false)      |
 
-`domains/godot/` reproduces the framework's original hardcoded values, so it is
-behavior-for-behavior identical to pre-domain-seam. It currently points at the existing
-top-level `plugin/` and `starter/` (the reference Godot pack).
+## Shipped packs
 
-## Not yet routed through the pack (intentionally deferred)
-
-These stay Godot-specific in the spine until the first non-Godot domain needs them
-(then they get added here and logged in `docs/whitelabel/SEAMS.md`):
-
-- **Build/verify commands** (`gen-manifest.js` `commands` block — Godot CLI).
-- **Orchestrator prompt** (`ui/orchestrator.md` — names the Godot agents).
-- **The capability plugin set** (`session.js` loads the single `plugin/`; a domain will
-  likely load a shared core **plus** its own pack).
-- **Inventory field labels** (`scenes`/`scripts` naming in the UI).
+- **`webapp`** — a populated HEAD-START for React + Node apps: an issue-driven, human-gated pipeline
+  (`bug-triage → senior-dev → developer`; the `/feedback /triage /solution /implement /build`
+  commands). The orchestrator then learns the specific project and promotes broadly-useful
+  capabilities back into the pack for the next project.
+- **`app`** — an empty Node learning pack (ships no pre-baked capabilities; learns the project).

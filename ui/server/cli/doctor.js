@@ -71,6 +71,7 @@ prepareGame(PROJECT_DIR);
 
 const pluginAgents = countFiles(path.join(FRAMEWORK_PLUGIN_DIR, "agents"), ".md");
 const pluginSkills = countDirs(path.join(FRAMEWORK_PLUGIN_DIR, "skills"));
+const pluginCommands = countFiles(path.join(FRAMEWORK_PLUGIN_DIR, "commands"), ".md");
 
 /** @type {{ ok: boolean, hard: boolean, label: string }[]} */
 const checks = [
@@ -80,12 +81,12 @@ const checks = [
     label: "xenomoon plugin manifest present",
   },
   {
-    // A populated domain (godot) must ship capabilities; an empty domain starts with none and
-    // learns them per project — so this is only a HARD check when the domain is populated.
-    ok: DOMAIN.populated ? pluginAgents > 0 && pluginSkills > 0 : true,
+    // A populated domain must ship SOME capability (agents / skills / commands); an empty domain
+    // starts with none and learns them per project — so this is HARD only when populated.
+    ok: DOMAIN.populated ? pluginAgents > 0 || pluginSkills > 0 || pluginCommands > 0 : true,
     hard: DOMAIN.populated,
     label: DOMAIN.populated
-      ? `plugin capabilities (${pluginAgents} agents, ${pluginSkills} skills)`
+      ? `plugin capabilities (${pluginAgents} agents, ${pluginSkills} skills, ${pluginCommands} commands)`
       : `${DOMAIN.label} domain starts empty (0 agents, 0 skills) — learns the project`,
   },
   {
@@ -94,13 +95,16 @@ const checks = [
     label: `${ENGINE.projectFile} present (${ENGINE_LABEL} project)`,
   },
   {
-    // godot ships tools/validate.sh (the verify gate), materialized into the project; an empty
-    // domain may have no tools yet, so this is hard only when the domain is populated.
-    ok: DOMAIN.populated ? existsSync(path.join(PROJECT_DIR, "tools", "validate.sh")) : true,
-    hard: DOMAIN.populated,
-    label: DOMAIN.populated
+    // Only a domain that materializes tools INTO the project (Godot's tools/validate.sh verify
+    // gate) has this to check; a domain that verifies via package scripts (Node) materializes
+    // nothing, so it's N/A there. HARD only when the domain writes tools into the project.
+    ok: DOMAIN.materializeIntoProject
+      ? existsSync(path.join(PROJECT_DIR, "tools", "validate.sh"))
+      : true,
+    hard: DOMAIN.materializeIntoProject,
+    label: DOMAIN.materializeIntoProject
       ? "tools/ materialized into the project (gitignored)"
-      : "tools/ — none yet (empty domain)",
+      : `${DOMAIN.label} verifies via package scripts (no materialized tools/)`,
   },
   {
     // Only the Godot family runs an external engine binary; other runtimes (Node) drive their

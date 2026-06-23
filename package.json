@@ -1,7 +1,7 @@
 {
   "name": "xenomoon-forge",
   "version": "0.1.9",
-  "description": "Xenomoon Forge — POC web UI + agent workflow (design -> implement -> verify) you install per project and lock to a domain (Godot reference; Node/web) with Claude Code",
+  "description": "Xenomoon Forge — POC web UI + agent workflow (triage -> solution -> implement -> verify) you install per project and lock to a Node/web app domain; the orchestrator self-improves per project, with Claude Code",
   "type": "module",
   "private": true,
   "scripts": {
@@ -19,6 +19,8 @@
     "badges": "node ui/server/cli/update-badges.js",
     "release": "node ui/server/cli/release-stage.js",
     "rebrand": "node scripts/rebrand.mjs",
+    "strip:godot": "node scripts/strip-godot.mjs",
+    "check:godot": "node scripts/strip-godot.mjs --check",
     "check": "tsc --noEmit",
     "check:structure": "node ui/structure.check.js",
     "check:skills": "node ui/server/cli/gen-skill-scope.js",
@@ -27,7 +29,7 @@
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix --max-warnings 0",
     "format": "prettier --write .",
-    "validate": "npm run check && npm run lint && npm run check:structure && npm run check:skills",
+    "validate": "npm run check && npm run lint && npm run check:structure && npm run check:skills && npm run check:godot",
     "prepare": "husky || true"
   },
   "dependencies": {

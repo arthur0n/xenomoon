@@ -1,34 +1,25 @@
 # Library — warm knowledge (never auto-loaded)
 
-Nothing here loads into an agent's context automatically. These are durable **records** and **source lists** the self-improvement loops consult on demand, and that a human reads to understand past decisions. Hot knowledge (always- or trigger-loaded) lives in `CLAUDE.md` and `.claude/skills/`; this folder is everything worth keeping that should NOT cost tokens on every task.
+Nothing here loads into an agent's context automatically. These are durable **records** and
+**source lists** the self-improvement loops consult on demand, and that a human reads to understand
+past decisions. Hot knowledge (always- or trigger-loaded) lives in the orchestrator +
+`.claude/skills/`; this folder is everything worth keeping that should NOT cost tokens on every task.
+
+This is the **CORE** library and ships **empty**. Upstream's Godot research records are stripped from
+the fork (`scripts/strip-godot.mjs`). Real, per-project research accrues in the **active domain
+pack's** library (`domains/<name>/plugin/library/`, where `$XENOMOON_LIBRARY` points) as the
+orchestrator learns the project; broadly-useful findings promote up alongside the capability.
 
 ## The one convention — role decides home
 
-Every framework artifact is one of four roles. The role decides the home; each home carries its own index, so the next agent can find it without re-researching.
+| The thing is…                                           | Role        | Home                           |
+| ------------------------------------------------------- | ----------- | ------------------------------ |
+| knowledge an agent **loads to learn how**               | skill       | `.claude/skills/<name>/`       |
+| code an agent **runs**                                  | tool        | the domain pack's `tools/`     |
+| a **verdict / definition kept** so we don't re-research | record      | `library/<kind>/<slug>.md`     |
+| **where to fetch** external raw material                | source list | `library/sources/<thing>.md`   |
+| always-relevant **routing / convention**                | —           | the orchestrator / `CLAUDE.md` |
 
-| The thing is…                                           | Role        | Home                           | Index (where the next agent looks)        |
-| ------------------------------------------------------- | ----------- | ------------------------------ | ----------------------------------------- |
-| knowledge an agent **loads to learn how**               | skill       | `.claude/skills/godot-<name>/` | the `## Skills` list in `CLAUDE.md`       |
-| code an agent **runs**                                  | tool        | `tools/<name>`                 | `tools/CAPABILITIES.md`                   |
-| reusable **runtime code** the game preloads             | stdlib      | `tools/lib/<name>.gd`          | `tools/CAPABILITIES.md` (Runtime library) |
-| a **verdict / definition kept** so we don't re-research | record      | `library/<kind>/<slug>.md`     | the folder (+ the UI sidebar)             |
-| **where to fetch** external raw material                | source list | `library/sources/<thing>.md`   | the file itself                           |
-| always-relevant **routing / convention**                | —           | `CLAUDE.md` (one line)         | —                                         |
-
-Decide by what the thing _does_: **run it (headless) → `tools/`; reuse it as a function the game preloads at runtime → `tools/lib/`; load it to learn → `.claude/skills/`; remember a decision → `library/<kind>/`; a fetch-list → `library/sources/`; always-on → `CLAUDE.md`.** The form follows the role — a skill is multi-file so it is a folder; an index is a flat list so it is one file; records are many small docs so they are a folder of them.
-
-## What's in this folder
-
-**Records** — one doc per thing we evaluated; never re-researched once a verdict exists. Foldered by kind:
-
-- `addons/<slug>.md` — addon buy-vs-build verdicts (**addon-researcher**; template in `.claude/agents/addon-researcher.md`). The UI sidebar reads each doc's `**Verdict**` line, so keep that line.
-- `tools/<slug>.md` — CLI tool-definitions: the build spec + registry entry (**cli-researcher**; template in `.claude/agents/cli-researcher.md`). The runnable tool itself lands in `tools/` and registers in `tools/CAPABILITIES.md` — the definition here is the _why/spec_, the tool there is the _what you run_.
-- `transcripts/<slug>.md` — one-page digests of saved video transcripts (**transcript-researcher**; template in `.claude/agents/transcript-researcher.md`). Raws live in the project `transcripts/` drop zone and move to `transcripts/archive/` once harvested.
-
-**Sources** — registries of _where to fetch_ external raw material; never bundled, downloaded at runtime to a per-user cache. The file IS the registry:
-
-- `sources/skill-sources.md` — external skill collections (**skill-researcher**).
-- `sources/asset-sources.md` — free texture/PNG generators (**asset-advisor**).
-- `sources/model-sources.md` — free CC0 / low-poly 3D model sites (**asset-advisor**).
-
-A record is OUR verdict (an output); a source list points OUT to the world (an input). That is why they sit on separate shelves.
+A record is OUR verdict (an output); a source list points OUT to the world (an input) — separate
+shelves. The researcher agents (`skill-researcher`, `cli-researcher`, `transcript-researcher`) write
+their findings here on demand; they never load it automatically.

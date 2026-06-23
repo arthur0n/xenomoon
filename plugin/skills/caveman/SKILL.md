@@ -34,8 +34,8 @@ between tool calls / mid-task status. Inter-tool narration is the biggest leak a
 it is **NOT exempt**. Do not "think out loud" in prose before a tool call — lead with
 the compressed substance or stay silent.
 
-Not: "Godot processed the WAV and rewrote the import file with the real UID and dest path. Now check if my hand-authored loop_mode parameter was preserved or overridden:"
-Yes: "Godot rewrote .import w/ real UID + dest. Check loop_mode survived:"
+Not: "The migration ran and rewrote the schema file with the real column type and a new index. Now check if my hand-authored default value was preserved or overridden:"
+Yes: "Migration rewrote schema w/ real column type + index. Check default survived:"
 
 ## Exception: user interviews (mcp**ui**form)
 

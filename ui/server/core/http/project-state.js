@@ -46,7 +46,7 @@ function firstHeading(file) {
 }
 
 /** Collect agents (name + model) across dirs; earlier dirs win on name clash (plugin first,
- * then the game's own unpromoted agents). @param {string[]} dirs */
+ * then the project's own unpromoted agents). @param {string[]} dirs */
 function collectAgents(dirs) {
   /** @type {Map<string, { name: string, model: string | null }>} */
   const seen = new Map();
@@ -85,7 +85,7 @@ export function projectState() {
   let name = path.basename(dir);
   try {
     const raw = readFileSync(path.join(dir, ENGINE.projectFile), "utf8");
-    // package.json (Node) → "name"; project.godot (Godot INI) → config/name="…".
+    // package.json (Node/webapp) → "name"; the reference engine's INI project file → config/name="…".
     if (ENGINE.projectFile.endsWith(".json")) {
       const pkg = /** @type {{ name?: unknown }} */ (parseJSON(raw));
       if (typeof pkg.name === "string" && pkg.name) name = pkg.name;
@@ -95,13 +95,14 @@ export function projectState() {
     }
   } catch {}
   // Directory names to skip while scanning the project tree (node_modules, dist, …) — keeps a real
-  // Node repo's inventory from drowning in dependency files. Godot declares none (whole-tree scan).
+  // Node/webapp repo's inventory from drowning in dependency files. A binary-backed engine like the
+  // upstream Godot product declares none (whole-tree scan).
   const ignore = new Set(DOMAIN.inventory.ignore);
   return {
     name,
     dir,
-    // false → PROJECT_DIR has no project.godot; the UI shows a setup banner
-    // instead of empty panels (see loadState in project-tree.js).
+    // false → PROJECT_DIR has no engine project file (the domain's marker); the UI shows a setup
+    // banner instead of empty panels (see loadState in project-tree.js).
     found: PROJECT_FOUND,
     designDocs: walk(path.join(dir, "design"), [".md"], [], dir)
       .filter((f) => !f.endsWith("README.md"))
@@ -123,7 +124,7 @@ export function projectState() {
       }),
     scenes: walk(dir, DOMAIN.inventory.scenes, [], dir, ignore),
     scripts: walk(dir, DOMAIN.inventory.scripts, [], dir, ignore),
-    // Capabilities come from the xenomoon plugin (the framework source); a game may also
+    // Capabilities come from the xenomoon plugin (the framework source); a project may also
     // carry its own unpromoted agents/skills in .claude/. Show both, plugin first.
     agents: collectAgents([
       path.join(FRAMEWORK_PLUGIN_DIR, "agents"),

@@ -196,25 +196,23 @@
               <div class="quick-actions">
                 <button
                   class="chip"
-                  data-fill="start the game-designer agent: I want to design a new feature"
+                  data-fill="I hit a bug: <describe it> — turn it into a clean, triage-ready issue"
                 >
-                  new design doc
+                  report a bug
+                </button>
+                <button class="chip" data-fill="/triage the next untriaged issue">
+                  triage issue
                 </button>
                 <button
                   class="chip"
-                  data-fill="start the godot-dev agent to implement the design doc at design/"
+                  data-fill="run the project's build and checks, then report the results"
                 >
-                  start agent dev
-                </button>
-                <button class="chip" data-fill="verify all scenes and report the results">
-                  verify scenes
+                  build &amp; verify
                 </button>
                 <button class="chip" data-fill="what is the current state of the project?">
                   project state
                 </button>
                 <button class="chip" id="transcript-open">+ harvest transcript</button>
-                <button class="chip" id="assets-open">🎨 get assets</button>
-                <button class="chip" id="draw-level-open">🗺 draw level</button>
               </div>
 
               <div class="composer">
@@ -298,89 +296,6 @@
         <div class="modal-actions">
           <button class="btn ghost" id="transcript-cancel">Cancel</button>
           <button class="btn primary" id="transcript-submit">Add &amp; harvest</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-overlay" id="assets-modal" style="display: none">
-      <div class="modal">
-        <div class="modal-head">Get assets</div>
-        <p class="modal-sub">
-          Each request below needs a file — <strong>pick a local file</strong> or
-          <strong>paste its path</strong>, and choose a <strong>Place</strong>. PNGs land in
-          <code>textures/</code>, GLBs in <code>models/</code> — under the game's
-          <code>assets/</code> (default) or the external <code>x-shared-assets/</code> library
-          (free-library example assets kept out of the game tree). Then <strong>godot-dev</strong>
-          imports and wires it. Fill as many as you like — the panel stays open until you close it.
-        </p>
-        <label class="form-label">Needed now</label>
-        <div id="assets-asks"></div>
-        <label class="form-label">Generators</label>
-        <div id="assets-generators"></div>
-        <div class="modal-error" id="assets-error"></div>
-        <div class="modal-actions">
-          <button class="btn ghost" id="assets-close">Close</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-overlay" id="draw-level-modal" style="display: none">
-      <div class="modal">
-        <div class="modal-head">Draw a level</div>
-        <p class="modal-sub">
-          Pick a tool and drag on the grid —
-          <strong>wall · door · window · item · room</strong> (empty stays floor).
-          <strong>Item</strong> and <strong>Room</strong> paint the chosen <strong>id</strong> (same
-          id = same item / one room). Export saves the grid and hands it to the
-          <strong>level-designer</strong>, who asks the level name + scene details, then has
-          <strong>godot-dev</strong> build it.
-        </p>
-        <div class="draw-level-toolbar">
-          <div class="draw-level-palette" id="draw-level-palette"></div>
-          <div
-            class="draw-level-number"
-            id="draw-level-number"
-            title="Active id for the Item / Room tools"
-          >
-            <span class="draw-level-num-label">id</span>
-            <button
-              class="draw-level-num-btn"
-              id="draw-level-num-dec"
-              type="button"
-              aria-label="lower id"
-            >
-              −
-            </button>
-            <input
-              class="draw-level-num-val"
-              id="draw-level-num-val"
-              type="number"
-              min="1"
-              max="99"
-              value="1"
-            />
-            <button
-              class="draw-level-num-btn"
-              id="draw-level-num-inc"
-              type="button"
-              aria-label="raise id"
-            >
-              +
-            </button>
-          </div>
-          <button class="btn ghost" id="draw-level-clear">Clear</button>
-          <select
-            class="draw-level-load"
-            id="draw-level-load"
-            title="Load a saved level onto the canvas"
-          ></select>
-          <span class="muted">24 × 16 · right-click erases</span>
-        </div>
-        <canvas id="draw-level-canvas" class="draw-level-canvas" width="560" height="384"></canvas>
-        <div class="modal-error" id="draw-level-error"></div>
-        <div class="modal-actions">
-          <button class="btn ghost" id="draw-level-close">Close</button>
-          <button class="btn primary" id="draw-level-export">Export level</button>
         </div>
       </div>
     </div>

@@ -2,12 +2,12 @@
 
 > **Status: built and in use.** The POC shipped. This doc is now the as-built record plus the
 > reasoning behind the latest change: Hermes' **self-improvement** (its own skills + memory) is now
-> turned on, while the hard rule — _Hermes never touches the game or this framework_ — is unchanged.
+> turned on, while the hard rule — _Hermes never touches the project or this framework_ — is unchanged.
 >
 > **Goal (unchanged):** let the human-gated Xenomoon **Hive** delegate the heavy investigation half
 > of research to a [Hermes Agent](https://hermes-agent.nousresearch.com/) instance, **without**
-> giving up the human-in-the-loop gate. Hermes investigates; humans (via the `*-researcher` agents)
-> adopt.
+> giving up the human-in-the-loop gate. Hermes investigates; humans (via the `xenomoon:*-researcher`
+> agents) adopt.
 
 ## Decisions that still hold
 
@@ -50,8 +50,9 @@ subsystem was deleted). Hermes' runs API has no webhook; findings are **read** f
   block. No-op (advisory string) when unconfigured.
 - **Setup / probe / gateway:** `ui/server/integrations/hermes/{hermes-setup,hermes-check,
 hermes-gateway}.js`; persona text in `hermes-soul.md` + `ui/lib/hermes-personas.js`.
-- **Researchers that consume findings:** `plugin/agents/{cli,skill,addon}-researcher.md`.
-- **User docs:** `HERMES.md`. **Orchestrator routing:** `ui/orchestrator.md`.
+- **Researchers that consume findings:** `plugin/agents/{cli,skill,transcript}-researcher.md`.
+- **User docs:** `HERMES.md`. **Orchestrator routing:** the active domain's `orchestrator.md`
+  (e.g. `domains/webapp/orchestrator.md`).
 
 ## The self-improvement change (this update)
 
@@ -67,7 +68,7 @@ user correctly noticed "no skills, no self-improvement."
    (writes `platform_toolsets.api_server`). `memory` was already on; adding `skills` is what lets
    Hermes create/load its own skills on our `api_server` runs.
 2. `hermes-tool.js` `buildInstructions()` now **invites** Hermes to grow its own skills/memory _and_
-   restates the guardrail ("you NEVER edit the caller's game or codebase").
+   restates the guardrail ("you NEVER edit the caller's project or codebase").
 3. `hermes-tool.js` `extractProgress()` now surfaces `🧠 Hermes is updating its own skills/memory`
    in the activity feed (via `describeSelfImprovement()`), so the learning is **visible**.
 4. `HERMES.md` gained a "Self-improvement: Hermes' own brain, not your code" section; its stale
@@ -78,7 +79,7 @@ user correctly noticed "no skills, no self-improvement."
 | Sphere            | What                                                                       | Who writes it                                                    |
 | ----------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | **Hermes' brain** | `~/.hermes/skills`, `~/.hermes/MEMORY.md` — its procedural/episodic memory | Hermes, freely                                                   |
-| **Our project**   | the game + this framework                                                  | only a `*-researcher` after the **human** approves; never Hermes |
+| **Our project**   | the bound project + this framework                                         | only a `*-researcher` after the **human** approves; never Hermes |
 
 Hermes physically cannot touch our files because the machine-access toolsets
 (`terminal`/`file`/`code_execution`/`browser`) stay **off** on the `api_server` path. Adoption into
@@ -89,16 +90,17 @@ accepted on purpose**: Hermes investigates and gets smarter at it; humans adopt.
 
 1. Every Hermes dispatch passes the existing tool-approval gate (no silent network call).
 2. The adopt/reject verdict still goes to the human; Hermes never adopts a skill/tool, never writes
-   under `.claude/`, `plugin/`, `tools/`, or the game.
+   under `.claude/`, `plugin/`, `tools/`, or the bound project.
 3. Hermes output is advisory input to a Xenomoon agent, not a final action.
 4. Framework runs unchanged when Hermes is not configured.
 5. **New:** Hermes self-improves only its **own** `~/.hermes` brain; machine-access toolsets stay off
-   so it cannot change the game or framework.
+   so it cannot change the project or framework.
 
 ## Out of scope (still parked)
 
 - `terminal`/`file`/`code_execution`/`browser` on the API path — off by default, always.
-- Routing `godot-dev` / code authoring to Hermes (would bypass `godot-verify` — the moat).
+- Routing the active domain's builder / code authoring to Hermes (would bypass the domain's verify
+  gate — the moat).
 - Auto-importing Hermes' learned skills into `plugin/library` — adoption stays human-gated.
 - `previous_response_id` multi-turn chaining — unneeded: self-improvement already persists
   server-side in `~/.hermes` across one-shot runs.
@@ -109,7 +111,7 @@ accepted on purpose**: Hermes investigates and gets smarter at it; humans adopt.
   `platform_toolsets.api_server: [web, search, memory, skills]`.
 - `npm run hermes:check` → lists `skills` + `memory` as enabled, **not** flagged as machine-access.
 - Real research task → watch the feed for `🧠 Hermes is updating its own skills`; confirm a new
-  `~/.hermes/skills/<name>/SKILL.md` exists and **no** game/framework file was touched by Hermes.
+  `~/.hermes/skills/<name>/SKILL.md` exists and **no** project/framework file was touched by Hermes.
 - Re-run a similar task later → Hermes loads its saved skill (self-improvement across runs).
 
 ## References

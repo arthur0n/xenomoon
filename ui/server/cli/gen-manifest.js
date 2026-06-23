@@ -1,6 +1,6 @@
-// Generate the per-game facts manifest — the deterministic answer to questions agents otherwise
+// Generate the per-project facts manifest — the deterministic answer to questions agents otherwise
 // re-derive on every task: where is the engine binary, what's the render config, how do I
-// build/verify/drive this game, what tools exist. Written into the game tree at
+// build/verify/drive this project, what tools exist. Written into the project tree at
 // .xenomoon/manifest.json (gitignored, like tools/) by prepareGame() — so it regenerates on server
 // startup, `doctor`, and `forge new`, and is exposed to the session as $XENOMOON_MANIFEST.
 //
@@ -56,8 +56,8 @@ function parseProjectGodot(text) {
   return { flat, inputActions };
 }
 
-/** Build the render-config block from parsed project.godot facts — the ground truth the
- * godot-verify skill insists on, so agents stop re-reading [display]/config/features to get it.
+/** Build the render-config block from the parsed engine project-file facts — the ground truth the
+ * verify skill insists on, so agents stop re-reading [display]/config/features to get it.
  * @param {Record<string,string>} flat @returns {RenderConfig} */
 function renderBlock(flat) {
   const features = [...(flat["config/features"] ?? "").matchAll(/"([^"]*)"/g)].map(
@@ -94,7 +94,7 @@ function listTools(toolsDir) {
 }
 
 /** Write <projectDir>/.xenomoon/manifest.json with the deterministic project facts. Cheap (parse
- * one project.godot, list one dir) and safe when project.godot is absent (a fresh starter) — the
+ * one engine project file, list one dir) and safe when that file is absent (a fresh starter) — the
  * engine/commands block is still useful. @param {string} projectDir @returns {Manifest} */
 export function generateManifest(projectDir) {
   const projectFile = path.join(projectDir, ENGINE.projectFile);
@@ -110,15 +110,15 @@ export function generateManifest(projectDir) {
     // How agents find + run the engine — the fact re-derived 600+ times in the session logs.
     engine: {
       name: ENGINE.name,
-      bin: ENGINE.bin, // resolved + persisted by config.js; also exported as $GODOT
+      bin: ENGINE.bin, // resolved + persisted by config.js; also exported as $GODOT (deferred seam)
       version: render.engine_version,
       projectFile: ENGINE.projectFile,
     },
-    // Effective render pipeline — read this instead of re-parsing project.godot's [display].
+    // Effective render pipeline — read this instead of re-parsing the engine project file's [display].
     render,
     // Canonical build/verify/drive commands (the "/run" payload) — declared by the active
-    // domain pack (godot's are the $GODOT verify gate, preset in the session; a new domain
-    // ships its own, possibly none while it's still empty).
+    // domain pack (a binary-backed engine like the upstream Godot product wires its $GODOT verify
+    // gate into the session; the webapp domain ships its own, possibly none while it's still empty).
     commands: DOMAIN.commands,
     input_actions: inputActions,
     layout: {

@@ -34,8 +34,8 @@ export const BUILTIN_SKILLS = [
 
 /** Framework (xenomoon plugin) skills the orchestrator / main session may see. Deliberately tiny:
  * the orchestrator routes, asks, and manages the board via TOOLS — `ui/orchestrator.md` forbids it
- * from loading `godot-*` skills (those are implementers' tools, scoped per-agent via each agent's
- * frontmatter `skills:`). `caveman` = terse thinking (on every agent too); `quick` backs `/quick`.
+ * from loading the domain-specific skills (those are implementers' tools, scoped per-agent via each
+ * agent's frontmatter `skills:`). `caveman` = terse thinking (on every agent too); `quick` backs `/quick`.
  * Always enabled regardless of skillOverrides — turning these off would break routing. This is the
  * `orchestrator`-token audience that gen-skill-scope.js cross-checks against the skill tags.
  * `autonomous-main-goal` is hive-only (the self-drive loop) — a plugin skill tagged `[orchestrator]`.

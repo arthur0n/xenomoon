@@ -9,7 +9,7 @@ import { parseJSON } from "../../lib/json.js";
 import { sessionHistory } from "../features/transcripts/transcripts.js";
 import { buildUiServer } from "../mcp-tools/ui-server.js";
 import { uiControlAllow } from "./ui-control.js";
-import { emitContextUsage, runningChip, emitRunning } from "./stream.js";
+import { runningChip, emitRunning, runWithRetry } from "./stream.js";
 import { readPromotions, decide, markPromoted } from "../features/promotions/promotions-store.js";
 import { promoteOne } from "../features/promotions/promote-run.js";
 import { readAutonomous } from "../features/autonomous/autonomous-store.js";
@@ -92,17 +92,24 @@ function createInbox() {
   /** @type {(() => void) | null} */
   let wake = null;
   let closed = false;
-  const iterable = (async function* () {
+  // Re-iterable over a PERSISTENT queue: each [Symbol.asyncIterator]() mints a fresh
+  // generator, so a 529-retry's second query() gets a live iterator after the SDK called
+  // .return() on the first one at teardown. push/close and the `iterable` property are
+  // unchanged, so every other consumer (check loop, hermesPush, board turns) is untouched.
+  // Only one query() is ever live at a time, so two iterators never race on queue.shift().
+  async function* gen() {
     while (!closed) {
       let next;
       while ((next = queue.shift())) yield next;
+      if (closed) return;
       await new Promise((resolve) => {
         wake = () => {
           resolve(undefined);
         };
       });
     }
-  })();
+  }
+  const iterable = { [Symbol.asyncIterator]: () => gen() };
   return {
     iterable,
     /** @param {SDKUserMessage} msg */
@@ -347,21 +354,16 @@ function settleAllBackground({ bgBoard, runningByTask, send }) {
   }
 }
 
-/** Stream the SDK query's messages to the browser, keeping the autonomous check loop's
- * turn-busy flag in sync (assistant output = mid-turn, `result` = turn done → also refresh
- * the context meter). Extracted from runSession to keep it under the per-function cap.
- * @param {Awaited<ReturnType<typeof query>>} q
- * @param {{ send: (obj: OutMsg) => void, trackDeps: Parameters<typeof trackMessage>[1], busy: { value: boolean } }} deps */
-async function streamQuery(q, { send, trackDeps, busy }) {
-  for await (const message of q) {
-    trackMessage(message, trackDeps);
-    send({ type: "event", message });
-    if (message.type === "assistant") busy.value = true;
-    if (message.type === "result") {
-      busy.value = false;
-      void emitContextUsage(q, send);
-    }
+/** CORE plugin (basic install) loads for EVERY domain; the active domain's pack layers on top —
+ * skipped only if it reuses the core path, so it's never loaded twice.
+ * @returns {import("@anthropic-ai/claude-agent-sdk").SdkPluginConfig[]} */
+function frameworkPluginConfigs() {
+  /** @type {import("@anthropic-ai/claude-agent-sdk").SdkPluginConfig[]} */
+  const plugins = [{ type: "local", path: CORE_PLUGIN_DIR, skipMcpDiscovery: true }];
+  if (FRAMEWORK_PLUGIN_DIR !== CORE_PLUGIN_DIR) {
+    plugins.push({ type: "local", path: FRAMEWORK_PLUGIN_DIR, skipMcpDiscovery: true });
   }
+  return plugins;
 }
 
 /**
@@ -418,100 +420,100 @@ function runSession({
         getCodexConfig().enabled && existsSync(CODEX_PLUGIN_DIR)
           ? [{ type: "local", path: CODEX_PLUGIN_DIR, skipMcpDiscovery: true }]
           : [];
-      // CORE plugin (the basic install: meta skills, safety hooks, handoff-summarizer +
-      // researchers) loads for EVERY domain; the active domain's pack layers on top — skipped only
-      // if a domain reuses the core path, so it's never loaded twice.
-      /** @type {import("@anthropic-ai/claude-agent-sdk").SdkPluginConfig[]} */
-      const frameworkPlugins = [{ type: "local", path: CORE_PLUGIN_DIR, skipMcpDiscovery: true }];
-      if (FRAMEWORK_PLUGIN_DIR !== CORE_PLUGIN_DIR) {
-        frameworkPlugins.push({
-          type: "local",
-          path: FRAMEWORK_PLUGIN_DIR,
-          skipMcpDiscovery: true,
+      const frameworkPlugins = frameworkPluginConfigs();
+      // Wrapped so runWithRetry rebuilds it on each 529-retry attempt, resuming the SAME session.
+      /** @param {string | null} resume */
+      const makeQuery = (resume) =>
+        query({
+          prompt: inbox.iterable,
+          options: {
+            ...(resume ? { resume } : {}),
+            // Every agent — orchestrator and all sub-agents, foreground or background — runs in this
+            // one working tree. No per-agent git-worktree isolation, BY DESIGN: faster and simpler.
+            // The trade-off: concurrent builders editing overlapping/adjacent files can race (one's
+            // half-applied edit fails the other's verify gate, or clobbers its writes). We accept that
+            // residual and mitigate it in the orchestrator's dispatch rules (orchestrator.md →
+            // "Concurrent builders share one working tree"), not with isolation here.
+            cwd: PROJECT_DIR,
+            // The framework's agents/skills/hooks come from the plugin (single source
+            // of truth), not from copies in the project — so the project folder stays pure.
+            // Plugins load regardless of cwd. noMcp: the UI owns its MCP tools (below),
+            // so don't wire the plugin's own MCP. Capabilities namespace as `xenomoon:`.
+            // The xenomoon spine is always loaded. The OPTIONAL Codex reviewer is a SECOND local
+            // plugin (OpenAI's `codex-plugin-cc`, vendored on disk) appended ONLY when the user
+            // enabled it AND it's actually been cloned — so a disabled/absent Codex changes
+            // nothing. Gating is array inclusion: the SDK has no per-plugin enable flag, and
+            // `plugins` only accepts `{ type: "local" }`, which is why we vendor it. Its slash
+            // commands (`/codex:review`) expand from the user's prompt text (typed in the UI),
+            // and its `codex:codex-rescue` subagent becomes delegable. skipMcpDiscovery: the UI
+            // owns MCP. We do NOT enable its opt-in review-gate Stop hook (on-demand only).
+            plugins: [...frameworkPlugins, ...codexPlugin],
+            // The CORE + active-domain plugins (agents/skills/hooks) and their knowledge base
+            // (library/) live OUTSIDE the project cwd. Mount them as extra working roots so
+            // researcher agents can read them AND write new knowledge / promoted capabilities
+            // back into the framework (the self-improvement loop). Gated by policy + hooks.
+            additionalDirectories: [CORE_PLUGIN_DIR, FRAMEWORK_PLUGIN_DIR],
+            // Pick up the project's CLAUDE.md + any project-local .claude/ (project-specific
+            // agents/skills the user hasn't promoted to the framework yet).
+            settingSources: ["user", "project", "local"],
+            // Bare-name pre-approval for the read/research/exec toolset, so a
+            // BACKGROUNDED (headless) sub-agent — which has no approver and so auto-denies
+            // anything not pre-approved — can actually research. Argument-scoped settings
+            // rules (Bash(**), Read(**)) do NOT reach headless sub-agents; only bare names
+            // do (see config.js). Bash stays safe via the destructive-* PreToolUse hooks.
+            allowedTools: AUTO_ALLOW_TOOLS,
+            model: MODEL,
+            // Orchestrator routes more than it reasons; sub-agents override via their
+            // own `effort:` frontmatter while active.
+            effort: EFFORT,
+            // Skill index = a tight allowlist (resolveSessionSkills): the framework meta floor
+            // (caveman, quick) + the built-ins the user enabled via the skill wizard
+            // (skillOverrides). DOMAIN skills are excluded — both the framework's domain-specific skills
+            // and the project's own `.claude/skills` — because the orchestrator only routes; those
+            // belong to the implementer agents. A context filter, not a sandbox: unlisted skills
+            // stay on disk and remain loadable by the agents that list them.
+            skills: resolveSessionSkills(),
+            // Keep Claude Code's tooling behavior, append the orchestrator role.
+            // Hermes and Codex blocks are injected only when those integrations are active,
+            // so the orchestrator's routing instructions match the actual team each session.
+            systemPrompt: {
+              type: "preset",
+              preset: "claude_code",
+              append:
+                ORCHESTRATOR_PROMPT +
+                (getHermesConfig().enabled ? "\n\n" + HERMES_BLOCK : "") +
+                (getCodexConfig().enabled && existsSync(CODEX_PLUGIN_DIR)
+                  ? "\n\n" + CODEX_BLOCK
+                  : ""),
+            },
+            canUseTool,
+            abortController: abort,
+            mcpServers: {
+              ui: buildUiServer({
+                waitFor,
+                formAgentQueue,
+                send,
+                hermesPush: inbox.push,
+                disarm: checkLoop.disarm,
+              }),
+            },
+          },
         });
-      }
-      const q = query({
-        prompt: inbox.iterable,
-        options: {
-          ...(resumeId ? { resume: resumeId } : {}),
-          // Every agent — orchestrator and all sub-agents, foreground or background — runs in this
-          // one working tree. No per-agent git-worktree isolation, BY DESIGN: faster and simpler.
-          // The trade-off: concurrent builders editing overlapping/adjacent files can race (one's
-          // half-applied edit fails the other's verify gate, or clobbers its writes). We accept that
-          // residual and mitigate it in the orchestrator's dispatch rules (orchestrator.md →
-          // "Concurrent builders share one working tree"), not with isolation here.
-          cwd: PROJECT_DIR,
-          // The framework's agents/skills/hooks come from the plugin (single source
-          // of truth), not from copies in the project — so the project folder stays pure.
-          // Plugins load regardless of cwd. noMcp: the UI owns its MCP tools (below),
-          // so don't wire the plugin's own MCP. Capabilities namespace as `xenomoon:`.
-          // The xenomoon spine is always loaded. The OPTIONAL Codex reviewer is a SECOND local
-          // plugin (OpenAI's `codex-plugin-cc`, vendored on disk) appended ONLY when the user
-          // enabled it AND it's actually been cloned — so a disabled/absent Codex changes
-          // nothing. Gating is array inclusion: the SDK has no per-plugin enable flag, and
-          // `plugins` only accepts `{ type: "local" }`, which is why we vendor it. Its slash
-          // commands (`/codex:review`) expand from the user's prompt text (typed in the UI),
-          // and its `codex:codex-rescue` subagent becomes delegable. skipMcpDiscovery: the UI
-          // owns MCP. We do NOT enable its opt-in review-gate Stop hook (on-demand only).
-          plugins: [...frameworkPlugins, ...codexPlugin],
-          // The CORE + active-domain plugins (agents/skills/hooks) and their knowledge base
-          // (library/) live OUTSIDE the project cwd. Mount them as extra working roots so
-          // researcher agents can read them AND write new knowledge / promoted capabilities
-          // back into the framework (the self-improvement loop). Gated by policy + hooks.
-          additionalDirectories: [CORE_PLUGIN_DIR, FRAMEWORK_PLUGIN_DIR],
-          // Pick up the project's CLAUDE.md + any project-local .claude/ (project-specific
-          // agents/skills the user hasn't promoted to the framework yet).
-          settingSources: ["user", "project", "local"],
-          // Bare-name pre-approval for the read/research/exec toolset, so a
-          // BACKGROUNDED (headless) sub-agent — which has no approver and so auto-denies
-          // anything not pre-approved — can actually research. Argument-scoped settings
-          // rules (Bash(**), Read(**)) do NOT reach headless sub-agents; only bare names
-          // do (see config.js). Bash stays safe via the destructive-* PreToolUse hooks.
-          allowedTools: AUTO_ALLOW_TOOLS,
-          model: MODEL,
-          // Orchestrator routes more than it reasons; sub-agents override via their
-          // own `effort:` frontmatter while active.
-          effort: EFFORT,
-          // Skill index = a tight allowlist (resolveSessionSkills): the framework meta floor
-          // (caveman, quick) + the built-ins the user enabled via the skill wizard
-          // (skillOverrides). DOMAIN skills are excluded — both the framework's domain-specific skills
-          // and the project's own `.claude/skills` — because the orchestrator only routes; those
-          // belong to the implementer agents. A context filter, not a sandbox: unlisted skills
-          // stay on disk and remain loadable by the agents that list them.
-          skills: resolveSessionSkills(),
-          // Keep Claude Code's tooling behavior, append the orchestrator role.
-          // Hermes and Codex blocks are injected only when those integrations are active,
-          // so the orchestrator's routing instructions match the actual team each session.
-          systemPrompt: {
-            type: "preset",
-            preset: "claude_code",
-            append:
-              ORCHESTRATOR_PROMPT +
-              (getHermesConfig().enabled ? "\n\n" + HERMES_BLOCK : "") +
-              (getCodexConfig().enabled && existsSync(CODEX_PLUGIN_DIR)
-                ? "\n\n" + CODEX_BLOCK
-                : ""),
-          },
-          canUseTool,
-          abortController: abort,
-          mcpServers: {
-            ui: buildUiServer({
-              waitFor,
-              formAgentQueue,
-              send,
-              hermesPush: inbox.push,
-              disarm: checkLoop.disarm,
-            }),
-          },
-        },
-      });
-      session.query = q;
-      await streamQuery(q, {
-        send,
+      // Stream the session, auto-retrying a sustained API 529 every 5 min (resume, self-
+      // stopping) instead of dying on the first overload. runWithRetry owns session.query
+      // and the "session ended"/"resumed after overload" status; non-overload errors
+      // propagate to the catch below.
+      await runWithRetry({
+        makeQuery,
+        trackMessage,
         trackDeps: { agentByTool, bgSpawns, bgBoard, runningByTask, send },
+        send,
+        abort,
         busy,
+        session,
+        inbox,
+        resumeId,
       });
-      send({ type: "status", text: "session ended" });
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       send({ type: "status", text: `session error: ${reason}` });

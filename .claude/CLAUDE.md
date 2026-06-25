@@ -13,6 +13,12 @@ framework loads into every project session.
 - Prefix shell commands with `rtk` (a PreToolUse hook enforces it; see `.claude/settings.json`).
 - Plain JS + JSDoc only — no `.ts` files. Types are checked via tsconfig `checkJs`.
 - Node/CLI scripts live in `ui/server/` so eslint's node group + tsconfig type-check them.
+- **Identity — never revert to upstream's look.** Keep the bronze "lunar" identity: the ringed-planet
+  emblem (mark/logo/favicon), the Lunar-Bronze / Moon-Gold palette in `ui/agent-ui.css` (the `--green`
+  token is Moon Gold, NOT green), and the brand word "XenomoonForge". NEVER reintroduce upstream's
+  green alien-head emblem or alien-green palette. When a sync touches `ui/index.html`,
+  `ui/agent-ui.css`, or emblem/favicon assets, take upstream's behavior/structure only and resolve
+  every color/identity/branding hunk as OURS. Sync runbook: `docs/whitelabel/SEAMS.md`.
 
 ## Before committing
 

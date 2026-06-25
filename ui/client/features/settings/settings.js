@@ -1,7 +1,9 @@
-// Settings panel — Hermes researcher, Codex code-reviewer, and skill allowlist.
-// Skills: game sessions default to framework-only (skillOverrides "*": "off" in
-// starter/.claude/settings.json). This panel lets the user opt in built-in and
-// workspace skills per game project.
+// Settings + Skills panels — one module, two modals (wired together in initSettings).
+//   Settings modal (⚙): Hermes researcher, Codex code-reviewer.
+//   Skills modal (🧩, its own toolbar button): the session skill allowlist (built-in +
+//   workspace), per-agent skill recalibration, and the first-run skill-setup wizard.
+// Skills default to framework-only (skillOverrides "*": "off" in
+// starter/.claude/settings.json); the Skills panel lets the user opt in built-in/workspace.
 import { $, $input, el } from "../../core/dom.js";
 import { fetchJSON, postJSON } from "../../../lib/json.js";
 
@@ -223,15 +225,9 @@ async function open() {
   $("codex-status").textContent = "";
   $("codex-status").className = "settings-status";
   try {
-    const [state, skillsData, agentSkills] = await Promise.all([
-      /** @type {Promise<import("../../../lib/types.js").ProjectState>} */ (
-        fetchJSON("/api/state")
-      ),
-      /** @type {Promise<{ workspace: { name: string, description: string }[], builtins: string[], overrides: Record<string, string> }>} */ (
-        fetchJSON("/api/skills")
-      ),
-      /** @type {Promise<NonNullable<typeof _agentSkillsData>>} */ (fetchJSON("/api/agent-skills")),
-    ]);
+    const state = /** @type {import("../../../lib/types.js").ProjectState} */ (
+      await fetchJSON("/api/state")
+    );
     const h = state.hermes;
     $input("hermes-enabled").checked = h.enabled;
     $input("hermes-url").value = h.apiUrl ?? "";
@@ -246,6 +242,27 @@ async function open() {
       $("codex-status").textContent =
         "Switched on, but the plugin isn't vendored — run npm run codex:setup.";
     }
+  } catch {
+    $("settings-error").textContent = "Couldn't load settings — is the server up to date?";
+  }
+  $("settings-modal").style.display = "";
+}
+
+function close() {
+  $("settings-modal").style.display = "none";
+}
+
+/** Open the dedicated Skills panel: the session skill allowlist (built-in + workspace) and the
+ * per-agent recalibration list, loaded from /api/skills + /api/agent-skills. */
+async function openSkills() {
+  $("skills-error").textContent = "";
+  try {
+    const [skillsData, agentSkills] = await Promise.all([
+      /** @type {Promise<{ workspace: { name: string, description: string }[], builtins: string[], overrides: Record<string, string> }>} */ (
+        fetchJSON("/api/skills")
+      ),
+      /** @type {Promise<NonNullable<typeof _agentSkillsData>>} */ (fetchJSON("/api/agent-skills")),
+    ]);
     const builtinSkills = skillsData.builtins.map((name) => ({ name, description: "" }));
     renderSkillToggles(
       /** @type {HTMLElement} */ ($("skills-builtins-list")),
@@ -260,13 +277,13 @@ async function open() {
     _agentSkillsData = agentSkills;
     renderAgentSkills(agentSkills);
   } catch {
-    $("settings-error").textContent = "Couldn't load settings — is the server up to date?";
+    $("skills-error").textContent = "Couldn't load skills — is the server up to date?";
   }
-  $("settings-modal").style.display = "";
+  $("skills-modal").style.display = "";
 }
 
-function close() {
-  $("settings-modal").style.display = "none";
+function closeSkills() {
+  $("skills-modal").style.display = "none";
 }
 
 async function save() {
@@ -284,19 +301,37 @@ async function save() {
   };
   if (key) hermes.apiKey = key; // blank → server keeps the saved key
   const codex = { enabled: $input("codex-enabled").checked };
+  try {
+    const res = /** @type {{ error?: string }} */ (
+      await postJSON("/api/settings", { hermes, codex })
+    );
+    if (res.error) {
+      err.textContent = res.error;
+      return;
+    }
+  } catch {
+    err.textContent = "Save failed — restart the UI server (npm start) and try again.";
+    return;
+  }
+  close();
+}
 
-  // Collect skill overrides from both built-in and workspace toggle lists.
+/** Save the Skills panel: the session allowlist (/api/skills) + any per-agent recalibration
+ * changes (/api/agent-skills). Agent-skill edits hit framework files and need a restart. */
+async function saveSkills() {
+  const err = $("skills-error");
+  err.textContent = "";
+  err.style.color = "";
+  // Session allowlist: framework "*" off, then the built-in + workspace opt-ins.
   const overrides = {
     "*": "off",
     ...collectOverrides(/** @type {HTMLElement} */ ($("skills-builtins-list"))),
     ...collectOverrides(/** @type {HTMLElement} */ ($("skills-workspace-list"))),
   };
-
   try {
     const agentChanges = collectAgentSkillChanges();
     /** @type {Promise<{ error?: string }>[]} */
     const posts = [
-      /** @type {Promise<{ error?: string }>} */ (postJSON("/api/settings", { hermes, codex })),
       /** @type {Promise<{ error?: string }>} */ (postJSON("/api/skills", { overrides })),
     ];
     if (agentChanges.length)
@@ -331,7 +366,7 @@ async function save() {
     err.textContent = "Save failed — restart the UI server (npm start) and try again.";
     return;
   }
-  close();
+  closeSkills();
 }
 
 // ── Skill setup wizard ────────────────────────────────────────────────────────
@@ -470,6 +505,18 @@ export function initSettings() {
   });
   $("settings-modal").addEventListener("click", (e) => {
     if (e.target === $("settings-modal")) close();
+  });
+
+  // Skills panel — its own 🧩 toolbar button + modal (built-in/workspace allowlist + agent skills).
+  $("skills-btn").onclick = () => {
+    void openSkills();
+  };
+  $("skills-cancel").onclick = closeSkills;
+  $("skills-save").onclick = () => {
+    void saveSkills();
+  };
+  $("skills-modal").addEventListener("click", (e) => {
+    if (e.target === $("skills-modal")) closeSkills();
   });
 
   // Skill setup wizard

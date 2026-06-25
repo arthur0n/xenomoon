@@ -76,6 +76,20 @@ re-drop them (the merge brings them back because lineage is preserved — that's
     Revisit only if a domain wants its own docs-MCP — then generalize it into a per-domain seam.
 - **FEATURES.md — NOT carried.** Upstream's godot-feature catalog (un-curated for xenomoon); re-curate
   on its own terms if ever wanted.
+- **Identity (bronze "lunar") — never revert to upstream's look.** Keep the ringed-planet emblem
+  (mark/logo/favicon) + Lunar-Bronze / Moon-Gold palette in `ui/agent-ui.css` (the `--green` token is
+  Moon Gold, NOT green) + brand word "XenomoonForge". On any sync touching `ui/index.html`,
+  `ui/agent-ui.css`, or emblem/favicon assets, take upstream's behavior/structure only and resolve
+  every color/identity hunk as OURS. Keep our settings glyph `⚙` (drop upstream's `🎛️`).
+- **Godot skills / agents / library (e.g. `dba53ce`) — NOT carried.** Re-drop on every merge:
+  `plugin/skills/godot-*`, `plugin/agents/{game-designer,level-designer,godot-*}.md`, and ALL of
+  `plugin/library/` EXCEPT our two CORE files (`README.md`, `token-audits/LEDGER.md`). KEEP the
+  domain-agnostic wins separately (e.g. the Hermes learning-nudges in `ui/server/mcp-tools/hermes-tool.js`).
+- **grep-usage-log hook — NOT carried.** Overlaps our `rtk-usage-log.sh`; drop
+  `plugin/hooks/grep-usage-log.sh` + its `Bash|Grep` PreToolUse entry in `plugin/hooks/hooks.json`.
+  KEEP `plugin/hooks/graphify-update.sh` (the opt-in graphify auto-refresh) and the `graphify` skill.
+- **UI port stays `3117`.** Upstream defaults to `8338`; re-apply `3117` in `ui/server/core/config.js`
+  - `ui/smoke-test.js` on every sync. Our `start_server`/`stop_server` (`.xm-run/`) stay OURS.
 
 ## Rebrand rename map (applied by `scripts/rebrand.mjs`, case-preserving)
 

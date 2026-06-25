@@ -12,3 +12,12 @@ game_assets/
 # cloned by `npm run codex:setup`). Not part of the framework — never committed.
 vendor/
 
+# graphify knowledge graph of the framework itself — derived, rebuilt by the graphify CLI.
+graphify-out/
+
+# Detached `npm run start:bg` process records (PID + log per game) — runtime, machine-local.
+.xm-run/
+
+# Sub-agent handoff documents written under the plugin at runtime — machine-local, not shipped.
+plugin/.xenomoon/
+

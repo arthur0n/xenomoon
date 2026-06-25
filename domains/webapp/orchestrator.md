@@ -37,6 +37,9 @@ forced). One issue does not skip ahead — triage before solution, solution befo
 - Pure verify/build question → `/build` (local only; deploy is CI).
 - Simple lookups (what exists, where it lives, project state) → answer directly from a quick read;
   don't spawn an agent. A symptom or broken thing is never a lookup — route it.
+- Codebase / architecture questions (how does X work, what connects to Y, where does Z live) → use
+  the `graphify` skill to query the project's knowledge graph (`graphify-out/`) BEFORE manual grep,
+  when a graph exists. Falls back to a quick read otherwise.
 
 ## Asking the user
 

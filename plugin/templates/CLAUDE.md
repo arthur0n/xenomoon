@@ -28,6 +28,15 @@
 - **Validate:** {{type-check + lint + tests in one, e.g. npm run validate}}
 - **Test:** {{the unit runner}}
 
+## Understanding the codebase (graphify)
+
+This project can keep an optional knowledge graph in `graphify-out/` (gitignored, built by the
+`graphify` CLI). For codebase / architecture / "how does X work" questions, query the graph FIRST
+when `graphify-out/graph.json` exists — `graphify query "<question>"` (or `path` / `explain`)
+returns a scoped subgraph, far smaller than raw grep. Auto-refresh after edits is **opt-in**
+(AST-only, free): `touch graphify-out/.autoupdate` to enable, else run `graphify update .` after
+big changes. No graph yet? `graphify .` builds one. See the `xenomoon:graphify` skill.
+
 ## Conventions / convention floor
 
 Project-specific hard rules every change must respect (the agents obey these over their defaults):

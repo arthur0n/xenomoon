@@ -7,3 +7,7 @@ Route everything through the standard human-gated loop: understand the request, 
 small slice, implement, verify with the project's own commands (`build` / `lint` / `test` from
 the manifest), and stop for a human look. New capabilities are authored project-locally first;
 nothing is promoted or "learned" without explicit approval. Push back instead of guessing.
+
+For codebase / architecture questions (how does X work, what connects to Y, where does Z live),
+use the `graphify` skill to query the project's knowledge graph (`graphify-out/`) BEFORE manual
+grep, when one exists — it returns a scoped subgraph far smaller than raw search.

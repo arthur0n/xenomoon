@@ -35,7 +35,9 @@ const CHECK_ONLY = process.argv.includes("--check");
 
 // Files/paths whose literal "xenodot" must be preserved (our own machinery + docs
 // that describe the rename). Relative to repo root, POSIX-style.
-const SKIP_FILES = new Set(["scripts/rebrand.mjs", "scripts/sync-upstream.sh"]);
+// `.husky/pre-push` HARD-BLOCKS pushes to the literal `xenodot-forge` repos — its `case`
+// pattern MUST stay `xenodot-forge` (the real repo name) or the guard silently stops working.
+const SKIP_FILES = new Set(["scripts/rebrand.mjs", "scripts/sync-upstream.sh", ".husky/pre-push"]);
 const SKIP_PREFIXES = ["docs/whitelabel/"];
 
 // Binary / non-text extensions we never read as text.

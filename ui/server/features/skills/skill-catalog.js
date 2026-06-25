@@ -27,7 +27,6 @@ export const BUILTIN_SKILLS = [
   "schedule",
   "security-review",
   "simplify",
-  "update-config",
   "verify",
   "write-a-skill",
 ];
@@ -39,8 +38,25 @@ export const BUILTIN_SKILLS = [
  * Always enabled regardless of skillOverrides — turning these off would break routing. This is the
  * `orchestrator`-token audience that gen-skill-scope.js cross-checks against the skill tags.
  * `autonomous-main-goal` is hive-only (the self-drive loop) — a plugin skill tagged `[orchestrator]`.
+ * `graphify` lets the orchestrator query the game's knowledge graph (graphify-out/) for codebase /
+ * architecture questions before manual grep — a thin plugin wrapper over the `graphify` CLI.
  * @type {string[]} */
-export const ORCHESTRATOR_FRAMEWORK_SKILLS = ["caveman", "quick", "autonomous-main-goal"];
+export const ORCHESTRATOR_FRAMEWORK_SKILLS = [
+  "caveman",
+  "quick",
+  "autonomous-main-goal",
+  "graphify",
+];
+
+/** Claude Code BUILT-IN skills the orchestrator must ALWAYS have, regardless of skillOverrides —
+ * the user can't toggle these off, and they're never offered to sub-agents (which get only their
+ * own frontmatter `skills:`). Kept SEPARATE from ORCHESTRATOR_FRAMEWORK_SKILLS because these are
+ * builtins, NOT plugin skills on disk, so gen-skill-scope.js must not cross-check them; they're
+ * also intentionally absent from BUILTIN_SKILLS so they never render as a toggleable candidate.
+ * resolveSessionSkills folds them into the orchestrator floor. `update-config`: the hive owns
+ * harness configuration (settings.json hooks/permissions/env), so config authoring is hive-only.
+ * @type {string[]} */
+export const REQUIRED_ORCHESTRATOR_BUILTINS = ["update-config"];
 
 /** Parse the first `name:` and `description:` values from YAML frontmatter.
  * @param {string} text @returns {{ name: string, description: string } | null} */

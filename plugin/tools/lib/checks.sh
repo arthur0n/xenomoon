@@ -223,6 +223,49 @@ check_typed_export_nodepath() {
 	_xeno_pass typed_export_nodepath
 }
 
+# The "third data-driven half" (godot-data-driven-composition): an @export authored + read but
+# never ASSIGNED on the live node in the shipped .tscn is a dead feature behind a green gate.
+# The game declares its wiring contract in design/export-wiring.tsv — one
+# "<scene.tscn> <NodePath> <field>" per line ("#" comments allowed); no/empty file = SKIP
+# (a fresh game has no contract yet, same convention as the bot fleet).
+check_export_assigned() {
+	local wiring="design/export-wiring.tsv" lines scene s np f fails=0 count=0
+	[ -f "$wiring" ] || {
+		_xeno_pass "export-assigned (no $wiring)"
+		return 0
+	}
+	lines=$(grep -vE '^[[:space:]]*(#|$)' "$wiring")
+	[ -z "$lines" ] && {
+		_xeno_pass "export-assigned (empty $wiring)"
+		return 0
+	}
+	# A malformed row would silently drop a contract entry — fail loudly instead.
+	while read -r s np f; do
+		if [ -z "$np" ] || [ -z "$f" ]; then
+			echo "  $wiring: malformed line (need '<scene> <NodePath> <field>'): $s $np $f"
+			_xeno_fail "export-assigned — malformed wiring line"
+			return 1
+		fi
+	done <<<"$lines"
+	# One checker run per scene, with all its (NodePath, field) pairs.
+	for scene in $(echo "$lines" | awk '{print $1}' | sort -u); do
+		local args=""
+		while read -r s np f; do
+			[ "$s" = "$scene" ] && args="$args $np $f"
+		done <<<"$lines"
+		count=$((count + 1))
+		# shellcheck disable=SC2086 # args is a flat NodePath/field pair list, split intended
+		if ! "$GODOT" --headless --path . --script tools/check_scene_export_assigned.gd -- "$scene" $args; then
+			fails=$((fails + 1))
+		fi
+	done
+	[ "$fails" -gt 0 ] && {
+		_xeno_fail "export-assigned — $fails scene(s) with unwired exports"
+		return 1
+	}
+	_xeno_pass "export-assigned ($count scene(s))"
+}
+
 # Per-scene headless error capture (godot-verify layer 2b) — loads every .tscn and fails on any
 # non-benign engine ERROR / name-clash line. Standalone tools/smoke_scene_errors.sh is a thin
 # wrapper over this.
@@ -280,6 +323,7 @@ check_smoke() {
 #   play_*.gd  — the evaluator's adversarial playthroughs (run by playgrade)
 run_gd_bots() {
 	local prefix="$1" label="${2:-$1}" bot count=0 fail_count=0 status
+	local _bots_glob="${XENO_BOTS_GLOB:-}"
 	# No nullglob/shopt: with no match the loop runs once with the literal glob, which `-e`
 	# rejects — so a game with zero bots SKIPs (works under any bash, no shell-option state).
 	# Run EVERY bot: one failure records a fail but must not abort the rest (a single failing
@@ -287,6 +331,14 @@ run_gd_bots() {
 	# the loop under `set -e`.
 	for bot in tools/"${prefix}"_*.gd; do
 		[ -e "$bot" ] || continue
+		if [ -n "$_bots_glob" ]; then
+			local base
+			base="$(basename "$bot")"
+			case "$base" in
+			$_bots_glob) ;;
+			*) continue ;;
+			esac
+		fi
 		count=$((count + 1))
 		"$GODOT" --headless --path . --script "$bot"
 		status=$?

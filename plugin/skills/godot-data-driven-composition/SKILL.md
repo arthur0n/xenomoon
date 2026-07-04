@@ -84,7 +84,9 @@ composition decentralized.
 prop)` check). An `@export` that is authored and read but never assigned in the `.tscn` is a dead
   feature behind a green gate — and a smoke that INJECTS the resource itself proves the seam, not
   that production wires it, so it must be a SEPARATE check that reads the real scene without
-  injecting.
+  injecting. **Enroll the pair on the gate floor**: add a `<scene.tscn> <NodePath> <field>` line to
+  `design/export-wiring.tsv` — `validate.sh` (`check_export_assigned`) runs every enrolled pair on
+  each build; no file = SKIP.
 
 ## Error → Fix
 

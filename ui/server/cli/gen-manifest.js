@@ -148,7 +148,15 @@ export function generateManifest(projectDir) {
 // CLI: `node ui/server/cli/gen-manifest.js [projectDir]`
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { PROJECT_DIR } = await import("../core/config.js");
-  const target = process.argv[2] ? path.resolve(process.argv[2]) : PROJECT_DIR;
+  const arg = process.argv[2];
+  // A flag-shaped arg must never resolve to a target dir (`--help` became a real dir once).
+  if (arg?.startsWith("-")) {
+    console.error(
+      `gen-manifest: ${arg} is not a project path. Usage: node ui/server/cli/gen-manifest.js [projectDir]`,
+    );
+    process.exit(1);
+  }
+  const target = arg ? path.resolve(arg) : PROJECT_DIR;
   const m = generateManifest(target);
   console.log(
     `gen-manifest: ${target}/.xenodot/manifest.json — engine ${m.engine.name} ${m.engine.version ?? "?"} ` +

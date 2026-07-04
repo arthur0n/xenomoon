@@ -16,9 +16,14 @@ const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
 
 const argv = process.argv.slice(2);
-const target = path.resolve(
-  argv.find((a) => !a.startsWith("--")) ?? path.join(FRAMEWORK_DIR, "..", "game"),
-);
+// This command takes no flags — a stray `--help`/`--project` must fail loudly, not silently
+// scaffold the default sibling path (or, resolved raw, a literal `--help/` dir).
+const flagArg = argv.find((a) => a.startsWith("-"));
+if (flagArg) {
+  console.error(`new: ${flagArg} is not a project path. Usage: npm run new -- ../mygame`);
+  process.exit(1);
+}
+const target = path.resolve(argv[0] ?? path.join(FRAMEWORK_DIR, "..", "game"));
 
 /** Run a child step, inheriting stdio so its output streams through. @param {string[]} args */
 const node = (...args) => execFileSync("node", args, { stdio: "inherit" });

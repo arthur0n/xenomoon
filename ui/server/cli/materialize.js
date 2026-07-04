@@ -156,7 +156,15 @@ export function prepareGame(projectDir) {
 // CLI: `node ui/server/cli/materialize.js [projectDir]`
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { PROJECT_DIR } = await import("../core/config.js");
-  const target = process.argv[2] ? path.resolve(process.argv[2]) : PROJECT_DIR;
+  const arg = process.argv[2];
+  // A flag-shaped arg must never resolve to a scaffold target (`--help` became a real dir once).
+  if (arg?.startsWith("-")) {
+    console.error(
+      `materialize: ${arg} is not a project path. Usage: npm run materialize -- <path>`,
+    );
+    process.exit(1);
+  }
+  const target = arg ? path.resolve(arg) : PROJECT_DIR;
   const { tools, lib, assets } = prepareGame(target);
   console.log(
     `materialize: ${target} — tools copied ${tools.copied}/${tools.copied + tools.fresh}, library ${lib.reason}, ${RES_ASSET_MOUNT} ${assets.reason}.`,

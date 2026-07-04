@@ -1,5 +1,7 @@
 # Xenodot Forge
 
+<p align="center"><img src="assets/full_logo.png" alt="Xenodot Forge" width="340"></p>
+
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Godot-family 4.x](https://img.shields.io/badge/Godot--family-4.x-blue.svg)
 ![Skills: 47](https://img.shields.io/badge/Skills-47-purple.svg)
@@ -12,7 +14,7 @@ An experiment in building games on **Godot and its compatible forks (Redot, Blaz
 
 Most frameworks hand you a fixed toolbox. This one is designed to be **broken, rebuilt, and replaced by you**.
 
-The agents self-improve from your experience, every bug, every awkward pattern, every moment where the pipeline slowed you down instead of helping is signal. The `bug-triage`, `skill-researcher`, and `godot-refactor` agents exist specifically to close that loop: find the friction, trace the root cause, update the skills, rewrite the rules. The framework you end up with is not the one you started with.
+The agents self-improve from your experience: every bug, every awkward pattern, every moment where the pipeline slowed you down instead of helping is signal. The `bug-triage`, `skill-researcher`, and `godot-refactor` agents exist specifically to close that loop: find the friction, trace the root cause, update the skills, rewrite the rules. The framework you end up with is not the one you started with.
 
 The tools are here. The shape of the framework is yours to decide.
 
@@ -21,6 +23,8 @@ The tools are here. The shape of the framework is yours to decide.
 ✅ [Foundation POC](https://github.com/arthur0n/xenodot-forge/blob/main/docs/roadmap/first_game.md) is complete and retired.
 
 ✅ [FPS POC](https://github.com/arthur0n/xenodot-forge/blob/main/docs/roadmap/fps_poc.md) Part 1 completed.
+
+<p align="center"><img src="assets/fps_poc.png" alt="FPS POC — first-person shooter proof of concept" width="480"></p>
 
 ## Progress
 
@@ -110,7 +114,7 @@ reviewer) are separate runtimes, each with its own provider and billing.
 - **Hermes and Codex are off by default**; the framework runs fully on the Hive alone.
 - You **can** point the Hive at the Anthropic API (or a compatible endpoint) via env vars instead of the subscription login. I don't — a subscription beats an API key for heavy use; API keys are better for ad-hoc requests.
 
-> **Disclaimer (maintainer's setup):** I run on paid AI subscriptions across providers (~$150/mo, a company expense) because I work across several projects, so the flat fee pays off. That is **not required** — the framework runs on Pro, on pay-per-token API, or with the optional rails off entirely. If you want a cheaper setup, open an issue and I'll help you wire one.
+> **Disclaimer (maintainer's setup):** I run on paid AI subscriptions across providers (~$150/mo) because I work across several projects, so the flat fee pays off. That is **not required** — the framework runs on Pro, on pay-per-token API, or with the optional rails off entirely. If you want a cheaper setup, open an issue and I'll help you wire one.
 
 ## Quickstart
 
@@ -246,6 +250,15 @@ npm run setup -- /path/to/your/game
 - **Verification is mandatory.** Godot exits 0 on script parse errors and silently drops unknown `.tscn` properties. `tools/verify_scene.gd` exists because bugs that should have been caught shipped "verified" without it.
 - **You stay the designer.** The framework keeps the loop fast and honest, it does not replace your judgement on what game to build.
 
+## For reviewers: a 10-minute reading tour
+
+If you're here to judge the agentic engineering, read these four things in order:
+
+1. [`ui/orchestrator.md`](ui/orchestrator.md) — the Hive's system prompt: routing rules with named anti-patterns, judge≠fixer, the bounded regrade loop.
+2. [`ui/server/core/session.js`](ui/server/core/session.js) — the layered permission gate (`makeCanUseTool`) and how the Agent SDK session is wired (plugin, in-process MCP tools, reconnect/detach).
+3. [`plugin/tools/validate.sh`](plugin/tools/validate.sh) + [`plugin/tools/playgrade.sh`](plugin/tools/playgrade.sh) — builder floor and evaluator rubric sourcing one shared check library, so the generator and the judge can't drift apart.
+4. [`docs/process/self-improvement.md`](docs/process/self-improvement.md) — the human-gated audit loop: three ways findings enter the ledger, zero ways they auto-apply.
+
 ## Not a competitor, a conductor
 
 This framework isn't trying to beat Claude Code, [Hermes](https://hermes-agent.org/), or any model provider. It's built to **use them under the hood, with you still holding the wheel.** The bet isn't "our agent vs theirs", it's "the right tools composed behind one honest, human-gated loop."
@@ -310,15 +323,15 @@ This project doesn't exist in a vacuum. These people and projects shaped how it 
 
 **[Matt Pocock](https://github.com/mattpocock/skills/)**, the idea that skills should be _procedures_, not references. One canonical path, observable outcomes, no ambiguity about what "done" means.
 
-**[Eduardo Schildt](https://www.youtube.com/@eduardoschildt)** - Game designer and artist who loves making games and sharing what I learn through game dev tutorials.
+**[Eduardo Schildt](https://www.youtube.com/@eduardoschildt)**, game designer and artist who loves making games and shares what he learns through game dev tutorials.
 
 - [Donation page](https://ko-fi.com/eduardoschildt)
 - [Demo Projects](https://pixelagegames.itch.io/)
 
 **[Brackeys](https://www.youtube.com/@Brackeys)**, Top-quality game development tutorials on everything from Unity, Godot and programming to game design. A reminder that clarity and enthusiasm aren't mutually exclusive.
 
-- [Donation Page](paypal.com/donate/?hosted_button_id=VCMM2PLRRX8GU)
-- [Discord](discord.gg/brackeys)
+- [Donation Page](https://www.paypal.com/donate/?hosted_button_id=VCMM2PLRRX8GU)
+- [Discord](https://discord.gg/brackeys)
 - [Games](https://brackeysgames.itch.io/)
 
 **[Jan Mesarč, GodotPrompter](https://github.com/jame581/GodotPrompter)**, the most complete Godot × Claude Code library out there: ~48 skills covering 2D, 3D, UI, audio, multiplayer, C#, optimization and more, plus 9 specialized agents. Parts of this project's plugin scaffolding are adapted from it (MIT, with thanks). If you want broad Godot coverage for Claude Code today, use GodotPrompter, it's excellent.

@@ -4,9 +4,6 @@ Rules for working **on the framework itself** (the Node/TS web UI and tooling un
 `ui/`). The game's own rules live in the game project, not here — see `plugin/`, the
 **xenodot** Claude Code plugin the framework loads into every game session.
 
-> Scaffold — expand with your own conventions. The essentials below match what the repo
-> already enforces.
-
 ## Always
 
 - Prefix shell commands with `rtk` (a PreToolUse hook enforces it; see `.claude/settings.json`).

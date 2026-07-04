@@ -4,6 +4,12 @@
   "description": "Xenodot Forge — POC web UI + agent workflow (design -> implement -> verify) for building Godot-family (Godot / Redot / Blazium) games with Claude Code",
   "type": "module",
   "private": true,
+  "license": "MIT",
+  "author": "Arthur Nunes (https://github.com/arthur0n)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arthur0n/xenodot-forge.git"
+  },
   "scripts": {
     "setup": "node ui/server/cli/setup.js",
     "hermes": "node ui/server/cli/setup.js",

@@ -24,6 +24,7 @@ Decide by what the thing _does_: **run it (headless) → `tools/`; reuse it as a
 - `addons/<slug>.md` — addon buy-vs-build verdicts (**addon-researcher**; template in `.claude/agents/addon-researcher.md`). The UI sidebar reads each doc's `**Verdict**` line, so keep that line.
 - `tools/<slug>.md` — CLI tool-definitions: the build spec + registry entry (**cli-researcher**; template in `.claude/agents/cli-researcher.md`). The runnable tool itself lands in `tools/` and registers in `tools/CAPABILITIES.md` — the definition here is the _why/spec_, the tool there is the _what you run_.
 - `transcripts/<slug>.md` — one-page digests of saved video transcripts (**transcript-researcher**; template in `.claude/agents/transcript-researcher.md`). Raws live in the project `transcripts/` drop zone and move to `transcripts/archive/` once harvested.
+  **Known POC gap** (tracked in the audit ledger as `D2-transcript-contamination`): several existing digests still reference the reference game's concrete classes/paths even though this library ships to every game. New digests must stay engine-generic; the game-coupled ones are slated for relocation game-local.
 
 **Sources** — registries of _where to fetch_ external raw material; never bundled, downloaded at runtime to a per-user cache. The file IS the registry:
 

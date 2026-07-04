@@ -24,7 +24,7 @@ PackedScene composition). BT addon NOT adopted. Convention "NO behaviour trees" 
    CAPABILITY COMPOSITION, not CONTROL-FLOW decomposition. Composable behaviour-node
    components solve it without touching FSM control flow. BTs earn their keep
    (O(1) subtree swaps, reactive preemption) only when 3+ traits mutually interrupt each
-   other mid-action. Current 3-archetype / flat-flag setup is well below that threshold.
+   other mid-action. A small flat-flag archetype set is well below that threshold.
 
 ---
 

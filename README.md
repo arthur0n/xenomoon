@@ -79,6 +79,38 @@ ui/         Web UI (Node), run sessions from a browser.
             Live event feed so you see what's happening.
 ```
 
+### How it fits together
+
+```mermaid
+flowchart LR
+  subgraph Browser["browser — ui/client"]
+    UI["chat · activity · task board<br/>approval cards · FleetView"]
+  end
+  subgraph Server["Node server — ui/server"]
+    WS["WebSocket + HTTP<br/>core/index.js"]
+    SES["core/session.js<br/>permission gate · 529 retry<br/>detach / reattach"]
+    MCP["in-process MCP tools<br/>form · ask · tasks · promote"]
+  end
+  subgraph SDK["Claude Agent SDK session"]
+    HIVE["Hive orchestrator<br/>ui/orchestrator.md — routes, never implements"]
+    SUBS["sub-agents: designer · builders<br/>playtester · researchers"]
+  end
+  PLUGIN["xenodot plugin (plugin/)<br/>agents · skills · hooks · tools · library"]
+  GATES["deterministic gates<br/>validate.sh floor · playgrade.sh rubric<br/>(one shared checks lib)"]
+  GAME["your Godot game<br/>(its own repo — read in place)"]
+  HERMES["Hermes — optional researcher"]
+  CODEX["Codex — optional reviewer"]
+
+  UI <--> WS --> SES --> HIVE
+  SES --- MCP
+  HIVE --> SUBS
+  PLUGIN -. "loaded via SDK plugins option" .-> HIVE
+  SUBS -- "build / play" --> GAME
+  SUBS -- "must pass" --> GATES --> GAME
+  HERMES -.-> HIVE
+  CODEX -.-> HIVE
+```
+
 **The framework is independent of your game, it contains no game folder.** It
 _points at_ your Godot project wherever it lives (by default a sibling folder named
 `game/`), reads it in place, and never tracks it. Your project stays in its own git

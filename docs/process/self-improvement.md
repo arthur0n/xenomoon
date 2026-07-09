@@ -1,5 +1,14 @@
 # Self-improvement — the forge-local command loop
 
+> **Divergence — this loop is NOT present in this fork.** The `/framework-audit`,
+> `/framework-feedback`, and `/framework-audit-fix` commands, the `.claude/framework-audits/` ledger,
+> `gen-ledger.js`, the `framework-nobrainer-fixer` agent, and `/apply-nobrainers` were dropped as
+> payload in the v0.2.1 sync (`f602297`); the forge-local `/harvest-sessions` add-on was retired with
+> them (it wrote to the absent ledger). The apparatus lives upstream in `xenodot-forge` and reaches
+> this fork only via `/sync-upstream`. This doc describes that upstream loop; re-homing it is the
+> deferred divergence tracked in [`docs/whitelabel/SEAMS.md`](../whitelabel/SEAMS.md). Only
+> `/token-audit` (which writes its own live `.claude/token-audits/LEDGER.md`) runs locally today.
+
 The **agent** self-improvement loop (`bug-triage`, `skill-researcher`, `godot-refactor` closing the
 friction→root-cause→skill-update loop) is the one `README.md` sells to users. This doc maps the other
 half: the **command** loop the framework maintainer runs _on the framework itself_ — a set of
@@ -42,7 +51,6 @@ Only `open`/`later` rows + `skip` tombstones persist.
 | --------------------------- | ------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `/framework-audit`          | command | append | Cold scan of agents/skills/orchestrator/commands across 10 dimensions (D1–D10); records findings, proposes fixes, critiques itself.        |
 | `/framework-feedback`       | command | append | Distils **this conversation** into one/few findings.                                                                                       |
-| `/harvest-sessions`         | command | append | Mines `logs/session-*.ndjson` for recurring friction — the automated sibling of `/framework-feedback`.                                     |
 | `/apply-nobrainers`         | skill   | apply  | Applies bucket-3 no-brainers one-by-one via the Sonnet `framework-nobrainer-fixer` agent; verifies + prunes each; stages one human commit. |
 | `framework-nobrainer-fixer` | agent   | apply  | Applies exactly ONE bucket-3 finding by id; refuses anything needing judgement (escalates to `/framework-audit-fix`).                      |
 | `/framework-audit-fix`      | command | apply  | Applies the exact ids the human passes (any bucket judged `fix-now`), verifies the gate green, removes the applied rows.                   |

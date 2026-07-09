@@ -40,7 +40,7 @@ Only `open`/`later` rows + `skip` tombstones persist.
 
 | Command / agent             | Kind    | Role   | Ledger interaction                                                                                                                         |
 | --------------------------- | ------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/framework-audit`          | command | append | Cold scan of agents/skills/orchestrator/commands across 9 dimensions (D1–D9); records findings, proposes fixes, critiques itself.          |
+| `/framework-audit`          | command | append | Cold scan of agents/skills/orchestrator/commands across 10 dimensions (D1–D10); records findings, proposes fixes, critiques itself.        |
 | `/framework-feedback`       | command | append | Distils **this conversation** into one/few findings.                                                                                       |
 | `/harvest-sessions`         | command | append | Mines `logs/session-*.ndjson` for recurring friction — the automated sibling of `/framework-feedback`.                                     |
 | `/apply-nobrainers`         | skill   | apply  | Applies bucket-3 no-brainers one-by-one via the Sonnet `framework-nobrainer-fixer` agent; verifies + prunes each; stages one human commit. |

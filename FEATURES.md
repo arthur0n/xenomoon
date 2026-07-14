@@ -30,15 +30,15 @@ product: nothing is reported "done" without passing real engine checks.
   reconciles it against the server's authoritative running set, so a missed
   lifecycle event self-heals on the next snapshot (no stale cards).
 - **Handoff-by-file** — a builder writes its full report to
-  `.xenodot/handoffs/<slug>.md`; `handoff-summarizer` distills it to a ≤5-line
-  digest the orchestrator acts on (long reports never truncate away).
+  `.xenodot/handoffs/<slug>.md` (`gate` first); the orchestrator reads that file
+  directly, so long reports never truncate away.
 - **Persistent task board** — `.xenodot/tasks.json`, survives sessions and resume.
 - **Concurrent-build hygiene** — every agent shares one working tree (no
   per-agent worktree isolation, by design: faster, simpler). The orchestrator
   partitions scope to disjoint file sets, re-verifies a transient gate fail
   during a concurrent build, and accepts the residual race rather than chase it.
 
-## Agents (20)
+## Agents (19)
 
 Framework agents, namespaced `xenodot:<name>`. Grouped by role:
 
@@ -60,8 +60,7 @@ Framework agents, namespaced `xenodot:<name>`. Grouped by role:
   `godot-docs-evangelist` (authoritative API verification; needs the docs MCP).
 - **Evaluation & support** — `godot-playtester` (the embodied evaluator: plays
   the build via adversarial bots + the playgrade grader, never fixes it),
-  `bug-triage` (root-cause + what the framework should learn),
-  `handoff-summarizer` (the ≤5-line builder-report digest).
+  `bug-triage` (root-cause + what the framework should learn).
 
 ## Skills (50)
 

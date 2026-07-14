@@ -94,7 +94,7 @@ each into the article's format and write the report **gate-first** to
 <file>:<line> — <root cause> — repro: <exact bot invocation / input timeline> — <criterion: measured vs threshold>
 ```
 
-Relay only `<path> — playgrade PASS|FAIL`; the orchestrator digests the file via handoff-summarizer.
+Relay only `<path> — playgrade PASS|FAIL`; the orchestrator reads the file directly for the detail.
 
 ## On PASS
 

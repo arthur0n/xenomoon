@@ -2,18 +2,18 @@
 name: agent-report
 agents: [builders, godot-playtester]
 domain: universal
-description: The agent→orchestrator handoff protocol. A backgrounded worker's relayed result string truncates on long, tool-heavy turns, so the handoff is an artifact, not a string — the worker Writes its full report to a file, and a cheap summarizer distills it. Load this whenever a task asks you to hand off a structured report to another agent, or when you are the agent distilling one. Any agent doing background work that must be handed off uses it — not only builders. Defines both sides of the contract.
+description: The agent→orchestrator handoff protocol. A backgrounded worker's relayed result string truncates on long, tool-heavy turns, so the handoff is an artifact, not a string — the worker Writes its full report to a file, and the orchestrator reads that file directly. Load this whenever a task asks you to hand off a structured report to another agent. Any agent doing background work that must be handed off uses it — not only builders. Defines the report contract the writer follows.
 ---
 
 # Handoff Report
 
-A long background worker's relayed `result` gets clipped (the tail is lost) — so **the handoff is a FILE, not your result string**. Write the report to disk; the orchestrator reads a tiny summary of it, never your raw result.
+A long background worker's relayed `result` gets clipped (the tail is lost) — so **the handoff is a FILE, not your result string**. Write the report to disk; the orchestrator reads that file, never your raw result.
 
 `caveman` applies to everything here — the report file and the summary. Compress; fragments OK; identifiers/paths/errors exact.
 
 ## Producer — you built something, now hand off
 
-Your **last action** is to **Write your full report** to the handoff path the orchestrator gave you (e.g. `.xenodot/handoffs/<slug>.md`). If no path was given, use `.xenodot/handoffs/<task-slug>.md` (kebab from the task) and name it in your result. Write it **last** so it reflects final state — if you die before writing, the summarizer reports the absence (graceful, not silent-wrong).
+Your **last action** is to **Write your full report** to the handoff path the orchestrator gave you (e.g. `.xenodot/handoffs/<slug>.md`). If no path was given, use `.xenodot/handoffs/<task-slug>.md` (kebab from the task) and name it in your result. Write it **last** so it reflects final state — if you die before writing, the file is simply absent and the orchestrator falls back to git/grep verification (graceful, not silent-wrong).
 
 Report fields — **`gate` FIRST** (the tail can clip; lead with the load-bearing fact):
 
@@ -40,22 +40,10 @@ The harness gets more deterministic over time only if fuzzy work becomes tools. 
 
 Hold a real bar: a genuinely one-off judgment is `friction:` (or nothing), not a tool. Draft a tool when the same ambiguity will recur.
 
-## Consumer — you are the handoff-summarizer
+## Consumer — the orchestrator reads this file directly
 
-Read the one file at the path given. Emit a **≤5-line caveman digest and nothing else** — distill, never echo:
+There is no summarizer hop: the orchestrator reads the handoff file itself. That's why `gate` leads and the report stays caveman-tight — a short, `gate`-first file is cheaper to Read than to hand to another agent to compress.
 
-```
-gate: PASS | FAIL <one-line why>
-files: <count> — <names>
-done: <one line>
-open: <unfinished/blocked, one line> | none
-tool-gap: <name + draft path> | omit when none
-```
-
-`gate` leads. Surface `tool-gap` only when the report has one (so the orchestrator can file the promotion); otherwise omit the line to stay within the ≤5-line budget. No extra fields or commentary — full detail stays in the file; the orchestrator reads it directly if it needs more.
-
-**Missing/empty file → say so, never invent:**
-
-```
-NO HANDOFF at <path> — worker likely died before writing. Verify via git/grep + redispatch.
-```
+- **Gate only?** The worker's relayed result already carries `<path> — gate PASS|FAIL`; act on that without opening the file.
+- **Need the detail** (files/open/caveats/`tool-gap`) → **Read the file**; it's already distilled, so read as much as you need. A `tool-gap:` line means file the promotion (`mcp__ui__promote`).
+- **File missing** (worker died before writing) → don't trust a void: verify via git/grep + redispatch.

@@ -41,10 +41,15 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
 1. **Resolve ids.** Parse `LEDGER.json` (a real JSON parse of `findings[]`). For each requested id
    find its object. If an id is missing (already resolved — applied findings are REMOVED, not kept),
    or is `later`/`skip` (not `fix-now`), **skip it and say so** — do not apply.
-2. **Itemize before acting.** List each id → the exact files it will change and the operation.
-   For destructive or wide-blast ops (a rename touching many refs, a file move/delete, an agent
-   split), confirm with `mcp__ui__ask` first if available; otherwise state it plainly and
-   proceed (the human already agreed by passing the id).
+2. **Itemize before acting — and CHECK THE FINDING'S PREMISES against the repo.** List each id → the
+   exact files it will change and the operation. A ledger row is an OLD claim about the repo, not a
+   verified fact: before you edit, read the code it names and confirm each premise still holds (the
+   surface exists, the data source it counts actually accumulates, the named consumer really carries
+   that data). If a premise is FALSE, stop and re-decide with the human (`mcp__ui__ask`) — apply the
+   corrected fix, and say in the report that you deviated from the recorded one and why. For
+   destructive or wide-blast ops (a rename touching many refs, a file move/delete, an agent split),
+   confirm with `mcp__ui__ask` first if available; otherwise state it plainly and proceed (the human
+   already agreed by passing the id).
 3. **Apply per dimension playbook:**
    - **D1 (over-cap agent → split):** create the new specialized agent(s) `plugin/agents/<new>.md`
      (copy a sibling's frontmatter shape + the caveman trigger line), move the sub-domain skills by
@@ -90,8 +95,11 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
      `check_*` function in `plugin/tools/lib/checks.sh`.
    - **D9 (harness simplification):** **strip** — apply the agreed removal/down-tier (edit the
      agent's `model:` / skill list, trim the scaffold, drop the dead gate step), then confirm the
-     sample task + full verify still pass (a strip must not regress the gate); or **harden** — draft
-     the named `check_*` / tool into `plugin/tools/lib/checks.sh` (or `plugin/tools/`).
+     sample task + full verify still pass (a strip must not regress the gate). Deleting a WHOLE agent
+     bites two spots no gate guards: hand-fix FEATURES.md `## Agents (N)` count (validate skips
+     badges — a stale count ships silent) and correct any SIBLING ledger row that counts/names it
+     (e.g. `13 sonnet + 2 haiku`). Or **harden** — draft the named `check_*` / tool into
+     `plugin/tools/lib/checks.sh` (or `plugin/tools/`).
    - **D10 (split the fused altitude):** carve the GENERIC baseline out of the domain-named
      capability into its own neutral capability (skill/agent), then rewrite BOTH the original payload
      and any sibling to LAYER their domain deltas on top of the neutral base — never let one aesthetic
@@ -137,6 +145,8 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
 
 - **Apply only the ids the human passed** — resolve each against `findings[]`; if an id is
   `later`/`skip` or already removed (resolved), skip it and say so. Never invent findings.
+- **Verify the finding's premises in the repo before you edit** — read the code the row names; a
+  premise that no longer holds means stop, re-decide with the human, and report the deviation.
 - **Keep the gate green — that YOUR change didn't break** — `rtk npm run validate` must pass for
   what your edits touched; fix or revert the offending id rather than leaving it red. But first
   confirm the red is yours (check vs pre-edit state / scope to the finding's files) — never

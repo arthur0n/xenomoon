@@ -145,4 +145,11 @@ test("computeUsage: aggregates the logs dir into a consistent shape", () => {
     [...totals].sort((a, b) => b - a),
   ); // sorted descending
   for (const s of u.topSessions) assert.ok(s.total > 0); // zero-usage sessions are dropped
+  // Per-accepted-change ratios: defined only when a promotion has been accepted, and
+  // null (never Infinity/NaN) when none has — an unmeasured ratio, not an infinite one.
+  assert.ok(u.accepted >= 0);
+  for (const r of [u.costPerAcceptedChange, u.tokensPerAcceptedChange]) {
+    if (u.accepted === 0) assert.equal(r, null);
+    else assert.ok(typeof r === "number" && Number.isFinite(r) && r >= 0);
+  }
 });

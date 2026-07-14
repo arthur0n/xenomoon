@@ -33,6 +33,14 @@
   },
   "findings": [
     {
+      "id": "D5-builder-restates-verify-rest",
+      "dim": "D5",
+      "bucket": 5,
+      "verdict": "later",
+      "status": "open",
+      "finding": "REMAINDER of D5-builder-restates-verify (applied to godot-dev + godot-visuals 2026-07-15): the other 5 builder agents still carry the near-verbatim godot-verify 'interactive/on-screen acceptance' paragraph (2026-07-08 D8 note: all 7 builders' Verification blocks are copies), and godot-visuals:38 still restates godot-verify's tscn-comment rule. Same fix as the applied precedent — replace the long restatement with a pointer to the preloaded godot-verify (Layer 5 + interactive-acceptance section), keep the inline validate.sh gate one-liner. Enumerate the 7 builders via the BUILDERS alias in ui/server/features/skills/skill-registry.js; keep godot-dev's Transform3D clause (distinct mesh/collider-drift rationale, not a pure copy)."
+    },
+    {
       "id": "D2-engine-version",
       "dim": "D2",
       "bucket": 5,
@@ -55,22 +63,6 @@
       "verdict": "later",
       "status": "open",
       "finding": "INVESTIGATE: human repeatedly reports the game's display/window settings reverting ('back to super small, mode !=2'). Determine whether a framework step (materialize/doctor/setup, or the screenshot/verify GD scripts) rewrites project.godot display settings instead of preserving the game's; if game-local config, drop."
-    },
-    {
-      "id": "D5-builder-restates-verify",
-      "dim": "D5",
-      "bucket": 5,
-      "verdict": "later",
-      "status": "open",
-      "finding": "builder agents restate preloaded godot-verify content — the interactive-acceptance paragraph (godot-dev:73, godot-visuals:45 ≈ godot-verify:143-154) + tscn/Transform3D rules (godot-dev:61-63 ≈ godot-verify:160-163). COLLIDES with 'verify gates stay inline (reliability>DRY)' → the gate one-liner stays inline regardless; human decides if the LONG paragraph + technical-rule copies are redundant. (2026-07-08 D8 pass confirmed: the 7 builders' Verification blocks are near-verbatim copies of godot-verify's rationale.)"
-    },
-    {
-      "id": "D9-audit-fanout",
-      "dim": "D9",
-      "bucket": 5,
-      "verdict": "later",
-      "status": "open",
-      "finding": "STRIP (hypothesised, NEEDS measurement): framework-audit.md 'one sub-agent per dimension (parallel)' is context-anxiety scaffolding; under 1M-context Opus the plugin/ spine fits one context. Run /framework-audit all single-agent vs fan-out once, compare findings+tokens, keep fan-out only if it still wins. (2026-07-08 fan-out data point: 8 agents, ~355k subagent tokens, D1/D4 came back clean — the single-agent arm still unmeasured.)"
     },
     {
       "id": "D9-greybox-eye-harden",

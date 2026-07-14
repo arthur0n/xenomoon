@@ -61,8 +61,7 @@ If the task centers on a pattern NO godot-\* skill covers (a new system: e.g. st
 - Signal names: `snake_case`, past-tense verbs (`died`, `item_collected`)
 - Scene files: one root node per scene, name matches filename
 - **Level geometry — default a STATIC hand-authored greybox** (`godot-greybox`): real nodes written into the saved `levels/<name>.tscn`, editable in the editor — NOT generated at runtime, NOT a build script. Use **GridMap + MeshLibrary** (`godot-gridmap-level`) or a **runtime Resource builder** (`godot-runtime-arena`) ONLY when the brief/user explicitly asks for that method. Whichever you use, NEVER hand-type `Transform3D` walls — mesh and collider drift apart (a hand-typed level once had a wall's mesh scaled 0.55 and shifted ~6 m off its collider, so it clipped); author via `position` + `rotation` properties. If a builder generates geometry in `_ready()` so the saved scene is empty in the editor, that's the runtime path — only when asked.
-- **Hand-authored .tscn structure**: all StaticBody3D and standalone MeshInstance3D nodes must be direct children of the root node — no intermediate organisational Node3D groups. Nested Node3D containers make scenes load and run but become uneditable in the Godot editor.
-- **Comments in .tscn**: `#` lines are valid between `[sub_resource]`/`[ext_resource]` blocks. They must NOT appear between `[node]` blocks — the parser fails to resolve parent paths. Annotate nodes with `editor_description = "..."` instead
+- **Hand-authored .tscn structure** — follow the preloaded `godot-verify` "Hand-authoring .tscn rules": flat hierarchy (StaticBody3D / standalone MeshInstance3D as direct root children, no organisational Node3D groups), no `#` comments between `[node]` blocks (annotate with `editor_description`), untyped `NodePath` exports.
 
 ## Folder layout
 
@@ -72,7 +71,7 @@ Follow the "## Project conventions" section in CLAUDE.md — it is the single so
 
 After any change to .tscn or .gd files, run `tools/validate.sh` (format + lint + parse + godot-verify layers 1–2) before reporting; additionally run godot-verify layer 3 (render check) when an entry-point scene changed. Never claim "runs clean" or "verified" without it — exit codes lie and Godot drops unknown properties silently. Include the outputs in your report.
 
-For any change with **interactive or on-screen** acceptance (a UI screen, HUD, toggle/menu, overlay), self-verify it — simulate the real input path through the SceneTree (`godot-playthrough-bot`) AND capture + INSPECT the frame (`godot-verify` layer 3/4/5; `root.get_texture().get_image()` for CanvasLayer UI). "human F5" is a last resort for the genuinely uncapturable, not the default; never wave off a visible anomaly in a capture as "expected" without a stated reason.
+For any change with **interactive or on-screen** acceptance (UI screen, HUD, toggle/menu, overlay), self-verify per the preloaded `godot-verify` skill's Layer 5 + "interactive/on-screen acceptance" section — never a "human F5" punt for anything capturable.
 
 NEVER edit `tools/validate.sh`, other `tools/` scripts, `project.godot [debug]` warnings, or `gdlintrc` to make the gate pass — `tools/` is the plugin-materialized gate (gitignored; the xenodot plugin is the single source of truth), so a local edit does not commit and is overwritten on re-materialization. If the gate fails on noise you believe is genuinely benign (e.g. a new headless-cleanup WARNING not on the layer-2 smoke-grep exclusion list), do NOT add it to that list yourself: report it as friction with the exact line, and let bug-triage promote the exclusion upstream in the plugin.
 

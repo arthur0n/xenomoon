@@ -68,8 +68,10 @@ misses one ref leaves contamination behind. Completeness → `rg`; concepts → 
    against current files — refine/confirm it for the human to apply, not a fresh scan. Skip any
    dimension audited recently unless its area changed since (check git).
 
-3. **Audit each dimension.** Prefer one sub-agent per dimension (parallel) for the gather;
-   you judge. Signals:
+3. **Audit each dimension — in ONE context.** The plugin/ spine (agents + the 50 skills +
+   orchestrator) fits Opus's context window whole, so gather and judge the dimensions directly
+   here — no sub-agent-per-dimension fan-out (context-anxiety scaffolding from a smaller-window
+   era; the spine no longer overflows one context). Signals:
 
    - **D1 — Agents with too many skills.** Don't recount by hand — run `rtk npm run validate` and
      read the `gen-skill-scope` skill-scope warnings: its index-expansion count is authoritative
@@ -220,8 +222,8 @@ misses one ref leaves contamination behind. Completeness → `rg`; concepts → 
       `/framework-audit-fix <ids>` with the ids they agree to. **Never auto-apply here.**
 
 7. **Self-critique (in a subagent).** This is self-improvement — improve the loop, not just the
-   findings. Dispatch this critique to a throwaway subagent (like the step-3 gather fan-out) so its
-   reasoning never becomes main-window context debt: hand it the run's notes and have it propose one
+   findings. Dispatch this critique to a throwaway subagent so its reasoning never becomes
+   main-window context debt: hand it the run's notes and have it propose one
    fix to THIS command or the ledger format (a better signal to grep, a missing dimension, a step
    that didn't pay off), and if a fix is obvious and safe apply it there. It RETURNS ONLY the
    one-line verdict — record that as the entry's `Process note` (or `none`). Keep the verdict, not

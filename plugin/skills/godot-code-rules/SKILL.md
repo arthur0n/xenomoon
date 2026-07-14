@@ -156,7 +156,7 @@ Rules for every fix report:
 
 ## Warnings reference (ground truth = project.godot [debug])
 
-Escalated to error (2): `untyped_declaration`, `unsafe_property_access`, `unsafe_method_access`, `unsafe_cast`, `unsafe_call_argument`, `unused_variable`, `unused_local_constant`, `unused_private_class_variable`, `shadowed_variable`, `shadowed_variable_base_class`, `shadowed_global_identifier`, `unreachable_code`, `unreachable_pattern`, `standalone_expression`, `integer_division`, `incompatible_ternary`, `confusable_identifier`, `assert_always_true`, `assert_always_false`.
+Escalated to error (2): `untyped_declaration`, `unsafe_property_access`, `unsafe_method_access`, `unsafe_cast`, `unsafe_call_argument`, `unused_variable`, `unused_local_constant`, `unused_private_class_variable`, `shadowed_variable`, `shadowed_variable_base_class`, `shadowed_global_identifier`, `unreachable_code`, `unreachable_pattern`, `standalone_expression`, `integer_division`, `incompatible_ternary`, `confusable_identifier`, `confusable_local_declaration`, `assert_always_true`, `assert_always_false`.
 
 Deliberate non-rules (left at default 0):
 

@@ -49,14 +49,6 @@
       "finding": "engine version drift across skills: 'Godot 4.6' (greybox, enemy-ai, godot-assets) vs '4.3+' (pixel-lighting) — framework-wide consistency pass."
     },
     {
-      "id": "D9-gdscript-shadow-lint",
-      "dim": "D9",
-      "bucket": 5,
-      "verdict": "later",
-      "status": "open",
-      "finding": "recurring runtime GDScript::reload warnings the gate never caught: SHADOWED_GLOBAL_IDENTIFIER (range, sign — ability_data.gd, directional_force_effect.gd, aim_line_resolver.gd) + CONFUSABLE_LOCAL_DECLARATION (next_pos — guard.gd). Harden: add a deterministic lint check (gdstyle rule / check_* in tools/lib/checks.sh). Verify first whether gdstyle already covers it."
-    },
-    {
       "id": "D7-display-clobber",
       "dim": "D7",
       "bucket": 5,

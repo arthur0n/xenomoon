@@ -36,7 +36,7 @@ const esc = (/** @type {unknown} */ s) =>
 const commas = (/** @type {number} */ n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
 /** @typedef {{ input_tokens?: number, output_tokens?: number, cache_creation_input_tokens?: number, cache_read_input_tokens?: number }} Usage */
-/** @typedef {{ message?: { usage?: Usage, total_cost_usd?: number, message?: { id?: string, usage?: Usage } } }} LogLine */
+/** @typedef {{ message?: { type?: string, usage?: Usage, total_cost_usd?: number, message?: { id?: string, usage?: Usage } } }} LogLine */
 /** @typedef {{ id: string, estSavingTok: number|null, landed: boolean, moved: boolean|"pending"|null, deltaTok: number|null, deltaCost: number|null, result: string|null }} Opportunity */
 /** @typedef {{ input: number, output: number, cacheCreate: number, cacheRead: number, cost: number, total: number, turns: number, hitRate: number, costPerSession: number, costPerTurn: number, incompleteSessions: string[] }} Covered */
 /** @typedef {{ cost: number, total: number, hitRate: number, sessionCount: number, incompleteSessions: number }} GlobalSnap */
@@ -67,6 +67,18 @@ function addUsage(a, u) {
   a.cacheRead += u.cache_read_input_tokens ?? 0;
 }
 
+/** Fold an assistant event's per-API-call usage into the fallback accumulator, deduped by
+ * API message id (streaming logs repeat the same usage per content block).
+ * @param {{ id?: string, usage?: Usage } | undefined} am
+ * @param {{ input: number, output: number, cacheCreate: number, cacheRead: number }} api
+ * @param {Set<string>} seen */
+function foldApiUsage(am, api, seen) {
+  if (am?.usage && am.id && !seen.has(am.id)) {
+    seen.add(am.id);
+    addUsage(api, am.usage);
+  }
+}
+
 /**
  * @param {string} file
  * @returns {{ input: number, output: number, cacheCreate: number, cacheRead: number, cost: number, turns: number, incomplete: boolean }}
@@ -76,7 +88,7 @@ function parseSession(file) {
   const api = { input: 0, output: 0, cacheCreate: 0, cacheRead: 0 };
   let cost = 0,
     turns = 0;
-  const seenApiMsg = new Set();
+  const seenApiMsg = /** @type {Set<string>} */ (new Set());
   try {
     for (const line of readFileSync(file, "utf8").split("\n")) {
       if (!line) continue;
@@ -84,12 +96,10 @@ function parseSession(file) {
         const m = /** @type {LogLine} */ (parseJSON(line))?.message;
         if (!m) continue;
         cost += m.total_cost_usd ?? 0;
-        const am = m.message;
-        if (am?.usage && am.id && !seenApiMsg.has(am.id)) {
-          seenApiMsg.add(am.id);
-          addUsage(api, am.usage);
-        }
-        if (m.usage) {
+        foldApiUsage(m.message, api, seenApiMsg);
+        // Only SDK `result` events are turns — `system` events (thinking_tokens,
+        // task_progress) carry a zero-stub usage that must not count.
+        if (m.type === "result" && m.usage) {
           turns += 1;
           addUsage(result, m.usage);
         }

@@ -89,8 +89,18 @@ against this project's actual conventions (the project's `CLAUDE.md` is authorit
 
 ## Investigation playbook
 
-1. **Read the issue fully:**
-   `gh issue view <N> -R {{REPO}} --json number,title,body,labels,author,comments,createdAt`
+1. **Read the issue fully** (compact text render — full content, minus the raw-JSON
+   overhead):
+
+   ```bash
+   gh issue view <N> -R {{REPO}} --json number,title,state,body,labels,author,comments,createdAt | jq -r '
+     "#\(.number) \(.title) [\(.state)]"
+     + (if (.labels // []) != [] then "\nlabels: " + ([.labels[].name]|join(", ")) else "" end)
+     + (if .author then "\nauthor: @\(.author.login) \(.createdAt // "")" else "" end)
+     + "\n\n" + (.body // "")
+     + ([(.comments // [])[] | "\n\n--- @\(.author.login // "?") \(.createdAt // "")\n\(.body // "")"] | join(""))'
+   ```
+
    Read the body AND existing comments (don't repeat work already done).
    **Then check whether this already exists** before investigating — search open and
    closed issues for the same symptom:
@@ -99,6 +109,7 @@ against this project's actual conventions (the project's `CLAUDE.md` is authorit
    recommend closing THIS one as a duplicate (link it). If the duplicate is **closed**
    but the symptom is back, flag it as a **regression** (reopen-worthy) and triage what
    changed since.
+
 2. **Classify** the symptom and most likely area(s) from the map above (as corrected by
    the project's `CLAUDE.md`).
 3. **Locate suspect code:** use Grep/Glob/Read to find the components, handlers,

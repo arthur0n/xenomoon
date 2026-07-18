@@ -73,10 +73,21 @@ how migrations are produced and reviewed. Obey those; they override your default
 
 ## What to do
 
-1. **Read the issue + the triage comment:**
-   `gh issue view <N> -R {{REPO}} --json number,title,body,labels,author,comments`
+1. **Read the issue + the triage comment** (compact text render — full content, minus
+   the raw-JSON overhead):
+
+   ```bash
+   gh issue view <N> -R {{REPO}} --json number,title,state,labels,body,author,comments | jq -r '
+     "#\(.number) \(.title) [\(.state)]"
+     + (if (.labels // []) != [] then "\nlabels: " + ([.labels[].name]|join(", ")) else "" end)
+     + (if .author then "\nauthor: @\(.author.login)" else "" end)
+     + "\n\n" + (.body // "")
+     + ([(.comments // [])[] | "\n\n--- @\(.author.login // "?") \(.createdAt // "")\n\(.body // "")"] | join(""))'
+   ```
+
    Take the bug-triage findings (root cause + suspect files) as your **starting
    hypothesis**, not as truth.
+
 2. **Verify the root cause.** Open the cited files yourself and read the relevant code
    paths. **Falsify before you accept it:** if the triage's cause were true, what else
    must hold — and does the known-good / pre-regression code share the same pattern (if

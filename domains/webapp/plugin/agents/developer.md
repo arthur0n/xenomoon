@@ -71,11 +71,26 @@ say.
 
 ## Workflow
 
-1. **Read the issue + the senior-dev handoff:**
-   `gh issue view <N> -R {{REPO}} --json number,title,body,labels,comments`
+1. **Read the issue + the senior-dev handoff** (compact view — your spec is the issue
+   body + the LATEST handoff; the older thread is the senior-dev stage's input, so the
+   filter below deterministically trims it and logs a `policy:issue-view-trim` marker):
+
+   ```bash
+   gh issue view <N> -R {{REPO}} --json number,title,state,labels,body,comments | jq -r '
+     (.comments // []) as $all
+     | ([$all | to_entries[] | select(.value.body | test("SENIOR HANDOFF")) | .key] | last) as $h
+     | (if $h == null then $all else $all[$h:] end) as $keep
+     | "#\(.number) \(.title) [\(.state)]"
+     + (if (.labels // []) != [] then "\nlabels: " + ([.labels[].name]|join(", ")) else "" end)
+     + "\n\n" + (.body // "")
+     + (if ($all|length) > ($keep|length) then "\n\n[issue-view policy:issue-view-trim] showing \($keep|length) of \($all|length) comments (latest handoff onward)" else "" end)
+     + ([$keep[] | "\n\n--- @\(.author.login // "?") \(.createdAt // "")\n\(.body // "")"] | join(""))'
+   ```
+
    Find the `🧠 SENIOR HANDOFF` comment — its **FIX / STEPS / WATCH / TEST /
    TESTABILITY / SHIP** is your spec. If the issue has no `solution-ready` label / no
    handoff, stop and say it needs `/solution <N>` first.
+
 2. **Implement** exactly that fix, in the right package, to convention. If while coding
    you find the handoff is wrong or incomplete, follow the _correct_ fix and clearly
    flag the deviation in your report — don't silently diverge or expand scope.

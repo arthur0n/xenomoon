@@ -13,12 +13,11 @@ and critiques itself. You won't get it right the first time — that's expected.
 
 ## Why this exists
 
-- Cache reads dominate a session's token cost. We just made the live meter count all four
-  token classes (`ui/client/core/reducer.js#foldResult`) and added per-session cost to
-  `/api/usage` (`ui/server/core/http/usage.js`) — so the data is now trustworthy.
+- Cache reads dominate a session's token cost. The live meter counts all four token
+  classes and `/api/usage` reports per-session cost — so the data is trustworthy.
 - **Goal:** spot turns where the hive spent an agent/LLM call on something a script, a
-  `tools/` entry, or a hook could do deterministically — then propose replacing it. Every
-  such replacement is tokens we never spend again.
+  tool, or a hook could do deterministically — then propose replacing it. Every such
+  replacement is tokens we never spend again.
 
 ## Where the data lives
 
@@ -28,7 +27,9 @@ and critiques itself. You won't get it right the first time — that's expected.
 - Each line is `{ts, dir, type, message, ...}`. The signals you want:
   - `result` events → `message.usage.{input_tokens,output_tokens,cache_creation_input_tokens,cache_read_input_tokens}` and `message.total_cost_usd` (per turn).
   - `assistant` events → `message.message.content[].{type:"tool_use", name, input}` (the actual `Read`/`Grep`/`Glob`/`Bash`/`Task`/`Agent` calls) and `parent_tool_use_id` (subagent nesting).
-- Ledger: `$CLAUDE_PLUGIN_ROOT/library/token-audits/LEDGER.md` — read first, append after.
+- Prose ledger: `$CLAUDE_PLUGIN_ROOT/library/token-audits/LEDGER.md` — read first, append after.
+- Numeric time-series (shared with the forge): `node "$CLAUDE_PLUGIN_ROOT/../ui/server/cli/token-history.js"`
+  — one permanent history for the whole forge, whichever session runs the audit.
 
 ## Steps
 
@@ -40,8 +41,9 @@ and critiques itself. You won't get it right the first time — that's expected.
    count (e.g. `4`); a session-tag analyzes exactly that session. If nothing is uncovered,
    say so and stop — don't invent work.
 
-3. **Analyze each log — don't slurp it into context.** These files reach several MB. Use
-   `rtk grep` + `jq` to pull only what you need. Look for:
+3. **Analyze each log — don't slurp it into context.** These files reach several MB. Filter
+   with `jq select(...)` directly — do NOT pipe `rtk grep` into `jq` (rtk's grep filter mangles
+   JSON and breaks the parse). Look for:
    - **Repeated identical tool calls** — the same `Read`/`Grep`/`Glob`/`Bash` input across
      many turns (context the model keeps re-fetching).
    - **Agent dispatch for mechanical work** — a `Task`/`Agent` spawn whose job was a
@@ -51,35 +53,70 @@ and critiques itself. You won't get it right the first time — that's expected.
    - **Costliest turns** — sort `result` lines by `total_cost_usd` (or token total) and ask
      what that money bought.
 
-   Example sweep (adapt; `$LOGS` = `"$CLAUDE_PLUGIN_ROOT/../logs"`):
-   - costliest turns: `rtk grep '"type":"result"' "$LOGS/<file>" | jq -c '.message | {cost:.total_cost_usd, u:.usage}'`
-   - tool-call frequency: `rtk grep '"type":"tool_use"' "$LOGS/<file>" | jq -r '.message.message.content[]? | select(.type=="tool_use") | .name' | sort | uniq -c | sort -rn`
+   Example sweep (adapt; `$LOGS` = `"$CLAUDE_PLUGIN_ROOT/../logs"`). Each log line is
+   `{type:"event", message:{…}}`, so select on `.message.type`:
+   - costliest turns: `jq -c 'select(.type=="event" and .message.type=="result") | .message | {cost:.total_cost_usd, u:.usage}' "$LOGS/<file>"`
+   - tool-call frequency: `jq -r 'select(.type=="event" and .message.type=="assistant") | .message.message.content[]? | select(.type=="tool_use") | .name' "$LOGS/<file>" | sort | uniq -c | sort -rn`
+   - **result-bytes by tool (the primary sweep — surfaces the real offender that raw freq counts hide):** map `tool_use_id`→name from assistant events, then sum tool-result char-length per tool. A tool with few calls but huge avg payload (e.g. an MCP docs lookup dumping 20k chars of _immutable_ reference per call) is the prize. Also: freq counts of Bash `.input.command` are unreliable — multi-line heredocs make `uniq -c` count physical lines, not commands; trust the byte-by-tool aggregate instead.
+     `jq -rc 'select(.type=="event" and .message.type=="assistant")|.message.message.content[]?|select(.type=="tool_use")|[.id,.name]|@tsv' "$LOGS/<file>" > /tmp/ids.tsv`
+     `jq -rc 'select(.type=="event" and .message.type=="user")|.message.message.content[]?|select(.type=="tool_result")|[.tool_use_id,(((.content//"")|if type=="array" then (map(.text//"")|join("")) else tostring end)|length)]|@tsv' "$LOGS/<file>" > /tmp/res.tsv`
+     `awk -F'\t' 'NR==FNR{n[$1]=$2;next}{k=n[$1];k=(k==""?"?":k);t[k]+=$2;c[k]++}END{for(x in t)printf "%-30s calls=%-5d chars=%d avg=%d\n",x,c[x],t[x],t[x]/c[x]}' /tmp/ids.tsv /tmp/res.tsv | sort -t= -k3 -rn`
 
 4. **Judge opportunities.** For each pattern, ask: _could this run without a model?_ If yes,
    name it concretely — the operation, its rough token/$ cost over the sessions seen, and the
-   deterministic replacement (script / `tools/` entry / hook). Discard anything that genuinely
+   deterministic replacement (script / tool / hook). Discard anything that genuinely
    needs judgment; a false "make it deterministic" is worse than silence.
+   - **Check the token MECHANISM, not just the call count.** Tokens are the PAYLOAD that enters
+     context, not the number of calls. Fewer calls ≠ fewer tokens if each call returns the same
+     bytes — a memo/cache that re-returns an identical payload saves latency, NOT tokens. To move
+     the metric the replacement must shrink the payload (smaller/filtered result), DEDUP it (return
+     a stub on a repeat), or stop it re-entering context.
+   - **Name the CONTEXT BOUNDARY a dedup fix operates within.** Each subagent is a fresh context —
+     a cross-context watermark/cache hides content a stage never saw. Scope dedup within one
+     context, or replace it with stage-contract filtering (each stage fetches only what its
+     pipeline contract needs).
+   - **Prefer a fix that emits a COUNTABLE PROOF over one you can only confirm by global drift.**
+     Favour a replacement that logs a per-event marker (e.g. `policy:"<name>"` once per blocked
+     repeat) so a future audit tallies `count × per-event tokens` for a DETERMINISTIC actual
+     saving instead of hoping the trend moves. When you file the opportunity, NAME the marker +
+     the per-event token unit.
 
-5. **Record — super brief.** Append ONE entry to `LEDGER.md` (template at the top of that
-   file) and add each analyzed tag to `Covered sessions`. Most-important offenders only;
-   keep it scannable. No essays.
+5. **Record — super brief (prose) + deterministic numbers.**
+   - Prose: append ONE entry to `LEDGER.md` (template at the top of that file) and add each
+     analyzed tag to `Covered sessions`. Most-important offenders only; scannable; no essays.
+   - Numbers: capture the run in the PERMANENT time-series — the numbers come from the SCRIPT,
+     not a prose guess:
+     `node "$CLAUDE_PLUGIN_ROOT/../ui/server/cli/token-history.js" append --sessions <tag,tag,…> --offender "<top offender>" --opp <opp-id>:<estTok> --note "<one line>"`
+     (repeat `--opp` per opportunity; `--date` defaults to today).
 
 6. **File a task per real opportunity.** `mcp__ui__tasks` with
    `{ "op": "add", "tasks": [ { "title": "<deterministic fix in one line>", "owner": "user", "note": "<the agent call it replaces + rough saving>" } ] }`.
    `owner: "user"` so it persists for the human (don't `complete_open` these). Put the
-   returned task id in the ledger entry's `Opportunity` line.
+   returned task id in the ledger entry's `Opportunity` line — and use that SAME id as the
+   `--opp <id>` in step 5 so the task, the ledger, and the history all key off one id.
+   **Fallback:** if `mcp__ui__tasks` is unavailable (plain terminal session), record the task
+   inline in the ledger entry (a `**TASK (owner:user)**:` line) and say so.
 
-7. **Critique the process.** This is self-improvement — improve the loop, not just the game.
-   Suggest fixes to THIS command or the ledger format: confusing wording, a missing
-   reference, a better signal to grep for, a step that didn't pay off. Record it as the
-   entry's `Process note` (or `none`). If a fix is obvious and safe, make it.
+7. **Adapt on the trend, then critique the process.**
+   - Adapt: read the last few history records. Note the `global.hitRate` / `$/turn` trend, and
+     for any prior opportunity now `landed` check whether it `moved` — a `moved:false` says the
+     last fix didn't pay off; factor that into what you propose next.
+   - **Confirm every open pending:** `node "$CLAUDE_PLUGIN_ROOT/../ui/server/cli/token-history.js" pending`.
+     For each id, count its named marker across the sessions you just covered and flip it with
+     `land --opp <id> --moved true --delta-tok <count×unit>`; no marker → compare the relevant
+     history metric before/after, or leave `pending` and SAY SO.
+   - Critique (in a subagent): dispatch a throwaway subagent with the run's notes to propose ONE
+     fix to this command, the CLI, or the ledger format; it returns only a one-line verdict —
+     record it as the entry's `Process note` (or `none`).
 
-8. **Return.** Super-brief to the user: sessions covered, the single top offender, tasks filed.
+8. **Return.** Super-brief to the user: sessions covered, the single top offender, tasks filed,
+   and one line on the trend.
 
 ## Never
 
 - Re-analyze a session already in `Covered sessions`.
-- Read whole multi-MB logs into context — always filter with `rtk grep`/`jq` first.
+- Pipe `rtk grep` into `jq` (it mangles JSON) or read whole multi-MB logs into context —
+  filter with `jq select(...)` first.
 - Implement the deterministic fix here — this command recommends and files tasks; the human
   decides. (Step 7's process tweaks to the command/ledger are the one exception.)
 - Write a long ledger entry. Brevity is the point — the next run reads this first.

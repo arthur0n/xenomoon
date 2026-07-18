@@ -19,7 +19,7 @@ import { reduce } from "./reducer.js";
 /** @typedef {import("../../lib/types.js").ServerMsg} ServerMsg */
 
 /** A chat-column entry. Append-only; rendered by index (no key needed).
- * @typedef {{ kind: "user" | "agent" | "banner", who?: string, text: string }} ChatEntry */
+ * @typedef {{ kind: "user" | "agent" | "banner", who?: string, text: string, images?: string[] }} ChatEntry */
 
 /** A pending interactive card (ask | form | permission), keyed by server id and
  * settled in place when the user replies.

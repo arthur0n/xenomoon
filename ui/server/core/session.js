@@ -9,6 +9,7 @@ import { sessionHistory } from "../features/transcripts/transcripts.js";
 import { buildUiServer } from "../mcp-tools/ui-server.js";
 import { cancelKimiBoardTask } from "../mcp-tools/kimi-tool.js";
 import { uiControlAllow, preToolGate } from "./ui-control.js";
+import { userInputTurn } from "./user-input.js";
 import { resolveSessionPlugins } from "./session-plugins.js";
 import { runningChip, emitRunning, runWithRetry } from "./stream.js";
 import {
@@ -561,11 +562,8 @@ function handleClientMessage(raw, { log, send, inbox, pending, session }) {
     // work instead of accumulating a graveyard of done items across the session.
     const pruned = pruneDoneTasks();
     if (pruned) send({ type: "tasks", tasks: pruned });
-    inbox.push({
-      type: "user",
-      parent_tool_use_id: null,
-      message: { role: "user", content: [{ type: "text", text: msg.text }] },
-    });
+    // Pasted images ride along as base64 image blocks ahead of the text.
+    inbox.push(userInputTurn(msg));
   } else if (msg.type === "reply") {
     const entry = pending.get(msg.id);
     if (entry) {

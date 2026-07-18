@@ -2396,6 +2396,56 @@ input.cmd::placeholder {
   color: var(--text-3);
 }
 
+/* Pasted-image thumbnails queued above the composer */
+.composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.attach-chip {
+  position: relative;
+  display: inline-block;
+}
+
+.attach-chip img {
+  display: block;
+  height: 48px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.attach-chip button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-2);
+  background-color: var(--panel-3);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.attach-chip button:hover {
+  color: var(--red);
+}
+
+/* Image attached to a sent user message */
+.msg-user img.msg-image {
+  display: block;
+  max-width: 220px;
+  max-height: 160px;
+  margin: 4px 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+
 /* ---------------- Activity column ---------------- */
 
 .activity {

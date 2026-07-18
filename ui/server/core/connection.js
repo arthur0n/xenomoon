@@ -8,6 +8,7 @@
 import { createWriteStream } from "node:fs";
 import path from "node:path";
 import { LOG_DIR } from "./config.js";
+import { redactImages } from "./user-input.js";
 import { registerLive, dropLive } from "./registry.js";
 import { emitRunning } from "./stream.js";
 import { readTasks } from "../features/tasks/tasks-store.js";
@@ -67,7 +68,9 @@ export function createLogger(conn) {
   const logStream = createWriteStream(logFile, { flags: "a" });
   /** @param {string} dir @param {OutMsg} obj */
   const log = (dir, obj) => {
-    logStream.write(JSON.stringify({ ts: new Date().toISOString(), dir, ...obj }) + "\n");
+    logStream.write(
+      JSON.stringify({ ts: new Date().toISOString(), dir, ...redactImages(obj) }) + "\n",
+    );
     const m = obj.message;
     const brief =
       obj.type === "event"

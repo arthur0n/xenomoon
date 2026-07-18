@@ -35,7 +35,9 @@ and critiques itself. You won't get it right the first time — that's expected.
 1. **Read the ledger.** Open `LEDGER.md`. Note its `Covered sessions` list and prior
    `Process note`s so you neither re-analyze a covered session nor repeat a known finding.
 
-2. **Pick scope.** List the log files. Drop any whose tag is already in `Covered sessions`.
+2. **Pick scope.** List the log files. Drop any whose tag is already in `Covered sessions`,
+   and drop **stubs** — files under ~10KB are server state snapshots with zero LLM turns;
+   add their tags straight to `Covered sessions` without spending a slot on them.
    Take the newest **2** of what remains. `$ARGUMENTS` overrides: a bare number sets the
    count (e.g. `4`); a session-tag analyzes exactly that session. If nothing is uncovered,
    say so and stop — don't invent work.

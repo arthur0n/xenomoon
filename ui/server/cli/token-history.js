@@ -35,10 +35,11 @@ const esc = (/** @type {unknown} */ s) =>
   );
 const commas = (/** @type {number} */ n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
-/** @typedef {{ message?: { usage?: { input_tokens?: number, output_tokens?: number, cache_creation_input_tokens?: number, cache_read_input_tokens?: number }, total_cost_usd?: number } }} LogLine */
+/** @typedef {{ input_tokens?: number, output_tokens?: number, cache_creation_input_tokens?: number, cache_read_input_tokens?: number }} Usage */
+/** @typedef {{ message?: { usage?: Usage, total_cost_usd?: number, message?: { id?: string, usage?: Usage } } }} LogLine */
 /** @typedef {{ id: string, estSavingTok: number|null, landed: boolean, moved: boolean|"pending"|null, deltaTok: number|null, deltaCost: number|null, result: string|null }} Opportunity */
-/** @typedef {{ input: number, output: number, cacheCreate: number, cacheRead: number, cost: number, total: number, turns: number, hitRate: number, costPerSession: number, costPerTurn: number }} Covered */
-/** @typedef {{ cost: number, total: number, hitRate: number, sessionCount: number }} GlobalSnap */
+/** @typedef {{ input: number, output: number, cacheCreate: number, cacheRead: number, cost: number, total: number, turns: number, hitRate: number, costPerSession: number, costPerTurn: number, incompleteSessions: string[] }} Covered */
+/** @typedef {{ cost: number, total: number, hitRate: number, sessionCount: number, incompleteSessions: number }} GlobalSnap */
 /** @typedef {{ date: string, sessions: string[], covered: Covered, global: GlobalSnap, topOffender: string, opportunities: Opportunity[], processNote: string }} RunRecord */
 /** @typedef {{ _doc?: string, records: RunRecord[] }} History */
 
@@ -49,16 +50,33 @@ const hit = (/** @type {number} */ cr, /** @type {number} */ cc) =>
 /**
  * Sum one session log. `message.usage` + `message.total_cost_usd` live on the SDK `result`
  * events (one per turn), so summing usage-bearing lines yields the session total and `turns`.
+ * A session killed mid-turn (rate limit, crash, closed server) has NO result events — its
+ * spend would silently count as $0. Fallback: sum the per-API-call usage on assistant events
+ * (deduped by API message id — streaming logs repeat the same usage per content block) and
+ * mark the session `incomplete` (token totals recovered; cost stays unknown/0).
  * @param {string} file
- * @returns {{ input: number, output: number, cacheCreate: number, cacheRead: number, cost: number, turns: number }}
+ * @returns {{ input: number, output: number, cacheCreate: number, cacheRead: number, cost: number, turns: number, incomplete: boolean }}
+ */
+/** Fold one Usage into a mutable accumulator.
+ * @param {{ input: number, output: number, cacheCreate: number, cacheRead: number }} a
+ * @param {Usage} u */
+function addUsage(a, u) {
+  a.input += u.input_tokens ?? 0;
+  a.output += u.output_tokens ?? 0;
+  a.cacheCreate += u.cache_creation_input_tokens ?? 0;
+  a.cacheRead += u.cache_read_input_tokens ?? 0;
+}
+
+/**
+ * @param {string} file
+ * @returns {{ input: number, output: number, cacheCreate: number, cacheRead: number, cost: number, turns: number, incomplete: boolean }}
  */
 function parseSession(file) {
-  let input = 0,
-    output = 0,
-    cacheCreate = 0,
-    cacheRead = 0,
-    cost = 0,
+  const result = { input: 0, output: 0, cacheCreate: 0, cacheRead: 0 };
+  const api = { input: 0, output: 0, cacheCreate: 0, cacheRead: 0 };
+  let cost = 0,
     turns = 0;
+  const seenApiMsg = new Set();
   try {
     for (const line of readFileSync(file, "utf8").split("\n")) {
       if (!line) continue;
@@ -66,17 +84,20 @@ function parseSession(file) {
         const m = /** @type {LogLine} */ (parseJSON(line))?.message;
         if (!m) continue;
         cost += m.total_cost_usd ?? 0;
-        const u = m.usage;
-        if (!u) continue;
-        turns += 1;
-        input += u.input_tokens ?? 0;
-        output += u.output_tokens ?? 0;
-        cacheCreate += u.cache_creation_input_tokens ?? 0;
-        cacheRead += u.cache_read_input_tokens ?? 0;
+        const am = m.message;
+        if (am?.usage && am.id && !seenApiMsg.has(am.id)) {
+          seenApiMsg.add(am.id);
+          addUsage(api, am.usage);
+        }
+        if (m.usage) {
+          turns += 1;
+          addUsage(result, m.usage);
+        }
       } catch {}
     }
   } catch {}
-  return { input, output, cacheCreate, cacheRead, cost, turns };
+  const incomplete = turns === 0 && seenApiMsg.size > 0;
+  return { ...(incomplete ? api : result), cost, turns, incomplete };
 }
 
 /**
@@ -91,8 +112,11 @@ function measure(tags) {
     cacheRead = 0,
     cost = 0,
     turns = 0;
+  /** @type {string[]} */
+  const incompleteSessions = [];
   for (const tag of tags) {
     const s = parseSession(path.join(LOG_DIR, `session-${tag}.ndjson`));
+    if (s.incomplete) incompleteSessions.push(tag);
     input += s.input;
     output += s.output;
     cacheCreate += s.cacheCreate;
@@ -112,6 +136,7 @@ function measure(tags) {
     hitRate: hit(cacheRead, cacheCreate),
     costPerSession: tags.length ? r4(cost / tags.length) : 0,
     costPerTurn: turns ? r4(cost / turns) : 0,
+    incompleteSessions,
   };
 }
 
@@ -128,18 +153,26 @@ function globalSnapshot() {
     total = 0,
     cacheCreate = 0,
     cacheRead = 0,
-    sessionCount = 0;
+    sessionCount = 0,
+    incompleteSessions = 0;
   for (const f of files) {
     const s = parseSession(path.join(LOG_DIR, f));
     const t = s.input + s.output + s.cacheCreate + s.cacheRead;
     if (t <= 0) continue;
     sessionCount += 1;
+    if (s.incomplete) incompleteSessions += 1;
     cost += s.cost;
     total += t;
     cacheCreate += s.cacheCreate;
     cacheRead += s.cacheRead;
   }
-  return { cost: r4(cost), total, hitRate: hit(cacheRead, cacheCreate), sessionCount };
+  return {
+    cost: r4(cost),
+    total,
+    hitRate: hit(cacheRead, cacheCreate),
+    sessionCount,
+    incompleteSessions,
+  };
 }
 
 /** @returns {History} */
@@ -433,6 +466,10 @@ if (cmd === "snapshot") {
   const h = loadHistory();
   h.records.push(rec);
   save(h);
+  if (rec.covered.incompleteSessions.length)
+    console.error(
+      `token-history: WARN incomplete session(s) — no SDK result events; token totals recovered from assistant events, cost unknown: ${rec.covered.incompleteSessions.join(", ")}`,
+    );
   console.log(
     `ok  token-history: appended ${date} (${sessions.length} sessions, covered $${rec.covered.cost}, global hit ${rec.global.hitRate}%) → history.json + history.md`,
   );

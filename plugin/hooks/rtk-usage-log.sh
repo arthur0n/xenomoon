@@ -33,8 +33,10 @@ esac
 # Command head for context (first 80 chars, single line).
 head="$(printf '%s' "$cmd" | tr '\n' ' ' | cut -c1-80)"
 
-log_dir="${XENOMOON_PLUGIN%/plugin}/logs"
-[ -n "${XENOMOON_PLUGIN:-}" ] || log_dir="${TMPDIR:-/tmp}"
+# Framework-root logs dir, exported by config.js. NOT derived from XENOMOON_PLUGIN — that points
+# inside the active domain pack now, so the old `${XENOMOON_PLUGIN%/plugin}/logs` landed the log in
+# domains/<name>/logs/ instead of the framework root. Fall back to TMPDIR when unset.
+log_dir="${XENOMOON_LOG_DIR:-${TMPDIR:-/tmp}}"
 {
   mkdir -p "$log_dir" 2>/dev/null && \
   jq -cn \

@@ -92,6 +92,7 @@ export function readAgents() {
  * @returns {string[]} */
 export function expandToken(token, agentNames, workers, errors) {
   if (token === "all") return [ORCH, ...agentNames];
+  if (token === "subagents") return [...agentNames]; // every agent, NOT the ORCH sentinel
   if (token === "workers") return workers;
   if (token === "builders") return BUILDERS;
   if (token === "orchestrator") return [ORCH];

@@ -130,6 +130,13 @@ export const ASSET_LIBRARY = path.resolve(
 // regardless of the game cwd — they read/write via these paths, granted by
 // `additionalDirectories` (see session.js). Inherited by the Claude Code subprocess.
 process.env.XENOMOON_PLUGIN = FRAMEWORK_PLUGIN_DIR;
+/** The framework-root logs dir (compliance/usage traces: caveman-gate.log, rtk-usage.log).
+ * Anchored to FRAMEWORK_DIR — NOT derived from XENOMOON_PLUGIN, which now points inside the active
+ * domain pack (`domains/<name>/plugin`), so `${XENOMOON_PLUGIN%/plugin}/logs` would land the logs in
+ * the domain dir. Exported into the environment so the plugin's observe-only hooks (caveman-reminder,
+ * rtk-usage-log), which run in the spawned session's subprocess, write to the one framework-root dir. */
+export const XENOMOON_LOG_DIR = path.join(FRAMEWORK_DIR, "logs");
+process.env.XENOMOON_LOG_DIR = XENOMOON_LOG_DIR;
 process.env.XENOMOON_LIBRARY = path.join(FRAMEWORK_PLUGIN_DIR, "library");
 // The external shared-asset library (see ASSET_LIBRARY). Exported so the spawned session,
 // its agents (asset-advisor reads/verifies the sourced file here) and validate.sh can locate

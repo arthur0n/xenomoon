@@ -18,12 +18,12 @@ import {
 /** The tag token for an audience id (the ORCH sentinel writes as `orchestrator`). @param {string} id */
 const tokenFor = (id) => (id === ORCH ? "orchestrator" : id);
 
-const CORE_ALIASES = ["all", "workers", "builders", "orchestrator"];
+const CORE_ALIASES = ["all", "subagents", "workers", "builders", "orchestrator"];
 
 /** Agents + their projected skills (with the always-on CORE subset marked) + every framework skill —
  * for the recalibration UI. A skill is "core" for an agent when it reaches the agent via an ALIAS tag
- * (all/workers/builders) instead of being named explicitly — i.e. always-on (caveman, tasks-mcp, the
- * builder core), not a per-agent choice. The UI locks those and lists them so you can SEE them.
+ * (all/subagents/workers/builders) instead of being named explicitly — i.e. always-on (caveman-forge,
+ * tasks-mcp, the builder core), not a per-agent choice. The UI locks those and lists them so you can SEE them.
  * @returns {{ agents: {name:string, model:string|null, skills:string[], core:string[]}[], allSkills: string[] }} */
 export function listAgentSkills() {
   const skills = readSkills();

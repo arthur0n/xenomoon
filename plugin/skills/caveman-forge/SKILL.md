@@ -1,6 +1,6 @@
 ---
-name: caveman
-agents: [all]
+name: caveman-forge
+agents: [subagents]
 description: >
   Ultra-compressed communication mode — always active for this agent. Cuts
   token usage ~75% by dropping filler, articles, and pleasantries while

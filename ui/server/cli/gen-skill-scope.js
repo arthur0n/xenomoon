@@ -9,7 +9,8 @@
 //   node ui/server/cli/gen-skill-scope.js --write     # advisory: print the projected skills: blocks
 //
 // Tag vocabulary (in a skill's `agents: [...]`): bare agent names, plus reserved tokens —
-//   all          → the orchestrator + every agent          (e.g. caveman)
+//   all          → the orchestrator + every agent
+//   subagents    → every agent, but NOT the orchestrator (e.g. caveman-forge — terse sub-agent output)
 //   workers      → every agent that manages the board (has the mcp__ui__tasks tool)
 //   builders     → the active domain's general builder + its specialists (the code-writers)
 //   orchestrator → the main session only (cross-checked against ORCHESTRATOR_FRAMEWORK_SKILLS)

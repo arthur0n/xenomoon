@@ -5,6 +5,8 @@
 // Importing skills.js triggers config.js's one-time engine probe — harmless, hand-run only.
 import assert from "node:assert/strict";
 import { computeSessionSkills } from "./skills.js";
+import { ORCHESTRATOR_FRAMEWORK_SKILLS } from "./skill-catalog.js";
+import { ORCH, readSkills, readAgents, expectedByAudience } from "./skill-registry.js";
 
 let passed = 0;
 /** @param {string} name @param {() => void} fn */
@@ -59,6 +61,33 @@ check("result is de-duplicated when a name is in both floor and candidates", () 
     overrides: { "*": "on" },
   });
   assert.deepEqual(out, ["caveman"]);
+});
+
+// --- caveman-forge rename + sub-agents-only scoping (real registry, config-free reads) ---
+
+check("orchestrator floor carries no caveman variant (terse thinking is sub-agents-only)", () => {
+  assert.ok(!ORCHESTRATOR_FRAMEWORK_SKILLS.includes("caveman"));
+  assert.ok(!ORCHESTRATOR_FRAMEWORK_SKILLS.includes("caveman-forge"));
+});
+
+check('readSkills() has "caveman-forge" and NOT the shadowed builtin "caveman"', () => {
+  const skills = readSkills();
+  assert.ok(skills.has("caveman-forge"));
+  assert.ok(!skills.has("caveman"));
+});
+
+check("caveman-forge projects onto every CORE agent and NOT onto the orchestrator", () => {
+  const skills = readSkills();
+  const agents = readAgents();
+  const agentNames = [...agents.keys()].sort();
+  const workers = agentNames.filter((n) => agents.get(n)?.tools.includes("mcp__ui__tasks"));
+  const expected = expectedByAudience(skills, agentNames, workers);
+  assert.ok(!(expected.get(ORCH) ?? new Set()).has("caveman-forge"));
+  for (const name of agentNames)
+    assert.ok(
+      (expected.get(name) ?? new Set()).has("caveman-forge"),
+      `agent \`${name}\` missing caveman-forge`,
+    );
 });
 
 console.log(`ok  skills: ${passed} computeSessionSkills checks passed`);

@@ -18,7 +18,7 @@ agent_id="$(printf '%s' "$payload" | jq -r '.agent_id // empty' 2>/dev/null)"
 session_id="$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null)"
 transcript="$(printf '%s' "$payload" | jq -r '.transcript_path // empty' 2>/dev/null)"
 
-base="caveman mode active: load the caveman skill. Terse output — compress ALL prose you emit, INCLUDING running commentary between tool calls and mid-task status, not just final reports. Drop articles/filler/pleasantries; fragments OK. Code, errors and identifiers stay exact. Full prose ONLY for mcp__ui__form field labels/descriptions and destructive-action warnings. END every message with the marker [cvmn]."
+base="caveman mode active: load the caveman-forge skill. Terse output — compress ALL prose you emit, INCLUDING running commentary between tool calls and mid-task status, not just final reports. Drop articles/filler/pleasantries; fragments OK. Code, errors and identifiers stay exact. Full prose ONLY for mcp__ui__form field labels/descriptions and destructive-action warnings. END every message with the marker [cvmn]."
 
 # --- observe-only inspection of the previous assistant message (best-effort, never fatal) ---
 marker=false
@@ -79,8 +79,10 @@ EOF
 fi
 
 # --- log the evaluation record (best-effort; never fail the hook) ---
-log_dir="${XENOMOON_PLUGIN%/plugin}/logs"
-[ -n "${XENOMOON_PLUGIN:-}" ] || log_dir="${TMPDIR:-/tmp}"
+# Framework-root logs dir, exported by config.js. NOT derived from XENOMOON_PLUGIN — that points
+# inside the active domain pack now, so the old `${XENOMOON_PLUGIN%/plugin}/logs` landed the log in
+# domains/<name>/logs/ instead of the framework root. Fall back to TMPDIR when unset.
+log_dir="${XENOMOON_LOG_DIR:-${TMPDIR:-/tmp}}"
 {
   mkdir -p "$log_dir" 2>/dev/null && \
   jq -cn \

@@ -1,0 +1,20 @@
+{
+  "description": "Webapp domain hooks — the pipeline's two invariants enforced deterministically, independent of any model's prompt discipline: the COMMIT GATE (a `git commit` citing (#N) is allowed only when the issue's labels prove qa:pass + review:pass and no blocks — verified against gh at commit time; commits without an issue ref fall to the human) and the PUSH GATE (sub-agents can never push; the main session's push always asks the human — push is the pipeline's one hard human checkpoint before CI deploys).",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/commit-gate.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/push-gate.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

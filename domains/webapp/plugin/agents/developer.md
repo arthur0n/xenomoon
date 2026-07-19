@@ -116,9 +116,9 @@ say.
    `gh issue edit <N> -R {{REPO}} --add-label "implemented"`. This is the signal the QA
    stage sweeps on. If `gh issue edit` fails on a missing label, say so and tell the
    caller to create it — don't silently drop it.
-5. **Report** (see below). Do **not** `git commit`, push, or open a PR — the
-   pipeline's `committer` performs the commit, and only after QA + review pass. Leave the
-   change in the working tree.
+5. **Report** (see below). Do **not** `git commit`, push, or open a PR — the pipeline's
+   `/commit` step performs the commit, and only after QA + review pass (the `commit-gate`
+   hook enforces it). Leave the change in the working tree.
 
 ## Guardrails (from the conventions + data model)
 
@@ -158,8 +158,8 @@ runtime, inline those fields directly in the file — the shape is what matters.
 
 ## Closing is deploy-gated
 
-The `committer` writes the commit, not you — but it follows this rule: the subject
+The `/commit` step writes the commit, not you — but it follows this rule: the subject
 references the issue as `(#N)` — do NOT use `Closes #N` (that closes on merge, before the
-fix is live). The committer labels the issue `fixed-pending-deploy` and comments
+fix is live). `/commit` labels the issue `fixed-pending-deploy` and comments
 `Committed in <sha> — auto-closes on deploy.` so it closes once the api/app deploy
 actually ships it.

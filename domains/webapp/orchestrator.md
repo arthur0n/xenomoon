@@ -26,8 +26,9 @@ session view:
    the handoff-named regression test guards the bug, apply `qa:pass` / `qa:blocked`.
 6. **`/audit`** → adversarial code review: Codex when enabled (you run it), else the `reviewer`
    agent. Try to falsify the fix; apply `review:pass` / `review:changes`.
-7. **`/commit`** → `committer` (commit-only): once fully green, `git add` + `git commit` with `(#N)`,
-   apply `committed` + `fixed-pending-deploy`. **It never pushes.**
+7. **`/commit`** — direct (no agent): once fully green, YOU `git add` + `git commit` with `(#N)`,
+   apply `committed` + `fixed-pending-deploy`. The `commit-gate` hook re-checks the labels
+   deterministically and denies any non-green commit. **Never push.**
 8. **`/build`** — local build / smoke with the project's commands. Deploy is **CI-only** on push to
    the main branch — never `sam deploy`/`wrangler deploy`/manual.
 
@@ -36,9 +37,10 @@ Loop-backs: `qa:blocked` (from `/qa`) or `review:changes` (from `/audit`) send t
 stage is idempotent (skips already-done issues unless forced). One issue does not skip ahead —
 triage before solution, solution before implement, QA + review before commit.
 
-The **human gate is the push, not the commit.** Commit is automatic once QA + review pass; the
-`committer` never pushes. A human reviews and pushes the main branch, and CI deploys — which closes
-the `fixed-pending-deploy` issue.
+The **human gate is the push, not the commit.** Commit is automatic once QA + review pass; nothing
+in the pipeline pushes — the `push-gate` hook denies sub-agent pushes outright and turns yours into
+a human confirmation. A human approves the push, CI deploys, and the `fixed-pending-deploy` issue
+closes.
 
 **Acceptance (UAT)** runs **out-of-band** of the per-issue chain — batch, POC-first, resource-capped
 (see below). It's `/uat`, not a stage every issue passes through.
@@ -53,8 +55,8 @@ the `fixed-pending-deploy` issue.
   time** — it re-runs the shared tree's gates).
 - "Review the fix / find holes" on a `qa:pass` issue → `/audit`: Codex when enabled (you run it
   as background Bash), else the `reviewer` agent.
-- "Commit it" on a fully-green issue (`qa:pass` + `review:pass`) → `/commit` → `committer`. It
-  refuses unless every gate holds, and it never pushes.
+- "Commit it" on a fully-green issue (`qa:pass` + `review:pass`) → `/commit` — you run it directly
+  (no agent); the `commit-gate` hook denies it unless every gate holds. Never push.
 - "Run acceptance / smoke the whole app" → `/uat` → `uat-runner` (capped Playwright, out-of-band).
 - Pure verify/build question → `/build` (local only; deploy is CI).
 - Simple lookups (what exists, where it lives, project state) → answer directly from a quick read;
@@ -107,8 +109,8 @@ notification, and it auto-appears on the board (`in_progress`) and settles itsel
 - **One implementer at a time.** The `developer` edits the shared working tree — running two in
   parallel makes them clobber each other and fail each other's validate/build. Dispatch
   sequentially; pause between for QA.
-- **One committer at a time.** The `committer` commits the shared tree — never run two in parallel,
-  and never run one alongside a `developer` on the same tree.
+- **Commit is a serialized single step.** `/commit` writes the shared tree's history — never run it
+  alongside a `developer` on the same tree.
 
 ## Self-improvement (the orchestrator learns this project)
 
@@ -162,16 +164,19 @@ applies `review:pass` / `review:changes`. Two paths, chosen by whether Codex is 
 
 ### Commit gate
 
-`/commit` (the `committer`) auto-commits **only** when ALL hold: labels `solution-ready` +
+`/commit` (direct — you run it) auto-commits **only** when ALL hold: labels `solution-ready` +
 `implemented` + `qa:pass` + `review:pass` present, `qa:blocked` / `review:changes` absent, and
-`git status --porcelain` shows the issue's fix **and nothing unrelated** (broader diff → refuse).
-It trusts QA's fresh gates by default; `--verify` re-runs validate. Then it `git add` + `git commit`
+`git status --porcelain` shows the issue's fix **and nothing unrelated** (broader diff → stop).
+It trusts QA's fresh gates by default; `--verify` re-runs validate. Then `git add` + `git commit`
 with `<type>: <summary> (#N)` — **`(#N)` references, never `Closes #N`** (that would close on merge,
-before the fix is live) — applies `committed` + `fixed-pending-deploy`, and comments the sha.
+before the fix is live) — apply `committed` + `fixed-pending-deploy`, and comment the sha.
 
-**The committer NEVER pushes.** Push is the human gate. A human pushes the main branch, CI deploys,
-and the `fixed-pending-deploy` issue closes when the deploy ships. If any gate condition fails the
-committer refuses loudly and names the next move — it never forces.
+**The gate is DETERMINISTIC, not prompt discipline:** the `commit-gate` hook re-derives it from the
+issue's labels at commit time — a `(#N)` commit is machine-allowed only when fully green and denied
+otherwise; a commit with no issue ref falls to the human. **Nothing in the pipeline pushes** — the
+`push-gate` hook denies sub-agent pushes and turns yours into a human confirmation. CI deploys on
+push, and the `fixed-pending-deploy` issue closes when the deploy ships. On a gate miss, name the
+failing condition and the next move — never force.
 
 ### Acceptance (UAT) is POC-first
 
@@ -199,7 +204,7 @@ open
   → implemented (uncommitted; validate+build+test green) [/implement → developer]
   → qa:pass | qa:blocked → /implement    [/qa → tester]
   → review:pass | review:changes → /implement   [/audit → Codex or reviewer]
-  → committed + fixed-pending-deploy     [/commit → committer; NEVER pushes]
+  → committed + fixed-pending-deploy     [/commit direct; hook-gated; NEVER pushes]
   → (human pushes → CI deploys → issue closes)
 
 UAT (out-of-band, batch): uat:pass | uat:blocked → /feedback (new bug)

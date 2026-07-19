@@ -47,7 +47,7 @@ Arguments: `$ARGUMENTS`
   `/implement`.
 - **One issue at a time** — the developer edits the shared working tree; never run two in
   parallel.
-- **Closing is deploy-gated.** The `committer` (not this stage) writes the commit: it
+- **Closing is deploy-gated.** The `/commit` step (not this stage) writes the commit: it
   references the issue as `(#N)` — never `Closes #N` (closes on merge, before it's live) —
   labels `fixed-pending-deploy`, and comments `Committed in <sha> — auto-closes on deploy.`
 - Run `/implement` only on issues that already have a `solution-ready` handoff.

@@ -49,7 +49,7 @@ Arguments: `$ARGUMENTS`
 - **Post-commit flow:** the pipeline auto-commits once an issue is green (`/qa` + `/audit`
   pass → `/commit`). `/build` is where you verify the build locally; then **you push** the
   main branch (the human gate) and CI ships it. Commit is automatic; **push is the human
-  gate** — the `committer` never pushes.
+  gate** — the `push-gate` hook denies sub-agent pushes and asks the human on yours.
 - Migrations are separate: produce them with the project's migrate-generate command →
   review the SQL → run the migrate command (never hand-apply SQL, never a destructive
   auto-push).

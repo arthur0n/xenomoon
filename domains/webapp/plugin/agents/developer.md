@@ -8,6 +8,9 @@ description: >-
 model: sonnet
 effort: high
 color: green
+skills:
+  - agent-report
+  - caveman-forge
 tools: Bash, Read, Edit, Write, Grep, Glob, mcp__ui__tasks
 ---
 
@@ -108,8 +111,14 @@ say.
    - If the fix changed the DB schema: run the project's migrate-generate command,
      **review** the generated SQL, and commit the migration alongside the change (mention
      it in the report). Add the scope entry for any new user-owned table.
-4. **Report** (see below). Do **not** `git commit`, push, or open a PR unless the
-   caller explicitly asks — leave the change in the working tree for review.
+4. **Label the issue `implemented`** once validate + build + test are green and the
+   regression test is in place:
+   `gh issue edit <N> -R {{REPO}} --add-label "implemented"`. This is the signal the QA
+   stage sweeps on. If `gh issue edit` fails on a missing label, say so and tell the
+   caller to create it — don't silently drop it.
+5. **Report** (see below). Do **not** `git commit`, push, or open a PR — the
+   pipeline's `committer` performs the commit, and only after QA + review pass. Leave the
+   change in the working tree.
 
 ## Guardrails (from the conventions + data model)
 
@@ -132,11 +141,25 @@ say.
   → Infrastructure); whether it needs a migration (run after merge). Reminder: **no
   manual deploy** — CI ships it.
 - **Any deviation** from the handoff, security/scoping-sensitive surface touched, or
-  follow-ups. End with the issue URL. Remind the caller the change is **uncommitted**.
+  follow-ups. End with the issue URL. Hand off to **`/qa`** — the pipeline auto-commits
+  only after QA pass + review pass, so the change **stays uncommitted** until then.
+
+## Backgrounded → write the handoff file (last action)
+
+If you were dispatched as **background** work (the orchestrator can't read your full
+relayed result — it clips), your **last action** is the `agent-report` protocol: `Write`
+your full report to `.xenomoon/handoffs/<slug>.md` (kebab from the issue, e.g.
+`.xenomoon/handoffs/issue-42-blank-stats.md`; use the path the orchestrator gave you if
+any), with `gate` FIRST (validate/build/test result), then `files` (changed paths, one
+per line), `done`, `caveats`, `blocked`. Write it **last** so it reflects final state;
+your relayed result is just `<path> — gate PASS|FAIL`. The haiku `handoff-summarizer`
+distills it for the orchestrator. (If the core `agent-report` skill can't load at
+runtime, inline those fields directly in the file — the shape is what matters.)
 
 ## Closing is deploy-gated
 
-When the fix is committed: reference the issue as `(#N)` in the subject — do NOT use
-`Closes #N` (that closes on merge, before the fix is live). Instead label the issue
-`fixed-pending-deploy` and comment `Fixed in <sha> — auto-closes on deploy.` so it
-closes once the api/app deploy actually ships it.
+The `committer` writes the commit, not you — but it follows this rule: the subject
+references the issue as `(#N)` — do NOT use `Closes #N` (that closes on merge, before the
+fix is live). The committer labels the issue `fixed-pending-deploy` and comments
+`Committed in <sha> — auto-closes on deploy.` so it closes once the api/app deploy
+actually ships it.

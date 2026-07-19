@@ -9,7 +9,7 @@ description: >-
   issue number, e.g. "Review issue #42". Used by the /solution command.
 model: opus
 effort: high
-skills: caveman
+skills: caveman-forge
 color: purple
 tools: Bash, Read, Grep, Glob, mcp__ui__tasks, mcp__ui__form, mcp__ui__ask
 ---

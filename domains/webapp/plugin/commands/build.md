@@ -10,9 +10,9 @@ push to the main branch** (see `CLAUDE.md` → Infrastructure for the exact work
 targets). This command runs the local build/smoke and, for `deploy`, helps you watch
 the CI run. It must **never** run `sam deploy`, `wrangler deploy`, or any manual deploy.
 
-Use the project's own commands (from the domain manifest's `build` / `lint` / `test`
-and `CLAUDE.md` → Commands — e.g. `npm run build` / `npm run validate` / `npm run smoke`,
-or whatever the project uses: pnpm/yarn/etc.).
+Use the project's own commands (from the domain manifest's `build` / `lint` / `test` /
+`smoke` / `e2e` and `CLAUDE.md` → Commands — e.g. `npm run build` / `npm run validate` /
+`npm run smoke` / `npm run e2e`, or whatever the project uses: pnpm/yarn/etc.).
 
 Arguments: `$ARGUMENTS`
 
@@ -24,9 +24,12 @@ Arguments: `$ARGUMENTS`
   locally. For quick iteration the dev servers are enough (the project's dev / dev:app
   scripts) — no rebuild needed.
 
-- **`smoke`** → the project's **smoke / integration** command (if it has one).
-  End-to-end check of the data API against the real DB (throwaway/self-cleaning where the
-  project supports it). Use after a backend/DB change to confirm the live data path works.
+- **`smoke`** → the project's **`smoke`** command (the domain manifest's `smoke` key,
+  `npm run smoke --if-present`). End-to-end check of the data API against the real DB
+  (throwaway/self-cleaning where the project supports it). Use after a backend/DB change
+  to confirm the live data path works. Acceptance UAT is separate — the project's **`e2e`**
+  key (`npm run e2e --if-present`) is the capped Playwright suite, run via `/uat`, not
+  here.
 
 - **`deploy`** → **do NOT deploy from here.** Confirm with me first, then:
   1. Remind me deploy happens by pushing to the main branch (CI does the cloud work;
@@ -41,10 +44,12 @@ Arguments: `$ARGUMENTS`
 
 ## Notes
 
-- The build + smoke commands are local and safe. **`deploy` is outward-facing and
+- The build + smoke + e2e commands are local and safe. **`deploy` is outward-facing and
   CI-only** — never `sam deploy`/manual; always confirm before pushing the main branch.
-- Pipeline: `/implement` offers a `/build` after a fix so you can verify it builds, then
-  you commit + push to let CI ship it.
+- **Post-commit flow:** the pipeline auto-commits once an issue is green (`/qa` + `/audit`
+  pass → `/commit`). `/build` is where you verify the build locally; then **you push** the
+  main branch (the human gate) and CI ships it. Commit is automatic; **push is the human
+  gate** — the `committer` never pushes.
 - Migrations are separate: produce them with the project's migrate-generate command →
   review the SQL → run the migrate command (never hand-apply SQL, never a destructive
   auto-push).

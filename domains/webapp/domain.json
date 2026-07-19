@@ -1,7 +1,7 @@
 {
   "name": "webapp",
   "label": "Web App",
-  "description": "Head-start package for React + Node.js web apps. Ships a proven, human-gated, issue-driven pipeline (bug-triage → senior-dev → developer) with /feedback /triage /solution /implement /build, then learns each project's conventions on top.",
+  "description": "Head-start package for React + Node.js web apps. Ships a proven, human-gated, issue-driven pipeline (triage → solution → implement → QA → adversarial review → auto-commit) with /feedback /triage /solution /implement /qa /audit /commit /build /uat, then learns each project's conventions on top.",
   "populated": true,
   "engine": {
     "name": "node",
@@ -15,9 +15,12 @@
   "materializeIntoProject": false,
   "plugin": "domains/webapp/plugin",
   "orchestrator": "domains/webapp/orchestrator.md",
+  "builders": ["developer"],
   "commands": {
     "build": "npm run build --if-present",
     "lint": "npm run lint --if-present",
-    "test": "npm test --if-present"
+    "test": "npm test --if-present",
+    "smoke": "npm run smoke --if-present",
+    "e2e": "npm run e2e --if-present"
   }
 }

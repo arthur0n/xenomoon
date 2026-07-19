@@ -29,25 +29,27 @@ Arguments: `$ARGUMENTS`
      **sequentially** and pause between for me to review/commit each.
 
 4. **Report** the agent's result: files changed, the validate + build status,
-   the test added (red→green), any deviation from the handoff or scoping-sensitive
-   surface, and the issue URL. Remind me the change is **uncommitted** — I review the
-   diff and commit when ready.
+   the test added (red→green), the `implemented` label it applied, any deviation from the
+   handoff or scoping-sensitive surface, and the issue URL. The change is
+   **uncommitted** — the pipeline auto-commits only after QA + review pass.
 
-5. **Offer to verify locally** (using the developer's reported ship path and the
-   project's commands — see `CLAUDE.md` → Commands):
-   - backend fix → testable via the project's dev server / integration command; ships
-     via its backend CI deploy.
-   - frontend fix → testable via the project's app dev server; ships via its frontend
-     CI deploy.
-   - Offer `/build` to run the local production build / smoke. Do **not** deploy —
-     deploy is CI-only on push to the main branch (see `/build deploy`).
+5. **Chain to `/qa`.** The change is not done until it clears the QA gate. Offer
+   `/qa <N>` next — the `tester` re-runs validate/build/test and asserts the regression
+   test guards the bug, then `/audit` reviews, then `/commit` records it. Do **not** tell
+   me to commit by hand; the pipeline commits once green.
+   - Optionally offer `/build` to eyeball the local production build first. Do **not**
+     deploy — deploy is CI-only on push to the main branch (see `/build deploy`).
 
 ## Notes
 
-- Pipeline: `/feedback` → `/triage` → `/solution` → `/implement` → `/build`.
-- **Closing is deploy-gated.** When the fix is committed: reference the issue as `(#N)`
-  in the subject — do NOT use `Closes #N` (closes on merge, before it's live). Instead
-  label `fixed-pending-deploy` and comment `Fixed in <sha> — auto-closes on deploy.`
+- Pipeline: `/feedback` → `/triage` → `/solution` → `/implement` → `/qa` → `/audit` →
+  `/commit` → `/build`. Loop-backs: `qa:blocked` / `review:changes` come back to
+  `/implement`.
+- **One issue at a time** — the developer edits the shared working tree; never run two in
+  parallel.
+- **Closing is deploy-gated.** The `committer` (not this stage) writes the commit: it
+  references the issue as `(#N)` — never `Closes #N` (closes on merge, before it's live) —
+  labels `fixed-pending-deploy`, and comments `Committed in <sha> — auto-closes on deploy.`
 - Run `/implement` only on issues that already have a `solution-ready` handoff.
-- The agent must leave the project's validate + build green and add the regression test
-  before it's done.
+- The agent must leave the project's validate + build green, add the regression test, and
+  label the issue `implemented` before it's done — then it hands to `/qa`.

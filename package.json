@@ -16,6 +16,7 @@
     "materialize": "node ui/server/cli/materialize.js",
     "doctor": "node ui/server/cli/doctor.js",
     "start": "node ui/server/core/index.js",
+    "up": "node ui/server/cli/start-profile.js",
     "badges": "node ui/server/cli/update-badges.js",
     "release": "node ui/server/cli/release-stage.js",
     "token-history": "node ui/server/cli/token-history.js",

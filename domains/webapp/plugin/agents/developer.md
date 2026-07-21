@@ -143,6 +143,11 @@ say.
   those carry a higher bar.
 - Don't weaken or skip a failing test/lint rule to go green — fix the code. Don't bypass
   the project's label/enum system with a hardcoded literal to dodge it.
+- **Never add or remove a dependency** (`pnpm add`/`remove`, `npm install <pkg>` — anything
+  that touches the lockfile) unless the ANALYSIS/PRD names that exact dependency. A new dep
+  is a design decision, not an implementation detail. Tests use the project's EXISTING
+  runner setup — no new test libs. A dirtied lockfile is near-impossible to clean from
+  inside the pipeline (destructive git is gated), so don't dirty it.
 
 ## Return to caller
 

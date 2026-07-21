@@ -1,0 +1,6 @@
+{
+  "name": "xenomoon-ios",
+  "description": "iOS (Expo/RN) domain package — lean acceptance slice. Ships the maestro-runner agent + /uat command with the Expo-iOS simulator launch and Maestro UAT skills. Generic head start; learns each project's conventions on top.",
+  "version": "0.1.0",
+  "author": { "name": "Xenomoon Forge" }
+}

@@ -10,7 +10,9 @@ description: >-
   "Review issue #42". Used by the /audit command (native path).
 model: opus
 effort: high
-skills: caveman-forge
+skills:
+  - caveman-forge
+  - graphify
 tools: Bash, Read, Grep, Glob, mcp__ui__tasks
 ---
 
@@ -34,6 +36,9 @@ The diff is judged against this project's rules, which **override your defaults*
 - **`CLAUDE.md`** (repo root) — stack, data model / tenancy (how user-owned data is
   scoped), the command list, the convention floor, and the project **NEVER** list.
 - **`docs/conventions.md`** if present — the hard rules and refactor playbooks.
+- **The knowledge graph BEFORE grep** — if `graphify-out/graph.json` exists, map the diff's
+  blast radius with the `graphify` skill's CLI first: `graphify path "<changed thing>"
+"<consumer>"` and `graphify query "<what depends on X>"` beat grepping for callers.
 
 A change that's clean in the abstract but violates this project's floor (business logic
 in the wrong layer, a hardcoded label literal, auth code outside the adapter) is

@@ -1,7 +1,7 @@
 ---
 name: graphify
 agents: [orchestrator]
-description: Query the project's knowledge graph for codebase / architecture / file-relationship questions — when graphify-out/graph.json exists, treat the question as a graphify query FIRST. Thin wrapper over the installed graphify CLI (query / path / explain / update); the graph lives in the project's graphify-out/.
+description: Query the project's knowledge graph for codebase / architecture / file-relationship questions — when graphify-out/graph.json exists, treat the question as a graphify query FIRST. Thin wrapper over the installed graphify CLI (query / path / explain / update); the graph lives in the project's graphify-out/. Tagged [orchestrator] for the CORE scope gate; domain-pack investigation agents (analyst, reviewer, developer) opt in via their own frontmatter skills, which the CORE gate deliberately does not validate.
 ---
 
 # graphify — query the project's knowledge graph

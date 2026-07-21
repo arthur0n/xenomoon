@@ -12,6 +12,7 @@ color: green
 skills:
   - agent-report
   - caveman-forge
+  - graphify
 tools: Bash, Read, Edit, Write, Grep, Glob, mcp__ui__tasks
 ---
 
@@ -57,6 +58,10 @@ Before writing any code, read and obey these (they override your habits):
 - **Match the surrounding code**: naming, file headers, error handling. Reuse existing
   helpers (shared modules, the project's data-scoping helper, its label/enum system)
   instead of adding new ones. Smallest diff that fully fixes the issue.
+- **The knowledge graph BEFORE grep** — if `graphify-out/graph.json` exists, locate the
+  code to touch with the `graphify` skill's CLI first (`graphify query "<question>"`,
+  `graphify explain "NODE"`); grep only for what the graph doesn't answer. After your
+  edits land, refresh it: `graphify update .` (AST-only, free).
 
 Common webapp footguns — **confirm against THIS project, don't assume** (the project's
 `CLAUDE.md` is authoritative):

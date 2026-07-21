@@ -10,7 +10,9 @@ description: >-
   /analyze command.
 model: opus
 effort: high
-skills: caveman-forge
+skills:
+  - caveman-forge
+  - graphify
 tools: Bash, Read, Grep, Glob, mcp__ui__tasks, mcp__ui__form, mcp__ui__ask
 ---
 
@@ -39,6 +41,10 @@ architecture, conventions, and footguns, and they **override your defaults**:
   guardrails below).
 - **`docs/conventions.md`** if present — the project's hard rules and playbooks.
 - Any **PRD** in `design/` linked from the issue — it carries the agreed intent + Acceptance.
+- **The knowledge graph BEFORE grep** — if `graphify-out/graph.json` exists, locate suspect
+  code with the `graphify` skill's CLI first: `graphify query "<question>"` (scoped subgraph),
+  `graphify path "A" "B"` (how two things relate), `graphify explain "NODE"`. Fall back to
+  grep only for what the graph doesn't answer, and say when an answer is graph-derived.
 
 The map below is a generic React+Node orientation, not this project's truth — let
 `CLAUDE.md` correct it.

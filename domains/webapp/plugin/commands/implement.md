@@ -1,12 +1,13 @@
 ---
-description: Implement a solution-ready issue's fix (developer agent) + verify with the project's validate/build/test
+description: Implement an analyzed issue's fix (developer agent) + verify with the project's validate/build/test
 argument-hint: "[issue#]"
 allowed-tools: Bash, Agent, Read, Edit, Write, Grep, Glob
 ---
 
-Trigger for the `developer` agent. It reads the senior-dev handoff, implements the fix
-to convention, and proves it with the project's validate + build commands + the test the
-handoff specifies. The agent is the stable core; this command is just the trigger.
+Trigger for the `developer` agent. It reads the analyst ANALYSIS handoff (and a PRD's
+Acceptance when one exists), implements the fix to convention, and proves it with the
+project's validate + build commands + the test the handoff specifies. The agent is the
+stable core; this command is just the trigger.
 
 Arguments: `$ARGUMENTS`
 
@@ -20,7 +21,7 @@ Arguments: `$ARGUMENTS`
 2. **Resolve the target:**
    - A number (e.g. `42`) → implement that issue.
    - Empty → list candidates and ask which (do **not** auto-implement all):
-     `gh issue list -R {{REPO}} --state open --search "label:solution-ready" --json number,title`
+     `gh issue list -R {{REPO}} --state open --search "label:analyzed -label:implemented" --json number,title`
 
 3. **Spawn one `developer` agent** (Agent tool, `subagent_type: "developer"`) with the
    issue number, e.g. _"Implement issue #42."_
@@ -42,7 +43,7 @@ Arguments: `$ARGUMENTS`
 
 ## Notes
 
-- Pipeline: `/feedback` → `/triage` → `/solution` → `/implement` → `/qa` → `/audit` →
+- Pipeline: `/feedback` → `/design`? → `/analyze` → `/implement` → `/qa` → `/audit` →
   `/commit` → `/build`. Loop-backs: `qa:blocked` / `review:changes` come back to
   `/implement`.
 - **One issue at a time** — the developer edits the shared working tree; never run two in
@@ -50,6 +51,6 @@ Arguments: `$ARGUMENTS`
 - **Closing is deploy-gated.** The `/commit` step (not this stage) writes the commit: it
   references the issue as `(#N)` — never `Closes #N` (closes on merge, before it's live) —
   labels `fixed-pending-deploy`, and comments `Committed in <sha> — auto-closes on deploy.`
-- Run `/implement` only on issues that already have a `solution-ready` handoff.
+- Run `/implement` only on issues that already have an `analyzed` ANALYSIS handoff.
 - The agent must leave the project's validate + build green, add the regression test, and
   label the issue `implemented` before it's done — then it hands to `/qa`.

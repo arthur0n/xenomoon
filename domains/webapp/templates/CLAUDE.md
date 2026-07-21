@@ -56,6 +56,19 @@ Project-specific hard rules every change must respect (the agents obey these ove
   raw `playwright test`.
 - {{add the rules that are actually non-negotiable here}}
 
+## Business rules / product facts
+
+Standing facts about **what this product does / doesn't do** — captured product INTENT, in
+the user's own words. **Designer-maintained, human-gated** (the `designer` agent proposes
+additions during `/design` and writes them only after you approve). The agents treat this
+block as **AUTHORITATIVE intent**: the analyst never manufactures a hypothesis that
+contradicts a rule here (a symptom-vs-intent conflict is a designer question, not a code
+trace); the developer builds to it; the tester reads it as rubric. Empty until the first
+`/design` seeds it — quote the fact, don't paraphrase it.
+
+- {{e.g. "We're not using the Explicação columns — propagate the value instead."}}
+- {{add each standing product rule verbatim as it's captured}}
+
 ## Acceptance testing (UAT)
 
 Capped Playwright acceptance, run via `/uat` against an **already-running** app (the runner never

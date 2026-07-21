@@ -46,6 +46,18 @@ Project-specific hard rules every change must respect (the agents obey these ove
 - {{e.g. config-driven — no magic numbers}}
 - {{add the rules that are actually non-negotiable here}}
 
+## Business rules / product facts
+
+Standing facts about **what this product does / doesn't do** — captured product INTENT, in
+the user's own words. **Designer-maintained, human-gated** (the `designer` agent proposes
+additions during `/design` and writes them only after you approve). The framework's agents
+treat this block as **AUTHORITATIVE intent** — they build and reason to it and never
+manufacture an assumption that contradicts a rule stated here. Empty until the first
+`/design` seeds it — quote the fact, don't paraphrase it.
+
+- {{e.g. "We're not using the X columns — propagate the value instead."}}
+- {{add each standing product rule verbatim as it's captured}}
+
 ## NEVER (project-specific)
 
 - {{e.g. never commit secrets / env values}}

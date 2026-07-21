@@ -1,7 +1,7 @@
 {
   "name": "webapp",
   "label": "Web App",
-  "description": "Head-start package for React + Node.js web apps. Ships a proven, human-gated, issue-driven pipeline (triage → solution → implement → QA → adversarial review → auto-commit) with /feedback /triage /solution /implement /qa /audit /commit /build /uat, then learns each project's conventions on top.",
+  "description": "Head-start package for React + Node.js web apps. Ships a proven, human-gated, issue-driven pipeline (design PRD → analyze → implement → QA → adversarial review → auto-commit) with /feedback /design /analyze /implement /qa /audit /commit /build /uat, then learns each project's conventions on top.",
   "populated": true,
   "engine": {
     "name": "node",

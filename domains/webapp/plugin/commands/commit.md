@@ -24,7 +24,7 @@ Arguments: `$ARGUMENTS`
    `gh issue list -R {{REPO}} --state open --search "label:qa:pass label:review:pass -label:committed" --json number,title`
 
 3. **Check the gate yourself first** (the hook re-checks, but fail early with a better
-   message): labels present `solution-ready` + `implemented` + `qa:pass` + `review:pass`;
+   message): labels present `analyzed` + `implemented` + `qa:pass` + `review:pass`;
    labels absent `qa:blocked`, `review:changes` (a stale block outranks a pass). Then
    `git status --porcelain` — the tree must hold the issue's fix **and nothing unrelated**
    (broader diff → stop and tell me).

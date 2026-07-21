@@ -9,7 +9,7 @@ auth leaks, enum drift, swallowed errors, a test that doesn't guard the bug) and
 `## 🔎 REVIEW — pass|changes` verdict + `review:pass`/`review:changes` labels.
 
 (Named `/audit`, not `/review`, because `/review` is a built-in Claude Code command that
-reviews pull requests — same reason `/solution` isn't `/review`.)
+reviews pull requests.)
 
 Arguments: `$ARGUMENTS`
 

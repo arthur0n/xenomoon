@@ -1,6 +1,6 @@
 {
   "name": "xenomoon",
-  "description": "Xenomoon Forge CORE plugin — the domain-agnostic basic install (meta skills, safety hooks, handoff-summarizer + the researcher learning loop) loaded into every project session alongside the active domain pack.",
-  "version": "0.1.7",
+  "description": "Xenomoon Forge CORE plugin — the domain-agnostic basic install (the interview-first designer/PRD agent, meta skills, safety hooks, handoff-summarizer + the researcher learning loop) loaded into every project session alongside the active domain pack.",
+  "version": "0.1.8",
   "author": { "name": "Xenomoon Forge" }
 }

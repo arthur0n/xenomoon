@@ -1,6 +1,6 @@
 {
   "name": "xenomoon-webapp",
-  "description": "Web app domain package for React + Node.js. Ships an issue-driven, human-gated pipeline — bug-triage → senior-dev (solution) → developer (implement) — with /feedback /triage /solution /implement /build commands. Generic head start; learns each project's conventions on top.",
+  "description": "Web app domain package for React + Node.js. Ships an issue-driven, human-gated pipeline — designer (PRD) → analyst (analyze) → developer (implement) → tester (QA) → reviewer (audit) — with /feedback /design /analyze /implement /qa /audit /commit /build /uat commands. Generic head start; learns each project's conventions on top.",
   "version": "0.1.0",
   "author": { "name": "Xenomoon Forge" }
 }

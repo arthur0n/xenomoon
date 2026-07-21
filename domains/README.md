@@ -42,7 +42,7 @@ the seeded convention floor. A pack's `orchestrator.md` should **use** these, no
 ## Shipped packs
 
 - **`webapp`** — a populated HEAD-START for React + Node apps: an issue-driven, human-gated pipeline
-  (`bug-triage → senior-dev → developer`; the `/feedback /triage /solution /implement /build`
-  commands). The orchestrator then learns the specific project and promotes broadly-useful
-  capabilities back into the pack for the next project.
+  (`designer → analyst → developer → tester → reviewer`; the `/feedback /design /analyze /implement
+/qa /audit /commit /build /uat` commands). The orchestrator then learns the specific project and
+  promotes broadly-useful capabilities back into the pack for the next project.
 - **`app`** — an empty Node learning pack (ships no pre-baked capabilities; learns the project).

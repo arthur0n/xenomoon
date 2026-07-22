@@ -1,6 +1,6 @@
 ---
-name: maestro-sim-uat
-agents: [maestro-runner]
+name: ios-local-uat
+agents: [uat-runner]
 description: Running Maestro acceptance flows against an Expo/RN iOS app on the Simulator — persisted-session auth (Maestro cannot drive Sign in with Apple), gate-aware launch subflows, the dev-overlay tap-eating trap, and the PASS/FAIL/BLOCKED verdict discipline with screenshot evidence. Load when executing or diagnosing a Maestro UAT run.
 ---
 

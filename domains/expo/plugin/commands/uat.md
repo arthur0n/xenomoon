@@ -4,7 +4,7 @@ argument-hint: "[scenario — default poc | <flow name>]"
 allowed-tools: Bash, Agent, Read, Grep, Glob
 ---
 
-Trigger for the `maestro-runner` agent. It runs ONLY the project's own Maestro / e2e
+Trigger for the `uat-runner` agent. It runs ONLY the project's own Maestro / e2e
 script against an app **already running on a booted iOS Simulator** (it never boots
 servers and never rebuilds the app), reuses a persisted auth session, and returns
 PASS / FAIL / BLOCKED with screenshot evidence. The agent is the stable core; this
@@ -26,7 +26,7 @@ Arguments: `$ARGUMENTS`
    mechanism. The runner verifies these and reports BLOCKED if missing — it doesn't
    fix them.
 
-3. **Spawn one `maestro-runner` agent** (Agent tool, `subagent_type: "maestro-runner"`)
+3. **Spawn one `uat-runner` agent** (Agent tool, `subagent_type: "uat-runner"`)
    with the scenario, e.g. _"UAT poc."_
 
 4. **Report** the agent's result: scenario, PASS/FAIL/BLOCKED, the load-bearing

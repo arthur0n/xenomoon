@@ -1,6 +1,8 @@
 {
   "name": "xenomoon-expo",
-  "description": "Expo (React Native) domain package — lean acceptance slice, iOS-focused v1. Ships the maestro-runner agent + /uat command with the Expo-iOS simulator launch and Maestro UAT skills. Generic head start; learns each project's conventions on top.",
-  "version": "0.1.0",
-  "author": { "name": "Xenomoon Forge" }
+  "description": "Expo (React Native) domain package \u2014 lean acceptance slice, iOS + Android. Ships the uat-runner agent + /uat command with launch and Maestro UAT skills for the iOS Simulator and the Android emulator, Android app-identity and Play internal-testing ship playbooks, and a domain-agnostic fork-sync runbook. Generic head start; learns each project's conventions on top.",
+  "version": "0.2.0",
+  "author": {
+    "name": "Xenomoon Forge"
+  }
 }

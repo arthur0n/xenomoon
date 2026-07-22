@@ -1,6 +1,6 @@
 ---
-name: expo-sim-run
-agents: [maestro-runner]
+name: ios-local-run
+agents: [uat-runner]
 description: Launch knowledge for Expo/RN iOS apps on the Simulator — the failure modes between "code compiles" and "app usable on a booted sim". Load when verifying sim-launch preconditions, diagnosing a red-screen / missing-native-module error, or explaining why a launch is BLOCKED. The launch specifics (scheme, device, script name) always come from the project's CLAUDE.md; this skill is the generic playbook around them.
 ---
 
@@ -37,7 +37,7 @@ and target device — read it first; this skill is the diagnostic knowledge arou
 
 4. **Launch gates.** First launch may hit system dialogs (verification prompts,
    permission alerts) and app-side onboarding gates. These are launch-flow concerns —
-   for UAT they belong in the project's launch subflow (see `maestro-sim-uat`), not in
+   for UAT they belong in the project's launch subflow (see `ios-local-uat`), not in
    per-flow logic.
 
 ## JS change vs native rebuild — the routing rule

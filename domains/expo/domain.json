@@ -1,7 +1,7 @@
 {
   "name": "expo",
   "label": "Expo (React Native)",
-  "description": "Head-start package for Expo / React Native apps. iOS-focused v1: ships a simulator-based Maestro acceptance slice (/uat → maestro-runner) with the Expo-iOS launch knowledge it depends on (xcodebuild fallback, Metro port guard, persisted-session auth), then learns each project's conventions on top. Android capabilities join this same domain later.",
+  "description": "Head-start package for Expo / React Native apps, both platforms. iOS: simulator-based Maestro acceptance slice (/uat → uat-runner) with the Expo-iOS launch knowledge it depends on (xcodebuild fallback, Metro port guard, persisted-session auth). Android: emulator launch (CLI-only SDK, stale-prebuild guard, per-checkout Metro port), emulator Maestro UAT, app-identity (launcher-label leak), and the EAS → Play internal-testing ship pipeline. Plus a domain-agnostic fork⇄upstream sync runbook (promotable). Learns each project's conventions on top.",
   "populated": true,
   "engine": {
     "name": "node",

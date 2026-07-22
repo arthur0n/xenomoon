@@ -72,11 +72,20 @@ if this is a forced re-run.
 
    ```bash
    gh issue view <N> -R {{REPO}} --json number,title,state,labels,body,author,comments | jq -r '
-     "#\(.number) \(.title) [\(.state)]"
+     8000 as $cap | 2500 as $head | 4500 as $tail
+     | (.comments // []) as $all
+     | [$all[] | (.body // "") | length | select(. > $cap) | . - $head - $tail] as $elided
+     | "#\(.number) \(.title) [\(.state)]"
      + (if (.labels // []) != [] then "\nlabels: " + ([.labels[].name]|join(", ")) else "" end)
      + "\n\n" + (.body // "")
-     + ([(.comments // [])[] | "\n\n--- @\(.author.login // "?") \(.createdAt // "")\n\(.body // "")"] | join(""))'
+     + (if ($elided|length) > 0 then "\n\n[issue-view policy:issue-comment-cap] capped \($elided|length) of \($all|length) comments, elided \($elided|add) chars (full: gh issue view \(.number) --comments)" else "" end)
+     + ([$all[] | "\n\n--- @\(.author.login // "?") \(.createdAt // "")\n" + ((.body // "") | if length > $cap then .[0:$head] + "\n\n[… elided \(length - $head - $tail) chars of mid-section — full: gh issue view --comments]\n\n" + .[(length-$tail):] else . end)] | join(""))'
    ```
+
+   Comments over 8000 chars keep **head and tail**, dropping only the mid-section — the
+   `TESTABILITY` field you need sits at the END of the analysis, so it always survives. If a
+   capped mid-section matters, pull that comment in full with
+   `gh issue view <N> -R {{REPO}} --comments`.
 
    The gate needs three things from the thread: the **`🔬 ANALYSIS`** comment's
    **TESTABILITY** field (what regression test must exist, of what kind, asserting what),

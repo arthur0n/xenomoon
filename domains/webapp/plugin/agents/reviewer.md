@@ -73,11 +73,20 @@ this is a forced re-review.
 
    ```bash
    gh issue view <N> -R {{REPO}} --json number,title,state,labels,body,author,comments | jq -r '
-     "#\(.number) \(.title) [\(.state)]"
+     8000 as $cap | 2500 as $head | 4500 as $tail
+     | (.comments // []) as $all
+     | [$all[] | (.body // "") | length | select(. > $cap) | . - $head - $tail] as $elided
+     | "#\(.number) \(.title) [\(.state)]"
      + (if (.labels // []) != [] then "\nlabels: " + ([.labels[].name]|join(", ")) else "" end)
      + "\n\n" + (.body // "")
-     + ([(.comments // [])[] | "\n\n--- @\(.author.login // "?") \(.createdAt // "")\n\(.body // "")"] | join(""))'
+     + (if ($elided|length) > 0 then "\n\n[issue-view policy:issue-comment-cap] capped \($elided|length) of \($all|length) comments, elided \($elided|add) chars (full: gh issue view \(.number) --comments)" else "" end)
+     + ([$all[] | "\n\n--- @\(.author.login // "?") \(.createdAt // "")\n" + ((.body // "") | if length > $cap then .[0:$head] + "\n\n[… elided \(length - $head - $tail) chars of mid-section — full: gh issue view --comments]\n\n" + .[(length-$tail):] else . end)] | join(""))'
    ```
+
+   Comments over 8000 chars keep head+tail and drop the mid-section (the `TESTABILITY` / `SHIP`
+   fields live at the tail, so they survive). You review the CODE, not the claims, so the cap
+   rarely matters — but if a capped comment is load-bearing, pull it in full with
+   `gh issue view <N> -R {{REPO}} --comments`.
 
    The `🔬 ANALYSIS` gives you the intended fix (FIX / WATCH / TESTABILITY); the `🧪 QA`
    verdict tells you what already passed. You review the actual code, not the claims.

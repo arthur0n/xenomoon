@@ -90,15 +90,23 @@ say.
 
    ```bash
    gh issue view <N> -R {{REPO}} --json number,title,state,labels,body,comments | jq -r '
-     (.comments // []) as $all
+     8000 as $cap | 2500 as $head | 4500 as $tail
+     | (.comments // []) as $all
      | ([$all | to_entries[] | select(.value.body | test("🔬 ANALYSIS")) | .key] | last) as $h
      | (if $h == null then $all else $all[$h:] end) as $keep
+     | [$keep[] | (.body // "") | length | select(. > $cap) | . - $head - $tail] as $elided
      | "#\(.number) \(.title) [\(.state)]"
      + (if (.labels // []) != [] then "\nlabels: " + ([.labels[].name]|join(", ")) else "" end)
      + "\n\n" + (.body // "")
      + (if ($all|length) > ($keep|length) then "\n\n[issue-view policy:issue-view-trim] showing \($keep|length) of \($all|length) comments (latest analysis onward)" else "" end)
-     + ([$keep[] | "\n\n--- @\(.author.login // "?") \(.createdAt // "")\n\(.body // "")"] | join(""))'
+     + (if ($elided|length) > 0 then "\n\n[issue-view policy:issue-comment-cap] capped \($elided|length) of \($keep|length) comments, elided \($elided|add) chars (full: gh issue view \(.number) --comments)" else "" end)
+     + ([$keep[] | "\n\n--- @\(.author.login // "?") \(.createdAt // "")\n" + ((.body // "") | if length > $cap then .[0:$head] + "\n\n[… elided \(length - $head - $tail) chars of mid-section — full: gh issue view --comments]\n\n" + .[(length-$tail):] else . end)] | join(""))'
    ```
+
+   Comments over 8000 chars keep **head and tail**, dropping only the mid-section — your spec
+   (`FIX` / `STEPS` / `WATCH` / `TEST` / `TESTABILITY` / `SHIP`) sits at the END of the analysis,
+   so it always survives the cap. If a capped mid-section is load-bearing, pull that comment in
+   full with `gh issue view <N> -R {{REPO}} --comments`.
 
    Find the `🔬 ANALYSIS` comment — its **FIX / STEPS / WATCH / TEST / TESTABILITY / SHIP**
    is your spec. **If the issue links a PRD** (`design/<slug>.md` — a `**PRD:**` line in the

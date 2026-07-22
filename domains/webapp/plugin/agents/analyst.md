@@ -123,14 +123,23 @@ Check the ones the symptom fits, but verify each against this project's actual c
 
    ```bash
    gh issue view <N> -R {{REPO}} --json number,title,state,body,labels,author,comments,createdAt | jq -r '
-     "#\(.number) \(.title) [\(.state)]"
+     8000 as $cap | 2500 as $head | 4500 as $tail
+     | (.comments // []) as $all
+     | [$all[] | (.body // "") | length | select(. > $cap) | . - $head - $tail] as $elided
+     | "#\(.number) \(.title) [\(.state)]"
      + (if (.labels // []) != [] then "\nlabels: " + ([.labels[].name]|join(", ")) else "" end)
      + (if .author then "\nauthor: @\(.author.login) \(.createdAt // "")" else "" end)
      + "\n\n" + (.body // "")
-     + ([(.comments // [])[] | "\n\n--- @\(.author.login // "?") \(.createdAt // "")\n\(.body // "")"] | join(""))'
+     + (if ($elided|length) > 0 then "\n\n[issue-view policy:issue-comment-cap] capped \($elided|length) of \($all|length) comments, elided \($elided|add) chars (full: gh issue view \(.number) --comments)" else "" end)
+     + ([$all[] | "\n\n--- @\(.author.login // "?") \(.createdAt // "")\n" + ((.body // "") | if length > $cap then .[0:$head] + "\n\n[… elided \(length - $head - $tail) chars of mid-section — full: gh issue view --comments]\n\n" + .[(length-$tail):] else . end)] | join(""))'
    ```
 
-   Read the body AND existing comments (don't repeat work already done).
+   Read the body AND existing comments (don't repeat work already done). Comments over 8000
+   chars keep their **head and tail** and drop the mid-section — prior stages post long reports
+   and every stage re-ingests them. Head+tail is deliberate: the structured handoff fields
+   (`FIX` / `STEPS` / `WATCH` / `TEST` / `TESTABILITY` / `SHIP`) sit at the END of an analysis,
+   so a head-only cap would delete the spec. If a capped comment's mid-section is load-bearing,
+   pull that one in full with `gh issue view <N> -R {{REPO}} --comments`.
    **Then check whether this already exists** — search open and closed issues for the same
    symptom:
    `gh issue list -R {{REPO}} --state all --search "<key terms>" --json number,title,state,labels`.

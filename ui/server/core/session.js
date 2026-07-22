@@ -11,7 +11,6 @@ import { buildUiServer } from "../mcp-tools/ui-server.js";
 import { cancelKimiBoardTask } from "../mcp-tools/kimi-tool.js";
 import { uiControlAllow, preToolGate } from "./ui-control.js";
 import { userInputTurn } from "./user-input.js";
-import { resolveSessionPlugins } from "./session-plugins.js";
 import { runningChip, emitRunning, runWithRetry } from "./stream.js";
 import { readPromotions, decide, markPromoted } from "../features/promotions/promotions-store.js";
 import { promoteOne } from "../features/promotions/promote-run.js";
@@ -42,7 +41,6 @@ import {
   HERMES_BLOCK,
   CODEX_BLOCK,
   KIMI_BLOCK,
-
   getHermesConfig,
   getKimiConfig,
   POLICIES,
@@ -375,7 +373,6 @@ function frameworkPluginConfigs() {
     plugins.push({ type: "local", path: FRAMEWORK_PLUGIN_DIR, skipMcpDiscovery: true });
   }
   return plugins;
-
 }
 
 /**

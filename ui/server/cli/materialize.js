@@ -30,7 +30,6 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { FRAMEWORK_PLUGIN_DIR, ASSET_LIBRARY, RES_ASSET_MOUNT, DOMAIN } from "../core/config.js";
 import { generateManifest } from "./gen-manifest.js";
-import { generateCapabilities } from "./gen-capabilities.js";
 
 const TOOLS_SRC = path.join(FRAMEWORK_PLUGIN_DIR, "tools");
 const LIB_SRC = path.join(FRAMEWORK_PLUGIN_DIR, "library");
@@ -81,12 +80,13 @@ function isShebangScript(file) {
   }
 }
 
-/** Core symlink-ensure shared by every materialize link: idempotent (repoints a stale link),
- * but leaves a REAL directory/file in place untouched (a project that committed its own copy)
- * rather than clobbering it. @param {string} src @param {string} link @param {string} realReason
- * reason reported when a real (non-link) entry sits at `link`
- * @returns {{linked:boolean, reason:string}} */
-function ensureSymlink(src, link, realReason) {
+/** Ensure <projectDir>/library is a symlink to the plugin's library (the single source
+ * researcher agents read and write). Idempotent: repoints a stale link, but leaves a real
+ * directory in place untouched (a game that committed its own library) rather than
+ * clobbering it. @param {string} projectDir @returns {{linked:boolean, reason:string}} */
+export function ensureLibraryLink(projectDir) {
+  if (!existsSync(LIB_SRC)) return { linked: false, reason: "no plugin library" };
+  const link = path.join(projectDir, "library");
   let cur = null;
   try {
     cur = lstatSync(link);
@@ -94,28 +94,15 @@ function ensureSymlink(src, link, realReason) {
     // link absent — cur stays null
   }
   if (cur?.isSymbolicLink()) {
-    if (path.resolve(path.dirname(link), readlinkSync(link)) === path.resolve(src)) {
+    if (path.resolve(path.dirname(link), readlinkSync(link)) === path.resolve(LIB_SRC)) {
       return { linked: true, reason: "already linked" };
     }
     rmSync(link);
   } else if (cur) {
-    return { linked: false, reason: realReason };
+    return { linked: false, reason: "a real library/ exists — left untouched" };
   }
-  symlinkSync(src, link);
+  symlinkSync(LIB_SRC, link);
   return { linked: true, reason: "created" };
-}
-
-/** Ensure <projectDir>/library is a symlink to the plugin's library (the single source
- * researcher agents read and write). Idempotent: repoints a stale link, but leaves a real
- * directory in place untouched (a game that committed its own library) rather than
- * clobbering it. @param {string} projectDir @returns {{linked:boolean, reason:string}} */
-export function ensureLibraryLink(projectDir) {
-  if (!existsSync(LIB_SRC)) return { linked: false, reason: "no plugin library" };
-  return ensureSymlink(
-    LIB_SRC,
-    path.join(projectDir, "library"),
-    "a real library/ exists — left untouched",
-  );
 }
 
 /** Ensure <projectDir>/x-shared-assets is a symlink to the external shared-asset library
@@ -129,11 +116,23 @@ export function ensureLibraryLink(projectDir) {
 export function ensureAssetLibraryLink(projectDir) {
   mkdirSync(path.join(ASSET_LIBRARY, "models"), { recursive: true });
   mkdirSync(path.join(ASSET_LIBRARY, "textures"), { recursive: true });
-  return ensureSymlink(
-    ASSET_LIBRARY,
-    path.join(projectDir, RES_ASSET_MOUNT),
-    `a real ${RES_ASSET_MOUNT}/ exists — left untouched`,
-  );
+  const link = path.join(projectDir, RES_ASSET_MOUNT);
+  let cur = null;
+  try {
+    cur = lstatSync(link);
+  } catch {
+    // link absent — cur stays null
+  }
+  if (cur?.isSymbolicLink()) {
+    if (path.resolve(path.dirname(link), readlinkSync(link)) === path.resolve(ASSET_LIBRARY)) {
+      return { linked: true, reason: "already linked" };
+    }
+    rmSync(link);
+  } else if (cur) {
+    return { linked: false, reason: `a real ${RES_ASSET_MOUNT}/ exists — left untouched` };
+  }
+  symlinkSync(ASSET_LIBRARY, link);
+  return { linked: true, reason: "created" };
 }
 
 /** Prepare a game directory to be driven by the framework: tools copied, library linked,
@@ -163,15 +162,7 @@ export function prepareGame(projectDir) {
   } catch {
     /* non-fatal — agents fall back to re-deriving facts if the manifest is absent */
   }
-  // The skills-side capability map (domains + in-profile), from the plugin registry + the game
-  // profile. Same best-effort discipline: a failure here must not break materialize/doctor/new.
-  let capabilities = null;
-  try {
-    capabilities = generateCapabilities(projectDir);
-  } catch {
-    /* non-fatal — the runtime filter falls back to fail-open (keep all) if the index is absent */
-  }
-  return { tools, lib, assets, manifest, capabilities };
+  return { tools, lib, assets, manifest };
 }
 
 // CLI: `node ui/server/cli/materialize.js [projectDir]`
@@ -180,8 +171,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const target = process.argv[2] ? path.resolve(process.argv[2]) : PROJECT_DIR;
   const { tools, lib, assets } = prepareGame(target);
   console.log(
-    `materialize: ${target} — tools copied ${tools.copied}/${tools.copied + tools.fresh}` +
-      `, library ${lib.reason}` +
-      `, ${RES_ASSET_MOUNT} ${assets.reason}.`,
+    `materialize: ${target} — tools copied ${tools.copied}/${tools.copied + tools.fresh}, library ${lib.reason}, ${RES_ASSET_MOUNT} ${assets.reason}.`,
   );
 }

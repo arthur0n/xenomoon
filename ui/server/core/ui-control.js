@@ -35,8 +35,26 @@ export function isImageRead(toolName, input) {
   return typeof fp === "string" && IMAGE_RE.test(fp);
 }
 
-/** Deterministic pre-gates run BEFORE the permission policy: the screenshot read gate. Returns a decision to short-circuit, or null to fall through. Keeps
- * makeCanUseTool's arrow under the complexity cap and its file under the line cap.
+/** @typedef {import("../../lib/types.js").WaitFor} WaitFor */
+/** @typedef {import("../../lib/types.js").OutMsg} OutMsg */
+/** @typedef {{ session: { autonomousActive?: boolean }, waitFor: WaitFor, log: (dir: string, obj: OutMsg) => void, toolName: string, input: Record<string, unknown>, agent: string }} GateDeps */
+
+/** Gate a screenshot/render-frame Read: deny outright when headless/autonomous (no human to
+ * approve), else FORCE a human approval — never at-will. @param {GateDeps} d */
+async function gateImageRead({ session, waitFor, log, toolName, input, agent }) {
+  if (session.autonomousActive) {
+    log("auto", { type: "permission", toolName, policy: "image-read-denied" });
+    return { behavior: /** @type {const} */ ("deny"), message: SCREENSHOT_STUB };
+  }
+  const { allow } = await waitFor("permission", { toolName, input, agent });
+  return allow
+    ? { behavior: /** @type {const} */ ("allow"), updatedInput: input }
+    : { behavior: /** @type {const} */ ("deny"), message: SCREENSHOT_STUB };
+}
+
+/** Deterministic pre-gates run BEFORE the permission policy: the screenshot read gate. Returns
+ * a decision to short-circuit, or null to fall through. Keeps makeCanUseTool's arrow under the
+ * complexity cap and its file under the line cap.
  * @param {GateDeps} d */
 export async function preToolGate({ session, waitFor, log, toolName, input, agent }) {
   if (isImageRead(toolName, input))

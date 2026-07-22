@@ -9,14 +9,7 @@ import http from "node:http";
 import { mkdirSync } from "node:fs";
 import { WebSocketServer } from "ws";
 import { parseJSON } from "../../lib/json.js";
-import {
-  PORT,
-  PROJECT_DIR,
-  PROJECT_FOUND,
-  CONFIG_FILE,
-  LOG_DIR,
-  ENGINE_LABEL,
-} from "./config.js";
+import { PORT, PROJECT_DIR, PROJECT_FOUND, CONFIG_FILE, LOG_DIR, ENGINE_LABEL } from "./config.js";
 import { AGENT_REGISTRY, listAgents } from "../agents/registry.js";
 import { handleAgentApi } from "../agents/agents-http.js";
 import { sweepKimiWorktrees } from "../integrations/kimi/kimi-worktree.js";
@@ -100,7 +93,6 @@ function handleSettingsPost(req, res) {
         : {
             ...Object.fromEntries(AGENT_REGISTRY.map((a) => [a.id, a.publicConfig()])),
           };
-
     } catch {
       result = { error: "bad request" };
     }
@@ -108,7 +100,6 @@ function handleSettingsPost(req, res) {
     res.end(JSON.stringify(result));
   });
 }
-
 
 mkdirSync(LOG_DIR, { recursive: true });
 
@@ -257,7 +248,6 @@ const POST_ROUTES = {
   "/api/hermes/setup": (req, res) => {
     handleAgentApi(req, res, "/api/agents/hermes/setup");
   },
-
 };
 
 const server = http.createServer((req, res) => {

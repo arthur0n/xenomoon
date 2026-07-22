@@ -165,6 +165,7 @@
  *   | { type: "context", percentage: number, totalTokens: number, maxTokens: number }
  *   | { type: "hermes", phase: "start" | "progress" | "done", runId?: string, text: string, persona?: string }
  *   | { type: "extAgent", agentId: string, label: string, color?: string, phase: "start" | "progress" | "done", runId?: string, text: string }
+ *   | { type: "session", id: string | null }
  *   | { type: "autonomousMode", payload: Autonomous }
  *   | { type: "idle" }
  * )} ServerMsg */

@@ -2,7 +2,6 @@
 name: agent-report
 agents: [builders]
 description: The agent→orchestrator handoff protocol. A backgrounded worker's relayed result string truncates on long, tool-heavy turns, so the handoff is an artifact, not a string — the worker Writes its full report to a file, and a cheap summarizer distills it. Load this whenever a task asks you to hand off a structured report to another agent, or when you are the agent distilling one. Any agent doing background work that must be handed off uses it — not only builders. Defines both sides of the contract.
-
 ---
 
 # Handoff Report
@@ -14,7 +13,6 @@ A long background worker's relayed `result` gets clipped (the tail is lost) — 
 ## Producer — you built something, now hand off
 
 Your **last action** is to **Write your full report** to the handoff path the orchestrator gave you (e.g. `.xenomoon/handoffs/<slug>.md`). If no path was given, use `.xenomoon/handoffs/<task-slug>.md` (kebab from the task) and name it in your result. Write it **last** so it reflects final state — if you die before writing, the summarizer reports the absence (graceful, not silent-wrong).
-
 
 Report fields — **`gate` FIRST** (the tail can clip; lead with the load-bearing fact):
 
@@ -58,4 +56,3 @@ open: <unfinished/blocked, one line> | none
 ```
 NO HANDOFF at <path> — worker likely died before writing. Verify via git/grep + redispatch.
 ```
-

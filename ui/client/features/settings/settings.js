@@ -5,7 +5,7 @@
 //   workspace), per-agent skill recalibration, and the first-run skill-setup wizard.
 // Skills default to framework-only (skillOverrides "*": "off" in
 // starter/.claude/settings.json); the Skills panel lets the user opt in built-in/workspace.
-import { $, $input, el } from "../../core/dom.js";
+import { $, el } from "../../core/dom.js";
 import { fetchJSON, postJSON } from "../../../lib/json.js";
 import { openPortal, collectAgentSettings } from "../agents-portal/portal.js";
 import { refreshPaidAgents } from "../agents-portal/paid-agents.js";
@@ -135,12 +135,8 @@ function collectAgentSkillChanges() {
 async function open() {
   $("settings-error").textContent = "";
   try {
-    // The portal owns the agent cards (fetches /api/agents itself); /api/state only
-    // feeds the docs toggle here.
+    // The portal owns the agent cards (fetches /api/agents itself).
     await openPortal();
-    const state = /** @type {import("../../../lib/types.js").ProjectState} */ (
-      await fetchJSON("/api/state")
-    );
   } catch {
     $("settings-error").textContent = "Couldn't load settings — is the server up to date?";
   }

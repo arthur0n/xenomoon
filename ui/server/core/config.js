@@ -47,13 +47,11 @@ const args = process.argv.slice(2);
  * the local `kimi` CLI (`kimi login` → ~/.kimi/config.toml), so there is no key to store here
  * (same zero-secret model as Codex). @typedef {{ enabled?: boolean, roles?: string[] }} KimiConfig */
 
-
 /** Parsed `.xenomoon.json` (written by `npm run setup`), or `{}` if absent/invalid.
  * Read once: it carries both the saved project path and the engine block. */
 const SAVED = (() => {
   try {
     return /** @type {{ projectDir?: string, domain?: string, engine?: EngineConfig, assetLibrary?: string, hermes?: HermesConfig }} */ (
-
       parseJSON(readFileSync(CONFIG_FILE, "utf8"))
     );
   } catch {
@@ -112,7 +110,6 @@ export const ENGINE = {
 };
 /** Capitalized engine display name for UI/CLI copy. */
 export const ENGINE_LABEL = ENGINE.name.charAt(0).toUpperCase() + ENGINE.name.slice(1);
-
 
 /** The game's res:// mount name for the external shared-asset library — a symlink
  * materialize.js creates (`<game>/x-shared-assets` → ASSET_LIBRARY), so a model resolves
@@ -415,29 +412,6 @@ export function saveKimiConfig(patch) {
   }
 }
 
-/** Merge a partial Godot-docs block into `.xenomoon.json`, preserving every other field
- * (projectDir, engine, hermes, codex, …). @param {DocsConfig} patch @returns {{ ok: true } | { error: string }} */
-export function saveDocsConfig(patch) {
-  /** @type {Record<string, unknown>} */
-  let saved = {};
-  try {
-    saved = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8")));
-  } catch {
-    /* absent/invalid — start fresh */
-  }
-  const prev = /** @type {DocsConfig} */ (saved.docs ?? {});
-  /** @type {DocsConfig} */
-  const next = { ...prev };
-  if (patch.enabled != null) next.enabled = patch.enabled;
-  try {
-    writeFileSync(CONFIG_FILE, JSON.stringify({ ...saved, docs: next }, null, 2) + "\n");
-    return { ok: true };
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "write failed" };
-  }
-}
-
-
 // Bare tool names auto-allowed (no permission prompt) for the whole session — the
 // read/research/exec toolset background sub-agents need. This is the ONE lever that
 // reaches a backgrounded (headless) sub-agent: it has no interactive approver, so
@@ -487,7 +461,6 @@ export const CODEX_BLOCK = readFileSync(path.join(UI_DIR, "codex-block.md"), "ut
   CODEX_COMPANION,
 );
 export const KIMI_BLOCK = readFileSync(path.join(UI_DIR, "kimi-block.md"), "utf8");
-
 
 // Claude Code's own transcript store for this project — every session here is
 // listed and resumable, terminal ones included.

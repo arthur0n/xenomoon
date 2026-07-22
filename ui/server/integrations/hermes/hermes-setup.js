@@ -300,7 +300,9 @@ function configureModelAndTools() {
 function removeLegacyCallback() {
   const r = spawnSync("hermes", ["mcp", "remove", "xenomoon"], { stdio: "ignore" });
   if (r.status === 0) {
-    console.log("\n✓ Removed a stale Hermes→Xenomoon MCP callback (the bridge no longer uses one).");
+    console.log(
+      "\n✓ Removed a stale Hermes→Xenomoon MCP callback (the bridge no longer uses one).",
+    );
   }
 }
 

@@ -191,6 +191,12 @@ misses one ref leaves contamination behind. Completeness → `rg`; concepts → 
    single-consumer orchestrator rules.) Give each surviving finding a **stable id** `<Dn>-<slug>`
    (e.g. `D1-combat`, `D2-greybox`, `D5-research-presenting`) — the fix command targets findings by
    this id, so reuse the same id across runs for the same issue.
+   **Then classify each survivor's SCOPE** (`plugin/docs/process/updates-routing.md`): a
+   FRAMEWORK/spine defect → the ledger (below, the normal path). A missing DOMAIN capability
+   (the fix is really a skill/record the domain pack should carry) → do NOT ledger it — emit the
+   draft content in the run report for the human to materialize via foreground `/learn`
+   (promotions board → `domains/<name>/plugin/`). A PROJECT-only fact → the project's CLAUDE.md,
+   noted in the report.
 
 5. **Record — brief, and KEEP THE LEDGER LEAN.** For each surviving finding, push ONE object to
    `LEDGER.json`'s `findings[]` (dedup by `id`): `{ id, dim, bucket, verdict, status, finding }`

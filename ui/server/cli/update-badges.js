@@ -5,7 +5,7 @@
 // backticked name in the FEATURES.md Agents section against plugin/agents/ (both
 // directions: ghosts and missing), and re-stages what changed. Wired into
 // .husky/pre-commit so none of it can drift. Run manually with: npm run badges
-import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { FRAMEWORK_DIR, FRAMEWORK_PLUGIN_DIR } from "../core/config.js";
@@ -62,39 +62,43 @@ if (readmeAfter !== readmeBefore) {
   staged.push(readmePath);
 }
 
+// FEATURES.md is an upstream catalog this whitelabel deliberately does not carry (SEAMS.md
+// "intentional divergences") — skip its sync + cross-check entirely when absent.
 const featuresPath = path.join(FRAMEWORK_DIR, "FEATURES.md");
-const featuresBefore = readFileSync(featuresPath, "utf8");
-const featuresAfter = setHeadingCount(
-  setHeadingCount(featuresBefore, "Skills", skills),
-  "Agents",
-  agents,
-);
-if (featuresAfter !== featuresBefore) {
-  writeFileSync(featuresPath, featuresAfter);
-  staged.push(featuresPath);
-}
+if (existsSync(featuresPath)) {
+  const featuresBefore = readFileSync(featuresPath, "utf8");
+  const featuresAfter = setHeadingCount(
+    setHeadingCount(featuresBefore, "Skills", skills),
+    "Agents",
+    agents,
+  );
+  if (featuresAfter !== featuresBefore) {
+    writeFileSync(featuresPath, featuresAfter);
+    staged.push(featuresPath);
+  }
 
-// Cross-check the FEATURES.md agent catalog against plugin/agents/ — both directions.
-// Only names that exist as agent files may be backticked in the section (ghosts), and
-// every agent file must appear in the section (missing).
-const agentFiles = readdirSync(path.join(FRAMEWORK_PLUGIN_DIR, "agents"), {
-  withFileTypes: true,
-})
-  .filter((d) => d.isFile() && d.name.endsWith(".md"))
-  .map((d) => d.name.replace(/\.md$/, ""));
-const listed = new Set(
-  [...agentsSection(featuresAfter).matchAll(/`([a-z0-9-]+)`/g)].map((m) => String(m[1])),
-);
-const ghosts = [...listed].filter(
-  (name) => !agentFiles.includes(name) && !name.startsWith("xenomoon"),
-);
-const missing = agentFiles.filter((name) => !listed.has(name));
-if (ghosts.length > 0 || missing.length > 0) {
-  if (ghosts.length > 0)
-    console.error(`update-badges: FEATURES.md lists unknown agents: ${ghosts.join(", ")}`);
-  if (missing.length > 0)
-    console.error(`update-badges: FEATURES.md is missing agents: ${missing.join(", ")}`);
-  process.exit(1);
+  // Cross-check the FEATURES.md agent catalog against plugin/agents/ — both directions.
+  // Only names that exist as agent files may be backticked in the section (ghosts), and
+  // every agent file must appear in the section (missing).
+  const agentFiles = readdirSync(path.join(FRAMEWORK_PLUGIN_DIR, "agents"), {
+    withFileTypes: true,
+  })
+    .filter((d) => d.isFile() && d.name.endsWith(".md"))
+    .map((d) => d.name.replace(/\.md$/, ""));
+  const listed = new Set(
+    [...agentsSection(featuresAfter).matchAll(/`([a-z0-9-]+)`/g)].map((m) => String(m[1])),
+  );
+  const ghosts = [...listed].filter(
+    (name) => !agentFiles.includes(name) && !name.startsWith("xenomoon"),
+  );
+  const missing = agentFiles.filter((name) => !listed.has(name));
+  if (ghosts.length > 0 || missing.length > 0) {
+    if (ghosts.length > 0)
+      console.error(`update-badges: FEATURES.md lists unknown agents: ${ghosts.join(", ")}`);
+    if (missing.length > 0)
+      console.error(`update-badges: FEATURES.md is missing agents: ${missing.join(", ")}`);
+    process.exit(1);
+  }
 }
 
 if (staged.length === 0) {

@@ -15,6 +15,10 @@ so the framework stays scoped to game-dev and doesn't bloat.
 
 If any criterion fails → it stays local (or is dropped).
 
+Promotion is the DOMAIN path of the three-way routing convention — a promoted capability is
+a domain learning, never a spine fix and never a project fact. See
+`plugin/docs/process/updates-routing.md` for how FRAMEWORK / DOMAIN / PROJECT updates route.
+
 ## Flow
 
 1. **Author game-local**, usable immediately.

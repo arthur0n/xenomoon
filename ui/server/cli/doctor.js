@@ -18,6 +18,7 @@ import {
   RES_ASSET_MOUNT,
 } from "../core/config.js";
 import { prepareGame } from "./materialize.js";
+import { ensureDomainLibrary } from "../features/promotions/ensure-library.js";
 import { readPromotions, approvedPending } from "../features/promotions/promotions-store.js";
 
 /** Count files with a suffix in a dir (0 if missing). @param {string} dir @param {string} suffix */
@@ -83,12 +84,23 @@ const pluginAgents = countFiles(path.join(FRAMEWORK_PLUGIN_DIR, "agents"), ".md"
 const pluginSkills = countDirs(path.join(FRAMEWORK_PLUGIN_DIR, "skills"));
 const pluginCommands = countFiles(path.join(FRAMEWORK_PLUGIN_DIR, "commands"), ".md");
 
+// Learning scaffolds: heal-on-doctor — creates <plugin>/{skills,library}/ + kind indexes when
+// absent (any domain), so XENOMOON_LIBRARY always resolves and promotions have a destination.
+const scaffolded = ensureDomainLibrary(FRAMEWORK_PLUGIN_DIR);
+
 /** @type {{ ok: boolean, hard: boolean, label: string }[]} */
 const checks = [
   {
     ok: existsSync(path.join(FRAMEWORK_PLUGIN_DIR, ".claude-plugin", "plugin.json")),
     hard: true,
     label: "xenomoon plugin manifest present",
+  },
+  {
+    ok: true,
+    hard: false,
+    label: scaffolded.length
+      ? `learning scaffolds created (${scaffolded.length} files — skills/ + library/ kind indexes)`
+      : "learning scaffolds present (skills/ + library/)",
   },
   {
     // A populated domain must ship SOME capability (agents / skills / commands); an empty domain

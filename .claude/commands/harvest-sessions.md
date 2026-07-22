@@ -102,6 +102,11 @@ lines, which `rtk grep`/`jq` handle.)
    asking on something a skill should have settled. Phrase each as ONE actionable statement tied to a
    real file. Weight **recurrence** — a one-off is noise; a pattern across turns/sessions is signal.
    Aim for the handful that matter (usually 1–3), not a transcript paraphrase.
+   **Classify each survivor's SCOPE** (`plugin/docs/process/updates-routing.md`): FRAMEWORK
+   (spine defect) → the ledger below, as before. A recurring pattern that's really a missing
+   DOMAIN capability (a technique/record the active pack should carry) → do NOT ledger it —
+   emit the draft content in the run report for the human to materialize via foreground
+   `/learn` (promotions board). PROJECT-only friction routes per step 6.
 
 6. **Filter OUT game-specific friction — the load-bearing guard.** A finding is valid here only if it
    improves the FRAMEWORK (general to any game). Friction about THIS game's content/names/scenes/

@@ -15,6 +15,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
+import { validateProjectPath } from "./validate-path.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
@@ -79,6 +80,17 @@ if (hermesArgs) {
 const arg = argv.find((a) => !a.startsWith("--"));
 if (arg || !hermesArgs) {
   const target = path.resolve(arg ?? path.join(FRAMEWORK_DIR, "..", "game"));
+  // Validate BEFORE saving — any local absolute path works (validation, not a folder
+  // convention); hard rows block, soft rows warn (--allow-nonlocal downgrades locality).
+  const problems = validateProjectPath(target, path.resolve(FRAMEWORK_DIR), {
+    allowNonlocal: argv.includes("--allow-nonlocal"),
+  });
+  for (const p of problems.filter((p) => !p.hard)) console.warn(`⚠ ${p.msg}`);
+  const hard = problems.filter((p) => p.hard);
+  if (hard.length) {
+    for (const p of hard) console.error(`✗ ${p.msg}`);
+    process.exit(1);
+  }
   mergeConfig({ projectDir: target });
   console.log(`Saved project path → ${CONFIG_FILE}`);
   console.log(`  projectDir: ${target}`);

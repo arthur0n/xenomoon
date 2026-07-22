@@ -100,11 +100,8 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
      badges — a stale count ships silent) and correct any SIBLING ledger row that counts/names it
      (e.g. `13 sonnet + 2 haiku`). Or **harden** — draft the named `check_*` / tool into
      `plugin/tools/lib/checks.sh` (or `plugin/tools/`). For a GDScript analyzer-warning gap
-     (SHADOWED*\*, CONFUSABLE*_, UNSAFE\__, etc.), the canonical harden is NOT a bespoke `check_*`
-     that re-implements the engine — escalate the missing `gdscript/warnings/<name>=2` in
-     `starter/project.godot`'s `[debug]` block so it rides the existing `check_parse` /
-     `check_warnings_config` machinery (like its ~19 siblings), and sync the godot-code-rules
-     "Warnings reference" list. Reserve a bespoke `check_*` for gaps the analyzer can't express.
+     (SHADOWED*\*, CONFUSABLE*\_, UNSAFE\__, etc.), the canonical harden is NOT a bespoke `check__`that re-implements the engine — escalate the missing`gdscript/warnings/<name>=2`in`starter/project.godot`'s `[debug]`block so it rides the existing`check*parse`/`check_warnings_config`machinery (like its ~19 siblings), and sync the godot-code-rules
+     "Warnings reference" list. Reserve a bespoke`check\*_` for gaps the analyzer can't express.
    - **D10 (split the fused altitude):** carve the GENERIC baseline out of the domain-named
      capability into its own neutral capability (skill/agent), then rewrite BOTH the original payload
      and any sibling to LAYER their domain deltas on top of the neutral base — never let one aesthetic

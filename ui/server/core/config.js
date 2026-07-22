@@ -445,22 +445,34 @@ export const EFFORT = /** @type {import("@anthropic-ai/claude-agent-sdk").Effort
   args.find((a) => a.startsWith("--effort="))?.split("=")[1] ?? "medium"
 );
 // The orchestrator routing prompt comes from the active domain pack (e.g. `webapp` → its
-// orchestrator.md); each domain ships its own under domains/<name>/. Read once at startup.
-export const ORCHESTRATOR_PROMPT = readFileSync(
-  path.join(FRAMEWORK_DIR, DOMAIN.orchestrator),
-  "utf8",
-);
-export const HERMES_BLOCK = readFileSync(path.join(UI_DIR, "hermes-block.md"), "utf8");
+// orchestrator.md); each domain ships its own under domains/<name>/. Read PER CALL (session
+// start) — like getHermesConfig — so editing the orchestrator or an agent block takes effect on
+// the NEXT SESSION without a server restart. Only DOMAIN/PROJECT_DIR (structural) stay
+// startup-frozen; switching domain/project is the one legit restart.
+/** @returns {string} */
+export function getOrchestratorPrompt() {
+  return readFileSync(path.join(FRAMEWORK_DIR, DOMAIN.orchestrator), "utf8");
+}
+/** @returns {string} */
+export function getHermesBlock() {
+  return readFileSync(path.join(UI_DIR, "hermes-block.md"), "utf8");
+}
 /** Absolute path to the vendored Codex companion CLI — the same Node script the `/codex:*`
- * slash commands wrap. Injected into CODEX_BLOCK (replacing the `{{CODEX_COMPANION}}`
+ * slash commands wrap. Injected into the Codex block (replacing the `{{CODEX_COMPANION}}`
  * placeholder) so the orchestrator can launch reviews/tasks ITSELF via Bash, not just tell the
  * user to type a slash command. The launch path is consent-gated by policy, not by capability. */
 export const CODEX_COMPANION = path.join(CODEX_PLUGIN_DIR, "scripts", "codex-companion.mjs");
-export const CODEX_BLOCK = readFileSync(path.join(UI_DIR, "codex-block.md"), "utf8").replaceAll(
-  "{{CODEX_COMPANION}}",
-  CODEX_COMPANION,
-);
-export const KIMI_BLOCK = readFileSync(path.join(UI_DIR, "kimi-block.md"), "utf8");
+/** @returns {string} */
+export function getCodexBlock() {
+  return readFileSync(path.join(UI_DIR, "codex-block.md"), "utf8").replaceAll(
+    "{{CODEX_COMPANION}}",
+    CODEX_COMPANION,
+  );
+}
+/** @returns {string} */
+export function getKimiBlock() {
+  return readFileSync(path.join(UI_DIR, "kimi-block.md"), "utf8");
+}
 
 // Claude Code's own transcript store for this project — every session here is
 // listed and resumable, terminal ones included.

@@ -137,9 +137,12 @@ select(...)` directly — do NOT pipe `rtk grep` into `jq`: rtk's grep filter ma
 
 - Token findings live ONLY in the token loop: `LEDGER.md` + `history.json` + `mcp__ui__tasks`.
   Self-improvement loops link by REFERENCE, never auto-route.
-- If a session reveals a framework-quality issue (a convention/agent/skill defect, not a spend
-  pattern), hand it to the human in the run report — this repo has no framework-audit ledger yet;
-  if it adopts one (`.claude/framework-audits/`), file there — manual only.
+- **Classify the scope of any NON-token find** (`plugin/docs/process/updates-routing.md`):
+  a FRAMEWORK defect (convention/agent/skill/spine) → the framework-audit ledger
+  (`.claude/framework-audits/`), manual only. A missing DOMAIN capability (a tool/skill/record
+  the domain should carry) → emit the draft CONTENT in the run report for the human to
+  materialize via foreground `/learn` (never write `.claude/` drafts from this sub-agent — the
+  write-gate denies it). A PROJECT-only fact → note it for the project's CLAUDE.md, nothing else.
 
 ## Do this
 

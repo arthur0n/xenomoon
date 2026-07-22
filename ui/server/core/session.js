@@ -37,10 +37,10 @@ import {
   AUTO_ALLOW_TOOLS,
   MODEL,
   EFFORT,
-  ORCHESTRATOR_PROMPT,
-  HERMES_BLOCK,
-  CODEX_BLOCK,
-  KIMI_BLOCK,
+  getOrchestratorPrompt,
+  getHermesBlock,
+  getCodexBlock,
+  getKimiBlock,
   getHermesConfig,
   getKimiConfig,
   POLICIES,
@@ -489,11 +489,11 @@ function runSession({
               type: "preset",
               preset: "claude_code",
               append:
-                ORCHESTRATOR_PROMPT +
-                (getHermesConfig().enabled ? "\n\n" + HERMES_BLOCK : "") +
-                (getKimiConfig().enabled ? "\n\n" + KIMI_BLOCK : "") +
+                getOrchestratorPrompt() +
+                (getHermesConfig().enabled ? "\n\n" + getHermesBlock() : "") +
+                (getKimiConfig().enabled ? "\n\n" + getKimiBlock() : "") +
                 (getCodexConfig().enabled && existsSync(CODEX_PLUGIN_DIR)
-                  ? "\n\n" + CODEX_BLOCK
+                  ? "\n\n" + getCodexBlock()
                   : ""),
             },
             canUseTool,

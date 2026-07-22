@@ -6,6 +6,7 @@ import { existsSync, readFileSync, renameSync, rmSync, mkdirSync, cpSync } from 
 import path from "node:path";
 import { FRAMEWORK_PLUGIN_DIR } from "../../core/config.js";
 import { scanPath } from "./contamination.js";
+import { ensureDomainLibrary } from "./ensure-library.js";
 
 export const PROMOTE_KINDS = new Set(["skills", "agents", "tools"]);
 
@@ -77,6 +78,7 @@ function movePath(src, dst) {
 export function promoteOne(kind, name, game, opts = {}) {
   if (!PROMOTE_KINDS.has(kind)) return { ok: false, msg: `skip ${kind}/${name}: unknown kind` };
   const pluginDir = opts.pluginDir ?? FRAMEWORK_PLUGIN_DIR;
+  ensureDomainLibrary(pluginDir); // lazily heal the pack's learning scaffolds (idempotent)
   const { src, dst } = locate(kind, name, game, pluginDir);
   // Check "already in the plugin" BEFORE "missing game-local source": a capability already shipped
   // in the plugin usually has NO game-local copy, so the src-missing check would otherwise fire a

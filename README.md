@@ -15,6 +15,29 @@ Xenomoon is a Claude Code framework that drives a deliberate, human-gated pipeli
 
 Godot stays the exclusive upstream product we forked from — it is **not** a domain here. We pull only its (curated) domain-agnostic improvements, so the engine payload never lands.
 
+## Layout — one map
+
+```
+xenomoon/                      ← the INSTALL (fork/clone; your projects bind to it)
+├── plugin/                    ← CORE Claude-Code plugin: loaded into EVERY session
+│   ├── skills/  hooks/  agents/  commands/     (meta skills, safety gates, researchers)
+│   └── docs/process/          (updates-routing.md · repo-boundary.md · promotion.md)
+├── domains/<name>/            ← one pack per domain (webapp, expo, app)
+│   ├── domain.json  orchestrator.md
+│   └── plugin/                ← the DOMAIN's Claude-Code plugin (loads alongside CORE)
+│       ├── agents/  commands/  hooks/
+│       ├── skills/            ← capabilities the domain LEARNED (via promotions)
+│       └── library/           ← learned records: findings/ verdicts/ tools/
+├── ui/                        ← the server + web app that runs sessions
+└── docs/  scripts/            ← repo meta
+```
+
+Naming note: `plugin/` (CORE, domain-agnostic) and `domains/<name>/plugin/` (that domain's
+pack) are BOTH Claude-Code plugins — the CORE one loads always, the domain one per bind.
+Your project stays a separate repo and hosts none of this — see
+`plugin/docs/process/repo-boundary.md`. How learnings route between framework, domain, and
+project: `plugin/docs/process/updates-routing.md`.
+
 ## Quick start — install into a project
 
 Install the framework into a React + Node.js web app. The `webapp` domain installs **in place** and

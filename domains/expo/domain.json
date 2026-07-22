@@ -1,7 +1,7 @@
 {
-  "name": "ios",
-  "label": "iOS (Expo/RN)",
-  "description": "Head-start package for Expo / React Native iOS apps. Ships a simulator-based Maestro acceptance slice (/uat → maestro-runner) with the Expo-iOS launch knowledge it depends on (xcodebuild fallback, Metro port guard, persisted-session auth), then learns each project's conventions on top.",
+  "name": "expo",
+  "label": "Expo (React Native)",
+  "description": "Head-start package for Expo / React Native apps. iOS-focused v1: ships a simulator-based Maestro acceptance slice (/uat → maestro-runner) with the Expo-iOS launch knowledge it depends on (xcodebuild fallback, Metro port guard, persisted-session auth), then learns each project's conventions on top. Android capabilities join this same domain later.",
   "populated": true,
   "engine": {
     "name": "node",
@@ -13,8 +13,8 @@
     "ignore": ["node_modules", "ios/Pods", "ios/build", "android", ".expo", "dist", "coverage"]
   },
   "materializeIntoProject": false,
-  "plugin": "domains/ios/plugin",
-  "orchestrator": "domains/ios/orchestrator.md",
+  "plugin": "domains/expo/plugin",
+  "orchestrator": "domains/expo/orchestrator.md",
   "commands": {
     "build": "npm run build --if-present",
     "lint": "npm run lint --if-present",

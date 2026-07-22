@@ -2,7 +2,7 @@
 
 > Policy/routing lives in the domain orchestrator.md; this file is project FACTS only.
 > Fill in every `{{…}}` placeholder; delete any section that genuinely doesn't apply.
-> The ios domain's agents and orchestrator read this file and treat it as
+> The expo domain's agents and orchestrator read this file and treat it as
 > authoritative — it overrides their generic defaults.
 
 ## Project overview

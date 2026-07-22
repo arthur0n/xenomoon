@@ -1,5 +1,5 @@
 // Generate the per-game capabilities index — the skills side of the machine-readable capability
-// map (M2). Written into the game tree at .xenodot/capabilities.json (gitignored, like the
+// map (M2). Written into the game tree at .xenomoon/capabilities.json (gitignored, like the
 // manifest) by prepareGame() — so it regenerates on server startup, `doctor`, and `forge new`.
 //
 // For each of the plugin's skills it records: its `domain:` tag, the agents that own it (the
@@ -21,7 +21,7 @@ import { parseJSON } from "../../lib/json.js";
 /** @typedef {import("../../lib/profile.js").Profile} Profile */
 /** @typedef {{ name: string, domain: string|null, owner_agents: string[], in_profile: boolean }} SkillCap */
 /** A dispatchable agent in the routing roster. `local` = added game-side (in `.claude/agents`),
- * so it renders un-namespaced; framework agents render as `xenodot:<name>`.
+ * so it renders un-namespaced; framework agents render as `xenomoon:<name>`.
  * @typedef {{ name: string, description: string, local: boolean }} AgentCap */
 /** @typedef {{ profile: Profile, skills: SkillCap[], agents: AgentCap[] }} Capabilities */
 
@@ -83,13 +83,13 @@ function readGameLocalAgents(projectDir) {
   }));
 }
 
-/** Write <projectDir>/.xenodot/capabilities.json with the skills-side map + the routing roster
+/** Write <projectDir>/.xenomoon/capabilities.json with the skills-side map + the routing roster
  * (framework builders + this game's local agents merged in). @param {string} projectDir
  * @returns {Capabilities} */
 export function generateCapabilities(projectDir) {
   const base = buildCapabilities();
   const capabilities = { ...base, agents: [...base.agents, ...readGameLocalAgents(projectDir)] };
-  const outDir = path.join(projectDir, ".xenodot");
+  const outDir = path.join(projectDir, ".xenomoon");
   mkdirSync(outDir, { recursive: true });
   writeFileSync(
     path.join(outDir, "capabilities.json"),
@@ -108,7 +108,7 @@ export function renderRoutingBlock(capabilities) {
   const lines = [...roster]
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((a) => {
-      const id = a.local ? a.name : `xenodot:${a.name}`;
+      const id = a.local ? a.name : `xenomoon:${a.name}`;
       const tag = a.local ? " _(game-local)_" : "";
       return `- \`${id}\`${tag} — ${a.description}`;
     });
@@ -117,7 +117,7 @@ export function renderRoutingBlock(capabilities) {
     "",
     "Generated from the plugin registry + this game's `.claude/agents` (`capabilities.json`), so a" +
       " builder added game-side is routable here even though it isn't named in the prose above." +
-      " Match the request to a charter below; `xenodot:godot-dev` is the default when no specialist" +
+      " Match the request to a charter below; `xenomoon:godot-dev` is the default when no specialist" +
       " owns it.",
     "",
     ...lines,
@@ -129,7 +129,7 @@ export function renderRoutingBlock(capabilities) {
  * @returns {string} */
 export function loadRoutingBlock(projectDir) {
   try {
-    const raw = readFileSync(path.join(projectDir, ".xenodot", "capabilities.json"), "utf8");
+    const raw = readFileSync(path.join(projectDir, ".xenomoon", "capabilities.json"), "utf8");
     return renderRoutingBlock(/** @type {Capabilities} */ (parseJSON(raw)));
   } catch {
     return "";

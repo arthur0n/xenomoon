@@ -1,6 +1,6 @@
 // Kimi worktree helper — the isolation layer for the external Kimi coder. Every Kimi task
 // gets a FRESH `git worktree` of the game repo under the framework's gitignored
-// `.xenodot-run/kimi/<taskId>/`, so Kimi never touches the tree the Hive and the Xenodots
+// `.xenomoon-run/kimi/<taskId>/`, so Kimi never touches the tree the Hive and the Xenomoons
 // share (their concurrent-edit races are a managed trade-off; an autonomous third-party
 // coder in the same tree would not be). The deliverable is the worktree's diff — merging
 // it into the real tree is ALWAYS a separate human/Hive-gated step.
@@ -10,7 +10,7 @@ import path from "node:path";
 import { FRAMEWORK_DIR, PROJECT_DIR } from "../../core/config.js";
 
 /** Where Kimi worktrees live (gitignored, machine-local). */
-export const KIMI_RUN_DIR = path.join(FRAMEWORK_DIR, ".xenodot-run", "kimi");
+export const KIMI_RUN_DIR = path.join(FRAMEWORK_DIR, ".xenomoon-run", "kimi");
 
 /** Generous cap for local git plumbing (worktree add on a large repo). */
 const GIT_TIMEOUT_MS = 60_000;

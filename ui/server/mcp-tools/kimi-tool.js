@@ -1,11 +1,11 @@
-// Kimi tool: the ONE bridge from the Xenodot Hive to the external Kimi coder — kimi-cli
+// Kimi tool: the ONE bridge from the Xenomoon Hive to the external Kimi coder — kimi-cli
 // driven over ACP (Agent Client Protocol, JSON-RPC/stdio; see integrations/acp/acp-client.js).
 // Only the Hive calls it, and like mcp__ui__hermes it has NO auto-allow branch in canUseTool,
 // so every dispatch passes the per-call permission gate.
 //
 // FIRE-AND-FORGET, IN-ECOSYSTEM, ISOLATED:
 //   • The tool opens an ACP session in a FRESH git worktree of the game repo
-//     (.xenodot-run/kimi/<runId>) and returns immediately; Kimi codes in the background.
+//     (.xenomoon-run/kimi/<runId>) and returns immediately; Kimi codes in the background.
 //   • Progress (tool calls, plan updates) streams to the activity feed as extAgent rows.
 //   • Kimi's ACP permission requests land on the SAME waitFor("permission") gate as every
 //     other agent — inline approval cards with a kimi chip. Nothing silent.
@@ -69,12 +69,12 @@ export function cancelKimiBoardTask(boardTaskId) {
 function buildPrompt(role, task, context) {
   const brief =
     role === "reviewer"
-      ? "You are Kimi, reviewing code for the Xenodot Hive on a Godot-family game project. " +
+      ? "You are Kimi, reviewing code for the Xenomoon Hive on a Godot-family game project. " +
         "Review the work described below (run `git diff`/read files as needed) for correctness, " +
         "simplicity and Godot idiom. You are READ-ONLY: do NOT edit, create or delete any file — " +
         "edit attempts will be denied. Your FINAL message IS your entire deliverable: a concrete, " +
         "file:line-referenced findings list (or a clean bill of health). Work to a conclusion, then stop."
-      : "You are Kimi, an autonomous coder working for the Xenodot Hive on a Godot-family game " +
+      : "You are Kimi, an autonomous coder working for the Xenomoon Hive on a Godot-family game " +
         "project. You are checked out in an ISOLATED git worktree — this directory is yours alone. " +
         "Make the change described below: edit files, run what you need to verify, and stop when " +
         "the change is complete and coherent. Do NOT commit, push, merge, or touch anything outside " +
@@ -209,7 +209,7 @@ function failTurn(runId, reason) {
           type: "text",
           text:
             `[Kimi — coding run ${runId} did NOT deliver: ${reason}]\n\n` +
-            "Treat this as no Kimi result. Do the task with a xenodot builder instead, or retry.",
+            "Treat this as no Kimi result. Do the task with a xenomoon builder instead, or retry.",
         },
       ],
     },
@@ -375,7 +375,7 @@ function fileBoardTask(send, runId, role, task) {
         note:
           role === "reviewer"
             ? "external Kimi review (read-only) — remove this task to cancel"
-            : `external Kimi run in worktree .xenodot-run/kimi/${runId} — remove this task to cancel`,
+            : `external Kimi run in worktree .xenomoon-run/kimi/${runId} — remove this task to cancel`,
       },
       new Date().toISOString(),
     );
@@ -401,7 +401,7 @@ export function makeKimiTool({ send, push, waitFor }) {
       "FIRE-AND-FORGET either way: returns immediately, progress streams to the feed, gated " +
       "actions raise inline approval cards — do not wait on it. ONLY the Hive calls this. To " +
       "stop a run, remove its board task. If it reports Kimi is off/not ready, dispatch a " +
-      "xenodot builder (or reviewer) instead.",
+      "xenomoon builder (or reviewer) instead.",
     {
       task: z.string().describe("The single, self-contained task to delegate to Kimi."),
       role: z
@@ -418,7 +418,7 @@ export function makeKimiTool({ send, push, waitFor }) {
       if (!cfg.enabled) {
         return ok(
           "Kimi is off (enable it in ⚙ Settings or `npm run kimi:setup`, then `kimi login`). " +
-            "Dispatch a xenodot builder yourself instead.",
+            "Dispatch a xenomoon builder yourself instead.",
         );
       }
       const role = input.role ?? "coder";
@@ -427,7 +427,7 @@ export function makeKimiTool({ send, push, waitFor }) {
       let dir = null;
       if (role === "coder") {
         const wt = createKimiWorktree(runId);
-        if ("error" in wt) return ok(`Kimi could not start: ${wt.error}. Use a xenodot builder.`);
+        if ("error" in wt) return ok(`Kimi could not start: ${wt.error}. Use a xenomoon builder.`);
         dir = wt.dir;
       }
       let agentText = "";
@@ -447,7 +447,7 @@ export function makeKimiTool({ send, push, waitFor }) {
         const msg = e instanceof Error ? e.message : String(e);
         return ok(
           `Kimi could not open an ACP session (${msg}). If it's an auth error, run \`kimi login\` ` +
-            "in a terminal. Dispatch a xenodot builder instead.",
+            "in a terminal. Dispatch a xenomoon builder instead.",
         );
       }
       const boardId = fileBoardTask(send, runId, role, input.task);

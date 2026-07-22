@@ -240,7 +240,7 @@ export const HERMES_DEFAULT_ROLES = ["researcher", "critic"];
 export const CODEX_DEFAULT_ROLES = ["reviewer"];
 export const KIMI_DEFAULT_ROLES = ["coder"];
 
-/** Effective Hermes config, resolved fresh on every call (env overrides → `.xenodot.json`
+/** Effective Hermes config, resolved fresh on every call (env overrides → `.xenomoon.json`
 
  * `hermes` block → disabled), so switching it on from the CLI or the UI takes effect
  * WITHOUT a server restart. The apiKey is read here but must never be sent to the browser
@@ -363,7 +363,7 @@ export function saveCodexConfig(patch) {
   }
 }
 
-/** Effective Kimi config, resolved fresh on every call (env `KIMI_ENABLED` → `.xenodot.json`
+/** Effective Kimi config, resolved fresh on every call (env `KIMI_ENABLED` → `.xenomoon.json`
  * `kimi` block → disabled), so toggling it from the UI or the CLI takes effect WITHOUT a
  * server restart (session.js re-reads it when a new session starts). There is no secret —
  * Kimi auth lives in the local `kimi` CLI (`kimi login`).
@@ -392,7 +392,7 @@ export function kimiPublicConfig() {
   return { enabled: c.enabled, roles: c.roles };
 }
 
-/** Merge a partial Kimi block into `.xenodot.json`, preserving every other field
+/** Merge a partial Kimi block into `.xenomoon.json`, preserving every other field
  * (projectDir, engine, hermes, codex, …). @param {KimiConfig} patch @returns {{ ok: true } | { error: string }} */
 export function saveKimiConfig(patch) {
   /** @type {Record<string, unknown>} */
@@ -415,7 +415,7 @@ export function saveKimiConfig(patch) {
   }
 }
 
-/** Merge a partial Godot-docs block into `.xenodot.json`, preserving every other field
+/** Merge a partial Godot-docs block into `.xenomoon.json`, preserving every other field
  * (projectDir, engine, hermes, codex, …). @param {DocsConfig} patch @returns {{ ok: true } | { error: string }} */
 export function saveDocsConfig(patch) {
   /** @type {Record<string, unknown>} */

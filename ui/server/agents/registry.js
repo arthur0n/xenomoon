@@ -59,7 +59,7 @@ export const AGENT_REGISTRY = [
     id: "hermes",
     label: "Hermes",
     blurb:
-      "An external Hermes Agent the Hive can use as its main researcher. Only the Hive calls it; every dispatch is gated (allow/deny). Hermes is advisory — it investigates and returns findings; it never writes files or adopts anything. Separate program with its own model and billing (your Anthropic plan does not cover it); you run it locally and point Xenodot at it.",
+      "An external Hermes Agent the Hive can use as its main researcher. Only the Hive calls it; every dispatch is gated (allow/deny). Hermes is advisory — it investigates and returns findings; it never writes files or adopts anything. Separate program with its own model and billing (your Anthropic plan does not cover it); you run it locally and point Xenomoon at it.",
     docHref: "https://hermes-agent.nousresearch.com/",
     runbook: "HERMES.md",
     roles: ["researcher", "critic"],
@@ -128,7 +128,7 @@ export const AGENT_REGISTRY = [
     id: "codex",
     label: "Codex",
     blurb:
-      "OpenAI's Codex as an optional, on-demand code reviewer. When on, type /codex:review (or /codex:adversarial-review) in a session to review the current diff. Advisory and never auto-runs. Billed to your ChatGPT/OpenAI account — your Anthropic plan doesn't cover it; Codex owns the credential (codex login), Xenodot never sees it.",
+      "OpenAI's Codex as an optional, on-demand code reviewer. When on, type /codex:review (or /codex:adversarial-review) in a session to review the current diff. Advisory and never auto-runs. Billed to your ChatGPT/OpenAI account — your Anthropic plan doesn't cover it; Codex owns the credential (codex login), Xenomoon never sees it.",
     docHref: "https://developers.openai.com/codex/",
     runbook: "CODEX.md",
     roles: ["reviewer"],
@@ -155,7 +155,7 @@ export const AGENT_REGISTRY = [
     id: "kimi",
     label: "Kimi",
     blurb:
-      "Moonshot's Kimi as an autonomous coder the Hive can delegate discrete implementation tasks to. It codes in an isolated git worktree (never the shared tree), streams progress to the feed, raises inline approval cards, and delivers a reviewable diff — merging is always a separate human-gated step. Driven over ACP via the local kimi-cli; billed to your Kimi/Moonshot account, and the CLI owns the credential (kimi login) — Xenodot stores no key.",
+      "Moonshot's Kimi as an autonomous coder the Hive can delegate discrete implementation tasks to. It codes in an isolated git worktree (never the shared tree), streams progress to the feed, raises inline approval cards, and delivers a reviewable diff — merging is always a separate human-gated step. Driven over ACP via the local kimi-cli; billed to your Kimi/Moonshot account, and the CLI owns the credential (kimi login) — Xenomoon stores no key.",
     docHref: "https://github.com/MoonshotAI/kimi-cli",
     runbook: "docs/roadmap/agents_portal_kimi.md",
     roles: ["coder", "reviewer"],

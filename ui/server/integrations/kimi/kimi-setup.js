@@ -60,10 +60,10 @@ function main() {
   }
   const saved = saveKimiConfig({ enabled: true });
   if ("error" in saved) {
-    console.error(`✗ could not enable Kimi in .xenodot.json: ${saved.error}`);
+    console.error(`✗ could not enable Kimi in .xenomoon.json: ${saved.error}`);
     process.exit(1);
   }
-  console.log("✓ Kimi enabled in .xenodot.json");
+  console.log("✓ Kimi enabled in .xenomoon.json");
   console.log(
     "→ one manual step left: run `kimi login` in a terminal (Kimi account or Moonshot API key), " +
       "then verify with `npm run kimi:check`.",

@@ -1,5 +1,5 @@
 ---
-description: Harvest past session logs for recurring framework friction — mine logs/session-*.ndjson (human corrections, agent errors, ask-storms) plus the human's recorded NOs (.xenodot/promotions.json rejects, qa-divergence.md overrides), distil into framework findings, append to the audit ledger as open findings. The automated sibling of /framework-feedback. Never auto-applies; the human applies via /framework-audit-fix. Manual, human-run. Forge-local (not shipped).
+description: Harvest past session logs for recurring framework friction — mine logs/session-*.ndjson (human corrections, agent errors, ask-storms) plus the human's recorded NOs (.xenomoon/promotions.json rejects, qa-divergence.md overrides), distil into framework findings, append to the audit ledger as open findings. The automated sibling of /framework-feedback. Never auto-applies; the human applies via /framework-audit-fix. Manual, human-run. Forge-local (not shipped).
 argument-hint: "[N | session-tag]"
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, mcp__ui__ask
 model: opus
@@ -46,7 +46,7 @@ is applied by the SAME `/framework-audit-fix`.
   `LEDGER.md` / `ledger.html` are GENERATED VIEWS — never hand-edit. Its meta defines the
   **dimensions D1–D10**, **buckets** (3/4/5/6), **verdict** and **status**. Reuse them exactly —
   `/framework-audit-fix` resolves by id. Schema: `.claude/framework-audits/README.md`.
-- **Decision feedback (the second inflow):** the game's `.xenodot/` (default `../game/.xenodot/`) —
+- **Decision feedback (the second inflow):** the game's `.xenomoon/` (default `../game/.xenomoon/`) —
   `promotions.json` (each `{id, kind, name, reason, status}`; `status: "rejected"` = the human REFUSED
   a capability the framework offered) and `qa-divergence.md` (one line per verdict the human OVERRODE
   — a FAIL that was fine, a PASS that shipped a bug). These are the loop's only records of a human
@@ -80,8 +80,8 @@ lines, which `rtk grep`/`jq` handle.)
    - ask volume: `jq -s '[.[]|select(.type=="ask")]|length' "$L"`
      Read those slices, not the transcript.
 
-4. **Mine the decision feedback — where the human said NO.** Read the game's `.xenodot/promotions.json`
-   and `.xenodot/qa-divergence.md` (absent = skip, silently; a fresh game has neither). Two patterns,
+4. **Mine the decision feedback — where the human said NO.** Read the game's `.xenomoon/promotions.json`
+   and `.xenomoon/qa-divergence.md` (absent = skip, silently; a fresh game has neither). Two patterns,
    both **recurrence-weighted** exactly like the log friction — a single no is a judgment call, a
    REPEATED no is a framework defect:
    - **repeated rejects** — the same `kind`/`name`, or several rejects sharing a theme (their `reason`
@@ -90,7 +90,7 @@ lines, which `rtk grep`/`jq` handle.)
      artifact (usually **D3** name↔scope or **D7** the promoting command), quoting the reasons.
    - **repeated QA divergence** — several overrides of the same flavour (false-FAIL vs false-PASS, or
      the same criterion) means the rubric or a `play_*.gd` assertion is mis-tuned, not that one build
-     was odd. File against the rubric/check (usually **D8**). One-off divergences are `xenodot:bug-triage`'s
+     was odd. File against the rubric/check (usually **D8**). One-off divergences are `xenomoon:bug-triage`'s
      job (orchestrator.md), not a framework finding — leave them.
 
    A reject/override the human already explained as a one-off, or that turns on THIS game's content, is

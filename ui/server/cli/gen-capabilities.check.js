@@ -39,7 +39,7 @@ check(
 );
 
 // --- renderRoutingBlock: framework agents namespace, game-local ones don't ---
-check("renderRoutingBlock: framework → xenodot:<name>, local → bare + tag", () => {
+check("renderRoutingBlock: framework → xenomoon:<name>, local → bare + tag", () => {
   const block = renderRoutingBlock({
     profile: { genre: null, style: null },
     skills: [],
@@ -49,9 +49,9 @@ check("renderRoutingBlock: framework → xenodot:<name>, local → bare + tag", 
     ],
   });
   assert.match(block, /^## Available builders/m);
-  assert.match(block, /- `xenodot:godot-enemy` — ENEMY builder\./);
+  assert.match(block, /- `xenomoon:godot-enemy` — ENEMY builder\./);
   assert.match(block, /- `my-boss-builder` _\(game-local\)_ — Game-local boss builder\./);
-  assert.doesNotMatch(block, /xenodot:my-boss-builder/, "a local agent is never namespaced");
+  assert.doesNotMatch(block, /xenomoon:my-boss-builder/, "a local agent is never namespaced");
 });
 
 // --- renderRoutingBlock: sorted by name so the block is deterministic across regens ---

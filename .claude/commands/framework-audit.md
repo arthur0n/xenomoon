@@ -7,7 +7,7 @@ model: opus
 
 # Framework self-audit — keep the spine clean as it grows
 
-A deliberate habit, not a one-shot. Xenodot is a **self-improvement framework**: each run
+A deliberate habit, not a one-shot. Xenomoon is a **self-improvement framework**: each run
 inspects the framework's own spine — agents, skills, orchestrator, and **its own commands** —
 finds quality drift, proposes concrete fixes, records what it found so the next run skips it,
 and critiques itself. It loads caveman itself (step 0) and runs best high-effort (type

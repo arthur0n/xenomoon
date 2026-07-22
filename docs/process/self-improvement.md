@@ -4,7 +4,7 @@
 > `/framework-feedback`, and `/framework-audit-fix` commands, the `.claude/framework-audits/` ledger,
 > `gen-ledger.js`, the `framework-nobrainer-fixer` agent, and `/apply-nobrainers` were dropped as
 > payload in the v0.2.1 sync (`f602297`); the forge-local `/harvest-sessions` add-on was retired with
-> them (it wrote to the absent ledger). The apparatus lives upstream in `xenodot-forge` and reaches
+> them (it wrote to the absent ledger). The apparatus lives upstream in `xenomoon-forge` and reaches
 > this fork only via `/sync-upstream`. This doc describes that upstream loop; re-homing it is the
 > deferred divergence tracked in [`docs/whitelabel/SEAMS.md`](../whitelabel/SEAMS.md). Only
 > `/token-audit` (which writes its own live `.claude/token-audits/LEDGER.md`) runs locally today.

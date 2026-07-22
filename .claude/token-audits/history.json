@@ -99,7 +99,7 @@
       },
       "topOffender": "none convertible (Read 2.45M chars but edit-driven on live game files)",
       "opportunities": [],
-      "processNote": "07-02 = legit autonomous game-dev (38 xenodot:godot-* agents, edit-driven re-reads, orchestrator task churn); 07-03 = 6-line status stub. godot-docs: 2 distinct classes, no repeat."
+      "processNote": "07-02 = legit autonomous game-dev (38 xenomoon:godot-* agents, edit-driven re-reads, orchestrator task churn); 07-03 = 6-line status stub. godot-docs: 2 distinct classes, no repeat."
     },
     {
       "date": "2026-07-11",

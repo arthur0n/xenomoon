@@ -1,7 +1,7 @@
 // node:test pattern for mcp-tools: build the tool with a captured `send`, invoke its
 // handler directly (the SDK `tool()` wrapper exposes it as `.handler`), and assert on
 // both the returned text and the board broadcast — no live SDK session anywhere.
-// GAME_DIR is a temp dir so the board file (.xenodot/tasks.json) never touches a real game.
+// GAME_DIR is a temp dir so the board file (.xenomoon/tasks.json) never touches a real game.
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -16,7 +16,7 @@ const { makeTaskTool } = await import("./task-tool.js");
 /** @typedef {import("../../lib/types.js").Task} Task */
 
 beforeEach(() => {
-  rmSync(path.join(scratch, ".xenodot"), { recursive: true, force: true });
+  rmSync(path.join(scratch, ".xenomoon"), { recursive: true, force: true });
 });
 
 /** Build the tool with a capturing send. */

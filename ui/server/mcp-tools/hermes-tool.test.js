@@ -3,7 +3,7 @@
 // extractProgress, progressFromFrame, describeSelfImprovement) are module-private, so the
 // watcher path below exercises them indirectly — they are never exported just for tests.
 // GAME_DIR points at a temp dir BEFORE import (isolated tasks board) and the HERMES_* env
-// vars override any saved .xenodot.json block, so the suite is deterministic anywhere.
+// vars override any saved .xenomoon.json block, so the suite is deterministic anywhere.
 // All network is a recorded in-process fetch stub — no gateway, no SDK session.
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -106,7 +106,7 @@ test("hermes: a failed POST returns the researcher fallback and a done pill for 
   });
   const out = await t.handler(runArgs({ task: "investigate crash", persona: "critic" }), {});
   assert.match(textOf(out), /Hermes call failed: Hermes 503/);
-  assert.match(textOf(out), /dispatch a xenodot:\*-researcher/);
+  assert.match(textOf(out), /dispatch a xenomoon:\*-researcher/);
   // exactly one POST (no watcher spawned), to the slash-stripped base
   assert.equal(fetchCalls.length, 1);
   assert.equal(fetchCalls[0]?.url, "http://hermes.test/api/v1/runs");

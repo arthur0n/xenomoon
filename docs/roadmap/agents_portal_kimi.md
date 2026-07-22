@@ -38,7 +38,7 @@ Decisions (locked): portal+registry v1; coder first, review after; ACP runtime;
 **human/Hive-gated merge** (no auto-integrate); **CLI-login-only** auth (zero stored secret,
 codex model); **Hive MCP dispatch** only in v1 (no board button).
 
-Correction found during design: `.xenodot.json` is **gitignored/untracked** — the hermes key is
+Correction found during design: `.xenomoon.json` is **gitignored/untracked** — the hermes key is
 plaintext-at-rest locally, not committed. No migration needed; Kimi stores no secret at all.
 
 ## Phase A — Portal + registry (validate with codex + hermes)
@@ -67,7 +67,7 @@ i.e. hermes) → **test** → **enable** → **assign roles**. Generalize
 existing modal DOM/CSS classes verbatim. Typedefs in `ui/lib/types.js`.
 
 **Verify A**: `npm run validate` clean; manual walkthrough with live codex+hermes accounts
-(detect → toggle → test → save → `.xenodot.json` updates); start a session and confirm
+(detect → toggle → test → save → `.xenomoon.json` updates); start a session and confirm
 HERMES_BLOCK/CODEX_BLOCK still inject + a hermes dispatch and `/codex:review` still work. Zero
 runtime regression = acceptance bar.
 
@@ -93,7 +93,7 @@ runtime regression = acceptance bar.
   reusable later for Gemini CLI etc.).
 - `ui/server/integrations/kimi/kimi-check.js` (CLI on PATH? logged in? acp mode?),
   `kimi-setup.js` (install + pin kimi-cli version), `kimi-worktree.js` (create/reap
-  `git worktree` under gitignored `.xenodot-run/kimi/<taskId>/`; startup sweep for orphans;
+  `git worktree` under gitignored `.xenomoon-run/kimi/<taskId>/`; startup sweep for orphans;
   final `git diff`).
 - `ui/server/mcp-tools/kimi-tool.js` — `makeKimiTool({send, push, waitFor})`, fire-and-forget
   mirroring `hermes-tool.js:511` shape.

@@ -3,7 +3,7 @@
 // its line cap).
 import { existsSync } from "node:fs";
 
-/** The xenodot spine ALWAYS loads; the OPTIONAL Codex reviewer is appended only when enabled
+/** The xenomoon spine ALWAYS loads; the OPTIONAL Codex reviewer is appended only when enabled
  * AND vendored on disk. Gating is array inclusion (the SDK has no per-plugin enable flag, and
  * `plugins` only accepts `{ type: "local" }`) — the general pattern for any future optional
  * plugin: append its entry behind its own gate.

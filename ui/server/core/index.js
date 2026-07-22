@@ -301,7 +301,7 @@ function onListening() {
   // Prune git records of crashed Kimi worktrees (surviving dirs are kept — they may hold
   // an unreviewed diff); report how many are still parked for review.
   const kimiLeft = sweepKimiWorktrees();
-  if (kimiLeft) console.log(`kimi: ${kimiLeft} worktree(s) awaiting review in .xenodot-run/kimi/`);
+  if (kimiLeft) console.log(`kimi: ${kimiLeft} worktree(s) awaiting review in .xenomoon-run/kimi/`);
   // Bring up the Hermes gateway too when Hermes is on (opt-in, skipped if already up).
   // Non-blocking and non-fatal: the UI is fully usable whether or not this succeeds.
   void maybeStartHermesGateway();

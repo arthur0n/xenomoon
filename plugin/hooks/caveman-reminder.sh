@@ -30,12 +30,16 @@ avgSentLen=0
 flag=""
 
 if [ -n "$transcript" ] && [ -f "$transcript" ]; then
-  # Last assistant message → concatenated text blocks. Tolerate malformed lines.
+  # Last assistant message WITH text → concatenated blocks. Tolerate malformed lines.
+  # PreToolUse fires mid-turn, where the newest assistant message is usually a bare tool_use
+  # (no text) — scoring that scored an empty string and logged marker:false forever (the
+  # historical 0-marker ledger was this sampling artifact, not missing compliance). Score the
+  # last message that actually SAID something instead.
   text="$(jq -rs '
-      map(select(type=="object" and .type=="assistant"))
-      | last
-      | (.message.content // [])
-      | map(select(.type=="text") | .text) | join("\n")
+      map(select(type=="object" and .type=="assistant")
+          | ((.message.content // []) | map(select(.type=="text") | .text) | join("\n")))
+      | map(select(length > 0))
+      | last // ""
     ' "$transcript" 2>/dev/null)"
   [ "$text" = "null" ] && text=""
 

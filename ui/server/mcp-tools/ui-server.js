@@ -8,13 +8,16 @@ import { makeTaskTool } from "./task-tool.js";
 import { makeAskTool } from "./ask-tool.js";
 import { makePromoteTool } from "./promote-tool.js";
 import { makeHermesTool, makeHermesFeedbackTool } from "./hermes-tool.js";
+import { makeKimiTool } from "./kimi-tool.js";
 import { makeAutonomousTool } from "./autonomous-tool.js";
 import { makeSetSkillTool } from "./set-skill-tool.js";
 
 /**
  * Build the in-process "ui" MCP server for one session. Deps are the session-scoped closures the
  * individual tools need (the message sender, the form waiter/queue, the inbox push, the
- * check-loop disarm) — passed in so this stays free of session lifecycle.
+ * check-loop disarm) — passed in so this stays free of session lifecycle. `waitFor` also feeds
+ * the Kimi tool: ACP permission requests from the external coder land on the session's one
+ * permission gate, so its approvals render as ordinary inline cards.
  * @param {{
  *   waitFor: Parameters<typeof makeFormTool>[0],
  *   formAgentQueue: Parameters<typeof makeFormTool>[1],
@@ -34,6 +37,7 @@ export function buildUiServer({ waitFor, formAgentQueue, send, hermesPush, disar
       makePromoteTool(send),
       makeHermesTool(send, hermesPush),
       makeHermesFeedbackTool(send),
+      makeKimiTool({ send, push: hermesPush, waitFor }),
       makeAutonomousTool(send, disarm),
       makeSetSkillTool(),
     ],

@@ -32,3 +32,4 @@ plugin/.xenomoon/
 # Personal untracked hook extensions (sourced by .husky/post-commit when present).
 .husky/post-commit.local
 
+.claude/token-audits/history.html

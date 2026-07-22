@@ -13,9 +13,13 @@ export const scrollChat = () => {
 };
 
 /** Echo a user message into the chat — also used by the asset / transcript
- * wizards that post a prompt on the user's behalf. @param {string} text */
-export function addUser(text) {
-  update((s) => ({ ...s, chat: [...s.chat, { kind: "user", text }] }));
+ * wizards that post a prompt on the user's behalf.
+ * @param {string} text @param {string[]} [images] attached-image thumbnails (data URLs) */
+export function addUser(text, images) {
+  update((s) => ({
+    ...s,
+    chat: [...s.chat, { kind: "user", text, ...(images?.length ? { images } : {}) }],
+  }));
 }
 
 /** Show the pulsing "thinking…" indicator until the turn produces output. */
@@ -51,7 +55,18 @@ function agentMsg(who, text) {
 
 /** @param {import("../../core/store.js").ChatEntry} entry @returns {HTMLElement} */
 function renderEntry(entry) {
-  if (entry.kind === "user") return el("div", "msg-user", entry.text);
+  if (entry.kind === "user") {
+    const wrap = el("div", "msg-user");
+    for (const src of entry.images ?? []) {
+      const img = document.createElement("img");
+      img.className = "msg-image";
+      img.src = src;
+      img.alt = "attached image";
+      wrap.append(img);
+    }
+    if (entry.text) wrap.append(entry.text);
+    return wrap;
+  }
   if (entry.kind === "banner") return el("div", "session-banner", entry.text);
   return agentMsg(entry.who ?? "main", entry.text);
 }

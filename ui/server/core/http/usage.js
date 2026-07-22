@@ -2,7 +2,24 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parseJSON } from "../../../lib/json.js";
+import { readPromotions } from "../../features/promotions/promotions-store.js";
 import { LOG_DIR } from "../config.js";
+
+/**
+ * The denominator of the efficiency metric: a promotion the human ACCEPTED —
+ * `approved` (decided, files not yet moved) or `promoted` (moved into the plugin).
+ * `requested` is undecided and `rejected` is a refusal, so neither counts.
+ *
+ * Promotions are the only DURABLE record of an accepted change on disk. Completed
+ * agent tasks look like a denser denominator but are not one: `pruneDoneTasks`
+ * deletes every `owner:"agent"` + `done` task at each turn boundary (tasks-store.js,
+ * called from session.js), so a count of them measures the current turn, not history.
+ */
+const ACCEPTED_STATUSES = new Set(["approved", "promoted"]);
+
+/** How many of the heaviest sessions the tokens tab lists — enough to spot an outlier
+ * run without turning the panel into a full log index. */
+const TOP_SESSIONS = 10;
 
 /** @typedef {{ input_tokens?: number, output_tokens?: number, cache_creation_input_tokens?: number, cache_read_input_tokens?: number }} TokenUsage */
 /** @typedef {{ message?: { usage?: TokenUsage, total_cost_usd?: number } }} LogLine */
@@ -40,12 +57,20 @@ function parseSession(file) {
   return { input, output, cacheCreate, cacheRead, cost };
 }
 
+/** How many changes the human has accepted, across all sessions. @returns {number} */
+function acceptedChanges() {
+  return readPromotions().filter((p) => ACCEPTED_STATUSES.has(p.status)).length;
+}
+
 /**
  * @returns {{
  *   sessionCount: number,
  *   totalCount: number,
  *   totals: { input: number, output: number, cacheCreate: number, cacheRead: number, cost: number },
  *   hitRate: number,
+ *   accepted: number,
+ *   costPerAcceptedChange: number | null,
+ *   tokensPerAcceptedChange: number | null,
  *   topSessions: { name: string, input: number, output: number, cacheCreate: number, cacheRead: number, cost: number, total: number }[]
  * }}
  */
@@ -60,6 +85,9 @@ export function computeUsage() {
       totalCount: 0,
       totals: { input: 0, output: 0, cacheCreate: 0, cacheRead: 0, cost: 0 },
       hitRate: 0,
+      accepted: acceptedChanges(),
+      costPerAcceptedChange: null,
+      tokensPerAcceptedChange: null,
       topSessions: [],
     };
   }
@@ -92,11 +120,22 @@ export function computeUsage() {
 
   sessions.sort((a, b) => b.total - a.total);
 
+  // The efficiency metric the framework steers by: spend divided by what the human
+  // actually took. Total tokens alone can only be driven down by doing less work;
+  // this ratio only improves by turning spend into accepted changes. Both are null
+  // with nothing accepted yet — a ratio over a zero denominator is not "infinitely
+  // expensive", it is unmeasured, and the UI must say so rather than print ∞.
+  const accepted = acceptedChanges();
+  const spentTokens = totals.input + totals.output + totals.cacheCreate + totals.cacheRead;
+
   return {
     sessionCount: sessions.length,
     totalCount: files.length,
     totals,
     hitRate,
-    topSessions: sessions.slice(0, 10),
+    accepted,
+    costPerAcceptedChange: accepted > 0 ? totals.cost / accepted : null,
+    tokensPerAcceptedChange: accepted > 0 ? spentTokens / accepted : null,
+    topSessions: sessions.slice(0, TOP_SESSIONS),
   };
 }

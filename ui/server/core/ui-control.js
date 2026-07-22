@@ -19,3 +19,27 @@ export function uiControlAllow(toolName, input, agent) {
     return { behavior: /** @type {const} */ ("allow"), updatedInput: input };
   return null;
 }
+
+const IMAGE_RE = /\.(png|jpe?g|webp|gif|bmp)$/i;
+
+/** The stub returned when an image Read is refused — points at the numeric gate + disk frame. */
+export const SCREENSHOT_STUB =
+  "Image reads are GATED (a render/screenshot frame is token-heavy base64). Framework rule (godot-verify): never read a frame into chat — trust the NUMERIC gate (render_health.gd / VERIFY-* output). The PNG stays on disk (.godot/verify_render_last.png) for human inspection only. If a human genuinely must eyeball it, surface that via AskUserQuestion at the END of the pipeline.";
+
+/** Is this a Read of an image file (a screenshot/render frame)? Such a Read floods context with
+ * ~thousands of base64 tokens, so it is gated (human-approved / denied when headless), never at-will.
+ * @param {string} toolName @param {unknown} input @returns {boolean} */
+export function isImageRead(toolName, input) {
+  if (toolName !== "Read") return false;
+  const fp = /** @type {{ file_path?: unknown }} */ (input)?.file_path;
+  return typeof fp === "string" && IMAGE_RE.test(fp);
+}
+
+/** Deterministic pre-gates run BEFORE the permission policy: the screenshot read gate. Returns a decision to short-circuit, or null to fall through. Keeps
+ * makeCanUseTool's arrow under the complexity cap and its file under the line cap.
+ * @param {GateDeps} d */
+export async function preToolGate({ session, waitFor, log, toolName, input, agent }) {
+  if (isImageRead(toolName, input))
+    return gateImageRead({ session, waitFor, log, toolName, input, agent });
+  return null;
+}

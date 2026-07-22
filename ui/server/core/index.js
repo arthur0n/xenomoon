@@ -16,14 +16,10 @@ import {
   CONFIG_FILE,
   LOG_DIR,
   ENGINE_LABEL,
-  saveHermesConfig,
-  hermesPublicConfig,
-  getHermesConfig,
-  saveCodexConfig,
-  codexPublicConfig,
 } from "./config.js";
-import { checkHermes } from "../integrations/hermes/hermes-check.js";
-import { checkCodex } from "../integrations/codex/codex-check.js";
+import { AGENT_REGISTRY, listAgents } from "../agents/registry.js";
+import { handleAgentApi } from "../agents/agents-http.js";
+import { sweepKimiWorktrees } from "../integrations/kimi/kimi-worktree.js";
 import { maybeStartHermesGateway } from "../integrations/hermes/hermes-gateway.js";
 import { projectState } from "./http/project-state.js";
 import { recentSessions, deleteSession } from "../features/transcripts/transcripts.js";
@@ -71,12 +67,12 @@ function handleTranscriptPost(req, res) {
   });
 }
 
-/** Persist the settings the ⚙ panel submitted into .xenomoon.json — the Hermes block (enable,
- * apiUrl, model, and optionally a new apiKey) and/or the Codex block (just `enabled`; Codex
- * auth lives in the `codex` CLI, so there's no secret here) — then respond with the
- * secret-free public views so the panel re-renders from truth. Each block is optional; only
- * what the panel sent is written. Takes effect immediately — getHermesConfig / getCodexConfig
- * re-read the file per call, so no server restart is needed.
+/** Persist the settings the ⚙ panel submitted into .xenomoon.json — one optional block per
+ * registered external agent (hermes, codex, kimi — see AGENT_REGISTRY) — then respond with the
+ * secret-free public views so the panel re-renders from truth. Only what the panel sent is
+ * written. Takes effect immediately — each getXConfig re-reads the file per call, so no server
+ * restart is needed.
+
  * @param {import("node:http").IncomingMessage} req @param {import("node:http").ServerResponse} res */
 function handleSettingsPost(req, res) {
   /** @type {Buffer[]} */
@@ -85,25 +81,26 @@ function handleSettingsPost(req, res) {
     chunks.push(c);
   });
   req.on("end", () => {
-    /** @type {{ hermes?: import("../../lib/types.js").HermesPublicConfig, codex?: import("../../lib/types.js").CodexPublicConfig } | { error: string }} */
+    /** @type {Record<string, object> | { error: string }} */
     let result;
     try {
-      const body =
-        /** @type {{ hermes?: { enabled?: boolean, apiUrl?: string, apiKey?: string, model?: string }, codex?: { enabled?: boolean } }} */ (
-          parseJSON(Buffer.concat(chunks).toString("utf8"))
-        );
+      const body = /** @type {Record<string, object | undefined>} */ (
+        parseJSON(Buffer.concat(chunks).toString("utf8"))
+      );
+
       const errors = [];
-      if (body.hermes) {
-        const saved = saveHermesConfig(body.hermes);
-        if ("error" in saved) errors.push(saved.error);
-      }
-      if (body.codex) {
-        const saved = saveCodexConfig(body.codex);
+      for (const agent of AGENT_REGISTRY) {
+        const patch = body[agent.id];
+        if (!patch) continue;
+        const saved = agent.saveConfig(patch);
         if ("error" in saved) errors.push(saved.error);
       }
       result = errors.length
         ? { error: errors.join("; ") }
-        : { hermes: hermesPublicConfig(), codex: codexPublicConfig() };
+        : {
+            ...Object.fromEntries(AGENT_REGISTRY.map((a) => [a.id, a.publicConfig()])),
+          };
+
     } catch {
       result = { error: "bad request" };
     }
@@ -112,77 +109,6 @@ function handleSettingsPost(req, res) {
   });
 }
 
-/** Probe the local Codex install and respond with the verdict — is the `codex` CLI on PATH,
- * are you logged in, is the plugin vendored? No body, no network, no billing (it's all local).
- * @param {import("node:http").IncomingMessage} _req @param {import("node:http").ServerResponse} res */
-function handleCodexCheckPost(_req, res) {
-  let result;
-  try {
-    result = checkCodex();
-  } catch (e) {
-    result = {
-      ok: false,
-      enabled: false,
-      cli: false,
-      authOk: false,
-      vendored: false,
-      error: e instanceof Error ? e.message : String(e),
-    };
-  }
-  res.writeHead(200, { "content-type": "application/json" });
-  res.end(JSON.stringify(result));
-}
-
-/** A trimmed typed value, or the saved fallback when it's blank/missing.
- * @param {string | undefined} typed @param {string | null} fallback @returns {string | null} */
-function typedOr(typed, fallback) {
-  const t = typed?.trim();
-  return t && t.length > 0 ? t : fallback;
-}
-
-/** Probe the Hermes gateway and respond with the verdict. Tests the URL/key typed in
- * the panel (so you can check BEFORE saving); a blank field falls back to the saved
- * config. Hits `GET /v1/models` only — no model run, no billing.
- * @param {import("node:http").IncomingMessage} req @param {import("node:http").ServerResponse} res */
-function handleHermesCheckPost(req, res) {
-  /** @type {Buffer[]} */
-  const chunks = [];
-  req.on("data", (/** @type {Buffer} */ c) => {
-    chunks.push(c);
-  });
-  req.on("end", () => {
-    let body = /** @type {{ apiUrl?: string, apiKey?: string }} */ ({});
-    try {
-      body = /** @type {{ apiUrl?: string, apiKey?: string }} */ (
-        parseJSON(Buffer.concat(chunks).toString("utf8") || "{}")
-      );
-    } catch {
-      /* empty/invalid body — fall back to saved config */
-    }
-    const saved = getHermesConfig();
-    // A blank typed field (empty string) → fall back to the saved value.
-    const cfg = {
-      apiUrl: typedOr(body.apiUrl, saved.apiUrl),
-      apiKey: typedOr(body.apiKey, saved.apiKey),
-    };
-    checkHermes(cfg)
-      .then((result) => {
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify(result));
-      })
-      .catch((e) => {
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(
-          JSON.stringify({
-            ok: false,
-            reachable: false,
-            authOk: false,
-            error: e instanceof Error ? e.message : String(e),
-          }),
-        );
-      });
-  });
-}
 
 mkdirSync(LOG_DIR, { recursive: true });
 
@@ -305,6 +231,7 @@ const GET_ROUTES = {
   "/api/usage": computeUsage,
   "/api/skills": skillsConfig,
   "/api/agent-skills": listAgentSkills,
+  "/api/agents": listAgents,
 };
 
 /** POST endpoints: url → handler. Keeps the request dispatcher under the complexity
@@ -316,8 +243,21 @@ const POST_ROUTES = {
   "/api/skills": handleSkillsPost,
   "/api/setup/skills": handleSkillSetupPost,
   "/api/agent-skills": handleAgentSkillsPost,
-  "/api/hermes/check": handleHermesCheckPost,
-  "/api/codex/check": handleCodexCheckPost,
+  // Legacy per-agent aliases — kept one release so old callers keep working; the
+  // portal speaks only the generic /api/agents/:id/* form (see agents-http.js).
+  "/api/hermes/check": (req, res) => {
+    handleAgentApi(req, res, "/api/agents/hermes/check");
+  },
+  "/api/codex/check": (req, res) => {
+    handleAgentApi(req, res, "/api/agents/codex/check");
+  },
+  "/api/codex/setup": (req, res) => {
+    handleAgentApi(req, res, "/api/agents/codex/setup");
+  },
+  "/api/hermes/setup": (req, res) => {
+    handleAgentApi(req, res, "/api/agents/hermes/setup");
+  },
+
 };
 
 const server = http.createServer((req, res) => {
@@ -335,6 +275,10 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify({ deleted: ok }));
     return;
   }
+  if (req.method === "POST" && url.startsWith("/api/agents/")) {
+    handleAgentApi(req, res, url);
+    return;
+  }
   const postRoute = POST_ROUTES[url];
   if (req.method === "POST" && postRoute) {
     postRoute(req, res);
@@ -344,7 +288,9 @@ const server = http.createServer((req, res) => {
 });
 
 const wss = new WebSocketServer({ server });
-wss.on("connection", handleConnection);
+wss.on("connection", (ws, req) => {
+  handleConnection(ws, req);
+});
 
 /** What runs once the server is actually listening. */
 function onListening() {
@@ -352,6 +298,10 @@ function onListening() {
   // Boot-time cleanup: clear last session's transient builder handoff files (all consumed
   // by now). Deterministic, stateless — see reapHandoffs / the Handoffs orchestrator rule.
   reapHandoffs();
+  // Prune git records of crashed Kimi worktrees (surviving dirs are kept — they may hold
+  // an unreviewed diff); report how many are still parked for review.
+  const kimiLeft = sweepKimiWorktrees();
+  if (kimiLeft) console.log(`kimi: ${kimiLeft} worktree(s) awaiting review in .xenodot-run/kimi/`);
   // Bring up the Hermes gateway too when Hermes is on (opt-in, skipped if already up).
   // Non-blocking and non-fatal: the UI is fully usable whether or not this succeeds.
   void maybeStartHermesGateway();

@@ -35,6 +35,7 @@ const ROLE_COLOR = {
   "skill-researcher": "oklch(0.81 0.12 90)", // moon gold — the library
   "transcript-researcher": "oklch(0.74 0.15 340)", // magenta — raw signal
   hermes: "#3b2aff", // electric indigo — the external Hermes researcher (not a Xenomoon)
+  kimi: "#10b981", // Moonshot teal — the external Kimi coder (not a Xenomoon)
 };
 
 /** Strip "namespace:" prefix from a plugin-namespaced agent id.
@@ -63,6 +64,7 @@ const DISPLAY = {
   "handoff-summarizer": "Xenomoon Handoff",
   hermes: "Hermes: Researcher",
   "codex-rescue": "Codex: Reviewer",
+  kimi: "Kimi: Coder",
 };
 
 /** @param {string} name @returns {string} */

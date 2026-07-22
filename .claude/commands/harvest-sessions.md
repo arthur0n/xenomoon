@@ -1,0 +1,156 @@
+---
+description: Harvest past session logs for recurring framework friction — mine logs/session-*.ndjson (human corrections, agent errors, ask-storms) plus the human's recorded NOs (.xenodot/promotions.json rejects, qa-divergence.md overrides), distil into framework findings, append to the audit ledger as open findings. The automated sibling of /framework-feedback. Never auto-applies; the human applies via /framework-audit-fix. Manual, human-run. Forge-local (not shipped).
+argument-hint: "[N | session-tag]"
+allowed-tools: Read, Glob, Grep, Bash, Write, Edit, mcp__ui__ask
+model: opus
+---
+
+# Harvest sessions — turn past session logs into framework findings (the river)
+
+The automated, past-logs sibling of `/framework-feedback` (which distils the CURRENT conversation).
+This one mines **finished session logs** for friction that recurs across sessions — a skill the human
+keeps correcting, an agent that keeps stopping to ask, a rule that keeps getting re-stated, a tool
+that keeps erroring — and turns the pattern into a framework finding. It is the Pillar 2+3 "river":
+the loop only improves if the lake keeps filling, and your own sessions are the richest inflow.
+
+This command is **forge-local and human-run**. It **reports + proposes only** — it does not auto-fix,
+auto-file, schedule itself, or write under `plugin/`. Each finding gets a stable id; the human then
+runs **`/framework-audit-fix <ids>`** to apply exactly the ones they agree to. Run it caveman.
+
+## Why this exists
+
+`/framework-audit` scans the spine cold (the files); `/framework-feedback` catches the conversation
+you just had. Neither sees friction that only shows up as a **pattern across many past sessions**.
+`/token-audit` already reads these same logs — but only for token _cost_. Nothing reads them for
+framework _quality_. This command is that reader: logs → recurring friction → the same human-gated
+bucket flow. No new infrastructure — it writes to the SAME `.claude/framework-audits/LEDGER.json` and
+is applied by the SAME `/framework-audit-fix`.
+
+## Where the data lives (repo-relative; cwd = forge root)
+
+- **Logs:** `"$CLAUDE_PLUGIN_ROOT/../logs"/session-*.ndjson` (the forge's `logs/` dir — same source
+  `/token-audit` mines). Filenames are ISO timestamps → a lexical sort is chronological; the **tag**
+  is the part between `session-` and `.ndjson`. Sizes run 650 B → 16 MB — **never slurp one into
+  context.**
+- **Per-line schema** `{ts, dir, type, …}`. The friction signals are CHEAP to pull:
+  - **`type=="user_input"` → `.text`** — the human's prompts, verbatim (often <10 lines in a
+    multi-thousand-line session). A re-prompt, a "no / not like that / actually do X", a correction
+    right after an agent finished = a framework artifact underdelivered. **Primary signal.**
+  - **`type=="event"` → `.message`** — the wrapped SDK message. Failures live here:
+    `.message.type=="result"` with `.subtype!="success"`; `SCRIPT ERROR` / engine errors in text;
+    a `tool_result` with `is_error`; hook failures. (Same `.message.*` shape `/token-audit` uses.)
+  - **`type=="ask"`** — an agent stopped to ask the human. A storm of asks in one domain = ambiguity
+    in a skill/rule worth tightening.
+- **Ledger (write findings here):** `.claude/framework-audits/LEDGER.json` — the SOURCE OF TRUTH
+  (a `findings[]` array); read FIRST (dedup), append AFTER (push objects, then `npm run ledger`).
+  `LEDGER.md` / `ledger.html` are GENERATED VIEWS — never hand-edit. Its meta defines the
+  **dimensions D1–D10**, **buckets** (3/4/5/6), **verdict** and **status**. Reuse them exactly —
+  `/framework-audit-fix` resolves by id. Schema: `.claude/framework-audits/README.md`.
+- **Decision feedback (the second inflow):** the game's `.xenodot/` (default `../game/.xenodot/`) —
+  `promotions.json` (each `{id, kind, name, reason, status}`; `status: "rejected"` = the human REFUSED
+  a capability the framework offered) and `qa-divergence.md` (one line per verdict the human OVERRODE
+  — a FAIL that was fine, a PASS that shipped a bug). These are the loop's only records of a human
+  saying **no**, and nothing reads them: they never reach `LEDGER.json`, so a rejection that keeps
+  recurring teaches the framework nothing. Small files — read them whole.
+- **Coverage sidecar:** `.claude/framework-audits/harvested-sessions.txt` — one session-tag per line,
+  the sessions already harvested. Read first so you never re-scan; append after. Create it if absent.
+
+**Filter with `jq select(...)` directly (grep only on jq's text output) to pull only the lines you need — NEVER read a whole multi-MB log.**
+(For a literal contamination sweep you'd use full-path `rg`, but here you're extracting a few typed
+lines, which `rtk grep`/`jq` handle.)
+
+## Steps
+
+1. **Read coverage + ledger.** Open `harvested-sessions.txt` (the covered tags) and parse `LEDGER.json`
+   (its `findings[]` still `open`/`later` + the `lastAudit` line). So you neither re-scan a covered
+   session nor re-file a finding already recorded.
+
+2. **Pick scope.** List `logs/session-*.ndjson`, drop tags already in the coverage file, take the
+   newest **2** of what remains. `$ARGUMENTS` overrides: a bare number sets the count (e.g. `4`); a
+   session-tag harvests exactly that session. Skip the tiny stub logs (a few hundred bytes = a session
+   that opened and closed with no work). If nothing uncovered remains, say so and stop — don't invent.
+
+3. **Extract the cheap slices with `jq` — don't slurp, and do NOT pipe `rtk grep` into `jq`.** `jq`
+   reads ndjson line-by-line and emits only the fields you ask for, so it never loads the transcript
+   into context. Do **not** prefilter with `rtk grep` — rtk's grep filter mangles JSON and breaks
+   `jq` parse (verified). Filter with `jq select(...)` directly. Per chosen log (`$L` = the file):
+   - human turns: `jq -r 'select(.type=="user_input") | .text' "$L"`
+   - failures: `jq -c 'select(.type=="event" and .message.type=="result" and .message.subtype!="success") | .message.subtype' "$L" | sort | uniq -c`
+   - text errors: `jq -r 'select(.type=="event") | (.message|tostring)' "$L" | grep -iE 'SCRIPT ERROR|is_error' | head` (grep on `jq`'s TEXT output is fine — never on raw JSON lines)
+   - ask volume: `jq -s '[.[]|select(.type=="ask")]|length' "$L"`
+     Read those slices, not the transcript.
+
+4. **Mine the decision feedback — where the human said NO.** Read the game's `.xenodot/promotions.json`
+   and `.xenodot/qa-divergence.md` (absent = skip, silently; a fresh game has neither). Two patterns,
+   both **recurrence-weighted** exactly like the log friction — a single no is a judgment call, a
+   REPEATED no is a framework defect:
+   - **repeated rejects** — the same `kind`/`name`, or several rejects sharing a theme (their `reason`
+     text rhymes), means the framework keeps proposing something the human keeps refusing: the skill or
+     agent that PROPOSES it is mis-scoped, or the promotion rubric's bar is wrong. File it against that
+     artifact (usually **D3** name↔scope or **D7** the promoting command), quoting the reasons.
+   - **repeated QA divergence** — several overrides of the same flavour (false-FAIL vs false-PASS, or
+     the same criterion) means the rubric or a `play_*.gd` assertion is mis-tuned, not that one build
+     was odd. File against the rubric/check (usually **D8**). One-off divergences are `xenodot:bug-triage`'s
+     job (orchestrator.md), not a framework finding — leave them.
+
+   A reject/override the human already explained as a one-off, or that turns on THIS game's content, is
+   game-specific → step 6 drops it. Carry survivors into step 5 alongside the log friction.
+
+5. **Distil recurring friction.** From the human turns + failures, find where a FRAMEWORK artifact
+   underdelivered: a correction that implies a skill's steps were wrong/missing; the same instruction
+   repeated across turns/sessions (a rule that isn't loading or isn't clear); an agent erroring or
+   asking on something a skill should have settled. Phrase each as ONE actionable statement tied to a
+   real file. Weight **recurrence** — a one-off is noise; a pattern across turns/sessions is signal.
+   Aim for the handful that matter (usually 1–3), not a transcript paraphrase.
+
+6. **Filter OUT game-specific friction — the load-bearing guard.** A finding is valid here only if it
+   improves the FRAMEWORK (general to any game). Friction about THIS game's content/names/scenes/
+   one-off facts is NOT a framework finding: say so and point it game-local (the game repo's
+   `.claude/` / `design/` / its own `library/`). Never route a game fact into a `plugin/` skill or
+   `plugin/library/` — it ships to every game (promotion rubric; audit **D2**). Drop these from the
+   ledger write.
+
+7. **Map + write an explicit fix; dedup; append.** For each surviving finding: tag the **nearest
+   dimension** `<Dn>` (D1 over-cap agent · D2 contamination · D3 name↔scope · D4 data-driven · D5
+   bloat/dup · D6 orchestrator · D7 commands · D8 verify-flow · D9 harness · D10
+   abstraction-level/domain-layering) so `/framework-audit-fix`'s
+   playbook applies; write the **fix concretely** (target `file` + before→after / block to add);
+   assign **bucket**/`verdict`/**id** `<Dn>-<slug>` (reuse an existing id for the same issue). Push
+   ONE `open` object per finding to `LEDGER.json`'s `findings[]` — `{ id, dim, bucket, verdict,
+status: "open", finding }` (`dim` = the id's `D`-prefix), plus an optional `pattern` (one line — the
+   good pattern to follow, a positive exemplar, not just the problem) — then run `npm run ledger`. Don't
+   duplicate an id already in `findings[]`. Keep each `finding` one line.
+
+8. **Record coverage.** Append every scanned tag to `harvested-sessions.txt` (even ones that yielded
+   no finding — they're covered). The next run skips them.
+
+9. **Present — terse, then hand off.** Per finding: id · the one-line fix · verdict. Sessions covered,
+   top recurring friction, plus the decision feedback read (rejects / divergences seen, and which
+   recurred). Then tell the human to run **`/framework-audit-fix <ids>`** with the ids they agree to
+   (recommend which). If nothing framework-general survived step 6, say so plainly and write no
+   findings (still record coverage). **Never auto-apply.**
+
+10. **Self-critique (in a subagent).** This is self-improvement — improve the loop, not just the
+    findings. Dispatch this critique to a throwaway subagent so its reasoning never becomes main-window
+    context debt: hand it the run's notes and have it propose one tweak to THIS command or the ledger
+    format (a better signal to grep, a missing case), and if a fix is obvious and safe apply it there.
+    It RETURNS ONLY the one-line verdict — record that as the entry's `Process note` (or `none`). Keep
+    the verdict, not the critique transcript.
+
+## Do this
+
+- **Filter logs to the typed slices** — `jq select(...)` directly on the multi-MB log; grep only on
+  jq's text output (never read the whole log into context).
+- **Scan only fresh sessions** — skip any tag already in `harvested-sessions.txt`.
+- **Read the human's NOs too** — `promotions.json` rejects + `qa-divergence.md` overrides, weighted by
+  recurrence; they are decision feedback nothing else in the loop reads.
+- **Record; let the human apply.** This command files findings; `/framework-audit-fix` applies the
+  agreed ids and the human decides (step 10's tweak to this command / ledger is the one exception —
+  no other `plugin/` writes).
+- **Keep findings framework-general** — a game-specific learning lives game-local (`plugin/library/`
+  = AGNOSTIC records only).
+- **File only fresh, real friction** — dedup against ids already `open`/`later`, and file only what
+  the logs actually show.
+- **Search with the Grep tool / full-path `rg` (or `jq`), and prefix shell with `rtk`** — bash
+  `grep` is `rtk`-filtered and drops matches.
+- **Write one-line ledger entries** — brevity is the point; the next run reads this first.

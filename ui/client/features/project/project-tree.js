@@ -116,7 +116,7 @@ function tokensKv(key, val, extraCls) {
  * @param {HTMLElement} tree */
 async function renderTokens(tree) {
   tree.append(el("div", "tree-empty", "loading…"));
-  /** @type {{ sessionCount: number, totalCount: number, totals: { input: number, output: number, cacheCreate: number, cacheRead: number, cost: number }, hitRate: number, topSessions: { name: string, input: number, output: number, cacheCreate: number, cacheRead: number, cost: number, total: number }[] }} */
+  /** @type {{ sessionCount: number, totalCount: number, totals: { input: number, output: number, cacheCreate: number, cacheRead: number, cost: number }, hitRate: number, accepted: number, costPerAcceptedChange: number | null, tokensPerAcceptedChange: number | null, topSessions: { name: string, input: number, output: number, cacheCreate: number, cacheRead: number, cost: number, total: number }[] }} */
   let data;
   try {
     data = /** @type {any} */ (await fetchJSON("/api/usage"));
@@ -148,6 +148,26 @@ async function renderTokens(tree) {
   wrap.append(tokensKv("cost", `$${data.totals.cost.toFixed(2)}`, "tokens-hit"));
   wrap.append(el("hr", "tokens-divider"));
   wrap.append(tokensKv("sessions", `${data.sessionCount} / ${data.totalCount}`));
+
+  // Spend per change the human ACCEPTED (an approved/promoted promotion) — the ratio
+  // the framework steers by, since total spend alone falls just by doing less. With
+  // nothing accepted yet the ratio is unmeasured, not infinite: show "—", never ∞.
+  wrap.append(el("hr", "tokens-divider"));
+  wrap.append(el("div", "tokens-section-head", "per accepted change"));
+  wrap.append(tokensKv("accepted changes", String(data.accepted)));
+  wrap.append(
+    tokensKv(
+      "cost / accepted",
+      data.costPerAcceptedChange == null ? "—" : `$${data.costPerAcceptedChange.toFixed(2)}`,
+      "tokens-hit",
+    ),
+  );
+  wrap.append(
+    tokensKv(
+      "tokens / accepted",
+      data.tokensPerAcceptedChange == null ? "—" : fmtTokens(data.tokensPerAcceptedChange),
+    ),
+  );
 
   // Top sessions — full per-session consumption; mark the newest as the current run.
   if (data.topSessions.length) {
@@ -280,12 +300,12 @@ function renderBanner(s) {
     el(
       "div",
       undefined,
-      "Point the framework at your game (it only reads it — your project stays in its own repo):",
+      "Point the framework at your project (it only reads it — it stays in its own repo):",
     ),
   );
   const code = el("div", "banner-code");
-  code.append(el("div", undefined, "npm run setup -- /path/to/your/game"));
-  code.append(el("div", undefined, "# then restart, or one-off: npm start /path/to/your/game"));
+  code.append(el("div", undefined, "npm run setup -- /path/to/your/project"));
+  code.append(el("div", undefined, "# then restart, or one-off: npm start /path/to/your/project"));
   banner.append(code);
   banner.style.display = "";
 }

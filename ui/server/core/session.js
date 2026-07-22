@@ -8,7 +8,10 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 import { parseJSON } from "../../lib/json.js";
 import { sessionHistory } from "../features/transcripts/transcripts.js";
 import { buildUiServer } from "../mcp-tools/ui-server.js";
-import { uiControlAllow } from "./ui-control.js";
+import { cancelKimiBoardTask } from "../mcp-tools/kimi-tool.js";
+import { uiControlAllow, preToolGate } from "./ui-control.js";
+import { userInputTurn } from "./user-input.js";
+import { resolveSessionPlugins } from "./session-plugins.js";
 import { runningChip, emitRunning, runWithRetry } from "./stream.js";
 import { readPromotions, decide, markPromoted } from "../features/promotions/promotions-store.js";
 import { promoteOne } from "../features/promotions/promote-run.js";
@@ -27,6 +30,7 @@ import {
   findOpenQuestion,
 } from "../features/tasks/tasks-store.js";
 import { resolveSessionSkills } from "../features/skills/skills.js";
+
 import {
   DEFAULT_POLICY,
   EDIT_TOOLS,
@@ -37,7 +41,10 @@ import {
   ORCHESTRATOR_PROMPT,
   HERMES_BLOCK,
   CODEX_BLOCK,
+  KIMI_BLOCK,
+
   getHermesConfig,
+  getKimiConfig,
   POLICIES,
   PROJECT_DIR,
   FRAMEWORK_PLUGIN_DIR,
@@ -57,7 +64,7 @@ import {
 /** @typedef {Map<number, { type: string, resolve: (value: Reply) => void }>} Pending */
 /** Per-connection mutable session state, shared between runSession and the client-message
  * handlers. `autonomousLoop` is set by runSession once the check loop is built.
- * @typedef {{ policy: string, query?: { interrupt?: () => Promise<void>, stopTask?: (taskId: string) => Promise<void> }, autonomousLoop?: { arm: (fireNow?: boolean) => void, disarm: () => void }, autonomousActive?: boolean }} SessionState */
+ * @typedef {{ policy: string, query?: { interrupt?: () => Promise<void>, stopTask?: (taskId: string) => Promise<void> }, autonomousLoop?: { arm: (fireNow?: boolean) => void, disarm: () => void }, autonomousActive?: boolean, fetchedDocs?: Set<string> }} SessionState */
 
 /** Per-connection NDJSON logger + the `send` that mirrors every outgoing
  * message into it. @param {import("ws").WebSocket} ws */
@@ -180,6 +187,10 @@ function makeCanUseTool({ session, sessionAllowed, waitFor, log, agentByTool, fo
     // Which agent raised this call (main loop or a sub-agent), so the UI can
     // label concurrent approvals. opts.toolUseID is set by the SDK.
     const agent = agentByTool.get(opts.toolUseID) ?? "main";
+    // Deterministic pre-gates that short-circuit BEFORE the permission policy: immutable-docs dedup
+    // + the screenshot/render-frame read gate (both token-heavy; godot-verify "never read a frame").
+    const pre = await preToolGate({ session, waitFor, log, toolName, input, agent });
+    if (pre) return pre;
     if (toolName === "AskUserQuestion") return handleAskQuestion(input, agent, waitFor);
     if (toolName === FORM_TOOL) {
       // The tool handler does the waiting; hand it this call's agent (FIFO,
@@ -364,6 +375,7 @@ function frameworkPluginConfigs() {
     plugins.push({ type: "local", path: FRAMEWORK_PLUGIN_DIR, skipMcpDiscovery: true });
   }
   return plugins;
+
 }
 
 /**
@@ -482,6 +494,7 @@ function runSession({
               append:
                 ORCHESTRATOR_PROMPT +
                 (getHermesConfig().enabled ? "\n\n" + HERMES_BLOCK : "") +
+                (getKimiConfig().enabled ? "\n\n" + KIMI_BLOCK : "") +
                 (getCodexConfig().enabled && existsSync(CODEX_PLUGIN_DIR)
                   ? "\n\n" + CODEX_BLOCK
                   : ""),
@@ -579,6 +592,11 @@ function answerTurn(task) {
  * @param {ReturnType<typeof createInbox>} inbox @returns {boolean} */
 function handleBoardMessage(msg, send, inbox) {
   if (msg.type === "task_update") {
+    // Removing a Kimi run's board task IS its interrupt — cancel the ACP run first
+    // (no-op for every other task id).
+    if (msg.op === "remove" && cancelKimiBoardTask(msg.id)) {
+      send({ type: "status", text: "cancelling the Kimi run tied to that task…" });
+    }
     const list = applyOp(msg, new Date().toISOString());
     send({ type: "tasks", tasks: list });
     // Push the answer to the orchestrator instead of relying on it to scan the
@@ -619,11 +637,8 @@ function handleClientMessage(raw, { log, send, inbox, pending, session }) {
     // work instead of accumulating a graveyard of done items across the session.
     const pruned = pruneDoneTasks();
     if (pruned) send({ type: "tasks", tasks: pruned });
-    inbox.push({
-      type: "user",
-      parent_tool_use_id: null,
-      message: { role: "user", content: [{ type: "text", text: msg.text }] },
-    });
+    // Pasted images ride along as base64 image blocks ahead of the text.
+    inbox.push(userInputTurn(msg));
   } else if (msg.type === "reply") {
     const entry = pending.get(msg.id);
     if (entry) {

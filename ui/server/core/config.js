@@ -36,17 +36,24 @@ const args = process.argv.slice(2);
 
 /** @typedef {{ name?: string, projectFile?: string }} EngineConfig */
 /** Persisted Hermes block (see getHermesConfig). The apiKey lives only here (the
- * file is gitignored) or in env — it is never returned to the browser.
- * @typedef {{ enabled?: boolean, apiUrl?: string, apiKey?: string, model?: string }} HermesConfig */
-/** Persisted Codex block (see getCodexConfig). Just an on/off switch — auth is owned by
- * the local `codex` CLI (`codex login`), so there is no key or URL to store here.
- * @typedef {{ enabled?: boolean }} CodexConfig */
+ * file is gitignored) or in env — it is never returned to the browser. `roles` is the
+ * user's pick of the hats this agent wears in the hive (see the agents registry);
+ * absent → the registry default.
+ * @typedef {{ enabled?: boolean, apiUrl?: string, apiKey?: string, model?: string, roles?: string[] }} HermesConfig */
+/** Persisted Codex block (see getCodexConfig). An on/off switch + role pick — auth is owned
+ * by the local `codex` CLI (`codex login`), so there is no key or URL to store here.
+ * @typedef {{ enabled?: boolean, roles?: string[] }} CodexConfig */
+/** Persisted Kimi block (see getKimiConfig). An on/off switch + role pick — auth is owned by
+ * the local `kimi` CLI (`kimi login` → ~/.kimi/config.toml), so there is no key to store here
+ * (same zero-secret model as Codex). @typedef {{ enabled?: boolean, roles?: string[] }} KimiConfig */
+
 
 /** Parsed `.xenomoon.json` (written by `npm run setup`), or `{}` if absent/invalid.
  * Read once: it carries both the saved project path and the engine block. */
 const SAVED = (() => {
   try {
     return /** @type {{ projectDir?: string, domain?: string, engine?: EngineConfig, assetLibrary?: string, hermes?: HermesConfig }} */ (
+
       parseJSON(readFileSync(CONFIG_FILE, "utf8"))
     );
   } catch {
@@ -105,6 +112,7 @@ export const ENGINE = {
 };
 /** Capitalized engine display name for UI/CLI copy. */
 export const ENGINE_LABEL = ENGINE.name.charAt(0).toUpperCase() + ENGINE.name.slice(1);
+
 
 /** The game's res:// mount name for the external shared-asset library — a symlink
  * materialize.js creates (`<game>/x-shared-assets` → ASSET_LIBRARY), so a model resolves
@@ -203,6 +211,13 @@ export const AUTONOMOUS_TOOL = "mcp__ui__autonomous";
 // frontmatter lists it, so only the foreground Hive can call it.
 export const HERMES_TOOL = "mcp__ui__hermes";
 
+// In-process MCP tool the HIVE calls to delegate a discrete implementation task to the
+// external Kimi coder (kimi-cli driven over ACP in an isolated git worktree — see
+// kimi-tool.js). Like HERMES_TOOL it is a REAL side effect (billable model run + code
+// written in the worktree), so it has NO auto-allow branch in canUseTool — every dispatch
+// hits the per-call permission gate. Granted to the Hive only.
+export const KIMI_TOOL = "mcp__ui__kimi";
+
 /** Hermes model ids for the settings dropdown; the user can also enter a custom id. The Nous
  * Portal (provider `nous`) routes non-Nous ids too (e.g. `qwen/*`, `z-ai/*`), so they're valid
  * picklist entries as long as they're in the Portal model catalog.
@@ -218,11 +233,19 @@ export const HERMES_MODELS = [
   "nousresearch/hermes-4.3-36b",
 ];
 
-/** Effective Hermes config, resolved fresh on every call (env overrides → `.xenomoon.json`
+/** Default hive roles per external agent, used when the saved block has no `roles` pick.
+ * The full per-agent role catalog (what CAN be picked) lives in the agents registry
+ * (ui/server/agents/registry.js); these are only the out-of-the-box selections. */
+export const HERMES_DEFAULT_ROLES = ["researcher", "critic"];
+export const CODEX_DEFAULT_ROLES = ["reviewer"];
+export const KIMI_DEFAULT_ROLES = ["coder"];
+
+/** Effective Hermes config, resolved fresh on every call (env overrides → `.xenodot.json`
+
  * `hermes` block → disabled), so switching it on from the CLI or the UI takes effect
  * WITHOUT a server restart. The apiKey is read here but must never be sent to the browser
  * (see hermesPublicConfig).
- * @returns {{ enabled: boolean, apiUrl: string | null, apiKey: string | null, model: string }} */
+ * @returns {{ enabled: boolean, apiUrl: string | null, apiKey: string | null, model: string, roles: string[] }} */
 export function getHermesConfig() {
   /** @type {HermesConfig} */
   let saved = {};
@@ -241,11 +264,12 @@ export function getHermesConfig() {
     apiUrl: env.HERMES_API_URL ?? saved.apiUrl ?? null,
     apiKey: env.HERMES_API_KEY ?? saved.apiKey ?? null,
     model: env.HERMES_MODEL ?? saved.model ?? HERMES_DEFAULT_MODEL,
+    roles: saved.roles ?? HERMES_DEFAULT_ROLES,
   };
 }
 
 /** Browser-safe view of the Hermes config for /api/state: the secret key is replaced
- * by a boolean `hasKey`. @returns {{ enabled: boolean, apiUrl: string | null, model: string, hasKey: boolean, models: string[] }} */
+ * by a boolean `hasKey`. @returns {{ enabled: boolean, apiUrl: string | null, model: string, hasKey: boolean, models: string[], roles: string[] }} */
 export function hermesPublicConfig() {
   const c = getHermesConfig();
   return {
@@ -254,6 +278,7 @@ export function hermesPublicConfig() {
     model: c.model,
     hasKey: Boolean(c.apiKey),
     models: HERMES_MODELS,
+    roles: c.roles,
   };
 }
 
@@ -276,6 +301,7 @@ export function saveHermesConfig(patch) {
   if (patch.apiUrl != null) next.apiUrl = patch.apiUrl;
   if (patch.model != null) next.model = patch.model;
   if (patch.apiKey) next.apiKey = patch.apiKey; // blank/undefined → keep existing
+  if (patch.roles != null) next.roles = patch.roles;
   try {
     writeFileSync(CONFIG_FILE, JSON.stringify({ ...saved, hermes: next }, null, 2) + "\n");
     return { ok: true };
@@ -288,7 +314,7 @@ export function saveHermesConfig(patch) {
  * `.xenomoon.json` `codex` block → disabled), so toggling it from the UI or the CLI takes
  * effect WITHOUT a server restart (session.js re-reads it when a new session starts).
  * There is no secret here — Codex auth lives in the local `codex` CLI (`codex login`).
- * @returns {{ enabled: boolean }} */
+ * @returns {{ enabled: boolean, roles: string[] }} */
 export function getCodexConfig() {
   /** @type {CodexConfig} */
   let saved = {};
@@ -301,16 +327,17 @@ export function getCodexConfig() {
   }
   const env = process.env;
   const enabled = env.CODEX_ENABLED != null ? env.CODEX_ENABLED === "true" : Boolean(saved.enabled);
-  return { enabled };
+  return { enabled, roles: saved.roles ?? CODEX_DEFAULT_ROLES };
 }
 
 /** Browser-safe view of the Codex config for /api/state: `enabled` plus whether the plugin
  * has actually been vendored on disk (so the settings panel can tell "switched on but not yet
  * installed" from "ready"). No secrets — there are none. Deliberately does NOT shell out to
  * `codex` (that probe is the Settings "Test" button → codex-check.js), keeping /api/state cheap.
- * @returns {{ enabled: boolean, vendored: boolean }} */
+ * @returns {{ enabled: boolean, vendored: boolean, roles: string[] }} */
 export function codexPublicConfig() {
-  return { enabled: getCodexConfig().enabled, vendored: existsSync(CODEX_PLUGIN_DIR) };
+  const c = getCodexConfig();
+  return { enabled: c.enabled, vendored: existsSync(CODEX_PLUGIN_DIR), roles: c.roles };
 }
 
 /** Merge a partial Codex block into `.xenomoon.json`, preserving every other field
@@ -327,6 +354,7 @@ export function saveCodexConfig(patch) {
   /** @type {CodexConfig} */
   const next = { ...prev };
   if (patch.enabled != null) next.enabled = patch.enabled;
+  if (patch.roles != null) next.roles = patch.roles;
   try {
     writeFileSync(CONFIG_FILE, JSON.stringify({ ...saved, codex: next }, null, 2) + "\n");
     return { ok: true };
@@ -334,6 +362,81 @@ export function saveCodexConfig(patch) {
     return { error: e instanceof Error ? e.message : "write failed" };
   }
 }
+
+/** Effective Kimi config, resolved fresh on every call (env `KIMI_ENABLED` → `.xenodot.json`
+ * `kimi` block → disabled), so toggling it from the UI or the CLI takes effect WITHOUT a
+ * server restart (session.js re-reads it when a new session starts). There is no secret —
+ * Kimi auth lives in the local `kimi` CLI (`kimi login`).
+ * @returns {{ enabled: boolean, roles: string[] }} */
+export function getKimiConfig() {
+  /** @type {KimiConfig} */
+  let saved = {};
+  try {
+    saved =
+      /** @type {{ kimi?: KimiConfig }} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8"))).kimi ??
+      {};
+  } catch {
+    /* absent/invalid — treat as no saved block */
+  }
+  const env = process.env;
+  const enabled = env.KIMI_ENABLED != null ? env.KIMI_ENABLED === "true" : Boolean(saved.enabled);
+  return { enabled, roles: saved.roles ?? KIMI_DEFAULT_ROLES };
+}
+
+/** Browser-safe view of the Kimi config for the portal. No secrets — there are none.
+ * Deliberately does NOT shell out to `kimi` (that probe is the portal "Test" button →
+ * kimi-check.js), keeping the catalog route cheap.
+ * @returns {{ enabled: boolean, roles: string[] }} */
+export function kimiPublicConfig() {
+  const c = getKimiConfig();
+  return { enabled: c.enabled, roles: c.roles };
+}
+
+/** Merge a partial Kimi block into `.xenodot.json`, preserving every other field
+ * (projectDir, engine, hermes, codex, …). @param {KimiConfig} patch @returns {{ ok: true } | { error: string }} */
+export function saveKimiConfig(patch) {
+  /** @type {Record<string, unknown>} */
+  let saved = {};
+  try {
+    saved = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8")));
+  } catch {
+    /* absent/invalid — start fresh */
+  }
+  const prev = /** @type {KimiConfig} */ (saved.kimi ?? {});
+  /** @type {KimiConfig} */
+  const next = { ...prev };
+  if (patch.enabled != null) next.enabled = patch.enabled;
+  if (patch.roles != null) next.roles = patch.roles;
+  try {
+    writeFileSync(CONFIG_FILE, JSON.stringify({ ...saved, kimi: next }, null, 2) + "\n");
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "write failed" };
+  }
+}
+
+/** Merge a partial Godot-docs block into `.xenodot.json`, preserving every other field
+ * (projectDir, engine, hermes, codex, …). @param {DocsConfig} patch @returns {{ ok: true } | { error: string }} */
+export function saveDocsConfig(patch) {
+  /** @type {Record<string, unknown>} */
+  let saved = {};
+  try {
+    saved = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8")));
+  } catch {
+    /* absent/invalid — start fresh */
+  }
+  const prev = /** @type {DocsConfig} */ (saved.docs ?? {});
+  /** @type {DocsConfig} */
+  const next = { ...prev };
+  if (patch.enabled != null) next.enabled = patch.enabled;
+  try {
+    writeFileSync(CONFIG_FILE, JSON.stringify({ ...saved, docs: next }, null, 2) + "\n");
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "write failed" };
+  }
+}
+
 
 // Bare tool names auto-allowed (no permission prompt) for the whole session — the
 // read/research/exec toolset background sub-agents need. This is the ONE lever that
@@ -351,6 +454,11 @@ export function saveCodexConfig(patch) {
 // human-approved act (orchestrator rule). Bash is safe here because the
 // destructive-git/-shell PreToolUse hooks gate it independently of the permission layer.
 export const AUTO_ALLOW_TOOLS = ["Read", "Glob", "Grep", "Bash", "WebSearch", "WebFetch"];
+
+// The full-class docs dump is ~20k chars of version-pinned, immutable reference. The permission
+// approver dedups it per session (see docsDedupDecision) so a class is dumped into context at most
+// once — a re-fetch is denied with a stub. Token loop opp `godot-docs-memoize` (dedup arm).
+export const DOCS_GET_CLASS_TOOL = "mcp__godot-docs__godot_docs_get_class";
 
 // The main loop is an orchestrator: pinned model (not the user's default) and a
 // routing-focused system prompt, editable in ui/orchestrator.md.
@@ -378,6 +486,8 @@ export const CODEX_BLOCK = readFileSync(path.join(UI_DIR, "codex-block.md"), "ut
   "{{CODEX_COMPANION}}",
   CODEX_COMPANION,
 );
+export const KIMI_BLOCK = readFileSync(path.join(UI_DIR, "kimi-block.md"), "utf8");
+
 
 // Claude Code's own transcript store for this project — every session here is
 // listed and resumable, terminal ones included.

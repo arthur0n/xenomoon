@@ -18,14 +18,14 @@ framework loads into every project session.
   token is Moon Gold, NOT green), and the brand word "XenomoonForge". NEVER reintroduce upstream's
   green alien-head emblem or alien-green palette. When a sync touches `ui/index.html`,
   `ui/agent-ui.css`, or emblem/favicon assets, take upstream's behavior/structure only and resolve
-  every color/identity/branding hunk as OURS. Sync runbook: `docs/whitelabel/SEAMS.md`.
-- **Sync is ONE-WAY — fetch from upstream, publish only to OUR repo.** This is a white-label fork of
+  every color/identity/branding hunk as OURS. Sync runbook: `docs/fork/SEAMS.md`.
+- **Sync is ONE-WAY — fetch from upstream, publish only to OUR repo.** This is a domain-focused fork of
   the godot source `arthur0n/xenodot-forge` (the `upstream` and `origin` remotes). We **only ever
   fetch** curated, domain-agnostic updates from it (via `/sync-upstream`) and **NEVER push to any
   `xenodot-forge` repo** — the committed `.husky/pre-push` hook hard-blocks it; never route around it.
   Our **sole publish target is the `xenomoon` remote** (`arthur0n/xenomoon`): publish with
   `git push xenomoon main`, which goes out as **arthur0n** (the repo owner; the repo-local
-  `.git/config` credential pin). See `docs/whitelabel/SYNC.md`.
+  `.git/config` credential pin). See `docs/fork/SYNC.md`.
 
 ## Before committing
 

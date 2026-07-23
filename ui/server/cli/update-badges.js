@@ -62,7 +62,7 @@ if (readmeAfter !== readmeBefore) {
   staged.push(readmePath);
 }
 
-// FEATURES.md is an upstream catalog this whitelabel deliberately does not carry (SEAMS.md
+// FEATURES.md is an upstream catalog this fork deliberately does not carry (SEAMS.md
 // "intentional divergences") — skip its sync + cross-check entirely when absent.
 const featuresPath = path.join(FRAMEWORK_DIR, "FEATURES.md");
 if (existsSync(featuresPath)) {

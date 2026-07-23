@@ -1,6 +1,6 @@
 # Seams — our conflict-surface contract with upstream
 
-To stay mergeable with a fast-moving upstream, **~95% of our white-label work lives
+To stay mergeable with a fast-moving upstream, **~95% of our fork work lives
 in NEW files/dirs upstream never touches.** This file is the audited list of the few
 exceptions: upstream-owned files we edit, and the rename map the rebrand codemod
 applies.
@@ -13,7 +13,7 @@ applies.
 
 ## Additive-only areas (no conflict risk — upstream owns none of these)
 
-- `docs/whitelabel/**` — this contract, the sync runbook.
+- `docs/fork/**` — this contract, the sync runbook.
 - `scripts/rebrand.mjs` — the rebrand codemod; `.claude/commands/sync-upstream.md` — the
   analysis-driven up-sync command that drives it (replaced the old blind `scripts/sync-upstream.sh`).
 - `domains/**` — the domain packs. The shipped packs are `domains/app/` and `domains/webapp/`
@@ -103,7 +103,7 @@ re-drop them (the merge brings them back because lineage is preserved — that's
   wiring from the took-theirs `ui/server/mcp-tools/ui-server.js` (`makeAssetTool`) +
   `ui/client/core/main.js` (`initGetAssets`/`initDrawLevel`). Keep our OURS `ui-server.js`/`main.js`.
 - **New game agents / skills — NOT carried (v0.2.x).** Drop `plugin/agents/{bug-triage,art-director,
-  asset-advisor,addon-researcher}.md` (game roles) and `plugin/skills/level-design-principles/`. Fix
+asset-advisor,addon-researcher}.md` (game roles) and `plugin/skills/level-design-principles/`. Fix
   any kept skill/agent frontmatter that references a dropped agent (e.g. `research-presenting` audience
   → keep only `{cli,skill,transcript}-researcher`; `agent-report`/`graphify` → drop `bug-triage`).
 - **Deferred v0.2.x subsystems — NOT YET adopted (kept the sync coherent + green).** These are real
@@ -141,12 +141,12 @@ A single case-preserving `/xenodot/gi` pass covers every form above.
   `tools/`) is never read or rewritten.
 - The codemod's **own machinery** — `scripts/rebrand.mjs`, `.claude/commands/sync-upstream.md`
   (the up-sync command, which re-runs the codemod as one of its steps), and everything under the
-  `docs/whitelabel/` folder — intentionally mentions the literal `xenodot` to document the rename,
+  `docs/fork/` folder — intentionally mentions the literal `xenodot` to document the rename,
   so it is skipped.
 - **Binary assets** (images, fonts, models, archives) — skipped by extension and null-byte detection.
 
 ## Invariant
 
 After `node scripts/rebrand.mjs`, `git grep -i xenodot` returns **only** the
-denylisted `arthur0n` provenance lines and the skipped `docs/whitelabel` + `scripts`
+denylisted `arthur0n` provenance lines and the skipped `docs/fork` + `scripts`
 machinery. Anything else means the rename map or denylist needs updating.

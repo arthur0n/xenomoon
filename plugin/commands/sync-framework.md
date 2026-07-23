@@ -11,7 +11,7 @@ The framework (`arthur0n/xenomoon`) moves all the time; a consumer rides those u
 with this command. The mechanical parts are deterministic (fetch, branch, the leakage
 gate, validate) — but the **merge is analysis, not a recipe**: you decide, conflict by
 conflict, what is the agnostic framework's to win and what is a genuine local fix to keep.
-That judgment is why this is a command and not a script. See `docs/whitelabel/DOWNSTREAM.md`.
+That judgment is why this is a command and not a script. See `docs/fork/DOWNSTREAM.md`.
 
 ## The one rule the analysis serves
 

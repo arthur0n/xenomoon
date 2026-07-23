@@ -16,7 +16,7 @@ webapp project) + **xm-probius** (the retired fork experiment that exposed the p
   `domains/webapp/` (skills, library records, conventions) in the LOCAL install. A second
   bound project benefits immediately — same checkout, same domain.
 - **Install = fork of `arthur0n/xenomoon`.** The fork gives the user: easy update
-  (`git pull upstream main`) and a PR path for their domain learnings. No whitelabel, no
+  (`git pull upstream main`) and a PR path for their domain learnings. No fork, no
   rebrand — a plain fork.
 - **The learning is a PROCESS the framework ships,** not a habit the user must have.
 
@@ -64,7 +64,7 @@ wizard) or first server boot:
 - DOCUMENT it in the README top (one diagram) — the `plugin/` vs `domains/*/plugin/`
   naming confuses newcomers; a rename is NOT worth the churn, a diagram is.
 - **Owner cleanup (case study):** xm-probius / the Pexelins remote is retired. It was a
-  whitelabel-pattern fork used as an install — wrong layer. Steps: archive
+  fork-pattern fork used as an install — wrong layer. Steps: archive
   `Pexelins/xenomoon` (read-only), salvage nothing (all framework content is superseded;
   fork-local audit ledgers stay archived with it), remove local remotes/credential pin,
   bind lexflow from the real checkout. Fresh installs use the fork flow above.

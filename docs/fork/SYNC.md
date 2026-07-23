@@ -67,4 +67,4 @@ upstream/main` → resolve + re-drop divergences → `node scripts/rebrand.mjs` 
 A merge conflict appears where upstream edited a line we also changed (a rebranded identifier, or a
 seam listed in `SEAMS.md`). Resolve to keep our xenomoon version **plus** upstream's real change,
 then re-run the codemod so nothing is left half-xenodot. The denylist (`arthur0n` lines,
-`docs/whitelabel/**`, `scripts/` machinery) is preserved automatically.
+`docs/fork/**`, `scripts/` machinery) is preserved automatically.

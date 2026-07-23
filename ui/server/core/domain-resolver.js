@@ -11,7 +11,7 @@
 // framework .xenomoon.json "domain". If NEITHER is set, resolution THROWS (no fallback).
 //
 // This module is ADDITIVE (no upstream file owns it), so it never conflicts on an upstream
-// pull. The few spine files that consult it are listed in docs/whitelabel/SEAMS.md.
+// pull. The few spine files that consult it are listed in docs/fork/SEAMS.md.
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

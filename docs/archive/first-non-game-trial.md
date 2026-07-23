@@ -13,7 +13,7 @@ assumptions, so we know how to onboard a non-greenfield project with least frict
 > `domains/app/plugin/` has only `plugin.json` (zero agents, zero skills, zero library) and
 > `domains/app/orchestrator.md` is a 10-line stub. So this trial exercises the **spine** (init →
 > session → orchestrator → agent dispatch → integrations) with an empty domain, not the Godot
-> capability set. Every gap hit is a candidate entry for `docs/whitelabel/SEAMS.md`.
+> capability set. Every gap hit is a candidate entry for `docs/fork/SEAMS.md`.
 
 ## How to use this doc
 
@@ -187,7 +187,7 @@ stub domain); plain `/codex:review` doesn't.
 - [ ] Every game/Godot assumption hit is logged below and triaged into `SEAMS.md`.
 - [ ] We can answer: **does the empty domain stay a stub (project-local capabilities) or get a shared pack?**
 
-## Seams found (→ promote to docs/whitelabel/SEAMS.md)
+## Seams found (→ promote to docs/fork/SEAMS.md)
 
 Status: ✅ **FIXED** on our trunk · ⏳ predicted (not yet hit) · severity in **bold**.
 

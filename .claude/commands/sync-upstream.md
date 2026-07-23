@@ -13,8 +13,8 @@ domain-agnostic parts of it. The mechanical parts are deterministic (fetch, bran
 rebrand codemod, the leakage gate, validate) — but the **merge is analysis, not a recipe**:
 you decide, conflict by conflict, what is an agnostic framework win we take and what is
 godot/engine/identity payload we drop. That judgment is why this is a command and not the
-old blind `scripts/sync-upstream.sh`. See `docs/whitelabel/SYNC.md` (the runbook) and
-`docs/whitelabel/SEAMS.md` (the conflict-surface contract + the intentional divergences).
+old blind `scripts/sync-upstream.sh`. See `docs/fork/SYNC.md` (the runbook) and
+`docs/fork/SEAMS.md` (the conflict-surface contract + the intentional divergences).
 
 > Direction check: this is `xenodot → xenomoon`. The **down** direction (framework → the
 > consumers that ride it, e.g. xm-probius) is a different, consumer-shipped command,
@@ -118,7 +118,7 @@ level-designer,godot-*}.md`, and ALL of `plugin/library/` **EXCEPT** our two COR
    `rtk git commit -am "rebrand: re-flip merged upstream"`. Prove it:
    `node scripts/rebrand.mjs --check` must exit 0. Then the invariant:
    `rtk git grep -i xenodot` must return **only** `arthur0n` provenance lines + the skipped
-   `docs/whitelabel/**` and `scripts/` machinery. Anything else = the rename map or a re-drop
+   `docs/fork/**` and `scripts/` machinery. Anything else = the rename map or a re-drop
    is incomplete — fix it and re-run.
 
 7. **Agnostic gate (deterministic — run it, read the result, don't eyeball it).**

@@ -7,7 +7,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Status: experimental](https://img.shields.io/badge/Status-experimental-orange.svg)
 
-> **Early experiment.** A white-label fork of [Xenodot Forge](https://github.com/arthur0n/xenodot-forge). Names, layouts, and APIs will change; nothing here is stable yet.
+> **Early experiment.** A domain-focused fork of [Xenodot Forge](https://github.com/arthur0n/xenodot-forge). Names, layouts, and APIs will change; nothing here is stable yet.
 
 ## What this is
 
@@ -89,11 +89,11 @@ Early, but real. Working today:
 - **Empty packages are valid** — a domain with no pre-baked capabilities installs and runs cleanly.
 - The shipped packs are **`webapp`** — a populated React + Node **head-start** (an issue-driven `triage → solution → implement` pipeline whose orchestrator learns the project) — and **`app`**, an empty Node learning pack. Godot is **stripped**: it stays the exclusive upstream product, never a domain here.
 
-Not yet: more domain packs beyond `webapp` / `app`, OpenClaw/Hermes adapters, a package marketplace, and per-project knowledge isolation. The direction and the open seams are written down in [docs/whitelabel/VISION.md](docs/whitelabel/VISION.md) and [docs/whitelabel/SEAMS.md](docs/whitelabel/SEAMS.md).
+Not yet: more domain packs beyond `webapp` / `app`, OpenClaw/Hermes adapters, a package marketplace, and per-project knowledge isolation. The direction and the open seams are written down in [docs/fork/VISION.md](docs/fork/VISION.md) and [docs/fork/SEAMS.md](docs/fork/SEAMS.md).
 
 ## Tracking upstream
 
-We follow [arthur0n/xenodot-forge](https://github.com/arthur0n/xenodot-forge) closely, but the flow is **one-way**: we **fetch** its improvements and **never push back** to any `xenodot-forge` repo (a `pre-push` hook hard-blocks that). Our xenomoon trunk is `main`, published **only** to the `xenomoon` remote (`arthur0n/xenomoon`); on each pull we take upstream's curated, domain-agnostic changes (never the engine payload) and re-apply the committed xenomoon rebrand (`scripts/rebrand.mjs`). The workflow is in [docs/whitelabel/SYNC.md](docs/whitelabel/SYNC.md).
+We follow [arthur0n/xenodot-forge](https://github.com/arthur0n/xenodot-forge) closely, but the flow is **one-way**: we **fetch** its improvements and **never push back** to any `xenodot-forge` repo (a `pre-push` hook hard-blocks that). Our xenomoon trunk is `main`, published **only** to the `xenomoon` remote (`arthur0n/xenomoon`); on each pull we take upstream's curated, domain-agnostic changes (never the engine payload) and re-apply the committed xenomoon rebrand (`scripts/rebrand.mjs`). The workflow is in [docs/fork/SYNC.md](docs/fork/SYNC.md).
 
 ## License
 

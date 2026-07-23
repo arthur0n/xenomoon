@@ -11,7 +11,7 @@
 // clones the framework there, installs deps, links the `xenomoon` CLI, and hands off to
 // the install questionnaire (domain → port → integrations → /onboard).
 // Deliberately dependency-free and config.js-free (nothing is bound yet).
-import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { execFileSync, execSync } from "node:child_process";
 import readline from "node:readline/promises";
 import path from "node:path";
@@ -75,14 +75,28 @@ if (existsSync(dest) && readdirSync(dest).length > 0) {
 } else {
   // 3. Fetch the framework: git when available (updates = git pull), tarball otherwise.
   mkdirSync(dest, { recursive: true });
-  if (has("git")) {
-    console.log(`Cloning into ${dest} …`);
-    execFileSync("git", ["clone", "--depth", "1", REPO, dest], { stdio: "inherit" });
-  } else {
-    console.log(`git not found — downloading a snapshot into ${dest} …`);
-    execSync(`curl -fsSL ${TARBALL} | tar -xz --strip-components=1 -C "${dest}"`, {
-      stdio: "inherit",
-    });
+  // Hard timeouts + one retry: a stalled connection must never wedge the install.
+  const fetchOnce = () => {
+    if (has("git")) {
+      console.log(`Cloning into ${dest} …`);
+      execFileSync("git", ["clone", "--depth", "1", REPO, dest], {
+        stdio: "inherit",
+        timeout: 180_000,
+      });
+    } else {
+      console.log(`git not found — downloading a snapshot into ${dest} …`);
+      execSync(`curl -fsSL --max-time 180 ${TARBALL} | tar -xz --strip-components=1 -C "${dest}"`, {
+        stdio: "inherit",
+      });
+    }
+  };
+  try {
+    fetchOnce();
+  } catch {
+    console.warn("Fetch stalled/failed — clearing and retrying once …");
+    rmSync(dest, { recursive: true, force: true });
+    mkdirSync(dest, { recursive: true });
+    fetchOnce(); // a second failure throws loudly — network is genuinely down
   }
 }
 

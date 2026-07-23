@@ -87,7 +87,10 @@ async function ensureCli(rl) {
     console.log("Skipped. Install Codex yourself, then re-run `npm run codex:setup`.");
     return false;
   }
-  if (spawnSync("npm", ["install", "-g", "@openai/codex"], { stdio: "inherit" }).status !== 0) {
+  if (
+    spawnSync("npm", ["install", "-g", "@openai/codex"], { stdio: "inherit", timeout: 300_000 })
+      .status !== 0
+  ) {
     console.error("Install failed — see the output above.");
     return false;
   }
@@ -134,8 +137,22 @@ function vendorPlugin() {
   mkdirSync(path.dirname(VENDOR_DIR), { recursive: true });
   const args = ["clone", "--depth", "1", ...(REF ? ["--branch", REF] : []), REPO_URL, VENDOR_DIR];
   console.log(`Cloning ${REPO_URL}${REF ? ` (${REF})` : ""} → vendor/codex-plugin-cc …`);
-  if (spawnSync("git", args, { stdio: "inherit" }).status !== 0) {
-    console.error("Clone failed — check your network, then re-run `npm run codex:setup`.");
+  // Hard timeout + one retry: a stalled connection must never wedge an install (a hung
+  // clone here once froze the whole first-run questionnaire indefinitely).
+  let cloned = false;
+  for (const attempt of [1, 2]) {
+    const r = spawnSync("git", args, { stdio: "inherit", timeout: 120_000 });
+    if (r.status === 0) {
+      cloned = true;
+      break;
+    }
+    rmSync(VENDOR_DIR, { recursive: true, force: true }); // clear the partial clone
+    if (attempt === 1) console.warn("Clone stalled/failed — retrying once …");
+  }
+  if (!cloned) {
+    console.error(
+      "Clone failed twice (network) — skipping Codex for now; re-run `npm run codex:setup` later.",
+    );
     return false;
   }
   if (!existsSync(PLUGIN_MANIFEST)) {

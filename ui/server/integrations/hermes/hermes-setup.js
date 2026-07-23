@@ -206,7 +206,7 @@ async function ensureInstalled(rl) {
     console.log("Skipped. Install Hermes yourself, then re-run `npm run hermes:setup`.");
     return false;
   }
-  if (spawnSync("bash", ["-c", INSTALL_CMD], { stdio: "inherit" }).status !== 0) {
+  if (spawnSync("bash", ["-c", INSTALL_CMD], { stdio: "inherit", timeout: 600_000 }).status !== 0) {
     console.error("Installer failed — see the output above.");
     return false;
   }

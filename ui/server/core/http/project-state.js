@@ -11,6 +11,7 @@ import {
   FRAMEWORK_PLUGIN_DIR,
   hermesPublicConfig,
   codexPublicConfig,
+  getOnboarded,
 } from "../config.js";
 import { parseFrontmatter } from "../../../lib/frontmatter.js";
 
@@ -105,6 +106,7 @@ export function projectState() {
     // false → PROJECT_DIR has no engine project file (the domain's marker); the UI shows a setup
     // banner instead of empty panels (see loadState in project-tree.js).
     found: PROJECT_FOUND,
+    onboarded: getOnboarded(),
     designDocs: walk(path.join(dir, "design"), [".md"], [], dir)
       .filter((f) => !f.endsWith("README.md"))
       .map((f) => ({ path: f, title: firstHeading(path.join(dir, f)) })),

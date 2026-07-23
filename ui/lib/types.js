@@ -34,6 +34,7 @@
  * @property {string} name
  * @property {string} dir
  * @property {boolean} found - whether dir holds a recognized project (has the domain's project marker)
+ * @property {boolean} onboarded - false until the first-boot /onboard kickoff has fired (see config.js getOnboarded)
  * @property {DesignDoc[]} designDocs
  * @property {LibraryEntry[]} library
  * @property {string[]} scenes

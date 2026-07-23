@@ -42,4 +42,6 @@ Hand the inventory to the **designer** (foreground, form-driven):
 
 The checklist (found/missing blocks), skills kept-local vs flagged (board links), hook
 conflicts found, the commands mapping, and what the designer proposed vs what the human
-approved. End with the doctor's verdict: run `npm run doctor` and paste the summary line.
+approved. End with the doctor's verdict (run `npm run doctor`, paste the summary line) and
+this instruction, verbatim: **start a NEW session now — this one predates what we just
+learned; the next one loads it all.**

@@ -11,6 +11,7 @@ import { buildUiServer } from "../mcp-tools/ui-server.js";
 import { cancelKimiBoardTask } from "../mcp-tools/kimi-tool.js";
 import { uiControlAllow, preToolGate } from "./ui-control.js";
 import { userInputTurn } from "./user-input.js";
+import { maybeKickoffOnboarding } from "./first-boot.js";
 import { runningChip, emitRunning, runWithRetry } from "./stream.js";
 import { readPromotions, decide, markPromoted } from "../features/promotions/promotions-store.js";
 import { promoteOne } from "../features/promotions/promote-run.js";
@@ -408,6 +409,7 @@ function runSession({
       send({ type: "tasks", tasks: readTasks() });
       emitRunning(runningByTask, send); // reset the strip on (re)connect — set starts empty
       send({ type: "promotions", items: readPromotions() });
+      maybeKickoffOnboarding(inbox.push);
       // Repaint the Autonomous flag + re-arm the check loop if a goal survived the reconnect.
       const autoState = readAutonomous();
       send({ type: "autonomousMode", payload: autoState });

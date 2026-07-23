@@ -51,7 +51,7 @@ const args = process.argv.slice(2);
  * Read once: it carries both the saved project path and the engine block. */
 const SAVED = (() => {
   try {
-    return /** @type {{ projectDir?: string, domain?: string, port?: number, engine?: EngineConfig, assetLibrary?: string, hermes?: HermesConfig }} */ (
+    return /** @type {{ projectDir?: string, domain?: string, port?: number, onboarded?: boolean, engine?: EngineConfig, assetLibrary?: string, hermes?: HermesConfig }} */ (
       parseJSON(readFileSync(CONFIG_FILE, "utf8"))
     );
   } catch {
@@ -237,6 +237,37 @@ export const HERMES_MODELS = [
 export const HERMES_DEFAULT_ROLES = ["researcher", "critic"];
 export const CODEX_DEFAULT_ROLES = ["reviewer"];
 export const KIMI_DEFAULT_ROLES = ["coder"];
+
+/** First-boot onboarding flag — false until the server has injected the /onboard kickoff
+ * into a session. Read per call (fresh) so the flip needs no restart.
+ * @returns {boolean} true when onboarding was already kicked off (or the field is absent
+ * on a pre-flag install — treat legacy installs as onboarded). */
+export function getOnboarded() {
+  try {
+    const saved = /** @type {{ onboarded?: boolean }} */ (
+      parseJSON(readFileSync(CONFIG_FILE, "utf8"))
+    );
+    return saved.onboarded !== false;
+  } catch {
+    return true;
+  }
+}
+
+/** Flip the onboarded flag (one-shot kickoff guard), preserving every other field. */
+export function markOnboarded() {
+  /** @type {Record<string, unknown>} */
+  let saved = {};
+  try {
+    saved = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8")));
+  } catch {
+    /* absent — nothing to preserve */
+  }
+  try {
+    writeFileSync(CONFIG_FILE, JSON.stringify({ ...saved, onboarded: true }, null, 2) + "\n");
+  } catch {
+    /* best-effort — a failed write just re-offers onboarding next boot */
+  }
+}
 
 /** Effective Hermes config, resolved fresh on every call (env overrides → `.xenomoon.json`
 

@@ -16,7 +16,12 @@ CORE plugin.
 
 Route everything through the standard human-gated loop: understand the request, cut it to
 one small slice, implement, verify with the project's own commands (`build` / `lint` /
-`test` / `sim` / `e2e` from the manifest), and stop for a human look. New capabilities are
+`test` / `sim` / `e2e` from the manifest), and stop for a human look. Verify **only via
+the project's package scripts** — never bare compiler binaries: a globally installed
+`tsc` (e.g. Homebrew's) shadows the workspace TypeScript pin and reports false errors in
+files the project gate passes (seen live: phantom TS18047s that nearly triggered a bogus
+"fix"). If a bare-tool run disagrees with the package script, the package script is the
+authority. New capabilities are
 authored project-locally first; nothing is promoted or "learned" without explicit approval.
 Push back instead of guessing.
 

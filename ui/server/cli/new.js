@@ -54,8 +54,9 @@ for (let i = 0; i < argv.length; i++) {
 // ALL the simple/binary install questions live HERE, up front, in one pass (TTY-only, and
 // each asked ONLY when its value is missing — scripted/CI invocations that pass flags stay
 // byte-identical): project folder → domain → port (empty = default) → hermes/codex/kimi.
-// The AI half of onboarding happens NEXT, in terminal Claude Code (/onboard), BEFORE the
-// server ever starts — see the handoff at the bottom.
+// The AI half of onboarding happens in the FIRST UI SESSION: the server sees the
+// `onboarded:false` flag (written below) and kicks off /onboard there — full tooling,
+// no terminal plugin install needed.
 const interactive = process.stdin.isTTY && process.stdout.isTTY;
 const rl = interactive
   ? readline.createInterface({ input: process.stdin, output: process.stdout })
@@ -250,35 +251,24 @@ if (rl) {
   }
 }
 
-// 6. Claude Code FIRST — the AI half of onboarding runs in terminal Claude Code (/onboard:
-//    map their CLAUDE.md + skills, interview for business rules) BEFORE the server starts, so
-//    the framework already knows the project when the first UI session opens.
-const hasClaudeLife =
-  existsSync(path.join(target, ".claude")) || existsSync(path.join(target, "CLAUDE.md"));
-if (rl && hasClaudeLife) {
-  console.log(
-    `\nThis project already uses Claude. Next: the /onboard interview (terminal Claude Code)\n` +
-      `maps its CLAUDE.md + skills into the framework and interviews you for business rules —\n` +
-      `nothing is overwritten, every write is approved.`,
-  );
-  const a = (await rl.question(`Run the /onboard interview now? [Y/n] `)).trim().toLowerCase();
-  if (a === "" || a === "y" || a === "yes") {
-    try {
-      // One-time plugin hookup for terminal Claude Code, then the interview itself.
-      execFileSync("claude", ["/onboard"], { cwd: target, stdio: "inherit" });
-    } catch {
-      console.warn(
-        `new: could not launch claude — run it yourself:\n` +
-          `    cd ${target} && claude\n` +
-          `    /plugin marketplace add ${FRAMEWORK_DIR}/domains/${domainName}\n` +
-          `    /plugin install xenomoon@xenomoon-forge   (one-time)\n` +
-          `    /onboard`,
-      );
-    }
+// 6. First-boot flag: the SERVER kicks off /onboard in the first UI session (the session
+//    has the plugin loaded, so the command exists with full tooling — forms + board). Only
+//    set on a fresh install; a re-install of an already-onboarded project keeps its flag.
+{
+  const cfgFile = path.join(FRAMEWORK_DIR, ".xenomoon.json");
+  /** @type {Record<string, unknown>} */
+  let cfg = {};
+  try {
+    cfg = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(cfgFile, "utf8")));
+  } catch {
+    /* absent — fresh */
+  }
+  if (cfg.onboarded === undefined) {
+    writeFileSync(cfgFile, JSON.stringify({ ...cfg, onboarded: false }, null, 2) + "\n");
   }
 }
 rl?.close();
 
 console.log(
-  `\nnew: done (domain "${domainName}"). Start the server:\n    npm start ${target}      # web UI on port ${portAnswer ?? "3117"} — the remaining setup (skills, portal) is asked there.`,
+  `\nnew: done (domain "${domainName}"). Start the server:\n    xenomoon start      # web UI on port ${portAnswer ?? "3117"} — the FIRST session runs the /onboard interview, then the UI asks the rest.`,
 );

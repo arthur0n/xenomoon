@@ -48,6 +48,20 @@ banner at the bottom edge. This is a **harness/regression finding, not a feature
 - Durable fix to recommend: route dev logging through a guarded helper (or gate
   `console.warn` in dev builds) so a stray warning can't re-break tap targets — this
   class regresses repeatedly once two different call sites have caused it.
+- **Why it keeps regressing**: strict `no-console` eslint configs allow only
+  `warn`/`error`, so _informational_ logs get written as `console.warn` — and every
+  logging change silently reintroduces the banner. The pattern that holds: a
+  `LogBox.ignoreLogs([...])` **prefix-regex allow-list** in the app entry
+  (`__DEV__`-gated), extended **in the same change** that adds any info-level warn.
+  Review checks: (a) each regex matched character-for-character against the exact
+  emit string — an anchor/punctuation miss = suppression silently fails = banner is
+  back; (b) suppress _informational_ prefixes only — failure logs must keep
+  bannering loudly.
+- **Routine events are never `console.error`**: anything that fires in a normal
+  dev/sim flow must be warn+suppressed, not error. Known traps: `expo-iap`'s
+  `purchaseErrorListener` fires on plain user cancellation
+  (`ErrorCode.UserCancelled = "user-cancelled"`) — branch it; StoreKit products
+  absent in non-store sim builds; WS reconnect/close churn.
 
 ## Verdict + evidence discipline
 

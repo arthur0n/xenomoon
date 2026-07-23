@@ -38,16 +38,23 @@ Your project stays a separate repo and hosts none of this — see
 `plugin/docs/process/repo-boundary.md`. How learnings route between framework, domain, and
 project: `plugin/docs/process/updates-routing.md`.
 
-## Quick start — install into a project
+## Quick start — from a machine with NOTHING
 
-Install the framework into a React + Node.js web app. The `webapp` domain installs **in place** and
-writes nothing into your project (it binds the path in the framework's gitignored `.xenomoon.json`):
+```bash
+npx github:arthur0n/xenomoon
+```
+
+That one command installs the framework (asks where; default `~/xenomoon`), then walks the whole
+terminal questionnaire: project folder → domain → port → Hermes/Codex/Kimi. If your project
+already uses Claude, it offers the `/onboard` interview (terminal Claude Code) BEFORE the server
+starts. Then `npm start` and the UI takes over the rest.
+
+Already have the framework checked out? Same flow, minus step zero:
 
 ```bash
 rtk npm ci
-rtk npm run new -- <ABSOLUTE_PATH_TO_YOUR_WEBAPP> --domain=webapp
-rtk npm run doctor
-rtk npm start            # http://localhost:3117
+rtk npm run new          # the questionnaire (or pass flags: -- <PATH> --domain=webapp)
+rtk npm start            # http://localhost:3117 (or your chosen port)
 ```
 
 Or hand the whole install to an agent — paste this verbatim, replacing the target path:

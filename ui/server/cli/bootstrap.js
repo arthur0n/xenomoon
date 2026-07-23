@@ -60,7 +60,13 @@ const defaultDir = path.join(path.dirname(project), `${path.basename(project)}-x
 let dest = process.argv[2] ?? null;
 if (!dest && rl)
   dest = (await rl.question(`Framework install location [${defaultDir}]: `)).trim() || null;
-dest = path.resolve(dest ?? defaultDir);
+// A RELATIVE answer resolves against the project's PARENT (sibling-shaped), never against
+// cwd — cwd IS the project, and relative-to-cwd would aim inside it (then be refused).
+dest = dest
+  ? path.isAbsolute(dest)
+    ? path.resolve(dest)
+    : path.resolve(path.dirname(project), dest)
+  : defaultDir;
 if (contains(dest, project) || contains(project, dest)) {
   console.error(`✗ the framework (${dest}) and the project (${project}) must not nest.`);
   process.exit(1);

@@ -253,7 +253,7 @@ const POST_ROUTES = {
 };
 
 /** Self-restart ("apply & restart" in the UI — the ONE remaining restart is a domain/project
- * switch; config-block edits are already per-session). Supervisor-aware: under `npm run up`
+ * switch; config-block edits are already per-session). Supervisor-aware: under `npm run start-project`
  * (XENOMOON_SUPERVISED=1) exit with code 87 and start-profile respawns us; under a bare
  * `npm start` spawn a detached copy of the same argv once the port is released, then exit.
  * The UI only ever serves localhost, so no extra origin gating is needed here.
@@ -331,7 +331,7 @@ function onListening() {
         `⚠  No ${ENGINE_LABEL} project at: ${PROJECT_DIR}`,
         "   The UI will open but show no sessions or files until it points at one.",
         "   Point it at your project (the framework only reads it — it stays in place):",
-        "     • once:      npm run setup -- /path/to/your/project",
+        "     • once:      npm run bind-project-path -- /path/to/your/project",
         "     • one-off:   npm start /path/to/your/project",
         `   Current target is set in ${CONFIG_FILE} (or defaults to ../project).`,
         "",

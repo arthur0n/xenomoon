@@ -540,7 +540,7 @@ export function makeHermesTool(send, push) {
       if (!cfg.enabled || !cfg.apiUrl || !cfg.apiKey) {
         return ok(
           "Hermes is off or not configured (enable it + set the API key in Settings, or via " +
-            "`npm run hermes`). Fall back to dispatching the matching xenomoon:*-researcher yourself.",
+            "`npm run bind-project-path`). Fall back to dispatching the matching xenomoon:*-researcher yourself.",
         );
       }
       const persona = getPersona(input.persona);

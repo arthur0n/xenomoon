@@ -8,8 +8,8 @@
 // `/plugin install` (printed by doctor). The committed project stays pure.
 //
 // Usage:
-//   npm run new -- ../mysite --domain=webapp (scaffold or wire the webapp domain in place)
-//   npm run new -- ../myapp --domain=app     (install the `app` domain into an existing project)
+//   npm run install-project -- ../mysite --domain=webapp (scaffold or wire the webapp domain in place)
+//   npm run install-project -- ../myapp --domain=app     (install the `app` domain into an existing project)
 //
 // The chosen domain is written as a project-owned lock (.xenomoon-project.json), committed with
 // the project so the binding travels and the framework can't later drive it as the wrong domain.
@@ -99,7 +99,7 @@ if (!domainName) {
   console.error(
     "new: no domain given. Pass --domain <name>" +
       (avail.length ? ` (available: ${avail.join(", ")})` : "") +
-      `\n  e.g. npm run new -- ${positional[0] ?? "../myapp"} --domain app`,
+      `\n  e.g. npm run install-project -- ${positional[0] ?? "../myapp"} --domain app`,
   );
   process.exit(1);
 }

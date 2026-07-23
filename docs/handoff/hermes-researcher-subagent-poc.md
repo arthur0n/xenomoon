@@ -107,7 +107,7 @@ accepted on purpose**: Hermes investigates and gets smarter at it; humans adopt.
 
 - `npm run hermes:setup -- --reset && npm run hermes:setup -- --yes` → `config.yaml` shows
   `platform_toolsets.api_server: [web, search, memory, skills]`.
-- `npm run hermes:check` → lists `skills` + `memory` as enabled, **not** flagged as machine-access.
+- `npm run bind-project-path:check` → lists `skills` + `memory` as enabled, **not** flagged as machine-access.
 - Real research task → watch the feed for `🧠 Hermes is updating its own skills`; confirm a new
   `~/.hermes/skills/<name>/SKILL.md` exists and **no** game/framework file was touched by Hermes.
 - Re-run a similar task later → Hermes loads its saved skill (self-improvement across runs).

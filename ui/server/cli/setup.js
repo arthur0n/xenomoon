@@ -4,13 +4,13 @@
 // is bound — it deliberately does NOT import config.js (which resolves the active domain and would
 // throw when nothing is bound yet). It only touches .xenomoon.json.
 //
-// Usage: npm run setup -- ../project     (or any path to your project)
-//        npm run setup                    (defaults to ../game, the sibling folder)
+// Usage: npm run bind-project-path -- ../project     (or any path to your project)
+//        npm run bind-project-path                    (defaults to ../game, the sibling folder)
 //
 // Hermes (external researcher) can be switched on here too — these only touch the
 // `hermes` block, never the project path (use the web UI ⚙ Settings panel for the same):
-//        npm run hermes -- --hermes --hermes-key=sk-… --hermes-model=anthropic/claude-opus-4.7
-//        npm run hermes -- --hermes-off
+//        npm run bind-project-path -- --hermes --hermes-key=sk-… --hermes-model=anthropic/claude-opus-4.7
+//        npm run bind-project-path -- --hermes-off
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -76,7 +76,7 @@ if (hermesArgs) {
 }
 
 // Project-path setup: skip entirely on a Hermes-only run (no explicit path arg), so
-// `npm run hermes` never clobbers the saved project path with the ../game default.
+// `npm run bind-project-path` never clobbers the saved project path with the ../game default.
 const arg = argv.find((a) => !a.startsWith("--"));
 if (arg || !hermesArgs) {
   const target = path.resolve(arg ?? path.join(FRAMEWORK_DIR, "..", "game"));
@@ -96,5 +96,5 @@ if (arg || !hermesArgs) {
   console.log(`  projectDir: ${target}`);
   // Domain-agnostic bootstrap: no engine project marker is named here (no domain is resolved yet).
   // `forge new --domain <name>` is the command that binds the project to a domain and validates it.
-  console.log(`  Next: bind a domain — npm run new -- "${target}" --domain <name>`);
+  console.log(`  Next: bind a domain — npm run install-project -- "${target}" --domain <name>`);
 }

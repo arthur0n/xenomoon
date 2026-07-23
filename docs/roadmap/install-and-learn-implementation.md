@@ -115,7 +115,7 @@ library}` → optional PR) · PROJECT (project fact → project CLAUDE.md/.claud
   DOMAIN/PROJECT_DIR/env exports stay frozen — documented as the one legit restart (domain/project
   switch).
 - Rest — MODIFY `ui/server/core/index.js`: `POST /api/restart` (localhost-only), supervisor-aware
-  (adversarial catch C5 — under `npm run up`, start-profile.js exits when the server exits,
+  (adversarial catch C5 — under `npm run start-project`, start-profile.js exits when the server exits,
   orphaning a detached child): start-profile.js sets `XENOMOON_SUPERVISED=1` and RESPAWNS on
   exit code 87 (instead of exiting); /api/restart → supervised: server.close() + exit(87);
   unsupervised (`npm start` direct): server.close(), wait for 'close', spawn detached child of

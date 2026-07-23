@@ -11,11 +11,11 @@ built-in Xenomoon researchers.
 
 ## Two keys, one URL (read this first)
 
-| Thing                               | What it is                                           | Where it comes from                                                                                                          |
-| ----------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Thing                               | What it is                                           | Where it comes from                                                                                                           |
+| ----------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | **Provider key** (billable)         | The LLM key that powers Hermes' brain                | You sign up (Nous Portal / OpenRouter / Anthropic) and paste it **inside Hermes** via `hermes setup`. Xenomoon never sees it. |
 | **`API_SERVER_KEY`** (not billable) | A password **you invent** to lock your local gateway | You make it up, put it in `~/.hermes/.env`, and paste the same value into Xenomoon's ⚙ Settings → "Server key".               |
-| **Server URL**                      | Your **local** gateway                               | `http://localhost:8642` — exists only while `hermes gateway` is running.                                                     |
+| **Server URL**                      | Your **local** gateway                               | `http://localhost:8642` — exists only while `hermes gateway` is running.                                                      |
 
 ## Fastest path — one guided command
 
@@ -121,7 +121,7 @@ cronjob, moa`. `memory` + `skills` are self-improvement (see below) and stay on 
 `~/.hermes`; `terminal`/`file`/`code_execution`/`browser` are the ones that could touch the game or
 this framework, so they stay off.
 
-**Confirm what's actually live** (the only sure check) — `npm run hermes:check` queries the
+**Confirm what's actually live** (the only sure check) — `npm run bind-project-path:check` queries the
 gateway's `GET /v1/toolsets` and prints the enabled tools, loudly flagging any machine-access ones:
 
 ```
@@ -172,9 +172,9 @@ project except through the researcher → library → promote gate.
 **From the CLI (equivalent):**
 
 ```bash
-npm run hermes -- --hermes --hermes-url=http://localhost:8642 --hermes-key=pick-any-secret
-npm run hermes:check     # probes the saved config, prints a one-line verdict
-npm run hermes -- --hermes-off   # turn it back off
+npm run bind-project-path -- --hermes --hermes-url=http://localhost:8642 --hermes-key=pick-any-secret
+npm run bind-project-path:check     # probes the saved config, prints a one-line verdict
+npm run bind-project-path -- --hermes-off   # turn it back off
 ```
 
 ## Step 3 — try it
@@ -207,6 +207,6 @@ non-interactively. The UI gives you the copy-paste runbook (⚙ Settings → "Fi
 - **"No response within 8s — is `hermes gateway` running?"** → the gateway isn't up, or the URL/port
   is wrong. Confirm `hermes gateway` is running and the port matches `API_SERVER_PORT`.
 - **"server key was rejected"** → the Xenomoon "Server key" ≠ the `API_SERVER_KEY` in `~/.hermes/.env`.
-- **Hive says "Hermes is off or not configured"** → enable it in ⚙ Settings (or `npm run hermes -- --hermes`).
+- **Hive says "Hermes is off or not configured"** → enable it in ⚙ Settings (or `npm run bind-project-path -- --hermes`).
 - **It works but research isn't better** → that's the real question this POC answers. Compare on a
   real gap task against the native researcher before widening the seam.

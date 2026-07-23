@@ -36,7 +36,7 @@ function killOnExit(child) {
 /** Start `hermes gateway` if Hermes is enabled and not already up. Returns the child
  * process (so callers could manage it) or null if nothing was started. Resolves after the
  * launch DECISION — it does not block waiting for the gateway to finish booting; the UI's
- * Test-connection / `npm run hermes:check` confirm readiness.
+ * Test-connection / `npm run bind-project-path:check` confirm readiness.
  * @returns {Promise<import("node:child_process").ChildProcess | null>} */
 export async function maybeStartHermesGateway() {
   const cfg = getHermesConfig();

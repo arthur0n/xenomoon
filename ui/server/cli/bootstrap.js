@@ -13,7 +13,6 @@ import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { execFileSync, execSync } from "node:child_process";
 import readline from "node:readline/promises";
 import path from "node:path";
-import os from "node:os";
 
 const REPO = "https://github.com/arthur0n/xenomoon.git";
 const TARBALL = "https://codeload.github.com/arthur0n/xenomoon/tar.gz/refs/heads/main";
@@ -54,8 +53,10 @@ if (rl) {
   }
 }
 
-// 2. Where the framework itself lives — a detail, defaulted, asked once.
-const defaultDir = path.join(os.homedir(), "xenomoon");
+// 2. Where the framework itself lives — a PER-PROJECT sibling by default (`<project>-xm`),
+//    so each project's install (and its learnings) stays its own; a shared install is a
+//    deliberate typed choice, never the default.
+const defaultDir = path.join(path.dirname(project), `${path.basename(project)}-xm`);
 let dest = process.argv[2] ?? null;
 if (!dest && rl)
   dest = (await rl.question(`Framework install location [${defaultDir}]: `)).trim() || null;
@@ -95,4 +96,11 @@ rl?.close();
 // 4. Hand off to the questionnaire with the project already known — it asks the rest
 //    (domain → port → integrations → the terminal-Claude-Code /onboard interview → npm start).
 console.log(`\nFramework installed. Setting up ${project} …\n`);
-execFileSync("npm", ["run", "new", "--", project], { cwd: dest, stdio: "inherit" });
+// Global CLI: link the `xenomoon` bin so real verbs work everywhere (best-effort).
+try {
+  execFileSync("npm", ["link"], { cwd: dest, stdio: "ignore" });
+  console.log("Linked the `xenomoon` CLI (install | doctor | start | update | promote).");
+} catch {
+  console.warn("Could not npm-link the CLI — use `npm run <script>` inside the install instead.");
+}
+execFileSync("npm", ["run", "install-project", "--", project], { cwd: dest, stdio: "inherit" });

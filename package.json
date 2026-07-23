@@ -5,20 +5,16 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "setup": "node ui/server/cli/setup.js",
-    "hermes": "node ui/server/cli/setup.js",
     "hermes:setup": "node ui/server/integrations/hermes/hermes-setup.js",
     "hermes:check": "node ui/server/integrations/hermes/hermes-check.js",
     "codex:setup": "node ui/server/integrations/codex/codex-setup.js",
     "codex:check": "node ui/server/integrations/codex/codex-check.js",
     "kimi:setup": "node ui/server/integrations/kimi/kimi-setup.js",
     "kimi:check": "node ui/server/integrations/kimi/kimi-check.js",
-    "new": "node ui/server/cli/new.js",
     "promote": "node ui/server/features/promotions/promote.js",
     "materialize": "node ui/server/cli/materialize.js",
     "doctor": "node ui/server/cli/doctor.js",
     "start": "node ui/server/core/index.js",
-    "up": "node ui/server/cli/start-profile.js",
     "badges": "node ui/server/cli/update-badges.js",
     "release": "node ui/server/cli/release-stage.js",
     "token-history": "node ui/server/cli/token-history.js",
@@ -35,7 +31,10 @@
     "lint:fix": "eslint . --fix --max-warnings 0",
     "format": "prettier --write .",
     "validate": "npm run check && npm run lint && npm run check:structure && npm run check:skills && npm run check:agents && npm run check:agnostic && npm run check:contamination",
-    "prepare": "husky || true"
+    "prepare": "husky || true",
+    "install-project": "node ui/server/cli/new.js",
+    "start-project": "node ui/server/cli/start-profile.js",
+    "bind-project-path": "node ui/server/cli/setup.js"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.175",
@@ -58,6 +57,6 @@
     "typescript-eslint": "^8.61.0"
   },
   "bin": {
-    "xenomoon": "ui/server/cli/bootstrap.js"
+    "xenomoon": "ui/server/cli/xenomoon.js"
   }
 }

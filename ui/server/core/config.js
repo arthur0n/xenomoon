@@ -13,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const UI_DIR = path.join(__dirname, "..", "..");
 /** The framework root (the folder you cloned/forked). */
 export const FRAMEWORK_DIR = path.join(UI_DIR, "..");
-/** Saved-path config written by `npm run setup` — gitignored, so each fork
+/** Saved-path config written by `npm run bind-project-path` — gitignored, so each fork
  * remembers its own game project without committing it. */
 export const CONFIG_FILE = path.join(FRAMEWORK_DIR, ".xenomoon.json");
 
@@ -47,7 +47,7 @@ const args = process.argv.slice(2);
  * the local `kimi` CLI (`kimi login` → ~/.kimi/config.toml), so there is no key to store here
  * (same zero-secret model as Codex). @typedef {{ enabled?: boolean, roles?: string[] }} KimiConfig */
 
-/** Parsed `.xenomoon.json` (written by `npm run setup`), or `{}` if absent/invalid.
+/** Parsed `.xenomoon.json` (written by `npm run bind-project-path`), or `{}` if absent/invalid.
  * Read once: it carries both the saved project path and the engine block. */
 const SAVED = (() => {
   try {
@@ -64,7 +64,7 @@ const SAVED = (() => {
  * vendors or tracks it. Resolution order (first hit wins):
  *   1. a path argument:        `npm start /path/to/project`
  *   2. the GAME_DIR env var
- *   3. the saved path:         `.xenomoon.json` (set once via `npm run setup`)
+ *   3. the saved path:         `.xenomoon.json` (set once via `npm run bind-project-path`)
  *   4. default sibling:        `../project` (next to the framework folder)
  */
 function resolveProjectDir() {

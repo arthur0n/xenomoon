@@ -289,7 +289,7 @@ function configureModelAndTools() {
     console.log("  ⚠ model.default is a leftover free model — `hermes model` to pick a Nous one.");
   }
   console.log(
-    "  Confirm live once the gateway runs: `npm run hermes:check` lists the enabled tools.",
+    "  Confirm live once the gateway runs: `npm run bind-project-path:check` lists the enabled tools.",
   );
 }
 
@@ -481,7 +481,9 @@ function printNext() {
   if (KEY_GENERATED) {
     console.log("     (A new API_SERVER_KEY was generated — restart any already-running gateway.)");
   }
-  console.log("  2. Verify the link:  npm run hermes:check   (⚙ Settings → Test connection too)");
+  console.log(
+    "  2. Verify the link:  npm run bind-project-path:check   (⚙ Settings → Test connection too)",
+  );
   console.log("\nThen give the Hive a research task and approve the Hermes call: it runs in the");
   console.log("background, streams progress, and delivers its findings back into your feed.");
 }

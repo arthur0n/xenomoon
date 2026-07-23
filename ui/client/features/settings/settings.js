@@ -383,7 +383,7 @@ export function initSettings() {
     if (e.target === $("settings-modal")) close();
   });
   // Apply & restart — save first, then bounce the server (supervised runs respawn via
-  // `npm run up`; bare `npm start` respawns itself detached). The page reloads once the
+  // `npm run start-project`; bare `npm start` respawns itself detached). The page reloads once the
   // server is back; a fixed backoff beats probing since restart takes ~2-4s.
   $("settings-restart").onclick = async () => {
     const btn = /** @type {HTMLButtonElement} */ ($("settings-restart"));

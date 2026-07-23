@@ -4,10 +4,10 @@
 // BOOTSTRAP tool: it deliberately does NOT import config.js (which resolves the active domain
 // at load time) — it only reads .xenomoon.json and spawns the server with the right env.
 //
-// Usage: npm run up -- <name>                                  start a saved profile
-//        npm run up -- --add <name> <dir> [--port=N] [--domain=d]   save/update a profile
-//        npm run up -- --remove <name>                          delete a profile
-//        npm run up                                             list profiles
+// Usage: npm run start-project -- <name>                                  start a saved profile
+//        npm run start-project -- --add <name> <dir> [--port=N] [--domain=d]   save/update a profile
+//        npm run start-project -- --remove <name>                          delete a profile
+//        npm run start-project                                             list profiles
 //
 // A profile's `domain` is exported as XENOMOON_DOMAIN (env beats the file-level `domain` key in
 // the resolver, and must match the project's own .xenomoon-project.json lock — a mismatch is
@@ -62,7 +62,7 @@ function listing() {
   const profiles = readProfiles();
   const names = Object.keys(profiles);
   if (!names.length) {
-    return "  (none — add one: npm run up -- --add <name> <dir> [--port=N] [--domain=d])";
+    return "  (none — add one: npm run start-project -- --add <name> <dir> [--port=N] [--domain=d])";
   }
   return names
     .map((n) => {
@@ -78,7 +78,7 @@ function listing() {
 if (argv.includes("--add")) {
   const [name, dir] = positional;
   if (!name || !dir) {
-    console.error("usage: npm run up -- --add <name> <dir> [--port=N] [--domain=d]");
+    console.error("usage: npm run start-project -- --add <name> <dir> [--port=N] [--domain=d]");
     process.exit(1);
   }
   /** @type {Profile} */
@@ -103,7 +103,7 @@ if (argv.includes("--add")) {
   console.log(listing());
 } else if (!positional.length) {
   console.log(`Saved profiles (${CONFIG_FILE}):\n${listing()}`);
-  console.log("\nStart one: npm run up -- <name>");
+  console.log("\nStart one: npm run start-project -- <name>");
 } else {
   const name = positional[0] ?? "";
   const profile = readProfiles()[name];
@@ -111,7 +111,7 @@ if (argv.includes("--add")) {
     console.error(`no such profile "${name}" — saved profiles:\n${listing()}`);
     process.exit(1);
   }
-  // Caller env wins over the profile, so `PORT=4000 npm run up -- maggie` still overrides.
+  // Caller env wins over the profile, so `PORT=4000 npm run start-project -- maggie` still overrides.
   const env = { ...process.env };
   if (profile.port && !process.env.PORT) env.PORT = String(profile.port);
   if (profile.domain && !process.env.XENOMOON_DOMAIN) env.XENOMOON_DOMAIN = profile.domain;

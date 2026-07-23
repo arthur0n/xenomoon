@@ -304,7 +304,7 @@ function renderBanner(s) {
     ),
   );
   const code = el("div", "banner-code");
-  code.append(el("div", undefined, "npm run setup -- /path/to/your/project"));
+  code.append(el("div", undefined, "npm run bind-project-path -- /path/to/your/project"));
   code.append(el("div", undefined, "# then restart, or one-off: npm start /path/to/your/project"));
   banner.append(code);
   banner.style.display = "";

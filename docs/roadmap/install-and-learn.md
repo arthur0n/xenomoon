@@ -38,7 +38,7 @@ webapp project) + **xm-probius** (the retired fork experiment that exposed the p
 
 ## 2 · Install & configure (first-run experience)
 
-One guided flow, run once — `npm run setup` (extend the existing `setup.js` + skill-setup
+One guided flow, run once — `npm run bind-project-path` (extend the existing `setup.js` + skill-setup
 wizard) or first server boot:
 
 - **Ask everything UP FRONT, once** (the "ask first" debt): which domain, project path,
@@ -119,5 +119,5 @@ leaves the project or enters a PR. Only generic, reusable technique does.
   domain PRs reviewable and installs comparable.
 - **Session-safe config:** the audit in section 2 (startup-frozen vs per-session reads)
   filed as its own tech-debt item — it is what makes most restarts unnecessary.
-- **Multi-project profiles (`npm run up`) stay** — orthogonal convenience for running
+- **Multi-project profiles (`npm run start-project`) stay** — orthogonal convenience for running
   several binds; NOT part of the learning story.

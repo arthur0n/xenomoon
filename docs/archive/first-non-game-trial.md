@@ -49,7 +49,7 @@ session boots with the **app/webapp** orchestrator (not the Godot one).
 
 ```bash
 cd <xenomoon>
-npm run new -- <project> --domain=app    # or --domain=webapp
+npm run install-project -- <project> --domain=app    # or --domain=webapp
 ```
 
 | Check                               | Expected                                                                                                                                                                 | Verdict |
@@ -89,7 +89,7 @@ npm start <project>     # cwd of the SDK session = <project>
 | Send a first message (e.g. "what is this project?") | orchestrator responds using the project tree as cwd; should **not** invoke `xenomoon:*` agents (none exist in an empty domain) |         |
 | Human-gated loop holds                              | it asks/cuts a slice/verifies with `npm run build                                                                              | lint    | test --if-present` rather than guessing |     |
 
-**Phase 1 verdict:** ✅ **PASS** (2026-06-20). `npm ci` (216 pkgs) → `npm run new -- <project>
+**Phase 1 verdict:** ✅ **PASS** (2026-06-20). `npm ci` (216 pkgs) → `npm run install-project -- <project>
 --domain=app` (locked, wired in place, doctor OK) → `npm start` boots on `http://localhost:3117`,
 HTTP 200, title "Xenomoon Forge", `/api/state` → `{name:"<project>", found:true, scenes:0}`. The
 **spine installs and runs on a non-greenfield Node project.** · **Seams:** S1, S2, S3 below.
@@ -142,7 +142,7 @@ Hermes is a **separate program with its own model + billing**; no hosted endpoin
 | 3.2  | **De-Godot the SOUL**                   | inspect `~/.hermes/SOUL.md` — the installed persona is Godot-flavored                        | for a non-game project, delete it (use Hermes' default) or edit to a generic/TS framing. **Seam:** SOUL template is game-specific (S7)                                                        |     |
 | 3.3  | Provider auth                           | `hermes portal open` (Nous) or `hermes auth add` (other)                                     | one-time browser/API auth                                                                                                                                                                     |     |
 | 3.4  | Run gateway                             | `hermes gateway` in its own terminal                                                         | serves `http://localhost:8642`                                                                                                                                                                |     |
-| 3.5  | Verify toolset safety                   | `npm run hermes:check`                                                                       | "no machine-access tools" — Hermes can't touch the project's code                                                                                                                             |     |
+| 3.5  | Verify toolset safety                   | `npm run bind-project-path:check`                                                            | "no machine-access tools" — Hermes can't touch the project's code                                                                                                                             |     |
 | 3.6  | Point Xenomoon at it                    | ⚙ Settings → enable, URL + server key → **Test connection** (probes `/v1/models`, no charge) | green                                                                                                                                                                                         |     |
 | 3.7  | (optional, billable) Real research task | ask the Hive a capability/knowledge-gap question; approve the `mcp__ui__hermes` gate         | fire-and-forget; watcher streams Hermes lines; result returns as a message                                                                                                                    |     |
 
@@ -203,7 +203,7 @@ Status: ✅ **FIXED** on our trunk · ⏳ predicted (not yet hit) · severity in
 
 ## Notes / running log (technical, generalized)
 
-- **Install:** `npm ci` (216 pkgs) → `npm run new -- <project> --domain=app` → `npm start` boots
+- **Install:** `npm ci` (216 pkgs) → `npm run install-project -- <project> --domain=app` → `npm start` boots
   `:3117`, UI 200, `/api/state` ok. **Phase 1 PASS.**
 - **Gotcha:** launching `npm start` _through `rtk`_ swallows server stdout (rtk buffers until exit);
   run the server raw, not via `rtk`.

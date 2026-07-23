@@ -53,8 +53,14 @@ function mergeHooks(baseFile, packFile) {
   const base = existsSync(baseFile) ? readHooks(baseFile) : { hooks: {} };
   const pack = readHooks(packFile);
   const merged = { ...(base.hooks ?? {}) };
-  for (const [event, list] of Object.entries(pack.hooks ?? {}))
-    merged[event] = [...(merged[event] ?? []), ...(Array.isArray(list) ? list : [])];
+  // Dedupe by structural equality so re-installing the same domain is idempotent (the base already
+  // carries a prior install's merged entries — re-adding them would duplicate the hooks).
+  for (const [event, list] of Object.entries(pack.hooks ?? {})) {
+    const existing = merged[event] ?? [];
+    const seen = new Set(existing.map((h) => JSON.stringify(h)));
+    const additions = (Array.isArray(list) ? list : []).filter((h) => !seen.has(JSON.stringify(h)));
+    merged[event] = [...existing, ...additions];
+  }
   writeFileSync(
     baseFile,
     JSON.stringify({ description: base.description, hooks: merged }, null, 2) + "\n",

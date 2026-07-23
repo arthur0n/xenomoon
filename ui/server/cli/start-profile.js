@@ -120,6 +120,21 @@ if (argv.includes("--add")) {
       `${env.XENOMOON_DOMAIN ? `  domain=${env.XENOMOON_DOMAIN}` : ""}` +
       `${env.PORT ? `  port=${env.PORT}` : ""}`,
   );
-  const child = spawn(process.execPath, [SERVER, profile.dir], { stdio: "inherit", env });
-  child.on("exit", (code) => process.exit(code ?? 0));
+  // Supervisor loop: the server signals a self-restart request with exit code 87
+  // (POST /api/restart — "apply & restart" in the UI); any other exit ends the profile.
+  // XENOMOON_SUPERVISED tells the server a supervisor will respawn it, so it must NOT
+  // spawn a detached copy of itself (that path is for bare `npm start`).
+  env.XENOMOON_SUPERVISED = "1";
+  const run = () => {
+    const child = spawn(process.execPath, [SERVER, profile.dir], { stdio: "inherit", env });
+    child.on("exit", (code) => {
+      if (code === 87) {
+        console.log(`Restart requested — respawning "${name}"…`);
+        run();
+        return;
+      }
+      process.exit(code ?? 0);
+    });
+  };
+  run();
 }

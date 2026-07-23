@@ -21,12 +21,15 @@ export function makePromoteTool(send) {
       "approve/reject; on approval the user runs `npm run promote -- --pending`. Default " +
       "to keeping things local; promote deliberately.",
     {
-      kind: z.enum(["tools", "skills", "agents"]).describe("What kind of capability to promote."),
+      kind: z
+        .enum(["tools", "skills", "agents", "library"])
+        .describe("What kind of capability to promote."),
       name: z
         .string()
         .describe(
           "Its name as it lives project-local: a tools/ filename (e.g. profile_frame.gd), a " +
-            ".claude/skills/<name> dir, or a .claude/agents/<name>(.md).",
+            ".claude/skills/<name> dir, a .claude/agents/<name>(.md), or a library record " +
+            "path <kind>/<slug>.md under .claude/library/ (kinds: findings, verdicts, tools).",
         ),
       reason: z
         .string()

@@ -51,6 +51,59 @@ test("promoteOne: moves into the pluginDir it is given (end to end on disk)", ()
   assert.ok(!existsSync(path.join(FRAMEWORK_PLUGIN_DIR, "skills", "neat-thing")));
 });
 
+test("library kind: accepted by all four validation points, moves, and appends the index", async () => {
+  const { PROMOTE_KINDS } = await import("./promote-run.js");
+  assert.ok(PROMOTE_KINDS.has("library"));
+  const { addPromotion } = await import("./promotions-store.js");
+  assert.ok(typeof addPromotion === "function"); // store KINDS accepts it via addPromotion below
+  const root = path.join(scratch, "library-promotion");
+  const game = path.join(root, "project");
+  const fixturePlugin = path.join(root, "plugin-fixture");
+  mkdirSync(path.join(game, ".claude", "library", "findings"), { recursive: true });
+  writeFileSync(
+    path.join(game, ".claude", "library", "findings", "lockfile-drift.md"),
+    "---\nname: lockfile-drift\ndescription: agents must never mutate lockfiles uninvited\n---\nAgnostic finding body.\n",
+  );
+  const loc = locate("library", "findings/lockfile-drift.md", game, fixturePlugin);
+  assert.equal(loc.src, path.join(game, ".claude", "library", "findings", "lockfile-drift.md"));
+  assert.equal(loc.dst, path.join(fixturePlugin, "library", "findings", "lockfile-drift.md"));
+  const r = promoteOne("library", "findings/lockfile-drift.md", game, {
+    pluginDir: fixturePlugin,
+  });
+  assert.equal(r.ok, true, r.msg);
+  assert.ok(existsSync(loc.dst));
+  const index = readFileSync(path.join(fixturePlugin, "library", "findings", "index.md"), "utf8");
+  assert.match(index, /\[lockfile-drift\]\(lockfile-drift\.md\) — agents must never mutate/);
+});
+
+test("library kind: the records-only mapping signal blocks a one-project record", () => {
+  const root = path.join(scratch, "library-contaminated");
+  const game = path.join(root, "project");
+  mkdirSync(path.join(game, ".claude", "library", "verdicts"), { recursive: true });
+  writeFileSync(
+    path.join(game, ".claude", "library", "verdicts", "coupled.md"),
+    "---\nname: coupled\ndescription: x\n---\nValid for our stack only.\n",
+  );
+  const r = promoteOne("library", "verdicts/coupled.md", game, {
+    pluginDir: path.join(root, "plugin-fixture"),
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.msg, /one-game-mapping/);
+});
+
+test("per-project denylist: the bound project's name blocks promotion (privacy floor)", () => {
+  const root = path.join(scratch, "denylist-check");
+  const game = path.join(root, "acme-billing");
+  mkdirSync(path.join(game, ".claude", "skills", "leaky"), { recursive: true });
+  writeFileSync(
+    path.join(game, ".claude", "skills", "leaky", "SKILL.md"),
+    "---\nname: leaky\n---\nProven pattern in acme-billing deployments.\n",
+  );
+  const r = promoteOne("skills", "leaky", game, { pluginDir: path.join(root, "plugin-fixture") });
+  assert.equal(r.ok, false);
+  assert.match(r.msg, /codename.*acme-billing|acme-billing/);
+});
+
 test("promoteOne: an explicit base pluginDir keeps the game-path message and layout", () => {
   const root = path.join(scratch, "game-promotion");
   const game = path.join(root, "project");

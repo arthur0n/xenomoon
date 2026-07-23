@@ -2,13 +2,21 @@
 // plugin destination and move it. Pure (no argv, no process.exit), so both the
 // CLI (`promote.js`) and the UI server (a one-click "Promote now" from the
 // promotions board) share the exact same move semantics.
-import { existsSync, readFileSync, renameSync, rmSync, mkdirSync, cpSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  renameSync,
+  rmSync,
+  mkdirSync,
+  cpSync,
+} from "node:fs";
 import path from "node:path";
 import { FRAMEWORK_PLUGIN_DIR } from "../../core/config.js";
-import { scanPath } from "./contamination.js";
+import { scanPath, denylistFor, businessTermsFor } from "./contamination.js";
 import { ensureDomainLibrary } from "./ensure-library.js";
 
-export const PROMOTE_KINDS = new Set(["skills", "agents", "tools"]);
+export const PROMOTE_KINDS = new Set(["skills", "agents", "tools", "library"]);
 
 // smoke_*.gd / play_*.gd auto-join the gate by filename glob (tools/lib/checks.sh
 // run_gd_bots) — no explicit reference needed.
@@ -50,6 +58,15 @@ export function locate(kind, name, game, pluginDir = FRAMEWORK_PLUGIN_DIR) {
     return {
       src: path.join(game, ".claude", "agents", file),
       dst: path.join(pluginDir, "agents", file),
+    };
+  }
+  if (kind === "library") {
+    // name carries `<kind>/<slug>.md` (e.g. findings/jsdom-lockfile.md) — drafts live
+    // project-local under .claude/library/, records land in the pack's library/.
+    const file = name.endsWith(".md") ? name : `${name}.md`;
+    return {
+      src: path.join(game, ".claude", "library", file),
+      dst: path.join(pluginDir, "library", file),
     };
   }
   return {
@@ -98,7 +115,16 @@ export function promoteOne(kind, name, game, opts = {}) {
   // games' gates); skills/agents cite res:// convention paths legitimately, so they are gated on the
   // universal signals (codenames, absolute/sibling-game paths, provenance) instead. --force overrides.
   if (!opts.force) {
-    const [hit] = scanPath(src, { checkRes: kind === "tools" });
+    // Library records additionally run the records-only mapping check ("our stack/our repo"
+    // phrasing that only maps to ONE project must not ship). Every kind gets the per-project
+    // privacy FLOOR: the bound project's proper nouns (denylist) and its verbatim
+    // business-rule lines (businessTerms) — the scanner stays pure, the caller reads.
+    const [hit] = scanPath(src, {
+      checkRes: kind === "tools",
+      checkMapping: kind === "library",
+      denylist: denylistFor(game),
+      businessTerms: businessTermsFor(game),
+    });
     if (hit)
       return {
         ok: false,
@@ -111,5 +137,40 @@ export function promoteOne(kind, name, game, opts = {}) {
   }
   mkdirSync(path.dirname(dst), { recursive: true });
   movePath(src, dst);
+  if (kind === "library") appendIndexLine(dst);
   return { ok: true, msg: `moved ${kind}/${name} → ${path.basename(pluginDir)}` };
+}
+
+/** Keep the promoted record queryable: append its line to the kind's `index.md` (sorted by
+ * filename, per the library-record-writing contract). Best-effort — a malformed record still
+ * promotes; the index line just carries an empty description. @param {string} dst */
+function appendIndexLine(dst) {
+  const indexFile = path.join(path.dirname(dst), "index.md");
+  const slug = path.basename(dst);
+  const title = slug.replace(/\.md$/, "");
+  let description = "";
+  try {
+    description =
+      readFileSync(dst, "utf8")
+        .match(/^---\n[\s\S]*?^description:\s*(.+)$[\s\S]*?\n---/m)?.[1]
+        ?.trim() ?? "";
+  } catch {
+    /* unreadable — keep the empty description */
+  }
+  const line = `- [${title}](${slug})${description ? ` — ${description}` : ""}`;
+  let existing = "";
+  try {
+    existing = readFileSync(indexFile, "utf8");
+  } catch {
+    /* no index yet — start one */
+  }
+  if (existing.includes(`](${slug})`)) return; // re-promote of a forced copy — don't duplicate
+  const lines = existing.split("\n");
+  const entries = lines.filter((l) => l.startsWith("- ["));
+  const head = lines
+    .filter((l) => !l.startsWith("- ["))
+    .join("\n")
+    .trimEnd();
+  const sorted = [...entries, line].sort();
+  writeFileSync(indexFile, `${head}\n\n${sorted.join("\n")}\n`);
 }

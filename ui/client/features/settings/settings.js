@@ -382,6 +382,23 @@ export function initSettings() {
   $("settings-modal").addEventListener("click", (e) => {
     if (e.target === $("settings-modal")) close();
   });
+  // Apply & restart — save first, then bounce the server (supervised runs respawn via
+  // `npm run up`; bare `npm start` respawns itself detached). The page reloads once the
+  // server is back; a fixed backoff beats probing since restart takes ~2-4s.
+  $("settings-restart").onclick = async () => {
+    const btn = /** @type {HTMLButtonElement} */ ($("settings-restart"));
+    btn.disabled = true;
+    btn.textContent = "Restarting…";
+    try {
+      await postJSON("/api/settings", { ...collectAgentSettings() });
+      await postJSON("/api/restart", {});
+    } catch {
+      /* the socket dying mid-response is expected — the server is going down */
+    }
+    setTimeout(() => {
+      window.location.reload();
+    }, 3500);
+  };
 
   // Skills panel — its own 🧩 toolbar button + modal (built-in/workspace allowlist + agent skills).
   $("skills-btn").onclick = () => {

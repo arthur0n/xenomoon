@@ -12,7 +12,7 @@ import { PROJECT_DIR } from "../../core/config.js";
 
 /** @typedef {import("../../../lib/types.js").Promotion} Promotion */
 
-const KINDS = new Set(["tools", "skills", "agents"]);
+const KINDS = new Set(["tools", "skills", "agents", "library"]);
 /** requested → approved → promoted, or requested → rejected. */
 const STATUSES = new Set(["requested", "approved", "rejected", "promoted"]);
 

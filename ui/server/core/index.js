@@ -6,6 +6,7 @@
 // Requires Claude Code installed and authenticated on this machine — the SDK
 // drives the same local Claude Code the terminal uses.
 import http from "node:http";
+import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { WebSocketServer } from "ws";
 import { parseJSON } from "../../lib/json.js";
@@ -229,6 +230,7 @@ const GET_ROUTES = {
  * cap by replacing N if-branches with a single lookup (mirrors GET_ROUTES).
  * @type {Record<string, (req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) => void>} */
 const POST_ROUTES = {
+  "/api/restart": handleRestartPost,
   "/api/transcript": handleTranscriptPost,
   "/api/settings": handleSettingsPost,
   "/api/skills": handleSkillsPost,
@@ -249,6 +251,33 @@ const POST_ROUTES = {
     handleAgentApi(req, res, "/api/agents/hermes/setup");
   },
 };
+
+/** Self-restart ("apply & restart" in the UI — the ONE remaining restart is a domain/project
+ * switch; config-block edits are already per-session). Supervisor-aware: under `npm run up`
+ * (XENOMOON_SUPERVISED=1) exit with code 87 and start-profile respawns us; under a bare
+ * `npm start` spawn a detached copy of the same argv once the port is released, then exit.
+ * The UI only ever serves localhost, so no extra origin gating is needed here.
+ * @param {import("node:http").IncomingMessage} _req @param {import("node:http").ServerResponse} res */
+function handleRestartPost(_req, res) {
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(
+    JSON.stringify({ ok: true, mode: process.env.XENOMOON_SUPERVISED ? "supervised" : "respawn" }),
+  );
+  // Give the response a beat to flush, then close and go.
+  setTimeout(() => {
+    server.close(() => {
+      if (process.env.XENOMOON_SUPERVISED) process.exit(87);
+      const child = spawn(process.argv0, process.argv.slice(1), {
+        detached: true,
+        stdio: "inherit",
+      });
+      child.unref();
+      process.exit(0);
+    });
+    // Existing keep-alive sockets (the WS) can hold close() open — force the issue.
+    setTimeout(() => process.exit(process.env.XENOMOON_SUPERVISED ? 87 : 0), 2000).unref();
+  }, 150);
+}
 
 const server = http.createServer((req, res) => {
   const url = req.url ?? "";

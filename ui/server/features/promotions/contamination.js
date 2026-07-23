@@ -14,6 +14,7 @@
 // res:// is checked for TOOLS only, where a hardcoded scene genuinely breaks other games' gates).
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
+import { parseJSON } from "../../../lib/json.js";
 
 // res:// refs every game shares — legitimate in a universal tool. Anything else is game-domain.
 export const UNIVERSAL_RES = [
@@ -27,13 +28,57 @@ export const UNIVERSAL_RES = [
 // extension here, so a tool that takes its scene as a parameter is correctly seen as universal).
 const RES_REF = /res:\/\/[A-Za-z0-9_./-]+\.(?:tscn|tres|escn|glb|gltf)\b/g;
 
-// The CURRENT game's known proper nouns (codename + level/scene names). FORGE-LOCAL config, NOT
-// shipped in the plugin — update this list when the forge points at a different game. Matched as a
-// case-insensitive SUBSTRING, so a compound like `build_firing_yard` is caught too. Keep it to
-// UNAMBIGUOUS proper nouns — a level/codename that could never be an agnostic word. Convention-shaped
-// names the plugin shares with the game (`player`, `guard`, `camera_rig`, `gen_models`) must NOT go
-// here, or the gate floods on legitimate teaching examples.
-export const GAME_CODENAMES = ["mercenary", "outpost_alpha", "firing_yard"];
+// Historical fixed denylist — EMPTY now: the bound project's proper nouns are derived per
+// project by `denylistFor()` and passed in via `opts.denylist` (the always-on privacy FLOOR),
+// so the gate follows whatever project is bound instead of a stale hardcoded game. Kept as an
+// export for compatibility with upstream-synced callers.
+/** @type {string[]} */
+export const GAME_CODENAMES = [];
+
+/** The bound project's own proper nouns — the deterministic privacy floor every scan gets:
+ * the project dir's basename + its package.json `name`. Callers may concat extra terms (e.g. a
+ * `contamination.denylist` array from .xenomoon.json). Pure read, no config.js dependency.
+ * @param {string} projectDir @returns {string[]} lowercase terms, junk filtered */
+export function denylistFor(projectDir) {
+  /** @type {string[]} */
+  const terms = [path.basename(projectDir)];
+  try {
+    const pkg = /** @type {{ name?: string }} */ (
+      parseJSON(readFileSync(path.join(projectDir, "package.json"), "utf8"))
+    );
+    if (pkg.name) terms.push(pkg.name.replace(/^@[^/]+\//, ""));
+  } catch {
+    /* no package.json — the basename still stands */
+  }
+  // 3+ chars and not a generic word — a one-letter or "app"-ish name would flood the gate.
+  const generic = new Set(["app", "web", "api", "site", "game", "project", "src", "main"]);
+  return [...new Set(terms.map((t) => t.toLowerCase()))].filter(
+    (t) => t.length >= 3 && !generic.has(t),
+  );
+}
+
+/** Verbatim lines from the project CLAUDE.md's `## Business rules` / `## Data model` blocks —
+ * the opt-in leakage signal (a promoted artifact reproducing one of these lines verbatim is
+ * carrying THIS project's facts). Degrades to [] when the headings are absent — the denylist
+ * floor still applies; /onboard adds the headings to projects missing them.
+ * @param {string} projectDir @returns {string[]} */
+export function businessTermsFor(projectDir) {
+  let text;
+  try {
+    text = readFileSync(path.join(projectDir, "CLAUDE.md"), "utf8");
+  } catch {
+    return [];
+  }
+  /** @type {string[]} */
+  const terms = [];
+  const re = /^##\s+(?:Business rules|Data model)[^\n]*\n([\s\S]*?)(?=^## |\n*$)/gim;
+  for (const m of text.matchAll(re))
+    for (const line of (m[1] ?? "").split("\n")) {
+      const t = line.replace(/^[-*]\s+/, "").trim();
+      if (t.length >= 25) terms.push(t); // short fragments would false-positive
+    }
+  return terms;
+}
 
 // A hardcoded absolute filesystem path (a res:// or project-relative path is required instead).
 const ABS_PATH = /(?:\/Users\/|\/home\/[a-z]|\b[A-Za-z]:\\)/;
@@ -51,12 +96,39 @@ const OUR_MAPPING = /\bour\s+(?:game|stack|project|repo|codebase)\b/i;
 
 /** @typedef {{ signal: string, match: string, hint: string }} Contamination */
 
+/** The per-project privacy floor: denylisted proper nouns + verbatim business-rule lines.
+ * Split out of scanText to keep it under the complexity cap.
+ * @param {string} text @param {{ denylist?: string[], businessTerms?: string[] }} opts
+ * @param {Contamination[]} hits */
+function scanProjectTerms(text, opts, hits) {
+  const lower = text.toLowerCase();
+  for (const term of [...GAME_CODENAMES, ...(opts.denylist ?? [])])
+    if (lower.includes(term))
+      hits.push({
+        signal: "codename",
+        match: term,
+        hint: `project-specific proper noun "${term}" — strip it to the agnostic method; the project's own facts live project-local, not in the plugin.`,
+      });
+  for (const term of opts.businessTerms ?? [])
+    if (text.includes(term)) {
+      hits.push({
+        signal: "business-rule-leak",
+        match: term.slice(0, 60),
+        hint: "reproduces a project business-rule/data-model line verbatim — project facts NEVER ship in the plugin (updates-routing.md: PROJECT scope). Restate the technique agnostically.",
+      });
+      break; // one leaked line is enough to block
+    }
+}
+
 /** Scan one text blob for contamination signals.
  * @param {string} text
- * @param {{ checkRes?: boolean, checkMapping?: boolean }} [opts] checkRes: also flag non-universal
- *   res:// refs — pass for TOOLS only (skills/agents cite res:// convention paths as legitimate
- *   illustrative examples). checkMapping: also flag one-game mapping language ("our game/stack") —
- *   pass for shipped RECORDS only (library/), never the promotable kinds.
+ * @param {{ checkRes?: boolean, checkMapping?: boolean, denylist?: string[], businessTerms?: string[] }} [opts]
+ *   checkRes: also flag non-universal res:// refs — pass for TOOLS only (skills/agents cite
+ *   res:// convention paths as legitimate illustrative examples). checkMapping: also flag
+ *   one-game mapping language ("our game/stack") — pass for shipped RECORDS only (library/),
+ *   never the promotable kinds. denylist: the bound project's proper nouns (see denylistFor —
+ *   the caller reads, the scanner stays pure). businessTerms: verbatim project business-rule
+ *   lines (see businessTermsFor) — a reproduced line means project facts are leaking.
  * @returns {Contamination[]} */
 export function scanText(text, opts = {}) {
   /** @type {Contamination[]} */
@@ -91,14 +163,7 @@ export function scanText(text, opts = {}) {
         hint: "one-game mapping language in a shipped record — a digest that judges content against THIS game's stack lives game-local (design/library/transcripts/), only agnostic records ship in the plugin library.",
       });
   }
-  const lower = text.toLowerCase();
-  for (const term of GAME_CODENAMES)
-    if (lower.includes(term))
-      hits.push({
-        signal: "codename",
-        match: term,
-        hint: `game-specific proper noun "${term}" — strip it to the agnostic method; the game's own facts live game-local, not in the plugin.`,
-      });
+  scanProjectTerms(text, opts, hits);
   if (opts.checkRes)
     for (const ref of text.match(RES_REF) ?? [])
       if (!UNIVERSAL_RES.some((re) => re.test(ref))) {
@@ -127,8 +192,9 @@ export function filesUnder(p) {
 
 /** Scan a path (a file, or every file under a directory) for contamination.
  * @param {string} p
- * @param {{ checkRes?: boolean, checkMapping?: boolean, all?: boolean }} [opts] all: return every
- *   hit per file (default: the first hit per file — enough for a promote hard-block).
+ * @param {{ checkRes?: boolean, checkMapping?: boolean, denylist?: string[], businessTerms?: string[], all?: boolean }} [opts]
+ *   all: return every hit per file (default: the first hit per file — enough for a promote
+ *   hard-block); the rest pass through to scanText.
  * @returns {Array<Contamination & { file: string }>} */
 export function scanPath(p, opts = {}) {
   /** @type {Array<Contamination & { file: string }>} */

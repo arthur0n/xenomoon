@@ -49,7 +49,23 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === "--domain") domainFlag = argv[++i] ?? null;
   else if (!a.startsWith("--")) positional.push(a);
 }
-const target = path.resolve(positional[0] ?? path.join(FRAMEWORK_DIR, "..", "game"));
+
+// ---- The terminal questionnaire ----------------------------------------------------------
+// ALL the simple/binary install questions live HERE, up front, in one pass (TTY-only, and
+// each asked ONLY when its value is missing — scripted/CI invocations that pass flags stay
+// byte-identical): project folder → domain → port (empty = default) → hermes/codex/kimi.
+// The AI half of onboarding happens NEXT, in terminal Claude Code (/onboard), BEFORE the
+// server ever starts — see the handoff at the bottom.
+const interactive = process.stdin.isTTY && process.stdout.isTTY;
+const rl = interactive
+  ? readline.createInterface({ input: process.stdin, output: process.stdout })
+  : null;
+
+let targetInput = positional[0] ?? null;
+if (!targetInput && rl) {
+  targetInput = (await rl.question("Project folder (absolute path): ")).trim() || null;
+}
+const target = path.resolve(targetInput ?? path.join(FRAMEWORK_DIR, "..", "game"));
 
 // Determine the install domain: explicit flag wins; else an existing lock (re-install); else the
 // default. A flag that contradicts an existing lock is refused — re-domaining is deliberate.
@@ -62,16 +78,21 @@ if (domainFlag && existingLock && domainFlag !== existingLock) {
   process.exit(1);
 }
 let domainName = domainFlag ?? existingLock;
-if (!domainName && process.stdin.isTTY && process.stdout.isTTY) {
-  // Interactive up-front ask — TTY-only, and ONLY for a missing value, so scripted/CI
-  // invocations (test:onboarding passes --domain) stay byte-identical.
+if (!domainName && rl) {
   const avail = availableDomains(FRAMEWORK_DIR);
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   domainName =
-    (await rl.question(
-      `Domain for this project${avail.length ? ` (${avail.join(" | ")})` : ""}: `,
-    )) || null;
-  rl.close();
+    (
+      await rl.question(`Domain for this project${avail.length ? ` (${avail.join(" | ")})` : ""}: `)
+    ).trim() || null;
+}
+// Port — empty keeps the default. Saved into .xenomoon.json so `npm start` needs no env.
+let portAnswer = null;
+if (rl) {
+  portAnswer = (await rl.question("UI port [empty = 3117]: ")).trim() || null;
+  if (portAnswer && !/^\d+$/.test(portAnswer)) {
+    console.error(`new: port must be a number (got "${portAnswer}").`);
+    process.exit(1);
+  }
 }
 if (!domainName) {
   const avail = availableDomains(FRAMEWORK_DIR);
@@ -191,8 +212,17 @@ if (!DOMAIN.materializeIntoProject) {
   } catch {
     /* absent/invalid — start fresh */
   }
-  writeFileSync(cfgFile, JSON.stringify({ ...cfg, domain: domainName }, null, 2) + "\n");
-  console.log(`new: bound domain "${domainName}" in ${cfgFile}.`);
+  writeFileSync(
+    cfgFile,
+    JSON.stringify(
+      { ...cfg, domain: domainName, ...(portAnswer ? { port: Number(portAnswer) } : {}) },
+      null,
+      2,
+    ) + "\n",
+  );
+  console.log(
+    `new: bound domain "${domainName}"${portAnswer ? ` on port ${portAnswer}` : ""} in ${cfgFile}.`,
+  );
 }
 
 // 3. Materialize the domain's per-project files: tools/ copied, library/ symlinked (if any).
@@ -201,11 +231,9 @@ node(path.join(here, "materialize.js"), target);
 // 4. Health check — fails loudly if anything didn't land.
 node(path.join(here, "doctor.js"), target);
 
-// 5. Up-front integrations offer (TTY-only, skip-friendly): ask ONCE at install instead of the
-//    user discovering hermes/codex/kimi mid-work in the Settings portal. Each answers y → the
-//    existing setup script runs; anything else skips cleanly (the portal can enable it later).
-if (process.stdin.isTTY && process.stdout.isTTY) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+// 5. Integrations — the remaining binary questions, same single pass (each answers y → the
+//    existing setup script runs; anything else skips cleanly; the portal can enable them later).
+if (rl) {
   for (const [id, blurb] of [
     ["hermes", "external researcher (Nous billing)"],
     ["codex", "adversarial code reviewer (OpenAI/ChatGPT billing)"],
@@ -220,17 +248,37 @@ if (process.stdin.isTTY && process.stdout.isTTY) {
       }
     }
   }
-  rl.close();
 }
 
-// 6. Existing-Claude-project hint: their CLAUDE.md/.claude deserve the negotiated onboarding.
-if (existsSync(path.join(target, ".claude")) || existsSync(path.join(target, "CLAUDE.md"))) {
+// 6. Claude Code FIRST — the AI half of onboarding runs in terminal Claude Code (/onboard:
+//    map their CLAUDE.md + skills, interview for business rules) BEFORE the server starts, so
+//    the framework already knows the project when the first UI session opens.
+const hasClaudeLife =
+  existsSync(path.join(target, ".claude")) || existsSync(path.join(target, "CLAUDE.md"));
+if (rl && hasClaudeLife) {
   console.log(
-    `\nnew: this project already uses Claude — run /onboard in the first session to map its ` +
-      `CLAUDE.md + skills into the framework (nothing is overwritten; every write is approved).`,
+    `\nThis project already uses Claude. Next: the /onboard interview (terminal Claude Code)\n` +
+      `maps its CLAUDE.md + skills into the framework and interviews you for business rules —\n` +
+      `nothing is overwritten, every write is approved.`,
   );
+  const a = (await rl.question(`Run the /onboard interview now? [Y/n] `)).trim().toLowerCase();
+  if (a === "" || a === "y" || a === "yes") {
+    try {
+      // One-time plugin hookup for terminal Claude Code, then the interview itself.
+      execFileSync("claude", ["/onboard"], { cwd: target, stdio: "inherit" });
+    } catch {
+      console.warn(
+        `new: could not launch claude — run it yourself:\n` +
+          `    cd ${target} && claude\n` +
+          `    /plugin marketplace add ${FRAMEWORK_DIR}/domains/${domainName}\n` +
+          `    /plugin install xenomoon@xenomoon-forge   (one-time)\n` +
+          `    /onboard`,
+      );
+    }
+  }
 }
+rl?.close();
 
 console.log(
-  `\nnew: done (domain "${domainName}"). Next:\n    npm start ${target}      # web UI — loads the domain plugin automatically\n  or open ${target} in terminal Claude Code after the one-time /plugin install above.`,
+  `\nnew: done (domain "${domainName}"). Start the server:\n    npm start ${target}      # web UI on port ${portAnswer ?? "3117"} — the remaining setup (skills, portal) is asked there.`,
 );

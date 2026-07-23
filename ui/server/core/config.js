@@ -51,7 +51,7 @@ const args = process.argv.slice(2);
  * Read once: it carries both the saved project path and the engine block. */
 const SAVED = (() => {
   try {
-    return /** @type {{ projectDir?: string, domain?: string, engine?: EngineConfig, assetLibrary?: string, hermes?: HermesConfig }} */ (
+    return /** @type {{ projectDir?: string, domain?: string, port?: number, engine?: EngineConfig, assetLibrary?: string, hermes?: HermesConfig }} */ (
       parseJSON(readFileSync(CONFIG_FILE, "utf8"))
     );
   } catch {
@@ -158,7 +158,8 @@ process.env.XENOMOON_MANIFEST = MANIFEST_FILE;
 /** Whether PROJECT_DIR actually holds a project for the active domain —
  * drives the startup warning and the UI's empty-state banner. */
 export const PROJECT_FOUND = existsSync(path.join(PROJECT_DIR, ENGINE.projectFile));
-export const PORT = Number(process.env.PORT ?? 3117);
+// env PORT → the install's saved port (.xenomoon.json, asked once at install) → 3117.
+export const PORT = Number(process.env.PORT ?? SAVED.port ?? 3117);
 
 // Default permission policy for new sessions: ask | edits | all.
 // Override per session from the UI header. AskUserQuestion always prompts.

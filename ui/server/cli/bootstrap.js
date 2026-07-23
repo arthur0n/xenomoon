@@ -18,6 +18,12 @@ import os from "node:os";
 const REPO = "https://github.com/arthur0n/xenomoon.git";
 const TARBALL = "https://codeload.github.com/arthur0n/xenomoon/tar.gz/refs/heads/main";
 
+/** Is `child` inside `parent` (or equal)? @param {string} parent @param {string} child */
+function contains(parent, child) {
+  const rel = path.relative(parent, child);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
 /** @param {string} cmd @returns {boolean} */
 function has(cmd) {
   try {
@@ -35,12 +41,29 @@ const rl = interactive
 
 console.log("Xenomoon — domain-focused agent framework (fork of Xenodot Forge)\n");
 
-// 1. Where does the install live? One install can serve the machine; per-project installs are
-//    equally fine — it's just a folder.
+// 1. THE PROJECT COMES FIRST: you run this FROM your project folder — cwd IS the project.
+//    (`cd myapp && npx github:arthur0n/xenomoon`.) Confirm it rather than ask for a path.
+const cwd = process.cwd();
+let project = cwd;
+if (rl) {
+  const a = (await rl.question(`Set up THIS folder as the project — ${cwd}? [Y/n] `))
+    .trim()
+    .toLowerCase();
+  if (a === "n" || a === "no") {
+    project = path.resolve((await rl.question("Project folder (absolute path): ")).trim() || cwd);
+  }
+}
+
+// 2. Where the framework itself lives — a detail, defaulted, asked once.
 const defaultDir = path.join(os.homedir(), "xenomoon");
 let dest = process.argv[2] ?? null;
-if (!dest && rl) dest = (await rl.question(`Install location [${defaultDir}]: `)).trim() || null;
+if (!dest && rl)
+  dest = (await rl.question(`Framework install location [${defaultDir}]: `)).trim() || null;
 dest = path.resolve(dest ?? defaultDir);
+if (contains(dest, project) || contains(project, dest)) {
+  console.error(`✗ the framework (${dest}) and the project (${project}) must not nest.`);
+  process.exit(1);
+}
 
 if (existsSync(dest) && readdirSync(dest).length > 0) {
   if (existsSync(path.join(dest, "package.json"))) {
@@ -69,7 +92,7 @@ execFileSync("npm", ["ci"], { cwd: dest, stdio: "inherit" });
 
 rl?.close();
 
-// 4. Hand off to the questionnaire — the rest of onboarding lives there (folder → domain →
-//    port → integrations → the terminal-Claude-Code /onboard interview → npm start).
-console.log("\nFramework installed. Continuing into project setup …\n");
-execFileSync("npm", ["run", "new"], { cwd: dest, stdio: "inherit" });
+// 4. Hand off to the questionnaire with the project already known — it asks the rest
+//    (domain → port → integrations → the terminal-Claude-Code /onboard interview → npm start).
+console.log(`\nFramework installed. Setting up ${project} …\n`);
+execFileSync("npm", ["run", "new", "--", project], { cwd: dest, stdio: "inherit" });

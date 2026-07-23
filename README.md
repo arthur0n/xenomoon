@@ -40,14 +40,17 @@ project: `plugin/docs/process/updates-routing.md`.
 
 ## Quick start — from a machine with NOTHING
 
+Step 0 is your project folder. Everything else is one command, run inside it:
+
 ```bash
+cd myapp                          # your project (existing, or freshly created)
 npx github:arthur0n/xenomoon
 ```
 
-That one command installs the framework (asks where; default `~/xenomoon`), then walks the whole
-terminal questionnaire: project folder → domain → port → Hermes/Codex/Kimi. If your project
-already uses Claude, it offers the `/onboard` interview (terminal Claude Code) BEFORE the server
-starts. Then `npm start` and the UI takes over the rest.
+It confirms the folder as the project, installs the framework (asks where; default
+`~/xenomoon`), then walks the terminal questionnaire: domain → port → Hermes/Codex/Kimi. If
+your project already uses Claude, it offers the `/onboard` interview (terminal Claude Code)
+BEFORE the server starts. Then `npm start` and the UI takes over the rest.
 
 Already have the framework checked out? Same flow, minus step zero:
 

@@ -51,7 +51,7 @@ const args = process.argv.slice(2);
  * Read once: it carries both the saved project path and the engine block. */
 const SAVED = (() => {
   try {
-    return /** @type {{ projectDir?: string, domain?: string, port?: number, onboarded?: boolean, engine?: EngineConfig, assetLibrary?: string, hermes?: HermesConfig }} */ (
+    return /** @type {{ projectDir?: string, domain?: string, domainDescriptor?: import("./domain-resolver.js").DomainDescriptor, port?: number, onboarded?: boolean, engine?: EngineConfig, assetLibrary?: string, hermes?: HermesConfig }} */ (
       parseJSON(readFileSync(CONFIG_FILE, "utf8"))
     );
   } catch {
@@ -77,26 +77,21 @@ function resolveProjectDir() {
 
 export const PROJECT_DIR = resolveProjectDir();
 
-/** The active target domain pack (see ui/server/core/domain-resolver.js). The spine reads
- * per-domain values (engine/project marker, inventory extensions, plugin, orchestrator,
- * commands) from this descriptor instead of hardcoding them. The PROJECT's lock
- * (`.xenomoon-project.json`, written by `forge new --domain`) is authoritative; a conflicting
- * env `XENOMOON_DOMAIN` / `.xenomoon.json` override is refused (no silent override). With no
- * lock: override → the framework's default domain (which reproduces the framework's original behavior). */
-export const DOMAIN = resolveActiveDomain(PROJECT_DIR, FRAMEWORK_DIR);
+/** The installed domain's runtime descriptor (engine/project marker, inventory extensions,
+ * commands, …). "Domain" is an INSTALL-TIME PICKER: `forge new --domain X` bakes X's descriptor into
+ * `.xenomoon.json` (`domainDescriptor`) and copies X's capabilities into the single `plugin/` tree.
+ * At runtime we read the baked descriptor — there is no live `domains/` on any runtime path. The
+ * fallback to `resolveActiveDomain` covers a clone installed before this bake existed (migration). */
+export const DOMAIN = SAVED.domainDescriptor ?? resolveActiveDomain(PROJECT_DIR, FRAMEWORK_DIR);
 
-/** The active domain's capability plugin (agents, skills, tools, hooks) packaged as a local
- * Claude Code plugin — the single source of truth, loaded into every session via the SDK
- * `plugins` option (see session.js) so a project needs no copied capabilities; it stays pure
- * and the plugin provides the framework regardless of cwd. The path comes from the active domain
- * pack (`domains/<name>/plugin`). It loads ALONGSIDE the CORE plugin (see CORE_PLUGIN_DIR). */
-export const FRAMEWORK_PLUGIN_DIR = path.join(FRAMEWORK_DIR, DOMAIN.plugin);
-
-/** The CORE capability plugin — the domain-agnostic "basic install" loaded into EVERY session
- * regardless of domain: the meta skills (caveman, quick, agent-report, tasks-mcp,
- * autonomous-main-goal), the safety hooks, handoff-summarizer and the researcher learning loop.
- * The active domain's pack (FRAMEWORK_PLUGIN_DIR) layers its specifics on top. */
-export const CORE_PLUGIN_DIR = path.join(FRAMEWORK_DIR, "plugin");
+/** The framework's ONE capability tree (agents, skills, commands, hooks, orchestrator) packaged as a
+ * local Claude Code plugin — loaded into every session via the SDK `plugins` option (see session.js)
+ * so a project needs no copied capabilities; it stays pure and the plugin provides the framework
+ * regardless of cwd. The domain picker installed the chosen pack's capabilities INTO this tree at
+ * install time, so there is exactly one plugin dir at runtime. `CORE_PLUGIN_DIR` is kept as an alias
+ * of the same path (a domain is no longer a separate runtime tree). */
+export const FRAMEWORK_PLUGIN_DIR = path.join(FRAMEWORK_DIR, "plugin");
+export const CORE_PLUGIN_DIR = FRAMEWORK_PLUGIN_DIR;
 
 /** The active domain's engine/runtime descriptor. Resolution (first hit wins):
  * env (`ENGINE_NAME` / `ENGINE_PROJECT_FILE` / `ENGINE_BIN`) → `.xenomoon.json`
@@ -476,13 +471,14 @@ export const MODEL = args.find((a) => a.startsWith("--model="))?.split("=")[1] ?
 export const EFFORT = /** @type {import("@anthropic-ai/claude-agent-sdk").EffortLevel} */ (
   args.find((a) => a.startsWith("--effort="))?.split("=")[1] ?? "medium"
 );
-// The orchestrator routing prompt comes from the active domain pack (e.g. `webapp` → its
-// orchestrator.md); each domain ships its own under domains/<name>/. Read PER CALL (session
-// start) — like getHermesConfig — so editing the orchestrator or an agent block takes effect on
-// the NEXT SESSION without a server restart. Only DOMAIN/PROJECT_DIR (structural) stay
-// startup-frozen; switching domain/project is the one legit restart.
+// The orchestrator routing prompt lives in the single capability tree at `plugin/orchestrator.md`
+// (the domain picker installed it there). Read PER CALL (session start) — like getHermesConfig — so
+// editing it takes effect on the NEXT SESSION without a server restart. The fallback to the live
+// `domains/<name>/orchestrator.md` covers a clone installed before the picker copied it (migration).
 /** @returns {string} */
 export function getOrchestratorPrompt() {
+  const installed = path.join(FRAMEWORK_PLUGIN_DIR, "orchestrator.md");
+  if (existsSync(installed)) return readFileSync(installed, "utf8");
   return readFileSync(path.join(FRAMEWORK_DIR, DOMAIN.orchestrator), "utf8");
 }
 /** @returns {string} */

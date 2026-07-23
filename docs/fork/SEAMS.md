@@ -19,8 +19,10 @@ applies.
 - `domains/**` — the domain packs. The shipped packs are `domains/app/` and `domains/webapp/`
   (Node / React, empty learning starters). The upstream we track is a Godot framework, but
   Xenomoon ships **no** godot domain, plugin, or engine binary.
-- `ui/server/core/domain-resolver.js` — the single module the spine asks for
-  domain-specific values. New file → no conflict.
+- `ui/server/core/domain-resolver.js` + `ui/server/cli/install-capabilities.js` — the INSTALL-time
+  domain picker: `forge new --domain X` copies pack X's capabilities into `plugin/` and bakes X's
+  descriptor into `.xenomoon.json`. At runtime the spine reads the baked descriptor, never `domains/`.
+  New files → no conflict.
 
 ## Upstream files we are allowed to edit (keep this list SHORT)
 
@@ -48,9 +50,9 @@ carries no domain-specific literals (the onboarding gate proves a clean install/
 
 ### Deferred seams (degrade harmlessly, route later)
 
-- `ui/server/core/session.js` — loads the active domain's capability plugin (domain-routed via
-  `config.js` `FRAMEWORK_PLUGIN_DIR`); a domain may later load a shared core **plus** its own
-  pack (a multi-plugin decision, not a path swap).
+- `ui/server/core/session.js` — loads the framework's ONE capability plugin (`config.js`
+  `FRAMEWORK_PLUGIN_DIR` = `plugin/`, now an alias of `CORE_PLUGIN_DIR`). The domain picker already
+  merged the pack into `plugin/` at install, so there is no second runtime plugin to load.
 - Engine-binary probing — only domains whose `engine.needsBinary` is true resolve an external
   binary; Node/web domains drive their toolchain through package scripts and need none.
 - `gen-manifest.js` render block + the INI project-marker parsing — only meaningful for an

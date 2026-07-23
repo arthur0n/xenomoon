@@ -31,12 +31,23 @@ export function split(text) {
   return m ? { fm: m[1] ?? "", body: m[2] ?? "" } : { fm: "", body: text };
 }
 
-/** Parse a `skills:` YAML block (`  - name` items) from a frontmatter string.
+/** Parse a `skills:` value from a frontmatter string. Handles both YAML forms an agent may use:
+ * the block form (`  - name` items on following lines) AND the inline form (`skills: a, b` or
+ * `skills: [a, b]` on the same line — e.g. tester/uat-runner). Returning [] for the inline form
+ * (the old behavior) silently dropped those agents' skills once they lived in the single tree.
  * @param {string} fm @returns {string[]} */
 export function parseSkillsList(fm) {
   const lines = fm.split("\n");
   const start = lines.findIndex((l) => /^skills:/.test(l));
   if (start < 0) return [];
+  // Inline form: a value on the `skills:` line itself (comma/space list, optional flow brackets).
+  const inline = (lines[start] ?? "").match(/^skills:\s*(\S.*?)\s*$/);
+  if (inline?.[1])
+    return inline[1]
+      .replace(/^\[|\]$/g, "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
   /** @type {string[]} */
   const out = [];
   for (let i = start + 1; i < lines.length; i++) {

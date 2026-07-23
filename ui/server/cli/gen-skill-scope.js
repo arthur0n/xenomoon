@@ -14,7 +14,7 @@
 //   workers      → every agent that manages the board (has the mcp__ui__tasks tool)
 //   builders     → the active domain's general builder + its specialists (the code-writers)
 //   orchestrator → the main session only (cross-checked against ORCHESTRATOR_FRAMEWORK_SKILLS)
-import { ORCHESTRATOR_FRAMEWORK_SKILLS } from "../features/skills/skill-catalog.js";
+import { orchestratorFrameworkSkills } from "../features/skills/skill-catalog.js";
 import { ORCH, loadRegistry } from "../features/skills/skill-registry.js";
 
 const { skills, agents, agentNames, expected, errors } = loadRegistry();
@@ -38,14 +38,16 @@ function bodySkillRefs(body) {
 // Actual skills: per audience (the orchestrator's set is the framework constant).
 /** @type {Map<string, Set<string>>} */
 const actual = new Map();
-actual.set(ORCH, new Set(ORCHESTRATOR_FRAMEWORK_SKILLS));
+actual.set(ORCH, new Set(orchestratorFrameworkSkills()));
 for (const n of agentNames) actual.set(n, new Set(agents.get(n)?.skills));
 
 for (const [id, want] of expected) {
   /** @type {Set<string>} */
   const have = actual.get(id) ?? new Set();
   const label =
-    id === ORCH ? "ORCHESTRATOR_FRAMEWORK_SKILLS" : `agent \`${id}\` frontmatter skills:`;
+    id === ORCH
+      ? "the orchestrator floor (skills tagged `orchestrator`)"
+      : `agent \`${id}\` frontmatter skills:`;
   // D1: every listed skill exists on disk.
   for (const s of have)
     if (!onDisk.has(s)) errors.push(`${label} lists \`${s}\`, which is not a skill on disk`);
@@ -121,7 +123,7 @@ if (process.argv.includes("--write")) {
   );
   for (const id of [ORCH, ...agentNames]) {
     const list = [...(expected.get(id) ?? [])].sort();
-    console.log(`## ${id === ORCH ? "orchestrator (ORCHESTRATOR_FRAMEWORK_SKILLS)" : id}`);
+    console.log(`## ${id === ORCH ? "orchestrator (floor: skills tagged `orchestrator`)" : id}`);
     console.log(
       id === ORCH ? `  [${list.join(", ")}]` : "skills:\n" + list.map((s) => `  - ${s}`).join("\n"),
     );

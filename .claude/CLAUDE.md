@@ -34,15 +34,19 @@ framework loads into every project session.
 
 ## Layout
 
-- `plugin/` — the **CORE plugin** (the "basic install"): the domain-agnostic capabilities loaded
-  into EVERY project session regardless of domain — meta skills (`caveman`, `quick`, `agent-report`,
-  `tasks-mcp`, `autonomous-main-goal`), safety hooks, `handoff-summarizer`, and the researcher
-  learning loop. Capabilities namespace as `xenomoon:<name>`.
-- `domains/<name>/` — the **domain packs** (`app`, `webapp`). Each ships its own Claude Code plugin
-  (the domain's agents/commands/skills), a `domain.json` descriptor, and an `orchestrator.md` routing
-  prompt. The active pack loads ALONGSIDE the CORE plugin (`session.js`), so a project needs no copies.
-  `webapp` is a populated head-start (an issue-driven triage → solution → implement pipeline); `app`
-  is an empty learning pack.
+- `plugin/` — the framework's **ONE capability tree** (the only one loaded at runtime): agents,
+  skills, commands, hooks, `orchestrator.md`, plus the meta skills (`caveman`, `quick`, `agent-report`,
+  `tasks-mcp`, `autonomous-main-goal`), safety hooks, `handoff-summarizer`, and the researcher learning
+  loop. `forge new --domain X` installs the picked pack's capabilities INTO this tree; after install
+  there is no "domain" at runtime — it is just the framework, one tree. Capabilities namespace as
+  `xenomoon:<name>`.
+- `domains/<name>/` — the **install-source catalog** (`app`, `webapp`). A **domain is an install-time
+  PICKER only**: each pack ships agents/commands/skills, a `domain.json` descriptor, and an
+  `orchestrator.md`, and `forge new --domain X` (`ui/server/cli/install-capabilities.js`) COPIES those
+  into `plugin/` and bakes the descriptor into `.xenomoon.json`. **Nothing under `domains/` is loaded,
+  resolved, or read at runtime** — the session loads exactly one plugin (`session.js`). `webapp` is a
+  populated head-start (issue-driven triage → solution → implement pipeline); `app` is an empty
+  learning pack. `domains/` stays off the upstream-sync surface (see `docs/fork/SEAMS.md`).
 - `ui/server/` — Node server + CLI scripts, grouped by area: `core/` (+ `core/http/`),
   `integrations/{hermes,codex}/`, `features/{tasks,promotions,transcripts,skills,autonomous}/`,
   `mcp-tools/` (the in-process `makeXTool` SDK tools), and `cli/` (`setup`, `new`, `doctor`,
@@ -51,9 +55,10 @@ framework loads into every project session.
 - `ui/client/` — browser modules, grouped by area: `core/` (state, transport, dom/render helpers,
   `main.js` entry) and `features/{chat,activity,tasks,approvals,agents,settings,sessions,promotions,
 project,autonomous}/`. `ui/lib/` — shared JSDoc typedefs + helpers.
-- `ui/server/core/domain-resolver.js` is the **seam**: the spine reads per-domain values (engine,
-  inventory, plugin, orchestrator, commands) from the active pack instead of hardcoding them — it
-  never branches on the domain name. Godot is NOT a domain here; it stays the exclusive upstream
-  product, and we pull only curated, domain-agnostic updates so the engine payload never lands.
+- `ui/server/core/domain-resolver.js` is **install-only**: `loadDomain`/`availableDomains`/
+  `resolveProjectTemplate` feed the picker (`forge new`). At runtime the spine reads the BAKED
+  descriptor from `.xenomoon.json` (`config.js` `DOMAIN`), never a live `domains/` pack. Godot is NOT a
+  domain here; it stays the exclusive upstream product, and we pull only curated, domain-agnostic
+  updates so the engine payload never lands.
 - Never put project-specific files in the framework; it points at an external project, reads it in
   place, and the project stays pure.

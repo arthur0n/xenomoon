@@ -5,7 +5,7 @@
 // Importing skills.js triggers config.js's one-time engine probe — harmless, hand-run only.
 import assert from "node:assert/strict";
 import { computeSessionSkills } from "./skills.js";
-import { ORCHESTRATOR_FRAMEWORK_SKILLS } from "./skill-catalog.js";
+import { orchestratorFrameworkSkills } from "./skill-catalog.js";
 import { ORCH, readSkills, readAgents, expectedByAudience } from "./skill-registry.js";
 
 let passed = 0;
@@ -66,8 +66,9 @@ check("result is de-duplicated when a name is in both floor and candidates", () 
 // --- caveman-forge rename + sub-agents-only scoping (real registry, config-free reads) ---
 
 check("orchestrator floor carries no caveman variant (terse thinking is sub-agents-only)", () => {
-  assert.ok(!ORCHESTRATOR_FRAMEWORK_SKILLS.includes("caveman"));
-  assert.ok(!ORCHESTRATOR_FRAMEWORK_SKILLS.includes("caveman-forge"));
+  const floor = orchestratorFrameworkSkills();
+  assert.ok(!floor.includes("caveman"));
+  assert.ok(!floor.includes("caveman-forge"));
 });
 
 check('readSkills() has "caveman-forge" and NOT the shadowed builtin "caveman"', () => {

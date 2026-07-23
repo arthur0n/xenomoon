@@ -8,7 +8,7 @@ import { PROJECT_DIR } from "../../core/config.js";
 import { parseJSON } from "../../../lib/json.js";
 import {
   BUILTIN_SKILLS,
-  ORCHESTRATOR_FRAMEWORK_SKILLS,
+  orchestratorFrameworkSkills,
   REQUIRED_ORCHESTRATOR_BUILTINS,
   getWorkspaceSkills,
 } from "./skill-catalog.js";
@@ -17,7 +17,7 @@ import {
 // pulling the built-in list + orchestrator floor + workspace reader from this module.
 export {
   BUILTIN_SKILLS,
-  ORCHESTRATOR_FRAMEWORK_SKILLS,
+  orchestratorFrameworkSkills,
   REQUIRED_ORCHESTRATOR_BUILTINS,
   getWorkspaceSkills,
 };
@@ -125,7 +125,7 @@ export function saveSkillOverrides(overrides) {
  * @returns {string[]} */
 export function resolveSessionSkills() {
   return computeSessionSkills({
-    floor: [...ORCHESTRATOR_FRAMEWORK_SKILLS, ...REQUIRED_ORCHESTRATOR_BUILTINS],
+    floor: [...orchestratorFrameworkSkills(), ...REQUIRED_ORCHESTRATOR_BUILTINS],
     candidates: [...BUILTIN_SKILLS, ...getWorkspaceSkills().map((s) => s.name)],
     overrides: getSkillOverrides(),
   });

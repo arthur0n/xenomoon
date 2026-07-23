@@ -34,6 +34,7 @@ import {
   PROJECT_LOCK_FILE,
   availableDomains,
 } from "../core/domain-resolver.js";
+import { installCapabilities } from "./install-capabilities.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
@@ -107,6 +108,14 @@ if (!domainName) {
 const DOMAIN = loadDomain(domainName, FRAMEWORK_DIR);
 // Propagate to the spawned child steps so they resolve the same domain (they also read the lock).
 process.env.XENOMOON_DOMAIN = domainName;
+
+// The PICKER's core act: install this domain's capabilities into the framework's single `plugin/`
+// tree and bake its runtime descriptor into .xenomoon.json. After this the framework is one tree and
+// there is no "domain" at runtime — nothing under domains/ is read once the server is running.
+{
+  const { copied } = installCapabilities(FRAMEWORK_DIR, domainName);
+  console.log(`new: installed "${domainName}" capabilities into plugin/ (${copied.join(", ")}).`);
+}
 
 /** Run a child step, inheriting stdio so its output streams through. @param {string[]} args */
 const node = (...args) => execFileSync("node", args, { stdio: "inherit" });

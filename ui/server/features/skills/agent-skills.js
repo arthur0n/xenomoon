@@ -14,6 +14,7 @@ import {
   expandToken,
   expectedByAudience,
 } from "./skill-registry.js";
+import { orchestratorFrameworkSkills } from "./skill-catalog.js";
 
 /** The tag token for an audience id (the ORCH sentinel writes as `orchestrator`). @param {string} id */
 const tokenFor = (id) => (id === ORCH ? "orchestrator" : id);
@@ -31,20 +32,36 @@ export function listAgentSkills() {
   const agentNames = [...agents.keys()].sort();
   const workers = agentNames.filter((n) => agents.get(n)?.tools.includes("mcp__ui__tasks"));
   const expected = expectedByAudience(skills, agentNames, workers);
-  return {
-    agents: agentNames.map((name) => {
-      const list = [...(expected.get(name) ?? new Set())].sort();
-      const core = list.filter((s) => {
-        const tokens = skills.get(s) ?? [];
-        return (
-          !tokens.includes(name) &&
-          tokens.some(
-            (t) => CORE_ALIASES.includes(t) && expandToken(t, agentNames, workers).includes(name),
-          )
-        );
-      });
-      return { name, model: agents.get(name)?.model ?? null, skills: list, core };
+  // The hive (orchestrator) is a first-class editable row: its floor is the framework skills tagged
+  // `orchestrator`/`all`. A floor skill reaching it via the `all` ALIAS (not an explicit `orchestrator`
+  // tag) is locked/core — same rule as the sub-agents below.
+  const orchFloor = orchestratorFrameworkSkills();
+  const orchRow = {
+    name: "orchestrator",
+    model: null,
+    skills: orchFloor,
+    core: orchFloor.filter((s) => {
+      const tokens = skills.get(s) ?? [];
+      return !tokens.includes("orchestrator") && tokens.includes("all");
     }),
+  };
+  return {
+    agents: [
+      orchRow,
+      ...agentNames.map((name) => {
+        const list = [...(expected.get(name) ?? new Set())].sort();
+        const core = list.filter((s) => {
+          const tokens = skills.get(s) ?? [];
+          return (
+            !tokens.includes(name) &&
+            tokens.some(
+              (t) => CORE_ALIASES.includes(t) && expandToken(t, agentNames, workers).includes(name),
+            )
+          );
+        });
+        return { name, model: agents.get(name)?.model ?? null, skills: list, core };
+      }),
+    ],
     allSkills: [...skills.keys()].sort(),
   };
 }
@@ -100,13 +117,29 @@ function writeAgentSkills(agent, skills) {
 export function applyAssignment(agent, skill, on) {
   const skills = readSkills();
   const agents = readAgents();
-  if (agent === "orchestrator" || agent === ORCH)
-    return {
-      error:
-        "the hive's skills are the framework floor (ORCHESTRATOR_FRAMEWORK_SKILLS), not recalibrated here",
-    };
-  if (!agents.has(agent)) return { error: `unknown agent: ${agent}` };
   if (!skills.has(skill)) return { error: `unknown framework skill: ${skill}` };
+
+  // The hive (orchestrator) is editable now: toggling rewrites the skill's `orchestrator` audience
+  // token, and the floor is DERIVED from tags (skill-catalog.orchestratorFrameworkSkills), so the edit
+  // takes effect next session with no drift. `all` covers the hive too — removing the hive from an
+  // `all`-tagged skill narrows it to `subagents` (every agent, not the hive).
+  if (agent === "orchestrator" || agent === ORCH) {
+    const tokens = skills.get(skill) ?? [];
+    const covered = tokens.includes("orchestrator") || tokens.includes("all");
+    /** @type {string[]} */
+    let next;
+    if (on) next = covered ? tokens : [...tokens, "orchestrator"];
+    else
+      next = [
+        ...new Set(
+          tokens.flatMap((t) => (t === "orchestrator" ? [] : t === "all" ? ["subagents"] : [t])),
+        ),
+      ];
+    writeSkillTag(skill, next);
+    return { ok: true, skills: orchestratorFrameworkSkills() };
+  }
+
+  if (!agents.has(agent)) return { error: `unknown agent: ${agent}` };
 
   const agentNames = [...agents.keys()].sort();
   const workers = agentNames.filter((n) => agents.get(n)?.tools.includes("mcp__ui__tasks"));

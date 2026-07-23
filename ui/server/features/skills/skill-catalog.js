@@ -8,6 +8,7 @@
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { readSkills } from "./skill-registry.js";
 
 /** Known Claude Code built-in skill names. Update when Claude Code ships new ones.
  * @type {string[]} */
@@ -30,18 +31,20 @@ export const BUILTIN_SKILLS = [
   "write-a-skill",
 ];
 
-/** Framework (xenomoon plugin) skills the orchestrator / main session may see. Deliberately tiny:
- * the orchestrator routes, asks, and manages the board via TOOLS — `ui/orchestrator.md` forbids it
- * from loading the domain-specific skills (those are implementers' tools, scoped per-agent via each
- * agent's frontmatter `skills:`). `quick` backs `/quick`. Terse thinking is NOT here: it is
- * sub-agents-only now (`caveman-forge`, tagged `subagents`), so the orchestrator keeps normal prose.
- * Always enabled regardless of skillOverrides — turning these off would break routing. This is the
- * `orchestrator`-token audience that gen-skill-scope.js cross-checks against the skill tags.
- * `autonomous-main-goal` is hive-only (the self-drive loop) — a plugin skill tagged `[orchestrator]`.
- * `graphify` lets the orchestrator query the game's knowledge graph (graphify-out/) for codebase /
- * architecture questions before manual grep — a thin plugin wrapper over the `graphify` CLI.
- * @type {string[]} */
-export const ORCHESTRATOR_FRAMEWORK_SKILLS = ["quick", "autonomous-main-goal", "graphify"];
+/** Framework (plugin) skills the orchestrator / main session sees — DERIVED LIVE from the skill tags,
+ * not a hardcoded list: a framework skill is on the hive floor iff its `agents:` tag names
+ * `orchestrator` (or `all`). This is what makes the hive editable from the Skills UI — toggling a
+ * skill onto/off the orchestrator rewrites its tag, and this reads that tag next session (no code edit,
+ * no drift for gen-skill-scope to catch). Read from the single `plugin/` tree; domain skills target
+ * implementer agents (never `orchestrator`), so they never leak onto the hive floor. Always enabled
+ * regardless of skillOverrides — these are the routing floor. @returns {string[]} */
+export function orchestratorFrameworkSkills() {
+  /** @type {string[]} */
+  const out = [];
+  for (const [name, tokens] of readSkills())
+    if (tokens.includes("orchestrator") || tokens.includes("all")) out.push(name);
+  return out.sort();
+}
 
 /** Claude Code BUILT-IN skills the orchestrator must ALWAYS have, regardless of skillOverrides —
  * the user can't toggle these off, and they're never offered to sub-agents (which get only their

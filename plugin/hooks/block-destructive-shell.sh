@@ -28,7 +28,10 @@ if printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]_])(dd[[:space:]]+[^|]*of=|mkfs(
 fi
 
 # Redirecting output onto a device node.
-if printf '%s' "$cmd" | grep -Eq '>[[:space:]]*/dev/[[:alnum:]]'; then
+# /dev/null and /dev/zero are the two ubiquitous BENIGN sinks (`2>/dev/null` etc.) — the
+# block is for real device nodes (/dev/sda, /dev/rdisk…), so exempt exactly those two.
+if printf '%s' "$cmd" | grep -Eq '>[[:space:]]*/dev/[[:alnum:]]' \
+  && ! printf '%s' "$cmd" | grep -Eq '>[[:space:]]*/dev/(null|zero)\b'; then
   deny "Redirecting output onto a device node (> /dev/…) is blocked by Xenomoon Forge safety policy."
 fi
 

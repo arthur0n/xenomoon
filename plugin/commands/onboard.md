@@ -29,14 +29,24 @@ Deterministic parts are scripted below; judgment parts hand to the **designer**.
 
 ## Step 2 — the judgment half → the designer
 
-Hand the inventory to the **designer** (foreground, form-driven):
+Hand the inventory to the **designer** (foreground, form-driven). **Dispatch it CLEAN: pass
+the step-1 inventory as facts, but do NOT suggest candidate rule areas or topics** — a
+pre-loaded topic list manufactures rubber-stamp questions (the designer will dutifully cite
+code for whatever you seed it with).
 
 - **Annotated CLAUDE.md merge proposal** — their content stays verbatim; the designer
   proposes ADDING the missing framework blocks (Commands mapping from step 1.4, an empty
   `## Business rules / product facts` scaffold, a NEVER-list seed). Human approves the Edit.
-- **Business-rules interview** — the designer interviews to seed the Business-rules block
-  (this is the bootstrap for the analyst's intent guardrail and the contamination
-  business-terms signal — a project without the block gets a weaker privacy gate).
+- **Business-rules interview — intent comes from what the user SAYS, never from what code
+  implies.** Code-mining is banned as a question source: a rule reverse-engineered from an
+  implemented check is a restatement of enforced code — there is nothing to decide, so it
+  is NOT a business rule for this block. The interview asks open questions ("what should
+  agents know about how this product is _meant_ to work that the code can't tell them?");
+  a rule earns the block only when it is non-obvious, decision-bearing, or has a failure
+  history. **"Nothing to capture yet" is a first-class, expected outcome** — an empty
+  scaffold plus zero rules is a SUCCESS, not a gap to fill; rules accrue later via `/learn`
+  as real work reveals them. (Why this block matters when it IS filled: it bootstraps the
+  analyst's intent guardrail and the contamination business-terms signal.)
 
 ## Step 3 — report
 

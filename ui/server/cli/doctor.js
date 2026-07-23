@@ -23,6 +23,7 @@ import { prepareGame } from "./materialize.js";
 import { AGENT_REGISTRY } from "../agents/registry.js";
 import { ensureDomainLibrary } from "../features/promotions/ensure-library.js";
 import { readPromotions, approvedPending } from "../features/promotions/promotions-store.js";
+import { locate } from "../features/promotions/promote-run.js";
 
 /** Count files with a suffix in a dir (0 if missing). @param {string} dir @param {string} suffix */
 function countFiles(dir, suffix) {
@@ -250,11 +251,24 @@ for (const c of checks) {
 // Soft: surface pending promotion requests so an approved capability never sits
 // un-promoted just because the chat scrolled away (see promotions-store.js).
 const requested = readPromotions().filter((p) => p.status === "requested").length;
-const approved = approvedPending().length;
-if (requested || approved) {
+// Applicability, not just status: an approved entry whose source is gone or whose target is
+// already core can NEVER apply — telling the user to "run promote" on those is a lie that
+// erodes trust in the board. Split appliable from dead and say which is which.
+const approvedEntries = approvedPending();
+const appliable = approvedEntries.filter((p) => {
+  const { src, dst } = locate(p.kind, p.name, PROJECT_DIR);
+  return existsSync(src) && !existsSync(dst);
+});
+const dead = approvedEntries.length - appliable.length;
+if (requested || approvedEntries.length) {
   console.log(
-    `  ⇧ promotions: ${requested} awaiting a decision, ${approved} approved — ` +
-      "run `npm run promote -- --pending` to apply the approved ones.",
+    `  ⇧ promotions: ${requested} awaiting a decision, ${appliable.length} approved+appliable` +
+      (appliable.length ? " — run `npm run promote -- --pending` to apply" : "") +
+      (dead
+        ? `; ${dead} approved but UN-APPLIABLE (source gone or target already core) — ` +
+          "reject them on the board with a reason, or re-route the content via /learn"
+        : "") +
+      ".",
   );
 }
 

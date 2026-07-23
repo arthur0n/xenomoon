@@ -6,7 +6,7 @@
 // re-runnable any time.
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { PROJECT_DIR, getOnboarded, markOnboarded } from "./config.js";
+import { PROJECT_DIR, CORE_PLUGIN_DIR, getOnboarded, markOnboarded } from "./config.js";
 
 /** @typedef {import("@anthropic-ai/claude-agent-sdk").SDKUserMessage} SDKUserMessage */
 
@@ -29,10 +29,13 @@ export function maybeKickoffOnboarding(push) {
           type: "text",
           text:
             "[First boot] This install just bound a project that already uses Claude. " +
-            "Run /onboard now — inventory its CLAUDE.md and .claude/skills, report hook " +
-            "conflicts, map its commands, and hand the merge proposal + business-rules " +
-            "interview to the designer. Every write is human-gated. When it finishes, " +
-            "tell the user to START A NEW SESSION so the results load.",
+            `Read ${path.join(CORE_PLUGIN_DIR, "commands", "onboard.md")} and follow it ` +
+            "EXACTLY, now — it inventories the project's CLAUDE.md and .claude/skills, " +
+            "reports hook conflicts, maps its commands, and hands the merge proposal + " +
+            "business-rules interview to the designer. (Slash commands are user-typed — " +
+            "you execute the FILE's instructions, don't try to invoke /onboard.) Every " +
+            "write is human-gated. When it finishes, tell the user to START A NEW SESSION " +
+            "so the results load.",
         },
       ],
     },

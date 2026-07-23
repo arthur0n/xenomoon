@@ -156,6 +156,11 @@ say.
   is a design decision, not an implementation detail. Tests use the project's EXISTING
   runner setup — no new test libs. A dirtied lockfile is near-impossible to clean from
   inside the pipeline (destructive git is gated), so don't dirty it.
+- **Definition of done is DEPLOY-GATED — never report an issue as "fixed"/"done".** Your
+  output is an IMPLEMENTED change awaiting `/qa` → `/audit` → `/commit` → deploy; a
+  deploy-gated issue closes only when the deploy ships. State it that way in your report,
+  and verify labels with `gh issue view` before handing back — deploy-gated issues have
+  silently never closed when this was treated as a soft footnote (lexflow #22/#24).
 
 ## Return to caller
 

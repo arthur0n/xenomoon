@@ -28,12 +28,13 @@
     "check:skills": "node ui/server/cli/gen-skill-scope.js",
     "check:agents": "node ui/server/cli/agents-lint.js",
     "check:agnostic": "bash scripts/check-spine-agnostic.sh",
+    "check:contamination": "node ui/server/cli/gen-contamination.js",
     "test": "node --test $(find ui -name '*.test.js' -not -path '*/node_modules/*') && node ui/reducer.check.js && node ui/server/features/skills/skills.check.js",
     "test:onboarding": "node ui/server/cli/onboarding.check.js",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix --max-warnings 0",
     "format": "prettier --write .",
-    "validate": "npm run check && npm run lint && npm run check:structure && npm run check:skills && npm run check:agents",
+    "validate": "npm run check && npm run lint && npm run check:structure && npm run check:skills && npm run check:agents && npm run check:agnostic && npm run check:contamination",
     "prepare": "husky || true"
   },
   "dependencies": {

@@ -6,18 +6,21 @@
 // Usage: npm run doctor                  (the configured game, see config.js)
 //        npm run doctor -- /path/to/game
 //        node ui/server/cli/doctor.js /path/to/game
-import { existsSync, readdirSync, lstatSync } from "node:fs";
+import { existsSync, readdirSync, lstatSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import {
   PROJECT_DIR,
+  FRAMEWORK_DIR,
   FRAMEWORK_PLUGIN_DIR,
   ENGINE,
   ENGINE_LABEL,
   DOMAIN,
   RES_ASSET_MOUNT,
 } from "../core/config.js";
+import { parseJSON } from "../../lib/json.js";
 import { prepareGame } from "./materialize.js";
+import { AGENT_REGISTRY } from "../agents/registry.js";
 import { ensureDomainLibrary } from "../features/promotions/ensure-library.js";
 import { readPromotions, approvedPending } from "../features/promotions/promotions-store.js";
 
@@ -37,6 +40,66 @@ function countDirs(dir) {
   } catch {
     return 0;
   }
+}
+
+/** The engines.node floor from package.json, e.g. ">=18". @returns {string} */
+function enginesNode() {
+  try {
+    const pkg = /** @type {{ engines?: { node?: string } }} */ (
+      parseJSON(readFileSync(path.join(FRAMEWORK_DIR, "package.json"), "utf8"))
+    );
+    return pkg.engines?.node ?? ">=18";
+  } catch {
+    return ">=18";
+  }
+}
+
+/** @returns {boolean} */
+function nodeOk() {
+  const major = enginesNode()
+    .replace(/[^0-9.]/g, "")
+    .split(".")[0];
+  const floor = major ? Number(major) : 18;
+  return Number(process.versions.node.split(".")[0]) >= floor;
+}
+
+/** @returns {boolean} */
+function ghAuthOk() {
+  try {
+    execFileSync("gh", ["auth", "status"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Soft probe rows for the ENABLED paid integrations (hermes/codex/kimi) — data-driven from
+ * the agents registry so a future agent joins doctor for free.
+ * @returns {Promise<{ ok: boolean, hard: boolean, label: string }[]>} */
+async function integrationRows() {
+  /** @type {{ ok: boolean, hard: boolean, label: string }[]} */
+  const rows = [];
+  for (const agent of AGENT_REGISTRY) {
+    const status = agent.publicConfig();
+    if (!status.enabled) continue;
+    let verdict;
+    try {
+      verdict = /** @type {{ ok?: boolean, error?: string, caveat?: string }} */ (
+        await agent.check({})
+      );
+    } catch (e) {
+      verdict = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+    rows.push({
+      ok: verdict.ok === true,
+      hard: false,
+      label:
+        verdict.ok === true
+          ? `${agent.label} enabled and ready${verdict.caveat ? ` (⚠ ${verdict.caveat})` : ""}`
+          : `${agent.label} enabled but NOT ready — ${verdict.error ?? verdict.caveat ?? "check failed"} (npm run ${agent.id}:check)`,
+    });
+  }
+  return rows;
 }
 
 /** @returns {boolean} */
@@ -158,6 +221,22 @@ const checks = [
     label:
       "graphify on PATH (optional — codebase knowledge-graph; install: uv tool install graphifyy)",
   },
+  {
+    ok: nodeOk(),
+    hard: false,
+    label: `node ${process.versions.node} (engines wants ${enginesNode()})${nodeOk() ? "" : " — upgrade node"}`,
+  },
+  {
+    ok: ghAuthOk(),
+    hard: false,
+    label: ghAuthOk()
+      ? "gh CLI authenticated"
+      : "gh CLI not authenticated — run `gh auth login` (issue pipeline needs it)",
+  },
+  // Paid external agents — a soft probe per ENABLED integration (a disabled one is not a
+  // problem; an enabled-but-broken one is the silent failure this catches). Fix hints come
+  // from each probe's own error text.
+  ...(await integrationRows()),
 ];
 
 console.log(`doctor: checking ${PROJECT_DIR}`);

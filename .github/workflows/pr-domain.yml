@@ -1,0 +1,40 @@
+# Fork-PR domain gate — a learning PR from an install may ONLY touch domain packs (+ docs).
+# Machine-checks the scope, then runs the contamination + agnostic + validate gates over the
+# result, so a domain contribution is verified before any human reads it (CONTRIBUTING.md).
+# Full-repo (spine) PRs from maintainers skip the scope check via the "spine" label.
+name: pr-domain
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  domain-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Path scope (learning PRs touch domains/** + docs only)
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'spine') }}
+        run: |
+          base="origin/${{ github.base_ref }}"
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          bad=$(git diff --name-only "$base"...HEAD -- \
+            | grep -vE '^(domains/|docs/|CONTRIBUTING\.md$|CHANGELOG\.md$)' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::PR touches non-domain paths (label 'spine' for a framework PR):"
+            echo "$bad"
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm run check:contamination
+      - run: npm run check:agnostic
+      - run: npm run validate
+        env:
+          XENOMOON_DOMAIN: webapp
+      - run: npm test
+        env:
+          XENOMOON_DOMAIN: webapp

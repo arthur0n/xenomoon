@@ -21,9 +21,9 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-      # The full local gate (tsc + eslint + structure + skills + contamination) plus the
-      # check-script tests — otherwise both live only in the bypassable husky hook.
-      # validate includes check:structure.
+      # The full local gate — tsc + eslint + structure + skills + agents + agnostic +
+      # contamination (as of the install-learn work, validate REALLY runs all of these) —
+      # plus the check-script tests; otherwise both live only in the bypassable husky hook.
       - run: npm run validate
       - run: npm test
       # Exports the repo as a forker receives it (git archive of tracked files),

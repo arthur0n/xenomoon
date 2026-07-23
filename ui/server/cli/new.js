@@ -22,6 +22,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { execFileSync } from "node:child_process";
+import readline from "node:readline/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
@@ -60,7 +61,18 @@ if (domainFlag && existingLock && domainFlag !== existingLock) {
   );
   process.exit(1);
 }
-const domainName = domainFlag ?? existingLock;
+let domainName = domainFlag ?? existingLock;
+if (!domainName && process.stdin.isTTY && process.stdout.isTTY) {
+  // Interactive up-front ask — TTY-only, and ONLY for a missing value, so scripted/CI
+  // invocations (test:onboarding passes --domain) stay byte-identical.
+  const avail = availableDomains(FRAMEWORK_DIR);
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  domainName =
+    (await rl.question(
+      `Domain for this project${avail.length ? ` (${avail.join(" | ")})` : ""}: `,
+    )) || null;
+  rl.close();
+}
 if (!domainName) {
   const avail = availableDomains(FRAMEWORK_DIR);
   console.error(
@@ -188,6 +200,36 @@ node(path.join(here, "materialize.js"), target);
 
 // 4. Health check — fails loudly if anything didn't land.
 node(path.join(here, "doctor.js"), target);
+
+// 5. Up-front integrations offer (TTY-only, skip-friendly): ask ONCE at install instead of the
+//    user discovering hermes/codex/kimi mid-work in the Settings portal. Each answers y → the
+//    existing setup script runs; anything else skips cleanly (the portal can enable it later).
+if (process.stdin.isTTY && process.stdout.isTTY) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  for (const [id, blurb] of [
+    ["hermes", "external researcher (Nous billing)"],
+    ["codex", "adversarial code reviewer (OpenAI/ChatGPT billing)"],
+    ["kimi", "external coder over ACP (Moonshot billing)"],
+  ]) {
+    const a = (await rl.question(`Configure ${id} — ${blurb}? [y/N] `)).trim().toLowerCase();
+    if (a === "y" || a === "yes") {
+      try {
+        execFileSync("npm", ["run", `${id}:setup`], { stdio: "inherit" });
+      } catch {
+        console.warn(`new: ${id}:setup failed — enable it later via ⚙ Settings.`);
+      }
+    }
+  }
+  rl.close();
+}
+
+// 6. Existing-Claude-project hint: their CLAUDE.md/.claude deserve the negotiated onboarding.
+if (existsSync(path.join(target, ".claude")) || existsSync(path.join(target, "CLAUDE.md"))) {
+  console.log(
+    `\nnew: this project already uses Claude — run /onboard in the first session to map its ` +
+      `CLAUDE.md + skills into the framework (nothing is overwritten; every write is approved).`,
+  );
+}
 
 console.log(
   `\nnew: done (domain "${domainName}"). Next:\n    npm start ${target}      # web UI — loads the domain plugin automatically\n  or open ${target} in terminal Claude Code after the one-time /plugin install above.`,

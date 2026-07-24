@@ -36,10 +36,10 @@
           "id": "godot-docs-memoize",
           "estSavingTok": 55000,
           "landed": true,
-          "moved": "pending",
+          "moved": false,
           "deltaTok": null,
           "deltaCost": null,
-          "result": "Applied in-session dedup: ui-control.js docsDedupDecision denies a repeat get_class with a scroll-up stub (~20k→~30 chars/repeat), wired in makeCanUseTool; verified in session.test.js. Δ confirmed on next audit global snapshot. Permanent dated-trimmed cross-session cache = framework tech-debt D9-docs-cache-dated."
+          "result": "RETIRED — godot-only (dedups mcp__godot-docs__godot_docs_get_class). godot is upstream-only here; this fork runs webapp/app domains, so the marker never fires and it can never be confirmed in-fork. The agnostic version (dedup immutable external-docs re-fetches) ships as read-dedup for files; refile fresh under an agnostic id if a webapp docs-MCP needs it."
         }
       ],
       "processNote": "First run. Costliest turns = cache_read on standing orchestrator context (inherent). Applied result-bytes-by-tool sweep to token-audit.md step 3."
@@ -128,6 +128,46 @@
       "topOffender": "Read 485× 2.45M chars (~610k tok) — edit-interleaved current-state refetches, legit",
       "opportunities": [],
       "processNote": "No convertible turns: 07-02T17-29 is legit game-building (38 judgment agents, edit-driven reads, cache_read orchestrator ctx); 07-03T10-35-53 is a 6-line status stub. godot-docs 2 distinct classes, dedup fired 0×."
+    },
+    {
+      "date": "2026-07-24",
+      "sessions": [
+        "2026-07-23T20-05-49-381Z",
+        "2026-07-23T18-56-50-528Z"
+      ],
+      "covered": {
+        "input": 18079,
+        "output": 246772,
+        "cacheCreate": 921260,
+        "cacheRead": 59364864,
+        "cost": 1534.3083,
+        "total": 60550975,
+        "turns": 48,
+        "hitRate": 98,
+        "costPerSession": 767.1541,
+        "costPerTurn": 31.9648,
+        "incompleteSessions": []
+      },
+      "global": {
+        "cost": 1535.8097,
+        "total": 61027772,
+        "hitRate": 98,
+        "sessionCount": 3,
+        "incompleteSessions": 0
+      },
+      "topOffender": "Read churn: 156/323 full re-reads with no intervening edit ≈218k tok/session",
+      "opportunities": [
+        {
+          "id": "read-dedup",
+          "estSavingTok": 200000,
+          "landed": true,
+          "moved": "pending",
+          "deltaTok": null,
+          "deltaCost": null,
+          "result": "Applied PreToolUse(Read) dedup hook plugin/hooks/read-dedup.sh: denies a byte-identical repeat read (same path+offset+limit, mtime unchanged, last real read within WINDOW=20 read-events) with a stub; emits policy:\"read-dedup\" per denial. Next audit tallies denials × ~1.4k tok. Safe-window scoped so post-compaction re-hydration passes."
+        }
+      ],
+      "processNote": "PreToolUse Read-dedup hook: deny recent unchanged (mtime) repeat full-reads with a stub, log policy:read-dedup; per-event unit ≈1.4k tok"
     }
   ]
 }

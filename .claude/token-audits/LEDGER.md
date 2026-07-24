@@ -30,8 +30,20 @@ Entry template:
 2026-07-08T17-28-15-668Z
 2026-07-08T20-33-26-012Z
 2026-07-09T15-44-24-254Z
+2026-07-23T18-56-50-528Z
+2026-07-23T19-15-28-806Z
+2026-07-23T20-05-49-381Z
 
 ## Audits (newest first)
+
+### 2026-07-24 — sessions: 07-23T20-05, 07-23T18-56 (stub 07-23T19-15 → covered, no slot; 07-23T16-13 left uncovered for next run)
+
+- Offenders: **Read churn.** 07-23T20-05 is a big lexflow (webapp domain) coding session ($70–82/turn, 6 turns of pure cache_read on standing orchestrator ctx — inherent, not convertible). Payload leader = `Read` (393 calls, 2.19M chars ≈ 547k tok). Of 323 **full** reads, **156 (~48%) are re-reads of the same path with NO intervening Edit/Write** — identical file content re-entering context (allowance.ts 24 full reads / 9 edits, ai.router.ts, subscription.ts, docs/monetization.md 12 full / 3 edits, …) ≈ **218k tok/session** of pure churn. Bash (538 calls, 1.09M chars) is #2 but dominated by legit validate/build (`rtk pnpm validate` ×36, `build` ×17) + the issue-view jq comment-cap heredoc — not convertible. 07-23T18-56 = tiny (10 Bash, ~$1–2/turn) → no offender.
+- Opportunity: **PreToolUse Read-dedup hook** — on a `Read` whose (path, offset, limit) matches a RECENT prior read this session with the file's **mtime unchanged**, deny with a stub ("unchanged since turn N — content already in context; re-read only if compacted") and log `policy:"read-dedup"`. Deterministic (mtime is exact), DEDUPs the payload (~1.4k tok/full read out of context), and COUNTABLE. **Scope to a safe window** (recent reads only) so post-compaction re-hydration reads still pass — a far-apart re-read after a summary is legit. → **TASK (owner:user)** [id `read-dedup`, est ~200k tok/session ceiling] — **APPLIED 2026-07-24** as `plugin/hooks/read-dedup.sh` (PreToolUse Read, WINDOW=20); landed `pending` — next audit counts `policy:"read-dedup"` × ~1.4k tok.
+- Signal to instrument: `policy:"read-dedup"` once per denied repeat; per-event unit ≈ **1.4k tok** (avg full-read payload). Next audit tallies denials × 1.4k → hard actual.
+- Pending re-check: `godot-docs-memoize` **RETIRED** (`moved:false`) — it dedups the godot-only `mcp__godot-docs__godot_docs_get_class`, but godot is upstream-only here and this fork runs webapp/app domains, so the marker can never fire in-fork → it was rotting `pending` every run, unconfirmable by construction. The agnostic form (dedup immutable external-docs re-fetches) ships as `read-dedup` for files; refile fresh under an agnostic id if a webapp docs-MCP ever needs it.
+- **Rule (naming):** token-loop opportunity ids must be **domain-agnostic** — no engine/product names (`godot-*`, etc.). An engine-specific id in a domain-agnostic fork strands the opportunity as un-fireable. Name the CLASS of fix (`mcp-docs-dedup`), not the instance.
+- Process note: Added a named "Read churn (no-mutation re-reads)" sweep to step 3 of token-audit.md — the existing sweeps (costliest/tool-freq/result-bytes) structurally can't tell wasteful identical re-reads from edit-driven ones; this offender only surfaced via an ad-hoc awk one-liner, now reproducible.
 
 ### 2026-07-09 — sessions: 07-08T17-28, 07-08T20-33, 07-09T15-44
 

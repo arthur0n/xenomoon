@@ -53,6 +53,12 @@ and critiques itself. You won't get it right the first time — that's expected.
      prefix rebuilt instead of reused.
    - **Costliest turns** — sort `result` lines by `total_cost_usd` (or token total) and ask
      what that money bought.
+   - **Read churn (no-mutation re-reads)** — full re-reads of a path with NO intervening
+     `Edit`/`Write` since the last read of it: identical file content re-entering context for
+     free. Distinct from result-bytes (which aggregates a tool's payload but can't tell a
+     legitimate edit-driven re-read from a wasteful one). A path re-read ×20+ with only a
+     handful of edits is the tell; a per-file ratio near 1 edit/read is legitimate, so judge on
+     the ratio, not the raw count.
 
    Example sweep (adapt; `$LOGS` = `logs`). Filter the ndjson with `jq
 select(...)` directly — do NOT pipe `rtk grep` into `jq`: rtk's grep filter mangles JSON and breaks
@@ -63,6 +69,12 @@ select(...)` directly — do NOT pipe `rtk grep` into `jq`: rtk's grep filter ma
      `jq -rc 'select(.type=="event" and .message.type=="assistant")|.message.message.content[]?|select(.type=="tool_use")|[.id,.name]|@tsv' "$LOGS/<file>" > /tmp/ids.tsv`
      `jq -rc 'select(.type=="event" and .message.type=="user")|.message.message.content[]?|select(.type=="tool_result")|[.tool_use_id,(((.content//"")|if type=="array" then (map(.text//"")|join("")) else tostring end)|length)]|@tsv' "$LOGS/<file>" > /tmp/res.tsv`
      `awk -F'\t' 'NR==FNR{n[$1]=$2;next}{k=n[$1];k=(k==""?"?":k);t[k]+=$2;c[k]++}END{for(x in t)printf "%-30s calls=%-5d chars=%d avg=%d\n",x,c[x],t[x],t[x]/c[x]}' /tmp/ids.tsv /tmp/res.tsv | sort -t= -k3 -rn`
+   - **Read churn (no-mutation re-reads):** emit a `ts	kind	path` stream — `R` for a full `Read`
+     (no `.input.offset`/`.input.limit`), `M` for `Edit`/`MultiEdit`/`Write` — then per path count
+     each `R` with no `M` since its previous `R`. Those are wasteful identical re-reads; a path
+     high on this list with few `M`s is the offender (multiply the count by that file's rough
+     read-size in tokens for the spend).
+     `jq -rc 'select(.type=="event" and .message.type=="assistant")|.message.message.content[]?|select(.type=="tool_use")|select(.name=="Read" or .name=="Edit" or .name=="MultiEdit" or .name=="Write")|[(if .name=="Read" then (if (.input.offset or .input.limit) then "P" else "R" end) else "M" end),(.input.file_path//"")]|@tsv' "$LOGS/<file>" | awk -F'\t' '$1=="M"{m[$2]=1;next} $1=="R"{if(!m[$2])w[$2]++; m[$2]=0} END{for(p in w)print w[p],p}' | sort -rn | head`
 
 4. **Judge opportunities.** For each pattern, ask: _could this run without a model?_ If yes,
    name it concretely — the operation, its rough token/$ cost over the sessions seen, and the
@@ -112,8 +124,11 @@ select(...)` directly — do NOT pipe `rtk grep` into `jq`: rtk's grep filter ma
    - **Confirm every open pending — a forward-looking fix must not rot unmeasured.** Enumerate them
      deterministically: `node ui/server/cli/token-history.js pending` (add `--json` to consume the
      list). For EACH id it prints, try to confirm this run — don't skip one just because it's noisy:
-     - **Countable signal** (step 4 named a marker): count it across the sessions you just covered —
-       `jq -rc 'select(.type=="event" and .message.type=="assistant")|.message.message.content[]?|select(.policy=="<marker>")' <logs> | wc -l` —
+     - **Countable signal** (step 4 named a marker): count it across the sessions you just covered.
+       The marker may live as a `.policy` FIELD on an assistant tool_use (in-process canUseTool
+       denials) OR as literal TEXT in a `tool_result` reason (PreToolUse **hook** denials, e.g.
+       `policy:"read-dedup"`) — so match the marker STRING everywhere, don't select one field:
+       `jq -rc 'select(.type=="event")|..|strings' <logs> | /opt/homebrew/bin/rg -c 'policy:"<marker>"'` —
        and if it fired, multiply by the per-event token unit and flip to a hard actual with
        `token-history.js land --opp <id> --moved true --delta-tok <count×unit>`. A direct count is
        deterministic confirmation; it retires a `pending` without waiting on noisy global drift.

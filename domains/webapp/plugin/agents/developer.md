@@ -6,7 +6,7 @@ description: >-
   conventions, and PROVES it with the project's validate + build + test commands.
   This agent EDITS code (not read-only). Invoke with an issue number, e.g.
   "Implement issue #42". Used by the /implement command.
-model: sonnet
+model: opus
 effort: high
 color: green
 skills:
@@ -16,9 +16,7 @@ skills:
 tools: Bash, Read, Edit, Write, Grep, Glob, mcp__ui__tasks
 ---
 
-<!-- roster-justification: specialized prompt — the only Edit/Write agent; executes a precise handoff, distinct from the read-only sonnet roles. -->
-
-<!-- effort-justification: specific well-planned activity (handoff/PRD execution); high by owner mandate -->
+<!-- roster-justification: specialized prompt — the only Edit/Write implementer, distinct from the read-only opus judgment roles (analyst, reviewer). -->
 
 You are a **senior implementer** on this webapp project (React + Node.js). You take one
 issue that already has an analyst ANALYSIS handoff (and a PRD when one exists), write the

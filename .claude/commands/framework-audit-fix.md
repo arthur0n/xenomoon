@@ -21,15 +21,18 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
 ## Where the data lives (repo-relative; cwd = forge root)
 
 - **Ledger:** `.claude/framework-audits/LEDGER.json` — the SOURCE OF TRUTH (a `findings[]` array) for
-  ids, fixes, status. `LEDGER.md` / `ledger.html` are GENERATED VIEWS — never hand-edit; run
-  `npm run ledger` after any write. Schema: `.claude/framework-audits/README.md`.
-- **Targets:** `plugin/skills/*/SKILL.md`, `plugin/agents/*.md`, `ui/orchestrator.md`,
-  `plugin/commands/*.md`, the forge-local `.claude/commands/*.md` (the self-improvement commands —
-  when a D7 finding targets an audit command itself), `plugin/library/{transcripts,verdicts}/`.
+  ids, fixes, status. `LEDGER.md` is a VIEW — hand-sync it after any write (no `npm run ledger`
+  regen script exists in this fork). Schema: `.claude/framework-audits/README.md`.
+- **Targets:** `plugin/skills/*/SKILL.md`, `plugin/agents/*.md`, `domains/*/orchestrator.md` (the
+  pack source; `plugin/orchestrator.md` once installed), `plugin/commands/*.md`, the forge-local
+  `.claude/commands/*.md` (the self-improvement commands — when a D7 finding targets an audit command
+  itself), `plugin/library/**/*.md` (records a domain pack installs; CORE ships only `README.md` +
+  `token-audits/`).
 - Editing a plugin file directly **is** the sanctioned path for a general improvement
   (`plugin/docs/process/promotion.md`: "General improvement → edit the file directly in the
-  plugin"). A skill stays game-agnostic; the game's own FACTS live GAME-LOCAL (the game repo), NOT
-  in `plugin/library/` (it symlinks/ships to every game). `plugin/library/` is for AGNOSTIC records.
+  plugin"). A skill stays domain-agnostic; the project's own FACTS live PROJECT-LOCAL (the bound
+  project repo), NOT in `plugin/library/` (it ships to every project). `plugin/library/` is for
+  AGNOSTIC records.
 - **Search with the Grep TOOL or `/opt/homebrew/bin/rg` (full path), NEVER bash `grep`** — the `rtk`
   hook silently drops/mangles matches, so a rename/re-tag sweep done with bash grep WILL miss refs.
   Don't reach for `graphify query` for a fix sweep either: it stores STRUCTURE, not prose, so the
@@ -61,16 +64,16 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
      examples. `rtk npm run validate` (gen-skill-scope) catches the wiring; sweep the prose with the
      Grep tool.
    - **D2 (decontaminate skill):** rewrite the skill passage generically — strip it to the METHOD
-     (no game/character/arena/binary names, no hardcoded paths). The game's specific FACTS already
-     live game-local (check the game repo's `design/`/scenes FIRST); do NOT copy the worked example
-     into `plugin/library/` (it ships to every game = re-contamination). Apply to agent prompts +
-     cache namespaces too, not just skills.
+     (no project/entity/binary names, no hardcoded paths). The project's specific FACTS already
+     live project-local (check the bound project repo's `.claude/`/`design/` FIRST); do NOT copy the
+     worked example into `plugin/library/` (it ships to every project = re-contamination). Apply to
+     agent prompts + cache namespaces too, not just skills.
    - **D3 (rename for honest scope):** rename the skill dir + `name:` frontmatter + title, then sweep
      EVERY reference with the **Grep tool** (not bash grep) — agents' frontmatter `skills:` AND body
-     refs, the skill's `agents:` tag, cross-skill Requirements, `plugin/library/` records, game-repo
+     refs, the skill's `agents:` tag, cross-skill Requirements, `plugin/library/` records, project-repo
      files, and any archived raw file carrying the old name. Wide blast radius — verify zero of the
      old name remains. (For a PARADIGM-scope fix, don't rename: just tighten the skill's
-     `description`/intro to declare its paradigm, e.g. "top-down/orthographic only".)
+     `description`/intro to declare the paradigm it's actually for.)
    - **D4 (add data-driven variant):** add the Resource / `.tres` / `@export`-driven section the
      finding named; keep the existing canonical path, add the data-driven one beside it.
    - **D5 (extract shared block → skill):** for CROSS-agent duplication — create the new shared skill
@@ -81,27 +84,29 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
      statement, KEEPING the fleet-standard intro + `## What you never do` scaffold (cut only the THIRD+
      echo, or the fleet's ~20 agents go inconsistent), and point the other mentions at the canonical
      one. "State each constraint once" means collapse the redundant echoes, not delete the scaffold.
-   - **D6 (orchestrator):** apply the recorded edit to `ui/orchestrator.md` (centralize a
-     duplicated directive, move dense prose into a skill, or trim).
+   - **D6 (orchestrator):** apply the recorded edit to the domain orchestrator
+     `domains/*/orchestrator.md` (`plugin/orchestrator.md` once installed) — centralize a duplicated
+     directive, move dense prose into a skill, or trim.
    - **D7 (command):** edit the target command per the finding — a shipped `plugin/commands/*.md`
      or a forge-local `.claude/commands/*.md` (the self-improvement commands audited under D7).
    - **D8 (verification-flow gap):** apply the recorded edit at the named layer — add the missing
-     `## Verification (mandatory)` block to the builder, wire the claimed step into
-     `plugin/tools/lib/checks.sh` / `plugin/tools/validate.sh` (or correct the skill's claim), or
-     replace a re-taught passage with a pointer to the owning skill, or REMOVE a redundant/superseded
-     check whose job a live gate already does (an orphan `check_*` no gate composes and no skill
-     documents, competing with the framework's own convention — e.g. the `smoke_*.gd` auto-glob) —
-     delete it and confirm `rg` shows zero remaining refs. A new gate check graduates as a
-     `check_*` function in `plugin/tools/lib/checks.sh`.
+     `## Verification` block to a domain builder, wire the claimed check into the framework gate (the
+     relevant `check:*` script — `ui/structure.check.js`, `gen-skill-scope.js`, `agents-lint.js`,
+     `scripts/check-spine-agnostic.sh`, `gen-contamination.js` — or the active domain pack's own
+     gate) or correct the skill's claim, or replace a re-taught passage with a pointer to the owning
+     skill, or REMOVE a redundant/superseded check whose job a live gate already does (an orphan check
+     no gate composes and no skill documents) — delete it and confirm `rg` shows zero remaining refs.
+     A new gate check graduates as a `check:*` script wired into `npm run validate`.
    - **D9 (harness simplification):** **strip** — apply the agreed removal/down-tier (edit the
      agent's `model:` / skill list, trim the scaffold, drop the dead gate step), then confirm the
      sample task + full verify still pass (a strip must not regress the gate). Deleting a WHOLE agent
      bites two spots no gate guards: hand-fix FEATURES.md `## Agents (N)` count (validate skips
      badges — a stale count ships silent) and correct any SIBLING ledger row that counts/names it
-     (e.g. `13 sonnet + 2 haiku`). Or **harden** — draft the named `check_*` / tool into
-     `plugin/tools/lib/checks.sh` (or `plugin/tools/`). For a GDScript analyzer-warning gap
-     (SHADOWED*\*, CONFUSABLE*\_, UNSAFE\__, etc.), the canonical harden is NOT a bespoke `check__`that re-implements the engine — escalate the missing`gdscript/warnings/<name>=2`in`starter/project.godot`'s `[debug]`block so it rides the existing`check*parse`/`check_warnings_config`machinery (like its ~19 siblings), and sync the godot-code-rules
-     "Warnings reference" list. Reserve a bespoke`check\*_` for gaps the analyzer can't express.
+     (e.g. `13 sonnet + 2 haiku`). Or **harden** — draft the named check as a `check:*` script in
+     `ui/server/cli/` wired into `npm run validate` (the fork's gate machinery). The canonical
+     harden is NOT a bespoke checker that re-implements an existing analyzer — prefer escalating a
+     linter/tsc rule (eslint config, tsconfig strictness) so the gap rides the existing
+     `check`/`lint` machinery; reserve a bespoke script for gaps no existing analyzer can express.
    - **D10 (split the fused altitude):** carve the GENERIC baseline out of the domain-named
      capability into its own neutral capability (skill/agent), then rewrite BOTH the original payload
      and any sibling to LAYER their domain deltas on top of the neutral base — never let one aesthetic
@@ -129,7 +134,7 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
    was fixed" record, so the ledger stays lean — no `done` findings accumulate as distraction). If it
    clears the LAST `open`/`fix-now` finding anywhere in the ledger (the whole backlog is resolved),
    set `lastAudit` to a fresh one-line summary. Leave `later`/`skip` and un-applied findings untouched.
-   Then run `npm run ledger` to regenerate `LEDGER.md` / `ledger.html` (never hand-edit those).
+   Then hand-sync the `LEDGER.md` view (no `npm run ledger` regen script exists in this fork).
 6. **Self-critique (in a subagent).** This is self-improvement — improve the loop, not just the fix.
    Dispatch this critique to a throwaway subagent so its reasoning never becomes main-window context
    debt: hand it the run's notes and have it flag anything that tripped the apply (a dimension
@@ -153,8 +158,8 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
   what your edits touched; fix or revert the offending id rather than leaving it red. But first
   confirm the red is yours (check vs pre-edit state / scope to the finding's files) — never
   misattribute a pre-existing red from unrelated uncommitted WIP to a fix that can't have caused it.
-- **Keep skills game-agnostic** — strip any game-specific content to the METHOD; the game holds its
-  FACTS game-local (`plugin/library/` = AGNOSTIC records only).
+- **Keep skills project-agnostic** — strip any project-specific content to the METHOD; the project
+  holds its FACTS project-local (`plugin/library/` = AGNOSTIC records only).
 - **Search with the Grep tool / full-path `rg`** — the `rtk` hook drops matches from bash `grep`,
   so a rename/re-tag sweep needs `rg`'s completeness.
 - **Prefix every shell command with `rtk`.**

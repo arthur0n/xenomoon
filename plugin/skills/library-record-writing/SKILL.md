@@ -32,4 +32,4 @@ Once the thing you evaluated is actually installed/built and USED, append a tiny
 - **What** — the one fact worth remembering.
 - **Why** — why it matters / what it prevents next time.
 - **Gotcha** — the trap that bit us (a broken assumption, a sharp edge).
-- **Universal vs game** — generalizes to any game, or specific to THIS one? Concrete game facts (scene names, exact numbers, this game's own bugs) use the placeholder standard (`docs/process/promotion.md`, criterion 1) or stay in the GAME's own local library — never in `library/` (it ships to every game).
+- **Universal vs project** — generalizes to any project, or specific to THIS one? Concrete project facts (exact business names/numbers, this project's own data model or bugs) use the placeholder standard (`plugin/docs/process/promotion.md`, criterion 1) or stay in the project's own local library — never in `library/` (it ships to every install).

@@ -1,17 +1,17 @@
-// Materialize the framework's per-game working files into a game directory, so the
-// committed game stays pure (both are gitignored) while the plugin remains the single
+// Materialize the framework's per-project working files into a project directory, so the
+// committed project stays pure (both are gitignored) while the plugin remains the single
 // source of truth. Regenerated deterministically on server startup, `doctor`, `forge new`.
 //
 //   • tools/   — COPIED (recursively) from plugin/tools. A binary-backed engine runs the
 //                verify/gen helpers from inside the project, so they must be real
-//                files in the game. Read-only at runtime; new tools are added to the plugin.
+//                files in the project. Read-only at runtime; new tools are added to the plugin.
 //                Recursion also brings tools/lib/ — the runtime stdlib of class_name helpers
-//                the game preloads (NodeBuilder, MeshFlasher, …).
+//                the project preloads (NodeBuilder, MeshFlasher, …).
 //   • library/ — SYMLINKED to plugin/library. Researcher agents READ sources and WRITE
 //                verdicts/digests here; a symlink keeps the framework the single source
-//                so that knowledge persists in the plugin, not a throwaway game copy.
+//                so that knowledge persists in the plugin, not a throwaway project copy.
 //   • x-shared-assets/ — SYMLINKED to the external asset library (config.js ASSET_LIBRARY):
-//                free-library example assets the game uses but keeps OUTSIDE its tree. Unlike
+//                free-library example assets the project uses but keeps OUTSIDE its tree. Unlike
 //                library/, this link carries no scan-ignore marker — the engine must scan it.
 import {
   existsSync,
@@ -36,7 +36,7 @@ const LIB_SRC = path.join(FRAMEWORK_PLUGIN_DIR, "library");
 
 /** Copy plugin/tools → <projectDir>/tools (recursively, including tools/lib/ — the runtime
  * stdlib), overwriting only when the source is newer or the file is missing. Additive: never
- * deletes files it didn't write, so a game's own tools survive.
+ * deletes files it didn't write, so a project's own tools survive.
  * @param {string} projectDir @returns {{copied:number, fresh:number}} */
 export function materializeTools(projectDir) {
   const tally = { copied: 0, fresh: 0 };
@@ -82,7 +82,7 @@ function isShebangScript(file) {
 
 /** Ensure <projectDir>/library is a symlink to the plugin's library (the single source
  * researcher agents read and write). Idempotent: repoints a stale link, but leaves a real
- * directory in place untouched (a game that committed its own library) rather than
+ * directory in place untouched (a project that committed its own library) rather than
  * clobbering it. @param {string} projectDir @returns {{linked:boolean, reason:string}} */
 export function ensureLibraryLink(projectDir) {
   if (!existsSync(LIB_SRC)) return { linked: false, reason: "no plugin library" };
@@ -106,12 +106,12 @@ export function ensureLibraryLink(projectDir) {
 }
 
 /** Ensure <projectDir>/x-shared-assets is a symlink to the external shared-asset library
- * (config.js ASSET_LIBRARY) — free-library example assets the game uses but keeps OUTSIDE its
+ * (config.js ASSET_LIBRARY) — free-library example assets the project uses but keeps OUTSIDE its
  * tree. NOTE: unlike ensureLibraryLink (whose source carries a scan-ignore marker so the engine
  * skips it), this link MUST be scanned by the engine — do NOT add a scan-ignore marker anywhere up
  * this chain, or the assets silently fail to import. Creates the external dir + its models/ and textures/ subdirs
  * first (it may start empty) so the symlink resolves. Idempotent: repoints a stale link, but
- * leaves a real directory untouched (a game that vendored its own).
+ * leaves a real directory untouched (a project that vendored its own).
  * @param {string} projectDir @returns {{linked:boolean, reason:string}} */
 export function ensureAssetLibraryLink(projectDir) {
   mkdirSync(path.join(ASSET_LIBRARY, "models"), { recursive: true });
@@ -135,7 +135,7 @@ export function ensureAssetLibraryLink(projectDir) {
   return { linked: true, reason: "created" };
 }
 
-/** Prepare a game directory to be driven by the framework: tools copied, library linked,
+/** Prepare a project directory to be driven by the framework: tools copied, library linked,
  * the external shared-asset library mounted.
  * @param {string} projectDir */
 export function prepareGame(projectDir) {

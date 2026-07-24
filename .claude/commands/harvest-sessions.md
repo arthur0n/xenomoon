@@ -42,11 +42,11 @@ is applied by the SAME `/framework-audit-fix`.
   - **`type=="ask"`** — an agent stopped to ask the human. A storm of asks in one domain = ambiguity
     in a skill/rule worth tightening.
 - **Ledger (write findings here):** `.claude/framework-audits/LEDGER.json` — the SOURCE OF TRUTH
-  (a `findings[]` array); read FIRST (dedup), append AFTER (push objects, then `npm run ledger`).
+  (a `findings[]` array); read FIRST (dedup), append AFTER (push objects, then hand-sync `LEDGER.md` — no `npm run ledger` script exists).
   `LEDGER.md` / `ledger.html` are GENERATED VIEWS — never hand-edit. Its meta defines the
   **dimensions D1–D10**, **buckets** (3/4/5/6), **verdict** and **status**. Reuse them exactly —
   `/framework-audit-fix` resolves by id. Schema: `.claude/framework-audits/README.md`.
-- **Decision feedback (the second inflow):** the game's `.xenomoon/` (default `../game/.xenomoon/`) —
+- **Decision feedback (the second inflow):** the bound project's `.xenomoon/` (`<project>/.xenomoon/`) —
   `promotions.json` (each `{id, kind, name, reason, status}`; `status: "rejected"` = the human REFUSED
   a capability the framework offered) and `qa-divergence.md` (one line per verdict the human OVERRODE
   — a FAIL that was fine, a PASS that shipped a bug). These are the loop's only records of a human
@@ -80,8 +80,8 @@ lines, which `rtk grep`/`jq` handle.)
    - ask volume: `jq -s '[.[]|select(.type=="ask")]|length' "$L"`
      Read those slices, not the transcript.
 
-4. **Mine the decision feedback — where the human said NO.** Read the game's `.xenomoon/promotions.json`
-   and `.xenomoon/qa-divergence.md` (absent = skip, silently; a fresh game has neither). Two patterns,
+4. **Mine the decision feedback — where the human said NO.** Read the project's `.xenomoon/promotions.json`
+   and `.xenomoon/qa-divergence.md` (absent = skip, silently; a fresh install has neither). Two patterns,
    both **recurrence-weighted** exactly like the log friction — a single no is a judgment call, a
    REPEATED no is a framework defect:
    - **repeated rejects** — the same `kind`/`name`, or several rejects sharing a theme (their `reason`
@@ -89,12 +89,12 @@ lines, which `rtk grep`/`jq` handle.)
      agent that PROPOSES it is mis-scoped, or the promotion rubric's bar is wrong. File it against that
      artifact (usually **D3** name↔scope or **D7** the promoting command), quoting the reasons.
    - **repeated QA divergence** — several overrides of the same flavour (false-FAIL vs false-PASS, or
-     the same criterion) means the rubric or a `play_*.gd` assertion is mis-tuned, not that one build
+     the same criterion) means the rubric or a QA check/assertion is mis-tuned, not that one build
      was odd. File against the rubric/check (usually **D8**). One-off divergences are `xenomoon:bug-triage`'s
      job (orchestrator.md), not a framework finding — leave them.
 
-   A reject/override the human already explained as a one-off, or that turns on THIS game's content, is
-   game-specific → step 6 drops it. Carry survivors into step 5 alongside the log friction.
+   A reject/override the human already explained as a one-off, or that turns on THIS project's content,
+   is project-specific → step 6 drops it. Carry survivors into step 5 alongside the log friction.
 
 5. **Distil recurring friction.** From the human turns + failures, find where a FRAMEWORK artifact
    underdelivered: a correction that implies a skill's steps were wrong/missing; the same instruction
@@ -108,11 +108,11 @@ lines, which `rtk grep`/`jq` handle.)
    emit the draft content in the run report for the human to materialize via foreground
    `/learn` (promotions board). PROJECT-only friction routes per step 6.
 
-6. **Filter OUT game-specific friction — the load-bearing guard.** A finding is valid here only if it
-   improves the FRAMEWORK (general to any game). Friction about THIS game's content/names/scenes/
-   one-off facts is NOT a framework finding: say so and point it game-local (the game repo's
-   `.claude/` / `design/` / its own `library/`). Never route a game fact into a `plugin/` skill or
-   `plugin/library/` — it ships to every game (promotion rubric; audit **D2**). Drop these from the
+6. **Filter OUT project-specific friction — the load-bearing guard.** A finding is valid here only if
+   it improves the FRAMEWORK (general to any project). Friction about THIS project's content/names/
+   one-off facts is NOT a framework finding: say so and point it project-local (the project repo's
+   `.claude/` / `design/` / its own `library/`). Never route a project fact into a `plugin/` skill or
+   `plugin/library/` — it ships to every install (promotion rubric; audit **D2**). Drop these from the
    ledger write.
 
 7. **Map + write an explicit fix; dedup; append.** For each surviving finding: tag the **nearest
@@ -123,7 +123,7 @@ lines, which `rtk grep`/`jq` handle.)
    assign **bucket**/`verdict`/**id** `<Dn>-<slug>` (reuse an existing id for the same issue). Push
    ONE `open` object per finding to `LEDGER.json`'s `findings[]` — `{ id, dim, bucket, verdict,
 status: "open", finding }` (`dim` = the id's `D`-prefix), plus an optional `pattern` (one line — the
-   good pattern to follow, a positive exemplar, not just the problem) — then run `npm run ledger`. Don't
+   good pattern to follow, a positive exemplar, not just the problem) — then hand-sync `LEDGER.md`. Don’t
    duplicate an id already in `findings[]`. Keep each `finding` one line.
 
 8. **Record coverage.** Append every scanned tag to `harvested-sessions.txt` (even ones that yielded
@@ -152,8 +152,8 @@ status: "open", finding }` (`dim` = the id's `D`-prefix), plus an optional `patt
 - **Record; let the human apply.** This command files findings; `/framework-audit-fix` applies the
   agreed ids and the human decides (step 10's tweak to this command / ledger is the one exception —
   no other `plugin/` writes).
-- **Keep findings framework-general** — a game-specific learning lives game-local (`plugin/library/`
-  = AGNOSTIC records only).
+- **Keep findings framework-general** — a project-specific learning lives project-local
+  (`plugin/library/` = AGNOSTIC records only).
 - **File only fresh, real friction** — dedup against ids already `open`/`later`, and file only what
   the logs actually show.
 - **Search with the Grep tool / full-path `rg` (or `jq`), and prefix shell with `rtk`** — bash

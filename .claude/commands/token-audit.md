@@ -59,6 +59,13 @@ and critiques itself. You won't get it right the first time — that's expected.
      legitimate edit-driven re-read from a wasteful one). A path re-read ×20+ with only a
      handful of edits is the tell; a per-file ratio near 1 edit/read is legitimate, so judge on
      the ratio, not the raw count.
+   - **graphify bypass (raw search where a graph query is cheaper)** — a fan-out of
+     `Grep`/`Glob`/`Read` calls exploring codebase structure to answer a "where/how does X work"
+     or architecture question, in a repo that HAS `graphify-out/graph.json`, with NO
+     `graphify query|path|explain` Bash call first. The project rule says a graph query returns a
+     scoped subgraph "usually much smaller than raw grep output," so that raw fan-out is avoidable
+     payload re-entering context. Only counts in a graph-backed repo (no `graphify-out/` → nothing
+     to bypass), and edit-driven reads belong to Read churn above, not here.
 
    Example sweep (adapt; `$LOGS` = `logs`). Filter the ndjson with `jq
 select(...)` directly — do NOT pipe `rtk grep` into `jq`: rtk's grep filter mangles JSON and breaks
@@ -75,6 +82,14 @@ select(...)` directly — do NOT pipe `rtk grep` into `jq`: rtk's grep filter ma
      high on this list with few `M`s is the offender (multiply the count by that file's rough
      read-size in tokens for the spend).
      `jq -rc 'select(.type=="event" and .message.type=="assistant")|.message.message.content[]?|select(.type=="tool_use")|select(.name=="Read" or .name=="Edit" or .name=="MultiEdit" or .name=="Write")|[(if .name=="Read" then (if (.input.offset or .input.limit) then "P" else "R" end) else "M" end),(.input.file_path//"")]|@tsv' "$LOGS/<file>" | awk -F'\t' '$1=="M"{m[$2]=1;next} $1=="R"{if(!m[$2])w[$2]++; m[$2]=0} END{for(p in w)print w[p],p}' | sort -rn | head`
+   - **graphify bypass:** first confirm the session's repo is graph-backed — `test -f
+"$dir/graphify-out/graph.json"` (the `dir` field on the log events is the session cwd); if
+     absent, skip this pattern. Then tally graph queries vs. raw-search volume — a high `rawsearch`
+     count with `graphify` at zero is the offender:
+     `jq -rc 'select(.type=="event" and .message.type=="assistant")|.message.message.content[]?|select(.type=="tool_use")|if (.name=="Bash" and ((.input.command//"")|test("graphify +(query|path|explain)"))) then "graphify" elif (.name=="Grep" or .name=="Glob") then "rawsearch" else empty end' "$LOGS/<file>" | sort | uniq -c`
+     The deterministic replacement is routing codebase questions to `graphify query` (a hint/hook,
+     or the orchestrator preferring it); when you file it, name a countable signal — e.g. the hook
+     logs `policy:"graphify-first"` once per routed question — so a later run tallies it per step 7.
 
 4. **Judge opportunities.** For each pattern, ask: _could this run without a model?_ If yes,
    name it concretely — the operation, its rough token/$ cost over the sessions seen, and the

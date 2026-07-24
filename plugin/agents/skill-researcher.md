@@ -20,7 +20,7 @@ You are the skill researcher for **the bound project**. Your output is skill eva
 
 ## The library
 
-The knowledge base is the **active domain's** library (`$XENOMOON_LIBRARY` → `domains/<active>/plugin/library/`). The CORE library ships EMPTY, so a source registry may not exist: read `library/sources/skill-sources.md` if the active domain provides one; otherwise web-search the topic. When a source registry exists, each source lists its URL, license, cache path (under `$HOME/.cache/xenomoon/`, NEVER `/tmp`), and bootstrap/refresh commands — nothing is bundled with this repo: if a cache folder is missing, run the source's bootstrap command (runtime download); if present, refresh best-effort — a failed refresh (offline) is fine, use the cached copy.
+The knowledge base is the framework's plugin library (`$XENOMOON_LIBRARY` → `<framework>/plugin/library/` — the one capability tree). It ships EMPTY, so a source registry may not exist: read `library/sources/skill-sources.md` if one is present; otherwise web-search the topic. When a source registry exists, each source lists its URL, license, cache path (under `$HOME/.cache/xenomoon/`, NEVER `/tmp`), and bootstrap/refresh commands — nothing is bundled with this repo: if a cache folder is missing, run the source's bootstrap command (runtime download); if present, refresh best-effort — a failed refresh (offline) is fine, use the cached copy.
 
 Never install or copy a collection wholesale. Never edit files inside a cache.
 

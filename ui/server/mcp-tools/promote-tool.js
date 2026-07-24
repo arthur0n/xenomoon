@@ -1,9 +1,9 @@
-// Promote tool: files a request to promote a game-local capability (a tool, skill,
-// or agent) into the framework plugin so every game gets it. Like the task tool it
+// Promote tool: files a request to promote a project-local capability (a tool, skill,
+// or agent) into the framework plugin so every install gets it. Like the task tool it
 // does NOT pause — it records the request in the deterministic promotions manifest
 // (promotions-store.js), broadcasts the new list to the UI (where the user
 // approves/rejects), and returns immediately. The actual file move happens later,
-// out of band, via `npm run promote -- --pending`. Authoring stays game-local by
+// out of band, via `npm run promote -- --pending`. Authoring stays project-local by
 // default; this is how the deliberate, human-gated globalization gets TRACKED
 // instead of living in the conversation.
 import { existsSync } from "node:fs";

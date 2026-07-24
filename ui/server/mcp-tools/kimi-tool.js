@@ -4,7 +4,7 @@
 // so every dispatch passes the per-call permission gate.
 //
 // FIRE-AND-FORGET, IN-ECOSYSTEM, ISOLATED:
-//   • The tool opens an ACP session in a FRESH git worktree of the game repo
+//   • The tool opens an ACP session in a FRESH git worktree of the project repo
 //     (.xenomoon-run/kimi/<runId>) and returns immediately; Kimi codes in the background.
 //   • Progress (tool calls, plan updates) streams to the activity feed as extAgent rows.
 //   • Kimi's ACP permission requests land on the SAME waitFor("permission") gate as every
@@ -69,12 +69,12 @@ export function cancelKimiBoardTask(boardTaskId) {
 function buildPrompt(role, task, context) {
   const brief =
     role === "reviewer"
-      ? "You are Kimi, reviewing code for the Xenomoon Hive on a Godot-family game project. " +
+      ? "You are Kimi, reviewing code for the Xenomoon Hive on the bound project. " +
         "Review the work described below (run `git diff`/read files as needed) for correctness, " +
-        "simplicity and Godot idiom. You are READ-ONLY: do NOT edit, create or delete any file — " +
+        "simplicity and the project's idiom. You are READ-ONLY: do NOT edit, create or delete any file — " +
         "edit attempts will be denied. Your FINAL message IS your entire deliverable: a concrete, " +
         "file:line-referenced findings list (or a clean bill of health). Work to a conclusion, then stop."
-      : "You are Kimi, an autonomous coder working for the Xenomoon Hive on a Godot-family game " +
+      : "You are Kimi, an autonomous coder working for the Xenomoon Hive on the bound " +
         "project. You are checked out in an ISOLATED git worktree — this directory is yours alone. " +
         "Make the change described below: edit files, run what you need to verify, and stop when " +
         "the change is complete and coherent. Do NOT commit, push, merge, or touch anything outside " +
@@ -167,7 +167,7 @@ function diffTurn(runId, worktreeDir, diff) {
           type: "text",
           text:
             `[Kimi — coding run ${runId} finished. Worktree: ${worktreeDir}]\n\n${body}\n\n` +
-            "Review this diff with the user. Merging it into the game is a SEPARATE, human-gated " +
+            "Review this diff with the user. Merging it into the project is a SEPARATE, human-gated " +
             "step (cherry-pick/merge from the worktree branch, or apply the diff) — never auto-merge.",
         },
       ],

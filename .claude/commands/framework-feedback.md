@@ -1,6 +1,6 @@
 ---
 description: Compress the feedback loop — distill THIS conversation into one (or few) concrete framework finding(s) and append them to the audit ledger as open findings. Never auto-applies; the human applies via /framework-audit-fix. Manual, human-run. Forge-local (not shipped).
-argument-hint: "[hint — e.g. 'godot-enemy missed the navmesh rebake step']"
+argument-hint: "[hint — e.g. 'the developer agent skipped the QA gate step']"
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, mcp__ui__ask
 model: opus
 ---
@@ -30,13 +30,14 @@ applied by the SAME `/framework-audit-fix`.
 ## Where the data lives (repo-relative; cwd = forge root)
 
 - **Ledger (write here):** `.claude/framework-audits/LEDGER.json` — the SOURCE OF TRUTH (a `findings[]`
-  array); read FIRST (dedup), append AFTER (push objects, then `npm run ledger`). `LEDGER.md` /
+  array); read FIRST (dedup), append AFTER (push objects, then hand-sync `LEDGER.md` — no `npm run ledger` script exists). `LEDGER.md` /
   `ledger.html` are GENERATED VIEWS — never hand-edit. Its meta defines the **dimensions D1–D10**, the
   **buckets** (3 no-brainer · 4 improvement · 5 system/later · 6 skip), the **verdict** (`fix-now` 3/4 ·
   `later` 5 · `skip` 6) and **status** (`open` · `skip` — applied findings are REMOVED, never stamped
   `done`). Reuse them exactly — `/framework-audit-fix` resolves by id. Schema: its `README.md`.
 - **Likely targets a finding points at:** `plugin/skills/*/SKILL.md`, `plugin/agents/*.md`,
-  `ui/orchestrator.md`, `plugin/commands/*.md`, and the forge-local commands themselves.
+  `plugin/orchestrator.md` (source: `domains/*/orchestrator.md`), `plugin/commands/*.md`, and the
+  forge-local commands themselves.
 - **Search with the Grep TOOL or `/opt/homebrew/bin/rg` (full path), NEVER bash `grep`** — the `rtk`
   hook silently drops/mangles matches, so a confirm-the-target sweep done with bash grep can miss the
   ref you're citing. Use the Grep tool / full-path `rg` / Read; don't slurp whole files.
@@ -54,12 +55,12 @@ applied by the SAME `/framework-audit-fix`.
    actionable statement tied to a real file. Aim for the **handful that matter** (usually 1–3), not a
    transcript of everything that happened.
 
-3. **Filter OUT game-specific learnings — this is the load-bearing guard.** A finding is only valid
-   here if it improves the FRAMEWORK (general to any game). If the learning is about THIS game's
-   content, names, scenes, or one-off facts, it is **NOT** a framework finding: say so and point it
-   game-local (the game repo's `.claude/` / `design/` / its own `library/`). Never route a game fact
-   into a `plugin/` skill or `plugin/library/` — that ships to every game (promotion rubric;
-   audit **D2**). Drop these from the ledger write entirely.
+3. **Filter OUT project-specific learnings — this is the load-bearing guard.** A finding is only
+   valid here if it improves the FRAMEWORK (general to any project). If the learning is about THIS
+   project's content, names, or one-off facts, it is **NOT** a framework finding: say so and point it
+   project-local (the project repo's `.claude/` / `design/` / its own `library/`). Never route a
+   project fact into a `plugin/` skill or `plugin/library/` — that ships to every install (promotion
+   rubric; audit **D2**). Drop these from the ledger write entirely.
 
 4. **Map + write an explicit fix.** For each surviving finding:
    - Tag the **nearest dimension** `<Dn>` so `/framework-audit-fix`'s per-dimension playbook applies
@@ -75,8 +76,8 @@ applied by the SAME `/framework-audit-fix`.
 5. **Append to the ledger — brief, dedup.** Push ONE object per finding to `LEDGER.json`'s `findings[]`
    — `{ id, dim, bucket, verdict, status: "open", finding }` (`dim` = the id's `D`-prefix), plus an
    optional `pattern` (one line — the good pattern to follow, a positive exemplar, not just the
-   problem) — then run
-   `npm run ledger`. Don't duplicate an id already `open`. Keep each `finding` one line, no essays.
+   problem) — then hand-sync `LEDGER.md`. Don’t duplicate an id already `open`. Keep each `finding`
+   one line, no essays.
    The ledger is ephemeral working state; the fix lives in files+git once applied.
 
 6. **Present — terse, then hand off.** Per finding: id · the one-line fix · verdict. Then tell the
@@ -97,8 +98,8 @@ applied by the SAME `/framework-audit-fix`.
 - **Record; let the human apply.** Push findings to the ledger; `/framework-audit-fix` applies the
   agreed ids and the human decides (step 7's tweak to this command / ledger is the one exception —
   no other `plugin/` writes).
-- **Keep findings framework-general** — a game-specific learning lives game-local (`plugin/library/`
-  = AGNOSTIC records only); strip it to the general lesson or drop it.
+- **Keep findings framework-general** — a project-specific learning lives project-local
+  (`plugin/library/` = AGNOSTIC records only); strip it to the general lesson or drop it.
 - **File only fresh, real findings** — dedup against ids already `open`/`later` (or ones the
   last-audit line marked resolved), and distill what the conversation actually surfaced, don't pad.
 - **Search with the Grep tool / full-path `rg`, and prefix shell with `rtk`** — bash `grep` is

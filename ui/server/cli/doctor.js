@@ -1,11 +1,11 @@
-// Health check for a game driven by the framework. Verifies the framework SOURCE (the
-// xenomoon plugin) is intact, the game is a valid engine project, and the per-game working
+// Health check for a project driven by the framework. Verifies the framework SOURCE (the
+// xenomoon plugin) is intact, the project is a valid engine project, and the per-project working
 // files (tools copied, library linked) are materialized. Materializes first (idempotent),
 // then checks. Exits non-zero on any HARD failure so it can gate `new` and CI.
 //
-// Usage: npm run doctor                  (the configured game, see config.js)
-//        npm run doctor -- /path/to/game
-//        node ui/server/cli/doctor.js /path/to/game
+// Usage: npm run doctor                  (the configured project, see config.js)
+//        npm run doctor -- /path/to/project
+//        node ui/server/cli/doctor.js /path/to/project
 import { existsSync, readdirSync, lstatSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -141,7 +141,7 @@ function assetLibraryLinked() {
   }
 }
 
-// Bring the game's generated files up to date (tools copied, library linked), then check.
+// Bring the project's generated files up to date (tools copied, library linked), then check.
 prepareGame(PROJECT_DIR);
 
 const pluginAgents = countFiles(path.join(FRAMEWORK_PLUGIN_DIR, "agents"), ".md");

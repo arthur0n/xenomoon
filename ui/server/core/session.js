@@ -47,7 +47,6 @@ import {
   POLICIES,
   PROJECT_DIR,
   FRAMEWORK_PLUGIN_DIR,
-  CORE_PLUGIN_DIR,
   CODEX_PLUGIN_DIR,
   getCodexConfig,
   LOG_DIR,
@@ -364,16 +363,10 @@ function settleAllBackground({ bgBoard, runningByTask, send }) {
   }
 }
 
-/** CORE plugin (basic install) loads for EVERY domain; the active domain's pack layers on top —
- * skipped only if it reuses the core path, so it's never loaded twice.
+/** The framework's ONE capability tree (the domain pack was copied into it at install time).
  * @returns {import("@anthropic-ai/claude-agent-sdk").SdkPluginConfig[]} */
 function frameworkPluginConfigs() {
-  /** @type {import("@anthropic-ai/claude-agent-sdk").SdkPluginConfig[]} */
-  const plugins = [{ type: "local", path: CORE_PLUGIN_DIR, skipMcpDiscovery: true }];
-  if (FRAMEWORK_PLUGIN_DIR !== CORE_PLUGIN_DIR) {
-    plugins.push({ type: "local", path: FRAMEWORK_PLUGIN_DIR, skipMcpDiscovery: true });
-  }
-  return plugins;
+  return [{ type: "local", path: FRAMEWORK_PLUGIN_DIR, skipMcpDiscovery: true }];
 }
 
 /**
@@ -459,11 +452,11 @@ function runSession({
             // and its `codex:codex-rescue` subagent becomes delegable. skipMcpDiscovery: the UI
             // owns MCP. We do NOT enable its opt-in review-gate Stop hook (on-demand only).
             plugins: [...frameworkPlugins, ...codexPlugin],
-            // The CORE + active-domain plugins (agents/skills/hooks) and their knowledge base
-            // (library/) live OUTSIDE the project cwd. Mount them as extra working roots so
-            // researcher agents can read them AND write new knowledge / promoted capabilities
-            // back into the framework (the self-improvement loop). Gated by policy + hooks.
-            additionalDirectories: [CORE_PLUGIN_DIR, FRAMEWORK_PLUGIN_DIR],
+            // The capability plugin (agents/skills/hooks) and its knowledge base (library/)
+            // live OUTSIDE the project cwd. Mount it as an extra working root so researcher
+            // agents can read it AND write new knowledge / promoted capabilities back into
+            // the framework (the self-improvement loop). Gated by policy + hooks.
+            additionalDirectories: [FRAMEWORK_PLUGIN_DIR],
             // Pick up the project's CLAUDE.md + any project-local .claude/ (project-specific
             // agents/skills the user hasn't promoted to the framework yet).
             settingSources: ["user", "project", "local"],

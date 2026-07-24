@@ -19,22 +19,22 @@ Godot stays the exclusive upstream product we forked from — it is **not** a do
 
 ```
 xenomoon/                      ← the INSTALL (fork/clone; your projects bind to it)
-├── plugin/                    ← CORE Claude-Code plugin: loaded into EVERY session
+├── plugin/                    ← the framework's ONE plugin tree: loaded into EVERY session
 │   ├── skills/  hooks/  agents/  commands/     (meta skills, safety gates, researchers)
 │   └── docs/process/          (updates-routing.md · repo-boundary.md · promotion.md)
-├── domains/<name>/            ← one pack per domain (webapp, expo, app)
+├── domains/<name>/            ← install-time PICKER packs (webapp, expo, app) — never loaded at runtime
 │   ├── domain.json  orchestrator.md
-│   └── plugin/                ← the DOMAIN's Claude-Code plugin (loads alongside CORE)
+│   └── plugin/                ← the pack's capabilities, COPIED into plugin/ on install
 │       ├── agents/  commands/  hooks/
-│       ├── skills/            ← capabilities the domain LEARNED (via promotions)
+│       ├── skills/            ← capabilities the pack ships (or LEARNED via promotions)
 │       └── library/           ← learned records: findings/ verdicts/ tools/
 ├── ui/                        ← the server + web app that runs sessions
 └── docs/  scripts/            ← repo meta
 ```
 
-Naming note: `plugin/` (CORE, domain-agnostic) and `domains/<name>/plugin/` (that domain's
-pack) are BOTH Claude-Code plugins — the CORE one loads always, the domain one per bind.
-Your project stays a separate repo and hosts none of this — see
+Naming note: `plugin/` is the framework's ONE runtime tree; `domains/<name>/plugin/` is a pack's
+capabilities that `install-project --domain X` COPIES into `plugin/` at install — nothing under
+`domains/` loads at runtime. Your project stays a separate repo and hosts none of this — see
 `plugin/docs/process/repo-boundary.md`. How learnings route between framework, domain, and
 project: `plugin/docs/process/updates-routing.md`.
 
@@ -105,9 +105,9 @@ Early, but real. Working today:
 - The spine is **domain-neutral**: it reads per-domain values (project marker, file inventory, capability plugin, orchestrator prompt, build/verify commands) from a **domain pack** instead of hardcoding Godot.
 - **Deterministic per-project install**, including into existing **non-greenfield** projects — never scaffolding over your code. A project-owned lock makes the binding deterministic, and a conflicting override is **refused**, not silently applied.
 - **Empty packages are valid** — a domain with no pre-baked capabilities installs and runs cleanly.
-- The shipped packs are **`webapp`** — a populated React + Node **head-start** (an issue-driven `triage → solution → implement` pipeline whose orchestrator learns the project) — and **`app`**, an empty Node learning pack. Godot is **stripped**: it stays the exclusive upstream product, never a domain here.
+- The shipped packs are **`webapp`** — a populated React + Node **head-start** (an issue-driven `triage → solution → implement` pipeline whose orchestrator learns the project) — **`expo`**, a populated React Native / Expo pack (a `uat-runner` agent, the `/uat` command, and Android/iOS local-run + ship skills) — and **`app`**, an empty Node learning pack. Godot is **stripped**: it stays the exclusive upstream product, never a domain here.
 
-Not yet: more domain packs beyond `webapp` / `app`, OpenClaw/Hermes adapters, a package marketplace, and per-project knowledge isolation. The direction and the open seams are written down in [docs/fork/VISION.md](docs/fork/VISION.md) and [docs/fork/SEAMS.md](docs/fork/SEAMS.md).
+Not yet: more domain packs beyond `webapp` / `expo` / `app`, OpenClaw/Hermes adapters, a package marketplace, and per-project knowledge isolation. The direction and the open seams are written down in [docs/fork/VISION.md](docs/fork/VISION.md) and [docs/fork/SEAMS.md](docs/fork/SEAMS.md).
 
 ## Tracking upstream
 

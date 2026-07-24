@@ -1,5 +1,5 @@
 // Kimi worktree helper — the isolation layer for the external Kimi coder. Every Kimi task
-// gets a FRESH `git worktree` of the game repo under the framework's gitignored
+// gets a FRESH `git worktree` of the project repo under the framework's gitignored
 // `.xenomoon-run/kimi/<taskId>/`, so Kimi never touches the tree the Hive and the Xenomoons
 // share (their concurrent-edit races are a managed trade-off; an autonomous third-party
 // coder in the same tree would not be). The deliverable is the worktree's diff — merging
@@ -17,7 +17,7 @@ const GIT_TIMEOUT_MS = 60_000;
 /** Cap the diff we deliver into the session (a huge diff means "open the worktree"). */
 const DIFF_MAX_CHARS = 30_000;
 
-/** Run git against the game repo. @param {string[]} argv @param {string} [cwd]
+/** Run git against the project repo. @param {string[]} argv @param {string} [cwd]
  * @returns {{ ok: boolean, out: string }} */
 function git(argv, cwd = PROJECT_DIR) {
   const r = spawnSync("git", argv, { cwd, encoding: "utf8", timeout: GIT_TIMEOUT_MS });
@@ -25,12 +25,12 @@ function git(argv, cwd = PROJECT_DIR) {
   return { ok: r.status === 0, out };
 }
 
-/** Create a fresh worktree (+ branch `kimi/<taskId>`) of the game repo for one Kimi task.
+/** Create a fresh worktree (+ branch `kimi/<taskId>`) of the project repo for one Kimi task.
  * @param {string} taskId @returns {{ dir: string, branch: string } | { error: string }} */
 export function createKimiWorktree(taskId) {
   if (!git(["rev-parse", "--is-inside-work-tree"]).ok) {
     return {
-      error: `the game project is not a git repo (${PROJECT_DIR}) — Kimi needs one to work in an isolated worktree`,
+      error: `the bound project is not a git repo (${PROJECT_DIR}) — Kimi needs one to work in an isolated worktree`,
     };
   }
   mkdirSync(KIMI_RUN_DIR, { recursive: true });

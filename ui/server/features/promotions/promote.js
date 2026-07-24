@@ -1,14 +1,14 @@
-// forge promote — move a game-local capability into the framework plugin so EVERY game
-// gets it. Authoring defaults to game-local (game/.claude/skills|agents, or game/tools);
+// forge promote — move a project-local capability into the framework plugin so EVERY install
+// gets it. Authoring defaults to project-local (project/.claude/skills|agents, or project/tools);
 // promotion is the deliberate, human-chosen step that globalizes it (the executor behind
 // the orchestrator's "promote to the framework?" gate). After the move the capability is
-// gone from this game and the next session loads it from the plugin as xenomoon:<name>.
-// (Agnostic tools are then copied back into the game as a working copy by materialize.)
+// gone from this project and the next session loads it from the plugin as xenomoon:<name>.
+// (Agnostic tools are then copied back into the project as a working copy by materialize.)
 //
 // Two modes:
-//   • Explicit:        npm run promote -- <skills|agents|tools> <name> [/path/to/game]
+//   • Explicit:        npm run promote -- <skills|agents|tools> <name> [/path/to/project]
 //                        e.g. npm run promote -- tools profile-handler.js
-//   • Manifest-driven: npm run promote -- --pending [/path/to/game]
+//   • Manifest-driven: npm run promote -- --pending [/path/to/project]
 //                        promotes every APPROVED entry in .xenomoon/promotions.json (filed
 //                        via mcp__ui__promote, approved in the UI) and marks it `promoted`.
 import path from "node:path";
@@ -21,7 +21,7 @@ const pending = argv.includes("--pending");
 const positional = argv.filter((a) => !a.startsWith("--"));
 
 if (pending) {
-  const game = positional[0] ? path.resolve(positional[0]) : PROJECT_DIR;
+  const project = positional[0] ? path.resolve(positional[0]) : PROJECT_DIR;
   const queue = approvedPending();
   if (!queue.length) {
     console.log(`promote --pending: nothing approved-pending. ${summarize(readPromotions())}`);
@@ -29,7 +29,7 @@ if (pending) {
   }
   let done = 0;
   for (const p of queue) {
-    const r = promoteOne(p.kind, p.name, game);
+    const r = promoteOne(p.kind, p.name, project);
     console.log(`  ${r.ok ? "✓" : "–"} ${r.msg}`);
     if (r.ok) {
       markPromoted(p.id, new Date().toISOString());
@@ -44,24 +44,26 @@ if (pending) {
 }
 
 // Explicit mode.
-const [kind, name, gameArg] = positional;
-const game = gameArg ? path.resolve(gameArg) : PROJECT_DIR;
+const [kind, name, projectArg] = positional;
+const project = projectArg ? path.resolve(projectArg) : PROJECT_DIR;
 if (!kind || !KINDS.has(kind) || !name) {
-  console.error("usage: npm run promote -- <skills|agents|tools> <name> [/path/to/game]");
+  console.error("usage: npm run promote -- <skills|agents|tools> <name> [/path/to/project]");
   console.error(
-    "   or: npm run promote -- --pending [/path/to/game]   (promote approved requests)",
+    "   or: npm run promote -- --pending [/path/to/project]   (promote approved requests)",
   );
   process.exit(1);
 }
-const result = promoteOne(kind, name, game);
+const result = promoteOne(kind, name, project);
 if (!result.ok) {
   console.error(`promote: ${result.msg}`);
   if (result.msg.includes("not found")) {
-    console.error(`  Author the ${kind.replace(/s$/, "")} game-local first, then promote it.`);
+    console.error(`  Author the ${kind.replace(/s$/, "")} project-local first, then promote it.`);
   }
   process.exit(1);
 }
 const label = name.replace(/\.md$/, "");
 console.log(`promote: ${result.msg}`);
-console.log(`Now available to every game as xenomoon:${label} — restart the session to load it.`);
+console.log(
+  `Now available to every install as xenomoon:${label} — restart the session to load it.`,
+);
 if (kind !== "tools") console.log("Tip: run `npm run badges` to refresh the README counts.");

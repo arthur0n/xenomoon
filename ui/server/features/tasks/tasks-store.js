@@ -1,5 +1,5 @@
 // Persistent task store — the orchestrator's working to-do list, kept in a
-// local JSON file next to the game project so it survives across sessions
+// local JSON file next to the project project so it survives across sessions
 // (resume). Pure disk module: no per-connection state, re-read/written on each
 // mutation. The MCP `tasks` tool (task-tool.js) and the user's `task_update`
 // messages (session.js) both funnel through applyOp.

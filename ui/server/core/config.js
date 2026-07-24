@@ -14,7 +14,7 @@ export const UI_DIR = path.join(__dirname, "..", "..");
 /** The framework root (the folder you cloned/forked). */
 export const FRAMEWORK_DIR = path.join(UI_DIR, "..");
 /** Saved-path config written by `npm run bind-project-path` — gitignored, so each fork
- * remembers its own game project without committing it. */
+ * remembers its own bound project without committing it. */
 export const CONFIG_FILE = path.join(FRAMEWORK_DIR, ".xenomoon.json");
 
 /** OpenAI's official `codex-plugin-cc`, vendored on disk so the SDK can load it as a
@@ -88,10 +88,9 @@ export const DOMAIN = SAVED.domainDescriptor ?? resolveActiveDomain(PROJECT_DIR,
  * local Claude Code plugin — loaded into every session via the SDK `plugins` option (see session.js)
  * so a project needs no copied capabilities; it stays pure and the plugin provides the framework
  * regardless of cwd. The domain picker installed the chosen pack's capabilities INTO this tree at
- * install time, so there is exactly one plugin dir at runtime. `CORE_PLUGIN_DIR` is kept as an alias
- * of the same path (a domain is no longer a separate runtime tree). */
+ * install time, so there is exactly one plugin dir at runtime (a domain is no longer a separate
+ * runtime tree). */
 export const FRAMEWORK_PLUGIN_DIR = path.join(FRAMEWORK_DIR, "plugin");
-export const CORE_PLUGIN_DIR = FRAMEWORK_PLUGIN_DIR;
 
 /** The active domain's engine/runtime descriptor. Resolution (first hit wins):
  * env (`ENGINE_NAME` / `ENGINE_PROJECT_FILE` / `ENGINE_BIN`) → `.xenomoon.json`
@@ -106,17 +105,16 @@ export const ENGINE = {
 /** Capitalized engine display name for UI/CLI copy. */
 export const ENGINE_LABEL = ENGINE.name.charAt(0).toUpperCase() + ENGINE.name.slice(1);
 
-/** The game's res:// mount name for the external shared-asset library — a symlink
- * materialize.js creates (`<game>/x-shared-assets` → ASSET_LIBRARY), so a model resolves
- * at `res://x-shared-assets/models/<name>.glb`. One literal, shared across config /
- * materialize / asset-write / doctor / the client, to avoid drift. */
+/** The project's mount name for the external shared-asset library — a symlink
+ * materialize.js creates (`<project>/x-shared-assets` → ASSET_LIBRARY). One literal, shared
+ * across config / materialize / asset-write / doctor / the client, to avoid drift.
+ * (Engine-heritage machinery: inert unless a domain sets materializeIntoProject.) */
 export const RES_ASSET_MOUNT = "x-shared-assets";
 
 /** The external "shared asset library": free-library example assets (models/textures) the
- * game uses but kept OUTSIDE its tree, so the game stays pure game. Symlinked into the game
- * at `res://x-shared-assets/` — and, unlike the knowledge library, carries no scan-ignore marker,
- * so the engine scans and imports it. The framework is per-game, so this dir is effectively this game's,
- * just external. Resolution (first hit wins): env `XENOMOON_ASSET_LIBRARY` → `.xenomoon.json`
+ * project uses but kept OUTSIDE its tree, so the project stays pure. Symlinked into the
+ * project at `x-shared-assets/`. The framework is per-project, so this dir is effectively
+ * this project's, just external. Resolution (first hit wins): env `XENOMOON_ASSET_LIBRARY` → `.xenomoon.json`
  * `assetLibrary` → default sibling `../x-shared-assets`. May start empty — the framework
  * only needs to know where it is. */
 export const ASSET_LIBRARY = path.resolve(
@@ -127,23 +125,23 @@ export const ASSET_LIBRARY = path.resolve(
 
 // Expose the plugin and its knowledge base to the spawned session so framework agents
 // can locate the library (and the framework itself, for promotion / self-improvement)
-// regardless of the game cwd — they read/write via these paths, granted by
+// regardless of the project cwd — they read/write via these paths, granted by
 // `additionalDirectories` (see session.js). Inherited by the Claude Code subprocess.
 process.env.XENOMOON_PLUGIN = FRAMEWORK_PLUGIN_DIR;
 /** The framework-root logs dir (compliance/usage traces: caveman-gate.log, rtk-usage.log).
- * Anchored to FRAMEWORK_DIR — NOT derived from XENOMOON_PLUGIN, which now points inside the active
- * domain pack (`domains/<name>/plugin`), so `${XENOMOON_PLUGIN%/plugin}/logs` would land the logs in
- * the domain dir. Exported into the environment so the plugin's observe-only hooks (caveman-reminder,
- * rtk-usage-log), which run in the spawned session's subprocess, write to the one framework-root dir. */
+ * Anchored to FRAMEWORK_DIR (not derived from XENOMOON_PLUGIN, so the anchor survives any future
+ * plugin-path move). Exported into the environment so the plugin's observe-only hooks
+ * (caveman-reminder, rtk-usage-log), which run in the spawned session's subprocess, write to the
+ * one framework-root dir. */
 export const XENOMOON_LOG_DIR = path.join(FRAMEWORK_DIR, "logs");
 process.env.XENOMOON_LOG_DIR = XENOMOON_LOG_DIR;
 process.env.XENOMOON_LIBRARY = path.join(FRAMEWORK_PLUGIN_DIR, "library");
 // The external shared-asset library (see ASSET_LIBRARY). Exported so the spawned session,
 // its agents (asset-advisor reads/verifies the sourced file here) and validate.sh can locate
-// it regardless of cwd; the game reaches the same bytes via the res://x-shared-assets symlink.
+// it regardless of cwd; the project reaches the same bytes via the x-shared-assets symlink.
 process.env.XENOMOON_ASSET_LIBRARY = ASSET_LIBRARY;
 
-/** The generated per-game facts manifest (engine bin/version, render config, commands,
+/** The generated per-project facts manifest (engine bin/version, render config, commands,
  * capability registry) — written by gen-manifest.js inside prepareGame(). Exported so the
  * spawned session and `tools/forge-facts` can read deterministic project facts instead of
  * re-deriving them (re-reading the engine's project file, re-globbing tools/) on every task. */
@@ -183,7 +181,7 @@ export const TASK_TOOL = "mcp__ui__tasks";
 // a later turn. UI-control surface, no real side effect, so it bypasses the policy.
 export const ASK_TOOL = "mcp__ui__ask";
 
-// In-process MCP tool an agent calls to request promoting a game-local capability
+// In-process MCP tool an agent calls to request promoting a project-local capability
 // (tool/skill/agent) into the framework plugin. Like the task tool it only files a
 // record on the promotions board (a UI-control surface, no real side effect — the
 // move happens later via `npm run promote`), so it bypasses the permission policy.
@@ -455,11 +453,6 @@ export function saveKimiConfig(patch) {
 // human-approved act (orchestrator rule). Bash is safe here because the
 // destructive-git/-shell PreToolUse hooks gate it independently of the permission layer.
 export const AUTO_ALLOW_TOOLS = ["Read", "Glob", "Grep", "Bash", "WebSearch", "WebFetch"];
-
-// The full-class docs dump is ~20k chars of version-pinned, immutable reference. The permission
-// approver dedups it per session (see docsDedupDecision) so a class is dumped into context at most
-// once — a re-fetch is denied with a stub. Token loop opp `godot-docs-memoize` (dedup arm).
-export const DOCS_GET_CLASS_TOOL = "mcp__godot-docs__godot_docs_get_class";
 
 // The main loop is an orchestrator: pinned model (not the user's default) and a
 // routing-focused system prompt, editable in ui/orchestrator.md.

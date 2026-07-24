@@ -1,20 +1,23 @@
 # Domain packs
 
 A **domain pack** retargets this framework from one kind of work to another (React/Node web apps
-today; Salesforce, etc. next) without forking the spine. The spine (`ui/`, `.claude/`, the CORE
-`plugin/`) stays domain-agnostic and reads per-domain values from the active pack via
-`ui/server/core/domain-resolver.js`. This whole directory is **additive** — upstream owns nothing
-here, so it never causes a merge conflict on a sync.
+today; Salesforce, etc. next) without forking the spine. A domain is an **install-time picker**:
+`install-project --domain <name>` COPIES the picked pack's capabilities into the framework's single
+`plugin/` tree and BAKES its descriptor into `.xenomoon.json`; at runtime the spine (`ui/`, `.claude/`,
+`plugin/`) reads only that baked descriptor via `ui/server/core/config.js` — never a live pack, and
+`ui/server/core/domain-resolver.js` runs at install only. This whole directory is **additive** —
+upstream owns nothing here, so it never causes a merge conflict on a sync.
 
 Godot is NOT a domain here. It stays the exclusive upstream product (`arthur0n/xenodot-forge`); this
 fork pulls only domain-agnostic improvements (curated), so the engine payload never lands.
 
-## Selecting the active domain
+## Picking the domain (install-time only)
 
-The project's lock (`.xenomoon-project.json`, written by `forge new --domain <name>`) is
-**authoritative**. With no lock: `XENOMOON_DOMAIN` env → the framework's `.xenomoon.json` `"domain"`
-key. There is **no silent default** — an unbound project fails loudly, so it is never driven as the
-wrong domain.
+A domain is chosen **once, at install** — `install-project --domain <name>`
+(`ui/server/cli/install-capabilities.js`) copies the pack into `plugin/` and bakes its descriptor into
+the framework's `.xenomoon.json` (`domainDescriptor`); the pick is also recorded there as `"domain"`.
+At runtime `config.js` reads that baked descriptor — nothing re-resolves a pack, and there is **no
+silent default**: an unbound framework has no baked descriptor to read.
 
 ## What a pack declares (`domains/<name>/domain.json`)
 
@@ -45,4 +48,6 @@ the seeded convention floor. A pack's `orchestrator.md` should **use** these, no
   (`designer → analyst → developer → tester → reviewer`; the `/feedback /design /analyze /implement
 /qa /audit /commit /build /uat` commands). The orchestrator then learns the specific project and
   promotes broadly-useful capabilities back into the pack for the next project.
+- **`expo`** — a populated React Native / Expo pack: the `uat-runner` agent, the `/uat` command, and
+  Android/iOS local-run, local-UAT, identity and Play-ship skills.
 - **`app`** — an empty Node learning pack (ships no pre-baked capabilities; learns the project).

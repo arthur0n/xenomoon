@@ -54,6 +54,19 @@ and critiques itself. You won't get it right the first time — that's expected.
      prefix rebuilt instead of reused.
    - **Costliest turns** — sort `result` lines by `total_cost_usd` (or token total) and ask
      what that money bought.
+   - **Read churn (no-mutation re-reads)** — full re-reads of a path with NO intervening
+     `Edit`/`Write` since the last read of it: identical file content re-entering context for
+     free. Distinct from result-bytes (which aggregates a tool's payload but can't tell a
+     legitimate edit-driven re-read from a wasteful one). A path re-read ×20+ with only a
+     handful of edits is the tell; a per-file ratio near 1 edit/read is legitimate, so judge on
+     the ratio, not the raw count.
+   - **graphify bypass (raw search where a graph query is cheaper)** — a fan-out of
+     `Grep`/`Glob`/`Read` calls exploring codebase structure to answer a "where/how does X work"
+     or architecture question, in a repo that HAS `graphify-out/graph.json`, with NO
+     `graphify query|path|explain` Bash call first. A graph query returns a scoped subgraph,
+     usually much smaller than raw grep output, so that raw fan-out is avoidable payload
+     re-entering context. Only counts in a graph-backed repo (no `graphify-out/` → nothing
+     to bypass), and edit-driven reads belong to Read churn above, not here.
 
    Example sweep (adapt; `$LOGS` = `"$CLAUDE_PLUGIN_ROOT/../logs"`). Each log line is
    `{type:"event", message:{…}}`, so select on `.message.type`:
@@ -63,6 +76,20 @@ and critiques itself. You won't get it right the first time — that's expected.
      `jq -rc 'select(.type=="event" and .message.type=="assistant")|.message.message.content[]?|select(.type=="tool_use")|[.id,.name]|@tsv' "$LOGS/<file>" > /tmp/ids.tsv`
      `jq -rc 'select(.type=="event" and .message.type=="user")|.message.message.content[]?|select(.type=="tool_result")|[.tool_use_id,(((.content//"")|if type=="array" then (map(.text//"")|join("")) else tostring end)|length)]|@tsv' "$LOGS/<file>" > /tmp/res.tsv`
      `awk -F'\t' 'NR==FNR{n[$1]=$2;next}{k=n[$1];k=(k==""?"?":k);t[k]+=$2;c[k]++}END{for(x in t)printf "%-30s calls=%-5d chars=%d avg=%d\n",x,c[x],t[x],t[x]/c[x]}' /tmp/ids.tsv /tmp/res.tsv | sort -t= -k3 -rn`
+   - **Read churn (no-mutation re-reads):** emit a `kind	path` stream — `R` for a full `Read`
+     (no `.input.offset`/`.input.limit`), `M` for `Edit`/`MultiEdit`/`Write` — then per path count
+     each `R` with no `M` since its previous `R`. Those are wasteful identical re-reads; a path
+     high on this list with few `M`s is the offender (multiply the count by that file's rough
+     read-size in tokens for the spend).
+     `jq -rc 'select(.type=="event" and .message.type=="assistant")|.message.message.content[]?|select(.type=="tool_use")|select(.name=="Read" or .name=="Edit" or .name=="MultiEdit" or .name=="Write")|[(if .name=="Read" then (if (.input.offset or .input.limit) then "P" else "R" end) else "M" end),(.input.file_path//"")]|@tsv' "$LOGS/<file>" | awk -F'\t' '$1=="M"{m[$2]=1;next} $1=="R"{if(!m[$2])w[$2]++; m[$2]=0} END{for(p in w)print w[p],p}' | sort -rn | head`
+   - **graphify bypass:** first confirm the session's repo is graph-backed — `test -f
+"$dir/graphify-out/graph.json"` (the `dir` field on the log events is the session cwd); if
+     absent, skip this pattern. Then tally graph queries vs. raw-search volume — a high `rawsearch`
+     count with `graphify` at zero is the offender:
+     `jq -rc 'select(.type=="event" and .message.type=="assistant")|.message.message.content[]?|select(.type=="tool_use")|if (.name=="Bash" and ((.input.command//"")|test("graphify +(query|path|explain)"))) then "graphify" elif (.name=="Grep" or .name=="Glob") then "rawsearch" else empty end' "$LOGS/<file>" | sort | uniq -c`
+     The deterministic replacement is routing codebase questions to `graphify query` (a hint/hook,
+     or the orchestrator preferring it); when you file it, name a countable signal — e.g. the hook
+     logs `policy:"graphify-first"` once per routed question — so a later run tallies it per step 7.
 
 4. **Judge opportunities.** For each pattern, ask: _could this run without a model?_ If yes,
    name it concretely — the operation, its rough token/$ cost over the sessions seen, and the

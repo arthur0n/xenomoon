@@ -195,7 +195,9 @@ function resetSetup() {
 function printNext(ready) {
   console.log("\nNext:");
   console.log("  • Verify anytime:  npm run codex:check   (⚙ Settings → Test too)");
-  console.log("  • In a game session, type  /codex:review --base main  to review the game diff,");
+  console.log(
+    "  • In a project session, type  /codex:review --base main  to review the project diff,",
+  );
   console.log('    or  /codex:adversarial-review "focus on save/load"  for a steerable pass.');
   console.log(
     "  • For framework code, install the plugin in a terminal Claude Code session — see CODEX.md.",

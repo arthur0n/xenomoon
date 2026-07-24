@@ -1,22 +1,23 @@
-// Shared game-contamination scanner — the deterministic half of the "is this capability AGNOSTIC?"
-// rubric the audit used to eyeball by hand. plugin/ ships + materializes into EVERY game, so a
-// promoted or directly-authored skill/agent/tool must carry NO game-specific facts. One scanner, run
-// at BOTH seams so contamination cannot enter the spine:
-//   • promote  (promote-run.js)      — hard-block a game-coupled capability at the game→plugin boundary
+// Shared project-contamination scanner — the deterministic half of the "is this capability
+// AGNOSTIC?" rubric the audit used to eyeball by hand. plugin/ ships into EVERY install, so a
+// promoted or directly-authored skill/agent/tool must carry NO project-specific facts. One scanner,
+// run at BOTH seams so contamination cannot enter the spine:
+//   • promote  (promote-run.js)      — hard-block a project-coupled capability at the
+//     project→plugin boundary
 //   • validate (cli/gen-contamination.js) — catch capabilities authored DIRECT-TO-PLUGIN (bypassing
-//     promote entirely, as the WIP enemy skills did) over the plugin's own skills/agents/tools
+//     promote entirely) over the plugin's own skills/agents/tools
 //
 // Generalizes the old tools-only `gameDomainRef` (res://-only): now runs for all kinds and adds
-// absolute paths, sibling-game refs, and provenance. It flags only DETERMINISTIC, low-false-positive
-// signals plus a small explicit denylist of the CURRENT game's proper nouns — fuzzy proper-noun
-// judgment past the denylist stays the audit's job (skills legitimately cite res:// convention paths
-// like `res://entities/player/player.tscn`, so a blanket res:// block would flood false positives —
-// res:// is checked for TOOLS only, where a hardcoded scene genuinely breaks other games' gates).
+// absolute paths, sibling-project refs, and provenance. It flags only DETERMINISTIC,
+// low-false-positive signals plus the bound project's derived proper-noun denylist — fuzzy
+// proper-noun judgment past the denylist stays the audit's job. The res:// signals are upstream
+// (engine) heritage: inert for node projects, kept for the sync seam; res:// is checked for TOOLS
+// only, where a hardcoded resource genuinely breaks other installs' gates.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { parseJSON } from "../../../lib/json.js";
 
-// res:// refs every game shares — legitimate in a universal tool. Anything else is game-domain.
+// res:// refs every install shares — legitimate in a universal tool. Anything else is project-specific.
 export const UNIVERSAL_RES = [
   /^res:\/\/main\.tscn\b/,
   /^res:\/\/assets\//,
@@ -30,7 +31,7 @@ const RES_REF = /res:\/\/[A-Za-z0-9_./-]+\.(?:tscn|tres|escn|glb|gltf)\b/g;
 
 // Historical fixed denylist — EMPTY now: the bound project's proper nouns are derived per
 // project by `denylistFor()` and passed in via `opts.denylist` (the always-on privacy FLOOR),
-// so the gate follows whatever project is bound instead of a stale hardcoded game. Kept as an
+// so the gate follows whatever project is bound instead of a stale hardcoded project. Kept as an
 // export for compatibility with upstream-synced callers.
 /** @type {string[]} */
 export const GAME_CODENAMES = [];
@@ -82,15 +83,15 @@ export function businessTermsFor(projectDir) {
 
 // A hardcoded absolute filesystem path (a res:// or project-relative path is required instead).
 const ABS_PATH = /(?:\/Users\/|\/home\/[a-z]|\b[A-Za-z]:\\)/;
-// A ref into the sibling game dir the framework points at (`../game`) — one game's tree.
+// A ref into the sibling project dir the framework points at (`../game`) — one project's tree.
 const SIBLING_GAME = /\.\.\/game\b/;
-// Provenance tying a technique to ONE specific repo/game instead of stating it agnostically.
+// Provenance tying a technique to ONE specific repo/project instead of stating it agnostically.
 const PROVENANCE =
   /\b(?:proven|verified|tested|shipped)\s+(?:on|in)\s+this\s+(?:repo|game|project)\b/i;
-// Mapping language — a shipped RECORD judging content against ONE game's stack ("valid for our
-// game/stack") is game-coupled by construction; digests that map a source belong game-local
+// Mapping language — a shipped RECORD judging content against ONE project's stack ("valid for our
+// game/stack") is project-coupled by construction; digests that map a source belong project-local
 // (design/library/transcripts/), only agnostic records ship. RECORDS-ONLY (opts.checkMapping):
-// an agent/skill prompt saying "our stack" is agnostic — it resolves to whatever game the
+// an agent/skill prompt saying "our stack" is agnostic — it resolves to whatever project the
 // session points at — so this signal must never run over the promotable kinds.
 const OUR_MAPPING = /\bour\s+(?:game|stack|project|repo|codebase)\b/i;
 
@@ -125,7 +126,7 @@ function scanProjectTerms(text, opts, hits) {
  * @param {{ checkRes?: boolean, checkMapping?: boolean, denylist?: string[], businessTerms?: string[] }} [opts]
  *   checkRes: also flag non-universal res:// refs — pass for TOOLS only (skills/agents cite
  *   res:// convention paths as legitimate illustrative examples). checkMapping: also flag
- *   one-game mapping language ("our game/stack") — pass for shipped RECORDS only (library/),
+ *   one-project mapping language ("our project/stack") — pass for shipped RECORDS only (library/),
  *   never the promotable kinds. denylist: the bound project's proper nouns (see denylistFor —
  *   the caller reads, the scanner stays pure). businessTerms: verbatim project business-rule
  *   lines (see businessTermsFor) — a reproduced line means project facts are leaking.
@@ -138,29 +139,29 @@ export function scanText(text, opts = {}) {
     hits.push({
       signal: "absolute-path",
       match: abs[0],
-      hint: "hardcoded absolute filesystem path — use a res:// or project-relative path so it resolves in any game/checkout.",
+      hint: "hardcoded absolute filesystem path — use a project-relative path so it resolves in any checkout.",
     });
   const sib = text.match(SIBLING_GAME);
   if (sib)
     hits.push({
       signal: "sibling-game",
       match: sib[0],
-      hint: "reaches into the sibling game dir — the plugin ships to every game and must not reference one game's tree.",
+      hint: "reaches into the sibling project dir — the plugin ships to every install and must not reference one project's tree.",
     });
   const prov = text.match(PROVENANCE);
   if (prov)
     hits.push({
       signal: "provenance",
       match: prov[0],
-      hint: "provenance tied to a specific repo/game — state the technique agnostically (the game's own record lives game-local).",
+      hint: "provenance tied to a specific repo/project — state the technique agnostically (the project's own record lives project-local).",
     });
   if (opts.checkMapping) {
     const map = text.match(OUR_MAPPING);
     if (map)
       hits.push({
-        signal: "one-game-mapping",
+        signal: "one-project-mapping",
         match: map[0],
-        hint: "one-game mapping language in a shipped record — a digest that judges content against THIS game's stack lives game-local (design/library/transcripts/), only agnostic records ship in the plugin library.",
+        hint: "one-project mapping language in a shipped record — a digest that judges content against THIS project's stack lives project-local (design/library/transcripts/), only agnostic records ship in the plugin library.",
       });
   }
   scanProjectTerms(text, opts, hits);
@@ -168,11 +169,11 @@ export function scanText(text, opts = {}) {
     for (const ref of text.match(RES_REF) ?? [])
       if (!UNIVERSAL_RES.some((re) => re.test(ref))) {
         hits.push({
-          signal: "game-res-ref",
+          signal: "project-res-ref",
           match: ref,
-          hint: `game-domain resource ${ref} — plugin/tools/ materializes into EVERY game, so this fails other games' gates on the missing resource. Parameterize the scene (read it from --scene / the manifest) so it has no hardcoded res:// path. See docs/process/promotion.md → "Tool domains".`,
+          hint: `project-specific resource ${ref} — plugin/tools/ ships to EVERY install, so this fails other installs' gates on the missing resource. Parameterize the resource (read it from an arg / the manifest) so it has no hardcoded path. See plugin/docs/process/promotion.md → "Tool domains".`,
         });
-        break; // one non-universal res:// ref is enough to mark the tool game-domain
+        break; // one non-universal res:// ref is enough to mark the tool project-specific
       }
   return hits;
 }

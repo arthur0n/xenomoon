@@ -20,8 +20,8 @@ the agreed subset. The human decides every change.
 
 ## Why this exists
 
-The framework ships to every game. A skill dirty with one game's names, an agent grown past
-its remit, a misleading skill name, or a bloated prompt all degrade every game silently.
+The framework ships to every project. A skill dirty with one project's names, an agent grown past
+its remit, a misleading skill name, or a bloated prompt all degrade every project silently.
 Catching these on a cadence keeps the framework general, lean, and data-driven — the
 properties the promotion rubric (`plugin/docs/process/promotion.md`) demands.
 
@@ -29,14 +29,17 @@ properties the promotion rubric (`plugin/docs/process/promotion.md`) demands.
 
 - **Agents:** `plugin/agents/*.md` — frontmatter `skills:` list + the prompt body.
 - **Skills:** `plugin/skills/*/SKILL.md` — frontmatter `name`/`description`/`agents` + body.
-- **Orchestrator:** `ui/orchestrator.md`.
+- **Orchestrator:** `domains/*/orchestrator.md` (each pack's source; `forge new` copies the picked
+  one to `plugin/orchestrator.md` at install — so CORE has none until a domain is installed).
 - **Commands:** `plugin/commands/*.md` and ALL forge-local self-improvement commands —
   glob `.claude/commands/*.md`, never a hardcoded list (it goes stale; token-audit.md was
   silently missed by one).
-- **Library (AGNOSTIC records only — ships to every game):** `plugin/library/{transcripts,verdicts,findings}/`. A game's specific FACTS live GAME-LOCAL (the game repo), never here.
+- **Library (AGNOSTIC records only — ships to every project):** `plugin/library/**/*.md`. A domain
+  pack installs its records here (findings/verdicts/etc.); CORE ships only `README.md` + `token-audits/`.
+  A project's specific FACTS live PROJECT-LOCAL (the bound project repo), never here.
 - **Ledger:** `.claude/framework-audits/LEDGER.json` — the SOURCE OF TRUTH (a `findings[]` array);
-  read FIRST, append findings AFTER (push objects to `findings[]`, dedup by `id`). `LEDGER.md` /
-  `ledger.html` are GENERATED VIEWS — never hand-edit; run `npm run ledger` after any write. Full
+  read FIRST, append findings AFTER (push objects to `findings[]`, dedup by `id`). `LEDGER.md` is a
+  committed readable view — keep it in sync by hand (there is no `npm run ledger` regen script). Full
   schema: `.claude/framework-audits/README.md`.
 
 **Search with the Grep TOOL or `/opt/homebrew/bin/rg` (full path) — NOT bash `grep`.** A hook routes
@@ -53,6 +56,17 @@ communities, edges), NOT prose — the string you're sweeping isn't in the graph
 returns nothing from `graph.json`), so graphify CANNOT enumerate every occurrence, and a sweep that
 misses one ref leaves contamination behind. Completeness → `rg`; concepts → graphify.
 
+## Preflight — resolve every ref before auditing (abort if the spine moved)
+
+Before running ANY dimension, RESOLVE every path and npm-script this command names against the live
+repo: `ls`/`rg` the paths in "Where the data lives", and read `package.json` scripts for each
+`npm run …` it cites (`node -e` or the Read tool — not by memory). This command can only audit the
+spine it can still describe. If a referenced path or script is GONE (a file moved, a `check:*` or
+regen script was renamed or never existed), do NOT audit against the stale map — you'd emit phantom
+findings against a spine the command mis-describes. ABORT and file ONE finding (dim **D7** — this
+suite is itself a forge-local command) listing the stale refs, so the suite gets re-aimed first. Fix
+the map, then audit.
+
 ## Steps
 
 0. **Load caveman first.** Before anything else, invoke the `caveman` skill — this command
@@ -68,46 +82,44 @@ misses one ref leaves contamination behind. Completeness → `rg`; concepts → 
    against current files — refine/confirm it for the human to apply, not a fresh scan. Skip any
    dimension audited recently unless its area changed since (check git).
 
-3. **Audit each dimension — in ONE context.** The plugin/ spine (agents + the 50 skills +
-   orchestrator) fits Opus's context window whole, so gather and judge the dimensions directly
-   here — no sub-agent-per-dimension fan-out (context-anxiety scaffolding from a smaller-window
-   era; the spine no longer overflows one context). Signals:
+3. **Audit each dimension — in ONE context.** The plugin/ spine (its agents + skills + the
+   installed orchestrator) fits Opus's context window whole, so gather and judge the dimensions
+   directly here — no sub-agent-per-dimension fan-out (context-anxiety scaffolding from a
+   smaller-window era; the spine no longer overflows one context). Signals:
 
-   - **D1 — Agents with too many skills.** Don't recount by hand — run `rtk npm run validate` and
-     read the `gen-skill-scope` skill-scope warnings: its index-expansion count is authoritative
-     (it caught over-cap agents a frontmatter-only count missed). The cap is **per-audience**:
-     **builders 15** (they carry a 7-skill SHARED CORE — `caveman` + `tasks-mcp` + the five
-     `[builders]` skills — so ~8 DOMAIN skills is the real budget), **everyone else 10**. For a
-     flagged agent, judge whether its DOMAIN skills cluster into a sub-domain deserving its own
-     specialized agent; name the split. (Wiring: `skill-registry.js` `BUILDERS` + the cap in
-     `gen-skill-scope.js`.)
+   - **D1 — Agents with too many skills.** Don't recount by hand — run `rtk npm run validate` (it
+     runs `check:skills` = `gen-skill-scope.js`) and read the skill-scope warnings: its
+     index-expansion count is authoritative (it caught over-cap agents a frontmatter-only count
+     missed). The soft cap is **~10** skills per agent (`INDEX_SOFT_CAP` in `gen-skill-scope.js`); in
+     the CORE spine the `builders` audience is EMPTY (`BUILDERS = []` in `skill-registry.js` — a
+     domain pack scopes its OWN builder cohort inside `domains/<name>/`, and may carry a heavier
+     general builder its own scoping caps). For a flagged agent, judge whether its skills cluster into
+     a sub-domain deserving its own specialized agent; name the split.
 
-   - **D2 — Game/path contamination in skills.** A skill must be game-agnostic. Grep
-     `plugin/skills/*/SKILL.md` **and the shipped library prose `plugin/library/{addons,tools,transcripts,verdicts}/*.md`**
-     (it ships to every game too) for: game proper nouns, character/mechanic/enemy/arena names,
-     binary names, hardcoded paths (`../game`, absolutes, specific `.tscn`/`.gd` files),
-     "game-local" self-declarations. Quote `file:line`. **skill = METHOD, game = FACTS:** strip the
-     skill to the agnostic method. The game's specific facts already live GAME-LOCAL (the game repo's
-     `design/`, scenes, `.claude/`) — do NOT copy the worked example into `plugin/library/` (it
-     symlinks/ships to every game = re-contamination; that folder is for AGNOSTIC records only). Apply
-     this to AGENT prompts too (`description:` / `name:` / body / cache namespaces), not just skills —
-     and to game-PARADIGM lock-in (see D3). **Roadmap citations are the same bug:** `docs/roadmap/*.md`
-     is forge-local project history (a specific game's plan, retired once that game ships/POCs) —
-     grep for `docs/roadmap/`, `Phase-N`/`Phase N`/`phase A3`-style ids, and phase-gate language
-     ("the Phase-5 gate") in any shipped file. Citing it as scope/reference authority is D2
-     contamination; give the agnostic technical rationale instead and drop the citation entirely.
-     `docs/roadmap/*.md` itself is NEVER an audit target — it's allowed to be as game-specific as it
+   - **D2 — Project/path contamination in skills.** A skill must be domain-agnostic (this is what
+     `check:agnostic` / `check:contamination` gate deterministically). Grep `plugin/skills/*/SKILL.md`
+     **and any shipped library prose `plugin/library/**/_.md`** (it ships to every project too) for:
+project proper nouns, character/mechanic/entity/screen names, binary names, hardcoded paths
+(`../<project>`, absolutes, specific project source files), "project-local" self-declarations.
+Quote `file:line`. **skill = METHOD, project = FACTS:** strip the skill to the agnostic method.
+The project's specific facts already live PROJECT-LOCAL (the bound project repo's `.claude/`/`design/`/ its own`library/`) — do NOT copy the worked example into `plugin/library/` (it ships
+to every project = re-contamination; that folder is for AGNOSTIC records only). Apply this to
+AGENT prompts too (`description:`/`name:`/ body / cache namespaces), not just skills — and to
+domain-PARADIGM lock-in (see D3). **Roadmap citations are the same bug:**`docs/roadmap/_.md`is forge-local project history (a specific project's plan, retired once that project ships) —
+grep for`docs/roadmap/`, `Phase-N`/`Phase N`/`phase A3`-style ids, and phase-gate language
+("the Phase-5 gate") in any shipped file. Citing it as scope/reference authority is D2
+contamination; give the agnostic technical rationale instead and drop the citation entirely.
+`docs/roadmap/\*.md` itself is NEVER an audit target — it's allowed to be as project-specific as it
      likes; only flag a SHIPPED file (skill/agent/library) that points at it.
 
    - **D3 — Name vs scope.** Does each skill's `name` match what it actually covers? Flag
      names too broad for narrow content or too narrow for broad content (the classic: a
      `combat` skill/agent that's really only ranged/melee/dot — resolved here by splitting). Propose a
-     truer name; apply the same lens to agent names. **Scope includes PARADIGM/GENRE fit:** flag a
-     skill silently locked to one paradigm the framework spans more than one of — orthographic vs
-     perspective camera, top-down vs FPS, etc. The fix is usually to SCOPE it in the description
-     ("top-down/orthographic only"), mirroring an existing sibling split
-     (`godot-first-person-controller` vs `godot-orthographic-follow-camera`) — not to force one skill
-     to cover both.
+     truer name; apply the same lens to agent names. **Scope includes PARADIGM/DOMAIN fit:** flag a
+     skill silently locked to one paradigm the framework spans more than one of (a platform, a
+     rendering/UI mode, a domain the pack doesn't universally share). The fix is usually to SCOPE it
+     in the description (declare the paradigm it's actually for), mirroring an existing sibling split —
+     not to force one skill to cover both.
 
    - **D4 — Data-driven orientation.** Does each skill teach **data-driven** systems
      (Resources / `.tres` / `@export` tunables / dictionaries / config) or a hardcoded
@@ -127,7 +139,8 @@ misses one ref leaves contamination behind. Completeness → `rg`; concepts → 
      caveman-trigger lesson). The clean win to look for: a verbatim block across ≥3 agents that's
      only needed at a known step (e.g. the researchers' 6-bucket → `research-presenting`).
 
-   - **D6 — Orchestrator.** Read `ui/orchestrator.md`. Flag: directives duplicated across
+   - **D6 — Orchestrator.** Read the domain orchestrators `domains/*/orchestrator.md` (each pack's
+     source; `plugin/orchestrator.md` once a domain is installed). Flag: directives duplicated across
      agents that should be centralized; dense step-by-step prose that belongs in a reusable
      skill; philosophy/tone that dilutes routing. Propose the move/trim.
 
@@ -139,14 +152,16 @@ misses one ref leaves contamination behind. Completeness → `rg`; concepts → 
      that hardcodes a list of sibling files where a glob (`.claude/commands/*.md`) would stay
      current — such lists silently go stale as files are added.
 
-   - **D8 — Verification flow completeness.** Does the verify/grade story hold end-to-end across
-     builders, skills, and tools? Trace it (graphify D8): design **Acceptance** → builder gate
-     (`plugin/tools/validate.sh` composing `plugin/tools/lib/checks.sh`; games see them
-     materialized as `tools/`) → evaluator rubric (`plugin/tools/playgrade.sh`
-     - `godot-playgrade` / `godot-playtester`). Flag a break: a builder listing `godot-verify` with
-       no `## Verification (mandatory)` block; a gate step a skill claims but `validate.sh`/`checks.sh`
-       doesn't run (or a check function nothing composes); a `tools/` script that ships but nothing
-       invokes; a skill re-teaching another's job instead of pointing at it.
+   - **D8 — Verification flow completeness.** Does the verify/grade story hold end-to-end? Two layers.
+     (a) The FRAMEWORK gate: `rtk npm run validate` = `tsc` + `eslint` + `check:structure`
+     (`ui/structure.check.js`) + `check:skills` (`gen-skill-scope.js`) + `check:agents`
+     (`agents-lint.js`) + `check:agnostic` (`scripts/check-spine-agnostic.sh`) + `check:contamination`
+     (`gen-contamination.js`). (b) The active DOMAIN pack's own verify chain — its builder gate +
+     evaluator agents (e.g. `webapp`'s QA → review agents; `forge new` installs these into `plugin/`).
+     Flag a break: a `check:*` a doc/skill claims that the gate doesn't actually run; an orphan check
+     nothing composes; a domain builder that lists a verify skill with no `## Verification` block; a
+     skill re-teaching another's job instead of pointing at it. (CORE ships no builder/evaluator
+     agents — those arrive with a domain pack.)
 
    - **D9 — Harness still load-bearing under the current model.** Scaffolding encodes assumptions
      about model limits that go STALE as models improve (the harness-design lesson: context-reset
@@ -166,10 +181,11 @@ misses one ref leaves contamination behind. Completeness → `rg`; concepts → 
      into one un-swappable block? D2 catches one PROJECT's facts; D10 catches one DOMAIN's/art-style's
      payload smuggled into a capability whose name or role promises generality. The tell: a
      generic-tier capability (name/role says 'conventions', 'baseline', 'keystone', 'use FIRST') that
-     hardcodes a domain constant as 'non-negotiable' — a pixel-art / SubViewport / Forward+ call
-     stamped 'for this art style' inside a skill sold as the shared structural workflow. **The probe
-     is the SECOND-DOMAIN TEST:** read the capability as a game this framework also spans that does
-     NOT share the payload (an HD/PBR title where a pixel-art one taught) — does the generic half
+     hardcodes a domain constant as 'non-negotiable' — a stack-specific call (a React state library,
+     an Expo build flag) stamped 'always do this' inside a skill sold as the shared structural
+     workflow. **The probe is the SECOND-DOMAIN TEST:** read the capability from a domain this
+     framework also spans that does NOT share the payload (the expo pack where a webapp one taught,
+     or vice versa) — does the generic half
      still apply cleanly and the payload half fall away as a swappable layer? Also flag
      DEPENDENCY-DIRECTION INVERSIONS: a generic workflow living INSIDE a domain-named capability so a
      second domain must depend on the first (the HD import skill inheriting the structural
@@ -186,8 +202,8 @@ misses one ref leaves contamination behind. Completeness → `rg`; concepts → 
    ≠ contamination; `@export` ≠ hardcoded; a single-consumer or single-instance pattern ≠ something to
    extract or Resource-ify. Keep only opportunities that survive that scrutiny — a false "fix this" is
    worse than silence — and reclassify the rest to `skip`/`later` WITH the reason. (Real fixes this
-   loop has found: cross-agent verbatim dup, game-name contamination, an over-broad agent, an opaque
-   name, an orthographic-locked skill. Non-fixes correctly skipped: generic vocab, `@export` rigs,
+   loop has found: cross-agent verbatim dup, project-name contamination, an over-broad agent, an opaque
+   name, a paradigm-locked skill. Non-fixes correctly skipped: generic vocab, data-driven rigs,
    single-consumer orchestrator rules.) Give each surviving finding a **stable id** `<Dn>-<slug>`
    (e.g. `D1-combat`, `D2-greybox`, `D5-research-presenting`) — the fix command targets findings by
    this id, so reuse the same id across runs for the same issue.
@@ -202,7 +218,7 @@ misses one ref leaves contamination behind. Completeness → `rg`; concepts → 
    `LEDGER.json`'s `findings[]` (dedup by `id`): `{ id, dim, bucket, verdict, status, finding }`
    plus an optional `pattern` (one line — the good pattern to follow, a positive exemplar, not just
    the problem). `finding` is one line (problem + proposed fix), `dim` is the id's `D`-prefix. Update `lastAudit`,
-   then run `npm run ledger` to regenerate `LEDGER.md` / `ledger.html` (never hand-edit those). The
+   then keep the readable `LEDGER.md` view in sync by hand (there is no `npm run ledger` regen script). The
    ledger is EPHEMERAL working state, not a history log: carry only findings still `open`/`later`.
    **Once a pass fully resolves (nothing left `open`), PRUNE `findings[]` empty and set `lastAudit`
    to a one-line summary of what the pass did** — the fixes live in the files + git, not here. Don't
@@ -212,7 +228,7 @@ misses one ref leaves contamination behind. Completeness → `rg`; concepts → 
    agent does (`plugin/agents/skill-researcher.md`): never gate a finding with a bare
    fix/skip. Decompose the audit into the six buckets, put the verdict ON TOP, and let the
    human decide per finding:
-   1. **The ideal** (from the idea) — what this dimension should look like (agnostic skills,
+   1. **The ideal** (from the idea) — what this dimension should look like (domain-agnostic skills,
       lean agents, honest names, data-driven systems…).
    2. **Current state** (from the candidate) — what the audit actually found, with evidence
       (`file:line`, counts).
@@ -245,8 +261,9 @@ misses one ref leaves contamination behind. Completeness → `rg`; concepts → 
 - **Report; let the human apply.** This command surfaces buckets; `/framework-audit-fix` applies
   the agreed ids and the human decides. Writing under `plugin/` or auto-applying is never this
   command's job (step 7's tweaks to this command / ledger are the one exception).
-- **Keep the framework agnostic** — a game's specific FACTS live GAME-LOCAL (the game repo).
-  `plugin/library/` ships to every game, so it too holds AGNOSTIC records only — never a game fact.
+- **Keep the framework agnostic** — a project's specific FACTS live PROJECT-LOCAL (the bound project
+  repo). `plugin/library/` ships to every project, so it too holds AGNOSTIC records only — never a
+  project fact.
 - **Treat `docs/roadmap/*.md` as out of scope** — it's forge-local project history. Only flag a
   SHIPPED file that cites it as reference/authority (D2); the roadmap doc itself stays untouched.
 - **Write one-line ledger entries** — brevity is the point; the next run reads them first.

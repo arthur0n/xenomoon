@@ -22,7 +22,7 @@ const pkgVersion = tagToPkgVersion(tag);
 
 // The plugin (xenomoon-forge/plugin/) is the framework's OWN source of truth now — its
 // agents/skills/tools are framework features and changes to them ARE framework changes
-// (no longer vendored from a game repo), so they need no special release-note handling.
+// (no longer vendored from a project repo), so they need no special release-note handling.
 
 const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
 const pkgPath = path.join(repoRoot, "package.json");

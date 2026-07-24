@@ -1,4 +1,4 @@
-// The file-move half of promotion: resolve a game-local capability's source +
+// The file-move half of promotion: resolve a project-local capability's source +
 // plugin destination and move it. Pure (no argv, no process.exit), so both the
 // CLI (`promote.js`) and the UI server (a one-click "Promote now" from the
 // promotions board) share the exact same move semantics.
@@ -22,16 +22,16 @@ export const PROMOTE_KINDS = new Set(["skills", "agents", "tools", "library"]);
 // run_gd_bots) — no explicit reference needed.
 const AUTO_GLOB_RE = /^(smoke|play)_.*\.gd$/;
 
-/** Whether a game-local tool is actually wired into the gate: it either matches the
- * smoke_ / play_ auto-glob prefix, or its name is referenced by the game's validate.sh /
+/** Whether a project-local tool is actually wired into the gate: it either matches the
+ * smoke_ / play_ auto-glob prefix, or its name is referenced by the project's validate.sh /
  * validate.local.sh / checks.sh. Used to reject promoting an orphan tool nothing runs.
- * @param {string} name @param {string} game @returns {boolean} */
-export function isGateWired(name, game) {
+ * @param {string} name @param {string} projectDir @returns {boolean} */
+export function isGateWired(name, projectDir) {
   if (AUTO_GLOB_RE.test(name)) return true;
   const wiringFiles = [
-    path.join(game, "tools", "validate.sh"),
-    path.join(game, "tools", "validate.local.sh"),
-    path.join(game, "tools", "lib", "checks.sh"),
+    path.join(projectDir, "tools", "validate.sh"),
+    path.join(projectDir, "tools", "validate.local.sh"),
+    path.join(projectDir, "tools", "lib", "checks.sh"),
   ];
   return wiringFiles.some((file) => {
     try {
@@ -42,21 +42,21 @@ export function isGateWired(name, game) {
   });
 }
 
-/** Resolve the game-local source path and the plugin destination for this capability.
- * @param {string} kind @param {string} name @param {string} game
+/** Resolve the project-local source path and the plugin destination for this capability.
+ * @param {string} kind @param {string} name @param {string} projectDir
  * @param {string} [pluginDir] destination plugin root override (temp fixtures in tests);
- *   defaults to the base plugin so existing game-path callers are byte-identical. */
-export function locate(kind, name, game, pluginDir = FRAMEWORK_PLUGIN_DIR) {
+ *   defaults to the base plugin so existing project-path callers are byte-identical. */
+export function locate(kind, name, projectDir, pluginDir = FRAMEWORK_PLUGIN_DIR) {
   if (kind === "skills") {
     return {
-      src: path.join(game, ".claude", "skills", name),
+      src: path.join(projectDir, ".claude", "skills", name),
       dst: path.join(pluginDir, "skills", name),
     };
   }
   if (kind === "agents") {
     const file = name.endsWith(".md") ? name : `${name}.md`;
     return {
-      src: path.join(game, ".claude", "agents", file),
+      src: path.join(projectDir, ".claude", "agents", file),
       dst: path.join(pluginDir, "agents", file),
     };
   }
@@ -65,12 +65,12 @@ export function locate(kind, name, game, pluginDir = FRAMEWORK_PLUGIN_DIR) {
     // project-local under .claude/library/, records land in the pack's library/.
     const file = name.endsWith(".md") ? name : `${name}.md`;
     return {
-      src: path.join(game, ".claude", "library", file),
+      src: path.join(projectDir, ".claude", "library", file),
       dst: path.join(pluginDir, "library", file),
     };
   }
   return {
-    src: path.join(game, "tools", name),
+    src: path.join(projectDir, "tools", name),
     dst: path.join(pluginDir, "tools", name),
   };
 }
@@ -86,34 +86,34 @@ function movePath(src, dst) {
   }
 }
 
-/** Promote one capability game→plugin. Never throws on a skip — returns the outcome so
- * the batch path can keep going. @param {string} kind @param {string} name @param {string} game
+/** Promote one capability project→plugin. Never throws on a skip — returns the outcome so
+ * the batch path can keep going. @param {string} kind @param {string} name @param {string} projectDir
  * @param {{ force?: boolean, pluginDir?: string }} [opts] force: promote despite a contamination
  * block (CLI --force). pluginDir: destination plugin root override (temp fixtures in tests);
  * defaults to the base plugin.
  * @returns {{ ok: boolean, msg: string }} */
-export function promoteOne(kind, name, game, opts = {}) {
+export function promoteOne(kind, name, projectDir, opts = {}) {
   if (!PROMOTE_KINDS.has(kind)) return { ok: false, msg: `skip ${kind}/${name}: unknown kind` };
   const pluginDir = opts.pluginDir ?? FRAMEWORK_PLUGIN_DIR;
   ensureDomainLibrary(pluginDir); // lazily heal the pack's learning scaffolds (idempotent)
-  const { src, dst } = locate(kind, name, game, pluginDir);
-  // Check "already in the plugin" BEFORE "missing game-local source": a capability already shipped
-  // in the plugin usually has NO game-local copy, so the src-missing check would otherwise fire a
-  // confusing "not found at <game path>" instead of the clear "already in the plugin" skip.
+  const { src, dst } = locate(kind, name, projectDir, pluginDir);
+  // Check "already in the plugin" BEFORE "missing project-local source": a capability already shipped
+  // in the plugin usually has NO project-local copy, so the src-missing check would otherwise fire a
+  // confusing "not found at <project path>" instead of the clear "already in the plugin" skip.
   if (existsSync(dst))
     return {
       ok: false,
       msg:
         `skip ${kind}/${name}: it is already in the plugin (${dst}). ` +
         `promote only ADDS new capabilities — it never UPDATES core. To improve it, edit it ` +
-        `in the plugin directly (it re-materializes to every game); keep game-specific bits ` +
-        `in a game-local extension the core sources. See docs/process/promotion.md → "Updating an existing core file".`,
+        `in the plugin directly (it re-materializes to every install); keep project-specific bits ` +
+        `in a project-local extension the core sources. See plugin/docs/process/promotion.md → "Updating an existing core file".`,
     };
   if (!existsSync(src)) return { ok: false, msg: `skip ${kind}/${name}: not found at ${src}` };
-  // Contamination gate: plugin/ ships to EVERY game, so a promoted capability must be AGNOSTIC.
-  // res:// game-domain refs are a hard functional break for TOOLS only (a hardcoded scene fails other
-  // games' gates); skills/agents cite res:// convention paths legitimately, so they are gated on the
-  // universal signals (codenames, absolute/sibling-game paths, provenance) instead. --force overrides.
+  // Contamination gate: plugin/ ships to EVERY install, so a promoted capability must be AGNOSTIC.
+  // res:// project-specific refs are a hard functional break for TOOLS only (a hardcoded resource fails other
+  // installs' gates); skills/agents cite res:// convention paths legitimately, so they are gated on the
+  // universal signals (codenames, absolute/sibling-project paths, provenance) instead. --force overrides.
   if (!opts.force) {
     // Library records additionally run the records-only mapping check ("our stack/our repo"
     // phrasing that only maps to ONE project must not ship). Every kind gets the per-project
@@ -122,17 +122,17 @@ export function promoteOne(kind, name, game, opts = {}) {
     const [hit] = scanPath(src, {
       checkRes: kind === "tools",
       checkMapping: kind === "library",
-      denylist: denylistFor(game),
-      businessTerms: businessTermsFor(game),
+      denylist: denylistFor(projectDir),
+      businessTerms: businessTermsFor(projectDir),
     });
     if (hit)
       return {
         ok: false,
         msg:
-          `skip ${kind}/${name}: GAME-CONTAMINATION (${hit.signal}) — ` +
-          `${path.relative(game, hit.file)} contains "${hit.match}". ${hit.hint} ` +
-          `plugin/ ships to every game, so it must be agnostic (the game's own facts live game-local). ` +
-          `Fix it and re-promote, or pass --force to promote anyway. See docs/process/promotion.md.`,
+          `skip ${kind}/${name}: PROJECT-CONTAMINATION (${hit.signal}) — ` +
+          `${path.relative(projectDir, hit.file)} contains "${hit.match}". ${hit.hint} ` +
+          `plugin/ ships to every install, so it must be agnostic (the project's own facts live project-local). ` +
+          `Fix it and re-promote, or pass --force to promote anyway. See plugin/docs/process/promotion.md.`,
       };
   }
   mkdirSync(path.dirname(dst), { recursive: true });

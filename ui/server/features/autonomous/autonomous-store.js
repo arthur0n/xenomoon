@@ -1,5 +1,5 @@
 // Autonomous Mode state — a standing "Main Goal" the hive self-drives toward,
-// persisted next to the game project (like tasks-store.js) so the ON/OFF flag and
+// persisted next to the project project (like tasks-store.js) so the ON/OFF flag and
 // the goal survive a session resume. Pure disk module: no per-connection state,
 // re-read/written on each mutation. The control messages (session.js) funnel here.
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";

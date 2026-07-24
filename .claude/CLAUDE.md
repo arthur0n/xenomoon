@@ -40,13 +40,17 @@ framework loads into every project session.
   loop. `forge new --domain X` installs the picked pack's capabilities INTO this tree; after install
   there is no "domain" at runtime — it is just the framework, one tree. Capabilities namespace as
   `xenomoon:<name>`.
-- `domains/<name>/` — the **install-source catalog** (`app`, `webapp`). A **domain is an install-time
+- `domains/<name>/` — the **install-source catalog** (`app`, `webapp`, `expo`). A **domain is an install-time
   PICKER only**: each pack ships agents/commands/skills, a `domain.json` descriptor, and an
   `orchestrator.md`, and `forge new --domain X` (`ui/server/cli/install-capabilities.js`) COPIES those
   into `plugin/` and bakes the descriptor into `.xenomoon.json`. **Nothing under `domains/` is loaded,
   resolved, or read at runtime** — the session loads exactly one plugin (`session.js`). `webapp` is a
-  populated head-start (issue-driven triage → solution → implement pipeline); `app` is an empty
-  learning pack. `domains/` stays off the upstream-sync surface (see `docs/fork/SEAMS.md`).
+  populated head-start (issue-driven triage → solution → implement pipeline); `expo` is a populated
+  React Native/Expo pack; `app` is an empty learning pack. `domains/` stays off the upstream-sync
+  surface (see `docs/fork/SEAMS.md`).
+- **Doc/command placement:** `plugin/docs/` + `plugin/commands/` SHIP with the plugin and may be
+  referenced by capabilities/runtime code; `docs/` and `.claude/` are forge-local only — never
+  reference them from `plugin/` or `ui/server`.
 - `ui/server/` — Node server + CLI scripts, grouped by area: `core/` (+ `core/http/`),
   `integrations/{hermes,codex}/`, `features/{tasks,promotions,transcripts,skills,autonomous}/`,
   `mcp-tools/` (the in-process `makeXTool` SDK tools), and `cli/` (`setup`, `new`, `doctor`,

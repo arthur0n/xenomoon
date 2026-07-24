@@ -8,7 +8,7 @@
 //   4. restrict the toolset by editing config.yaml DIRECTLY (default: web, search, memory,
 //      skills — NO terminal/file/code_execution/browser). `memory` + `skills` are Hermes' OWN
 //      brain (its episodic memory + self-evolving skills, written to ~/.hermes/) — they let
-//      Hermes get better at researching FOR us over time without ever touching the game or our
+//      Hermes get better at researching FOR us over time without ever touching the project or our
 //      framework files (that needs terminal/file/code, which stay OFF). The API server runs as
 //      platform `api_server` and its tools execute ON THIS MACHINE, so we constrain
 //      `platform_toolsets.api_server` (the only key the bridge's path reads — not `cli`, not the
@@ -73,9 +73,9 @@ const PROVIDER = val("provider") ?? "nous";
 const MODEL = val("model");
 // SAFE DEFAULT: research + Hermes' OWN brain, no machine access. `web`/`search` research;
 // `memory` + `skills` are Hermes' own episodic memory + self-evolving skills (written to
-// ~/.hermes/ — NOT to the game or our framework), so Hermes gets better at researching for us
+// ~/.hermes/ — NOT to the project or our framework), so Hermes gets better at researching for us
 // across runs. The API path runs tools ON THIS MACHINE (gateway capabilities:
-// tool_execution=server), so the things that could change the game/code —
+// tool_execution=server), so the things that could change the project/code —
 // terminal/file/code_execution/browser — stay OFF by default. Widen with --toolsets
 // (e.g. --toolsets=web,search,memory,skills,terminal,file) ONLY if you knowingly want that.
 const TOOLSETS = val("toolsets") ?? "web,search,memory,skills";

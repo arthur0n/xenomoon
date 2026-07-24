@@ -8,8 +8,8 @@
   "plugins": [
     {
       "name": "xenomoon",
-      "description": "The CORE plugin: meta skills, safety hooks, handoff-summarizer and the researcher learning loop loaded into every project session, alongside the active domain pack.",
-      "version": "0.1.7",
+      "description": "The framework's ONE capability plugin: meta skills, safety hooks, handoff-summarizer and the researcher learning loop — the picked domain pack's capabilities are copied into this tree at install time.",
+      "version": "0.1.8",
       "author": { "name": "Xenomoon Forge" },
       "source": "./plugin",
       "category": "development",

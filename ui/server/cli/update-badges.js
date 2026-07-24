@@ -1,6 +1,8 @@
-// Keep the README's "Skills" / "Agents" badges AND FEATURES.md's catalog in sync with
-// what the framework actually ships — the xenomoon plugin (the single source of truth).
-// Counts skill folders and agent files in plugin/, rewrites the badges in README.md and
+// Keep the README's "Skills" / "Agents" / "Domains" badges, the marketplace tags AND
+// FEATURES.md's catalog in sync with what the framework actually ships — the xenomoon
+// plugin + the domains/ catalog (the single sources of truth). Counts skill folders and
+// agent files in plugin/, discovers the installable packs (domains/*/domain.json),
+// rewrites the badges in README.md, the `tags` in .claude-plugin/marketplace.json and
 // the "## Agents (N)" / "## Skills (N)" headings in FEATURES.md, cross-checks every
 // backticked name in the FEATURES.md Agents section against plugin/agents/ (both
 // directions: ghosts and missing), and re-stages what changed. Wired into
@@ -8,7 +10,14 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { FRAMEWORK_DIR, FRAMEWORK_PLUGIN_DIR } from "../core/config.js";
+import { fileURLToPath } from "node:url";
+import { parseJSON } from "../../lib/json.js";
+
+// Deliberately NOT imported from core/config.js: config resolves the active domain at
+// import time and THROWS on an unbound framework — but badges must stay committable on
+// the unbound trunk (this runs in pre-commit). The two paths are derivable locally.
+const FRAMEWORK_DIR = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
+const FRAMEWORK_PLUGIN_DIR = path.join(FRAMEWORK_DIR, "plugin");
 
 /** @param {string} dir @param {(d: import("node:fs").Dirent) => boolean} keep @returns {number | null} */
 function count(dir, keep) {
@@ -41,6 +50,34 @@ function agentsSection(text) {
   return match?.[1] ?? "";
 }
 
+/** The installable domain packs: dirs under domains/ carrying a domain.json, sorted.
+ * @returns {string[]} */
+function domainPacks() {
+  try {
+    return readdirSync(path.join(FRAMEWORK_DIR, "domains"), { withFileTypes: true })
+      .filter(
+        (d) =>
+          d.isDirectory() && existsSync(path.join(FRAMEWORK_DIR, "domains", d.name, "domain.json")),
+      )
+      .map((d) => d.name)
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+/** Rewrite the Domains badge (alt text + shields message) with the pack names.
+ * Shields.io wants literal dashes doubled and spaces as underscores.
+ * @param {string} text @param {string[]} names @returns {string} */
+function setDomainsBadge(text, names) {
+  const label = names.length > 0 ? names.join(" · ") : "none";
+  const message = (names.length > 0 ? names.join("_·_") : "none").replaceAll("-", "--");
+  return text.replace(
+    /(!\[Domains: )[^\]]+(\]\(https:\/\/img\.shields\.io\/badge\/Domains-).*?(-b08d57\))/,
+    `$1${label}$2${message}$3`,
+  );
+}
+
 const skills = count(path.join(FRAMEWORK_PLUGIN_DIR, "skills"), (d) => d.isDirectory());
 const agents = count(
   path.join(FRAMEWORK_PLUGIN_DIR, "agents"),
@@ -54,12 +91,35 @@ if (skills === null || agents === null) {
 /** @type {string[]} */
 const staged = [];
 
+const domains = domainPacks();
+
 const readmePath = path.join(FRAMEWORK_DIR, "README.md");
 const readmeBefore = readFileSync(readmePath, "utf8");
-const readmeAfter = setBadge(setBadge(readmeBefore, "Skills", skills), "Agents", agents);
+const readmeAfter = setDomainsBadge(
+  setBadge(setBadge(readmeBefore, "Skills", skills), "Agents", agents),
+  domains,
+);
 if (readmeAfter !== readmeBefore) {
   writeFileSync(readmePath, readmeAfter);
   staged.push(readmePath);
+}
+
+// Marketplace tags follow the domains/ catalog — the pack list IS the tag list, so a
+// new pack (or a rename) lands in the marketplace metadata on the next commit.
+const marketplacePath = path.join(FRAMEWORK_DIR, ".claude-plugin", "marketplace.json");
+if (existsSync(marketplacePath)) {
+  const marketplaceBefore = readFileSync(marketplacePath, "utf8");
+  const marketplace = /** @type {{ plugins?: { tags?: string[] }[] }} */ (
+    parseJSON(marketplaceBefore)
+  );
+  if (marketplace.plugins?.[0]) {
+    marketplace.plugins[0].tags = ["agents", "skills", "framework", ...domains];
+    const marketplaceAfter = `${JSON.stringify(marketplace, null, 2)}\n`;
+    if (marketplaceAfter !== marketplaceBefore) {
+      writeFileSync(marketplacePath, marketplaceAfter);
+      staged.push(marketplacePath);
+    }
+  }
 }
 
 // FEATURES.md is an upstream catalog this fork deliberately does not carry (SEAMS.md
@@ -102,11 +162,13 @@ if (existsSync(featuresPath)) {
 }
 
 if (staged.length === 0) {
-  console.log(`update-badges: already current (Skills: ${skills}, Agents: ${agents}).`);
+  console.log(
+    `update-badges: already current (Skills: ${skills}, Agents: ${agents}, Domains: ${domains.join(", ") || "none"}).`,
+  );
   process.exit(0);
 }
 
 execFileSync("git", ["add", ...staged], { stdio: "ignore" });
 console.log(
-  `update-badges: ${staged.map((p) => path.basename(p)).join(" + ")} updated → Skills: ${skills}, Agents: ${agents} (re-staged).`,
+  `update-badges: ${staged.map((p) => path.basename(p)).join(" + ")} updated → Skills: ${skills}, Agents: ${agents}, Domains: ${domains.join(", ") || "none"} (re-staged).`,
 );

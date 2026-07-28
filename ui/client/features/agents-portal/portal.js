@@ -18,6 +18,7 @@ const VERDICT_MODELS_SHOWN = 4;
 
 /** Live DOM refs for one rendered card, keyed by agent id.
  * @typedef {{ desc: AgentDescriptor, enabled: HTMLInputElement, status: HTMLElement,
+ *   output: HTMLElement, outputPre: HTMLElement,
  *   inputs: Map<string, HTMLInputElement | HTMLSelectElement>, custom: HTMLInputElement | null,
  *   roles: Map<string, HTMLInputElement> }} Card */
 /** @type {Map<string, Card>} */
@@ -27,6 +28,15 @@ const cards = new Map();
 function setStatus(status, tone, text) {
   status.className = `settings-status ${tone}`.trim();
   status.textContent = text;
+}
+
+/** Fill the card's collapsible output block (hidden while empty) — this is where the
+ * setup/auth scripts' printed guidance (auth commands, URLs, errors) becomes visible.
+ * @param {Card} card @param {string | undefined} text */
+function showOutput(card, text) {
+  const t = (text ?? "").trim();
+  card.output.style.display = t ? "" : "none";
+  card.outputPre.textContent = t;
 }
 
 /** One-line human verdict for a check result. Shapes vary per agent (HermesCheck,
@@ -67,22 +77,55 @@ async function testAgent(card) {
   }
 }
 
+/** Run the vendor-CLI sign-in for an agent (`POST /api/agents/:id/auth`): the server
+ * probes auth state and, when needed (or `force`), runs the vendor's browser sign-in
+ * command — the same one the terminal flow prints (e.g. `hermes portal open`).
+ * @param {Card} card @param {boolean} force */
+async function runAgentAuth(card, force) {
+  $("settings-error").textContent = "";
+  setStatus(card.status, "pending", `Checking ${card.desc.label} sign-in…`);
+  try {
+    const r =
+      /** @type {{ ok: boolean, authed: boolean, opened: boolean, output?: string, error?: string }} */ (
+        await postJSON(`/api/agents/${card.desc.id}/auth`, { force })
+      );
+    showOutput(card, r.output);
+    if (r.opened) {
+      setStatus(card.status, "ok", "→ Sign-in opened in your browser. Finish there, then Test.");
+    } else if (r.authed) {
+      setStatus(card.status, "ok", "✓ Already signed in. RESTART the session to activate.");
+    } else {
+      setStatus(
+        card.status,
+        "bad",
+        `✗ Sign-in check failed — ${r.error ?? "see the output below"}`,
+      );
+    }
+  } catch {
+    setStatus(card.status, "bad", "✗ Sign-in request failed — is the UI server up to date?");
+  }
+}
+
 /** Run the agent's server-side setup script and report. The integration's prompt block
  * loads at SESSION START, so success always says RESTART; `manual` adds any follow-up
- * step the server can't do (e.g. Hermes' browser OAuth). @param {Card} card */
+ * step the server can't do (e.g. Hermes' browser OAuth) — and when the agent declares
+ * an auth flow, we chain straight into it so the browser sign-in opens by itself.
+ * @param {Card} card */
 async function runAgentSetup(card) {
   $("settings-error").textContent = "";
   setStatus(card.status, "pending", `Setting up ${card.desc.label}…`);
   try {
-    const r = /** @type {{ ok: boolean, error?: string, manual?: string }} */ (
+    const r = /** @type {{ ok: boolean, error?: string, manual?: string, output?: string }} */ (
       await postJSON(`/api/agents/${card.desc.id}/setup`, {})
     );
+    showOutput(card, r.output);
     if (r.ok) {
       const manual = r.manual ? `${r.manual} ` : "";
       setStatus(card.status, "ok", `✓ Set up. ${manual}RESTART the session to activate.`);
       void refreshPaidAgents(); // setup may have just enabled the agent — repaint the strip
+      if (card.desc.hasAuth) await runAgentAuth(card, false);
     } else {
-      setStatus(card.status, "bad", `✗ Setup failed — ${r.error ?? "see the server log"}`);
+      setStatus(card.status, "bad", `✗ Setup failed — ${r.error ?? "see the output below"}`);
     }
   } catch {
     setStatus(card.status, "bad", "✗ Setup request failed — is the UI server up to date?");
@@ -169,10 +212,14 @@ function renderCard(d, list) {
     desc: d,
     enabled: /** @type {HTMLInputElement} */ (el("input")),
     status: el("div", "settings-status"),
+    output: el("details", "settings-install"),
+    outputPre: el("pre", "settings-code"),
     inputs: new Map(),
     custom: null,
     roles: new Map(),
   };
+  card.output.append(el("summary", "", "Setup output ▾"), card.outputPre);
+  card.output.style.display = "none";
   const head = el("p", "modal-sub");
   head.append(el("strong", "", d.label));
   head.append(document.createTextNode(` — ${d.blurb} `));
@@ -208,7 +255,7 @@ function renderCard(d, list) {
     list.append(rolesRow);
   }
 
-  list.append(card.status);
+  list.append(card.status, card.output);
   const actions = el("div", "modal-actions");
   actions.style.justifyContent = "flex-start";
   const test = el("button", "btn ghost", `Test ${d.label}`);
@@ -224,6 +271,14 @@ function renderCard(d, list) {
       void runAgentSetup(card);
     };
     actions.append(setup);
+  }
+  if (d.hasAuth) {
+    const signIn = el("button", "btn ghost", "Sign in (browser)");
+    signIn.setAttribute("type", "button");
+    signIn.onclick = () => {
+      void runAgentAuth(card, true);
+    };
+    actions.append(signIn);
   }
   list.append(actions, el("hr", "settings-divider"));
   cards.set(d.id, card);

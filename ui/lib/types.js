@@ -24,7 +24,7 @@
  * secret-free saved config (`status`; shape varies per agent, e.g. HermesPublicConfig).
  * @typedef {{ id: string, label: string, blurb: string, docHref?: string, runbook?: string,
  *   roles: string[], defaultRoles: string[], runtimeKind: string, fields: AgentField[],
- *   install?: AgentInstall, hasSetup: boolean,
+ *   install?: AgentInstall, hasSetup: boolean, hasAuth: boolean,
  *   status: { enabled: boolean, roles: string[], hasKey?: boolean, models?: string[], vendored?: boolean, [k: string]: unknown } }} AgentPublicDescriptor */
 /** Verdict from probing the local Codex install (`POST /api/codex/check`). @typedef {{ ok: boolean, enabled: boolean, cli: boolean, version?: string, authOk: boolean, authMode?: string, authMethod?: "chatgpt" | "apiKey", model?: string, vendored: boolean, caveat?: string, error?: string }} CodexCheck */
 /** Browser-safe Kimi config (no secrets — auth lives in the local `kimi` CLI).

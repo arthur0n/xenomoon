@@ -97,6 +97,74 @@ export function runSetupScript(setup, res) {
   });
 }
 
+/** How long the vendor CLI's auth-status probe gets before we give up on it. */
+const AUTH_PROBE_TIMEOUT_MS = 10_000;
+
+/** Vendor-CLI sign-in for POST /api/agents/:id/auth — run the agent's auth `probe`
+ * (e.g. `hermes portal status`; authed = exit 0 + output matches the agent's
+ * `authedRe`); if the user isn't signed in (or `force`), spawn the `open` command
+ * (e.g. `hermes portal open`), which boots the browser sign-in exactly like the
+ * terminal flow. The server always runs on the user's own machine (localhost-only
+ * UI), so the browser opens on the right screen.
+ * @param {{ probe: string[], authedRe: string, open: string[] }} auth @param {boolean} force
+ * @param {import("node:http").ServerResponse} res */
+function runAuthFlow(auth, force, res) {
+  let out = "";
+  let probed = false;
+  /** @param {boolean} authed @param {string} [error] */
+  const finish = (authed, error) => {
+    const opened = force || !authed;
+    if (opened) {
+      try {
+        const [openCmd = "", ...openArgs] = auth.open;
+        spawn(openCmd, openArgs, {
+          cwd: FRAMEWORK_DIR,
+          detached: true,
+          stdio: "ignore",
+        }).unref();
+      } catch (e) {
+        respond(res, {
+          ok: false,
+          authed,
+          opened: false,
+          output: out,
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return;
+      }
+    }
+    respond(res, { ok: !error, authed, opened, output: out, ...(error ? { error } : {}) });
+  };
+  let probeChild;
+  try {
+    const [probeCmd = "", ...probeArgs] = auth.probe;
+    probeChild = spawn(probeCmd, probeArgs, { cwd: FRAMEWORK_DIR });
+  } catch (e) {
+    finish(false, e instanceof Error ? e.message : String(e));
+    return;
+  }
+  const timer = setTimeout(() => {
+    probeChild.kill("SIGKILL");
+  }, AUTH_PROBE_TIMEOUT_MS);
+  const collect = (/** @type {Buffer} */ c) => {
+    out += c.toString();
+  };
+  probeChild.stdout?.on("data", collect);
+  probeChild.stderr?.on("data", collect);
+  probeChild.on("error", (/** @type {Error} */ e) => {
+    clearTimeout(timer);
+    if (probed) return;
+    probed = true;
+    finish(false, e.message);
+  });
+  probeChild.on("close", (/** @type {number | null} */ code) => {
+    clearTimeout(timer);
+    if (probed) return;
+    probed = true;
+    finish(code === 0 && new RegExp(auth.authedRe, "i").test(out));
+  });
+}
+
 /** Dispatch one generic agent route. `url` is the full request path, e.g.
  * `/api/agents/hermes/check`; unknown agent or verb → 404.
  * @param {import("node:http").IncomingMessage} req
@@ -130,6 +198,17 @@ export function handleAgentApi(req, res, url) {
       }
       runSetupScript(agent.setup, res);
       return;
+    case "auth": {
+      const auth = agent.auth;
+      if (!auth) {
+        respond(res, { error: `${agent.id} has no auth flow` }, true);
+        return;
+      }
+      withBody(req, (body) => {
+        runAuthFlow(auth, body.force === true, res);
+      });
+      return;
+    }
     case "settings":
       withBody(req, (body) => {
         const saved = agent.saveConfig(body);

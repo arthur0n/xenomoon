@@ -36,7 +36,11 @@ test("library kind: flat names (the project's durable docs) are never promotable
   const project = path.join(scratch, "flat-guard-project");
   assert.equal(locate("library", "business-rules.md", project), null);
   assert.equal(locate("library", "project.md", project), null);
-  const r = promoteOne("library", "business-rules.md", project);
+  // pluginDir fixture: promoteOne heals the pack's library scaffolds before locating,
+  // so pointing it at the real plugin would scaffold the actual repo from a test.
+  const r = promoteOne("library", "business-rules.md", project, {
+    pluginDir: path.join(scratch, "flat-guard-plugin"),
+  });
   assert.equal(r.ok, false);
   assert.match(r.msg, /never promotable/);
 });

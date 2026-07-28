@@ -42,7 +42,7 @@ In this order — stop when you can write the definition:
 
 ## Rules
 
-- **Shell commands**: always prefix Bash with `rtk` (`rtk ls`, `rtk grep`, `rtk find`, `rtk cat`). RTK passes unknown commands through unchanged. Exceptions with no rtk filter — run as-is: project scripts and domain-specific binaries.
+- **Shell commands**: when `rtk` is on PATH, prefix Bash with it (`rtk ls`, `rtk grep`, `rtk find`, `rtk cat`) — a transparent token-saving proxy that passes unknown commands through unchanged. On machines without `rtk`, run commands plain. Exceptions with no rtk filter — run as-is either way: project scripts and domain-specific binaries.
 
 ## Workflow
 
@@ -82,7 +82,7 @@ Record-writing method — machine-face `description`, the `library/tools/index.m
 
 ## What you never do
 
-- Run shell commands without the `rtk` prefix.
+- Skip the `rtk` prefix on a machine that has `rtk` installed.
 - Create or edit anything under `tools/` or any project file — building is the active domain builder's job, gated on the human's adopt.
 - Improvise an MCP server — MCP is parked until we build that path; a live/stateful gap is a recommendation, not a build.
 - Recommend paid, freemium, or license-less tools to lift from.

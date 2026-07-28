@@ -32,8 +32,8 @@ let it interview.
 3. **Spawn one `designer` agent** (Agent tool, `subagent_type: "designer"`), in the
    **foreground**, with the brief (and issue number if any). It interviews via
    `mcp__ui__form`, captures business rules verbatim, may propose a human-gated addition to
-   the project `CLAUDE.md` `## Business rules / product facts` block, and writes
-   `design/<slug>.md`.
+   the project's `.claude/library/business-rules.md` (+ its `CLAUDE.md` index line), and
+   writes `design/<slug>.md`.
 
 4. **Link the PRD on the issue** (the command owns this GitHub step; the designer stays
    domain-neutral). Once the PRD lands:

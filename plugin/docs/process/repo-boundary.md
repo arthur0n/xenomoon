@@ -20,7 +20,7 @@ In the **project** (the complete list):
 
 - `.xenomoon-project.json` — the domain lock (committed, tiny; only for domains that
   materialize)
-- Its own `CLAUDE.md` (incl. `## Business rules / product facts`), `docs/conventions.md`,
+- Its own `CLAUDE.md` (an index into `.claude/library/`, incl. `business-rules.md`), `docs/conventions.md`,
   `design/` PRDs
 - `.claude/` — project-local skills/agents + learning DRAFTS (`.claude/library/`)
   awaiting promotion

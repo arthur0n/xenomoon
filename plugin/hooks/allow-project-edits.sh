@@ -34,8 +34,11 @@ fp="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // .tool_input.noteb
 [ -z "$fp" ] && exit 0
 
 # Never grant config-dir edits — keep `.claude/` foreground/human-approved.
+# design/ is likewise carved out: it belongs to the designer, which runs FOREGROUND-ONLY
+# by charter, so its writes get interactive approval — background workers must not
+# silently write design docs (handcrafted access, not a blanket grant).
 case "$fp" in
-  .claude/* | */.claude/*) exit 0 ;;
+  .claude/* | */.claude/* | design/* | */design/*) exit 0 ;;
 esac
 
 # Only grant writes under known-good roots: relative paths resolve under the game cwd;

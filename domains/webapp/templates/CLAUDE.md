@@ -56,18 +56,19 @@ Project-specific hard rules every change must respect (the agents obey these ove
   raw `playwright test`.
 - {{add the rules that are actually non-negotiable here}}
 
-## Business rules / product facts
+## Library index
 
-Standing facts about **what this product does / doesn't do** — captured product INTENT, in
-the user's own words. **Designer-maintained, human-gated** (the `designer` agent proposes
-additions during `/design` and writes them only after you approve). The agents treat this
-block as **AUTHORITATIVE intent**: the analyst never manufactures a hypothesis that
-contradicts a rule here (a symptom-vs-intent conflict is a designer question, not a code
-trace); the developer builds to it; the tester reads it as rubric. Empty until the first
-`/design` seeds it — quote the fact, don't paraphrase it.
+This file stays an **index** — full durable content lives in `.claude/library/` docs; each
+gets ONE line here. Never dump full rules or specs into this file.
 
-- {{e.g. "We're not using the Explicação columns — propagate the value instead."}}
-- {{add each standing product rule verbatim as it's captured}}
+- `.claude/library/business-rules.md` — standing product facts, user's words verbatim.
+  **Designer-maintained, human-gated.** The agents treat it as **AUTHORITATIVE intent**:
+  the analyst never manufactures a hypothesis that contradicts it (a symptom-vs-intent
+  conflict is a designer question, not a code trace); the developer builds to it; the
+  tester reads it as rubric. Empty until the first `/design` seeds it.
+- `.claude/library/project.md` — extended project details (infra notes, service map,
+  anything too long for the sections above).
+- {{add a one-line pointer per additional library doc as they're created}}
 
 ## Acceptance testing (UAT)
 

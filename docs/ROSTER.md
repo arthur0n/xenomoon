@@ -26,3 +26,20 @@ print the live table with `node ui/server/cli/agents-lint.js --table`).
 
 Deleted (2026-07-21 redesign): `bug-triage` + `senior-dev` → merged into `analyst`;
 `committer` → direct hook-gated `/commit`.
+
+## Roster discipline (the bar for adding an agent)
+
+An agent earns a roster slot only as one of two shapes:
+
+- **Highly specialized** — a distinct charter no other agent covers (its own inputs,
+  outputs, write surface, gates).
+- **Generic + skills** — an analyst-style generalist whose variations are SKILLS it
+  loads, not sibling agents.
+
+Never multiple same-model agents whose instructions differ by a few lines — that is
+roster bloat: it widens the orchestrator's mis-routing surface, costs a description line
+every turn, and multiplies maintenance. `agents-lint` WARNs on same-model multiplicity
+without a `roster-justification:` — treat that warning as a design smell, not noise. A
+new capability defaults to a **skill on an existing agent** (or an `mcp__ui__promote`
+request); an agent exists to be safely parallelizable — distinct charter, distinct write
+surface — never to hold three lines of instructions.

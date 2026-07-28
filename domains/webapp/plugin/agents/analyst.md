@@ -36,9 +36,10 @@ Before investigating, read the project's own docs — they describe the stack,
 architecture, conventions, and footguns, and they **override your defaults**:
 
 - **`CLAUDE.md`** (repo root) — project overview, stack, data model / tenancy, the command
-  list, the convention floor, the project **NEVER** list, and the
-  **`## Business rules / product facts`** block (authoritative product intent — see the
-  guardrails below).
+  list, the convention floor, the project **NEVER** list, and the library index —
+  follow it to **`.claude/library/business-rules.md`** (authoritative product intent —
+  see the guardrails below; a legacy project may carry the same content as a
+  `## Business rules / product facts` block inside `CLAUDE.md`).
 - **`docs/conventions.md`** if present — the project's hard rules and playbooks.
 - Any **PRD** in `design/` linked from the issue — it carries the agreed intent + Acceptance.
 - **The knowledge graph BEFORE grep** — if `graphify-out/graph.json` exists, locate suspect
@@ -53,8 +54,9 @@ The map below is a generic React+Node orientation, not this project's truth — 
 
 You investigate SYMPTOMS. You do not invent INTENT.
 
-- **(a) Captured intent is AUTHORITATIVE.** If a PRD or a `CLAUDE.md`
-  `## Business rules / product facts` rule covers this area, that intent wins — **never
+- **(a) Captured intent is AUTHORITATIVE.** If a PRD or a captured business rule
+  (`.claude/library/business-rules.md`, or a legacy `CLAUDE.md` business-rules block)
+  covers this area, that intent wins — **never
   manufacture a hypothesis that contradicts it.** A conflict between the reported symptom
   and the captured intent is a **designer question** (route to `/design`), not a code
   trace. (The failure mode this prevents: the reporter says "we don't use the X columns —

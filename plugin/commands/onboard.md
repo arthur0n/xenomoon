@@ -15,7 +15,7 @@ Deterministic parts are scripted below; judgment parts hand to the **designer**.
 ## Step 1 — scripted inventory (read-only, no judgment)
 
 1. **Their `CLAUDE.md` / `docs/conventions.md`:** which of the framework's expected blocks
-   exist (Commands · Business rules / product facts · convention floor · NEVER list) and
+   exist (Commands · Library index → `.claude/library/business-rules.md` · convention floor · NEVER list) and
    which are missing. Report as a checklist.
 2. **Their `.claude/skills/`:** list each skill (name + description line). Default verdict
    for every one: **keep project-local**. Flag only clearly-generic candidates (no project
@@ -35,8 +35,10 @@ pre-loaded topic list manufactures rubber-stamp questions (the designer will dut
 code for whatever you seed it with).
 
 - **Annotated CLAUDE.md merge proposal** — their content stays verbatim; the designer
-  proposes ADDING the missing framework blocks (Commands mapping from step 1.4, an empty
-  `## Business rules / product facts` scaffold, a NEVER-list seed). Human approves the Edit.
+  proposes ADDING the missing framework blocks (Commands mapping from step 1.4, a
+  `## Library index` scaffold pointing at an empty `.claude/library/business-rules.md`,
+  a NEVER-list seed). CLAUDE.md stays an INDEX — full rules go in the library doc, one
+  pointer line each here. Human approves the Edit.
 - **Business-rules interview — intent comes from what the user SAYS, never from what code
   implies.** Code-mining is banned as a question source: a rule reverse-engineered from an
   implemented check is a restatement of enforced code — there is nothing to decide, so it

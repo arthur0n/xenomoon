@@ -263,19 +263,29 @@ function handleRestartPost(_req, res) {
   res.end(
     JSON.stringify({ ok: true, mode: process.env.XENOMOON_SUPERVISED ? "supervised" : "respawn" }),
   );
+  // One idempotent exit path shared by close() and the watchdog below — BOTH must
+  // respawn under bare `npm start`, or a slow close leaves the server dead with no heir.
+  let gone = false;
+  const go = () => {
+    if (gone) return;
+    gone = true;
+    if (process.env.XENOMOON_SUPERVISED) process.exit(87);
+    const child = spawn(process.argv0, process.argv.slice(1), {
+      detached: true,
+      stdio: "inherit",
+    });
+    child.unref();
+    process.exit(0);
+  };
   // Give the response a beat to flush, then close and go.
   setTimeout(() => {
-    server.close(() => {
-      if (process.env.XENOMOON_SUPERVISED) process.exit(87);
-      const child = spawn(process.argv0, process.argv.slice(1), {
-        detached: true,
-        stdio: "inherit",
-      });
-      child.unref();
-      process.exit(0);
-    });
-    // Existing keep-alive sockets (the WS) can hold close() open — force the issue.
-    setTimeout(() => process.exit(process.env.XENOMOON_SUPERVISED ? 87 : 0), 2000).unref();
+    // Upgraded WS sockets keep close() pending forever — drop them first so it can finish.
+    for (const c of wss.clients) c.terminate();
+    wss.close();
+    server.closeAllConnections?.();
+    server.close(go);
+    // Backstop in case close() still stalls — same exit path, so the respawn still happens.
+    setTimeout(go, 2000).unref();
   }, 150);
 }
 

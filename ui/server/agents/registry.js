@@ -44,6 +44,7 @@ import { checkKimi } from "../integrations/kimi/kimi-check.js";
  * @property {(patch: object) => ({ ok: true } | { error: string })} saveConfig - existing saveXConfig
  * @property {(body: Record<string, string | undefined>) => object | Promise<object>} check - readiness probe; `body` carries typed-but-unsaved field values
  * @property {{ script: string, extraArgs: string[], manual: string | null }} [setup] - npm setup script for POST /api/agents/:id/setup
+ * @property {{ probe: string[], authedRe: string, open: string[] }} [auth] - vendor-CLI sign-in commands for POST /api/agents/:id/auth: `probe` reports auth state (authed when it exits 0 AND its output matches `authedRe`, case-insensitive), `open` boots the vendor's browser sign-in (the same commands the terminal flow prints)
  */
 
 /** A trimmed typed value, or the saved fallback when it's blank/missing.
@@ -123,6 +124,11 @@ export const AGENT_REGISTRY = [
       extraArgs: ["--yes"],
       manual: "Then finish Nous auth in a terminal: `hermes portal`.",
     },
+    auth: {
+      probe: ["hermes", "portal", "status"],
+      authedRe: "auth:\\s*✓|✓ logged in",
+      open: ["hermes", "portal", "open"],
+    },
   },
   {
     id: "codex",
@@ -149,7 +155,7 @@ export const AGENT_REGISTRY = [
     saveConfig: (patch) =>
       saveCodexConfig(/** @type {import("../core/config.js").CodexConfig} */ (patch)),
     check: () => checkCodex(),
-    setup: { script: "codex:setup", extraArgs: [], manual: null },
+    setup: { script: "codex:setup", extraArgs: ["--yes"], manual: null },
   },
   {
     id: "kimi",
@@ -206,6 +212,7 @@ export function listAgents() {
     fields: d.fields,
     install: d.install,
     hasSetup: Boolean(d.setup),
+    hasAuth: Boolean(d.auth),
     status: d.publicConfig(),
   }));
 }

@@ -29,6 +29,9 @@ feeds the gate's hardcoding tripwire). Let `REF = <remote>/<branch>`.
 
 ## Steps
 
+> Shell commands below are shown with the optional `rtk` token-saving prefix. If `rtk` is not on
+> PATH, run them without it — they are identical.
+
 1. **Preflight (deterministic — stop if it fails).** Confirm a clean tree
    (`rtk git status --porcelain` empty; if not, stop and tell the user to commit/stash).
    Resolve the remote: `rtk git remote get-url <remote>`. It MUST be the framework

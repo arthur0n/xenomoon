@@ -6,6 +6,9 @@
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Status: experimental](https://img.shields.io/badge/Status-experimental-orange.svg)
+![Skills: 8](https://img.shields.io/badge/Skills-8-b08d57)
+![Agents: 5](https://img.shields.io/badge/Agents-5-b08d57)
+![Domains: app · expo · webapp](https://img.shields.io/badge/Domains-app_·_expo_·_webapp-b08d57)
 
 > **Early experiment.** A domain-focused fork of [Xenodot Forge](https://github.com/arthur0n/xenodot-forge). Names, layouts, and APIs will change; nothing here is stable yet.
 
@@ -63,10 +66,14 @@ xenomoon promote         # apply approved promotions
 Already have the framework checked out? Same flow, minus step zero:
 
 ```bash
-rtk npm ci
-rtk npm run install-project          # the questionnaire (or pass flags: -- <PATH> --domain=webapp)
-rtk npm start            # http://localhost:3117 (or your chosen port)
+npm ci
+npm run install-project  # the questionnaire (or pass flags: -- <PATH> --domain=webapp)
+npm start                # http://localhost:3117 (or your chosen port)
 ```
+
+(Have the optional `rtk` (Rust Token Killer) token-saving proxy on PATH? Prefix
+commands with it — `rtk npm ci` — it passes anything it doesn't filter through unchanged. Everything
+works identically without it; `doctor` reports it as a soft, optional check.)
 
 Or hand the whole install to an agent — paste this verbatim, replacing the target path:
 
@@ -78,12 +85,13 @@ Context:
 - Target project = <ABSOLUTE_PATH_TO_YOUR_WEBAPP>  ← a React + Node.js app with a package.json.
 - Domain = `webapp`: a Node domain that installs in place, writes nothing into your project, and keeps it pure.
 
-Prefix every shell command with `rtk` (a PreToolUse hook enforces it). Do exactly this:
-1. Install framework deps:        rtk npm ci
-2. Install into the project:       rtk npm run install-project -- <ABSOLUTE_PATH_TO_YOUR_WEBAPP> --domain=webapp
+If `rtk` is on PATH (`command -v rtk`), prefix every shell command with it; otherwise run the
+commands plain — they are identical either way. Do exactly this:
+1. Install framework deps:        npm ci
+2. Install into the project:       npm run install-project -- <ABSOLUTE_PATH_TO_YOUR_WEBAPP> --domain=webapp
    (locks the domain, binds the path in .xenomoon.json, runs doctor)
-3. Confirm health:                 rtk npm run doctor   → must report OK for the webapp domain.
-4. Boot the UI:                    rtk npm start         → serves http://localhost:3117
+3. Confirm health:                 npm run doctor   → must report OK for the webapp domain.
+4. Boot the UI:                    npm start         → serves http://localhost:3117
 5. Verify: open http://localhost:3117 (expect HTTP 200) and check /api/state returns the project's
    name with "found": true.
 

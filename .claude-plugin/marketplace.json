@@ -4,16 +4,20 @@
   "metadata": {
     "description": "Xenomoon Forge — a domain-neutral, self-improving agent framework you install per project and lock to a domain (React/Node web app, …)."
   },
-  "owner": { "name": "Xenomoon Forge" },
+  "owner": {
+    "name": "Xenomoon Forge"
+  },
   "plugins": [
     {
       "name": "xenomoon",
       "description": "The framework's ONE capability plugin: meta skills, safety hooks, handoff-summarizer and the researcher learning loop — the picked domain pack's capabilities are copied into this tree at install time.",
       "version": "0.1.8",
-      "author": { "name": "Xenomoon Forge" },
+      "author": {
+        "name": "Xenomoon Forge"
+      },
       "source": "./plugin",
       "category": "development",
-      "tags": ["agents", "skills", "webapp", "framework"]
+      "tags": ["agents", "skills", "framework", "app", "expo", "webapp"]
     }
   ]
 }

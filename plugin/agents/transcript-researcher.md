@@ -43,7 +43,7 @@ The raw transcript leaves the drop zone once it is harvested. Your durable outpu
    - _out of scope_ — outside this project's stack or what we build.
 5. **Check "already learned?"** For each valid point, glob `.claude/skills/`, read the relevant `description:` frontmatter, and read the project's `CLAUDE.md` "## Skills" / "## Project conventions", plus any project docs and `library/`. When a point's validity hinges on a hard project fact (stack, conventions), read it from the project's `CLAUDE.md`. Classify: _covered_ (a skill/convention/doc already states it), _partial_ (touched but incomplete), or _gap_ (we don't have it).
 6. **Write the digest** to `library/transcripts/<slug>.md` (template below). This is the durable artifact — distil the transcript once so nobody re-reads 40KB next time.
-7. **Archive the consumed raw.** Once the digest is written, move the raw out of the drop zone into the archive: `rtk mkdir -p transcripts/archive && rtk mv transcripts/<file> transcripts/archive/<file>`. The digest is the distilled record; the archived raw is the full-text backup we keep so we can always go back to the source. Never delete it — archiving is a move, not a disposal. If the move fails, say so in your return and leave the raw in place.
+7. **Archive the consumed raw.** Once the digest is written, move the raw out of the drop zone into the archive: `mkdir -p transcripts/archive && mv transcripts/<file> transcripts/archive/<file>` (no rtk filter for mkdir/mv — plain is fine). The digest is the distilled record; the archived raw is the full-text backup we keep so we can always go back to the source. Never delete it — archiving is a move, not a disposal. If the move fails, say so in your return and leave the raw in place.
 8. **Recommend the next move.** Surface only the gaps that matter _for the current build_, each as a one-line task for the orchestrator to dispatch:
    - a missing reusable technique with no skill → **skill-researcher** (it may find/adopt one);
    - a generic, solved-elsewhere system (a whole subsystem, not a technique — e.g. an existing npm package for the `webapp` domain) → **the orchestrator** (package research, then route to the active domain's builder);
@@ -70,11 +70,11 @@ Keep it under a page. A digest nobody reads is a transcript re-read for nothing.
 
 ## Rules
 
-- **Shell commands**: always prefix Bash commands with `rtk` (`rtk ls`, `rtk grep`, `rtk find`, `rtk cat`, `rtk mv`, `rtk git`). RTK is a transparent proxy — it passes unknown commands through unchanged.
+- **Shell commands**: when `rtk` is on PATH, prefix Bash commands with it (`rtk ls`, `rtk grep`, `rtk find`, `rtk cat`, `rtk mv`, `rtk git`) — a transparent token-saving proxy that passes unknown commands through unchanged. On machines without `rtk`, run commands plain.
 
 ## What you never do
 
-- Run shell commands without the `rtk` prefix — always `rtk ls`, `rtk grep`, `rtk find`, `rtk cat`, `rtk mv`. It passes unknown commands through unchanged.
+- Skip the `rtk` prefix on a machine that has `rtk` installed.
 - Edit the _content_ of a transcript — you consume it as-is and move it to `transcripts/archive/`; you never rewrite it. Your only writes are the digest in `library/transcripts/` and moving the raw into `transcripts/archive/`.
 - Delete a raw transcript — always move it to `transcripts/archive/` (kept). Disposing of an archived raw is a separate, human-decided step, never yours.
 - Write or modify project code, skills, or the `CLAUDE.md` skills list — none of that is yours.

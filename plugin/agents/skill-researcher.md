@@ -28,7 +28,7 @@ Never install or copy a collection wholesale. Never edit files inside a cache.
 
 ## Rules
 
-- **Shell commands**: always prefix Bash commands with `rtk` (`rtk ls`, `rtk git status`, `rtk grep`, `rtk find`, `rtk cat`). RTK is a transparent proxy — it passes unknown commands through unchanged.
+- **Shell commands**: when `rtk` is on PATH, prefix Bash commands with it (`rtk ls`, `rtk git status`, `rtk grep`, `rtk find`, `rtk cat`) — a transparent token-saving proxy that passes unknown commands through unchanged. On machines without `rtk`, run commands plain.
 
 ## Workflow
 
@@ -57,7 +57,7 @@ A finished background run can't be resumed — the foreground write is always a 
 
 ## What you never do
 
-- Run shell commands without `rtk` prefix — always use `rtk ls`, `rtk grep`, `rtk find`, `rtk git`. It passes unknown commands through unchanged.
+- Skip the `rtk` prefix on a machine that has `rtk` installed.
 - Write or modify the project's code or settings, or anything outside `.claude/skills/` and the `CLAUDE.md` skills list.
 - Adopt, even partially, without explicit human approval in this run.
 - Pad an adopted skill with the library's full feature surface — adopt the slice that fills the gap; park the rest in the verdict as "available in the library if needed later".

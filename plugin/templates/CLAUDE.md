@@ -39,7 +39,9 @@ big changes. No graph yet? `graphify .` builds one. See the `xenomoon:graphify` 
 
 ## Conventions / convention floor
 
-Project-specific hard rules every change must respect (the agents obey these over their defaults):
+Project-specific hard rules every change must respect (the agents obey these over their
+defaults). Terse one-liners only — anything longer lives in a `.claude/library/` doc with
+a pointer in the Library index below:
 
 - {{e.g. business logic lives in core/ — not in entrypoints/handlers}}
 - {{e.g. no console.log / no `any` / no non-null `!`; lint runs with zero warnings}}

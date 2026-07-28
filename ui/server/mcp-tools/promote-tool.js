@@ -18,7 +18,14 @@ import { PROJECT_DIR } from "../core/config.js";
  * entries once rotted for a fortnight). Returns a rejection message, or null when fine.
  * @param {string} kind @param {string} name @returns {string | null} */
 function unappliable(kind, name) {
-  const { src, dst } = locate(kind, name, PROJECT_DIR);
+  const loc = locate(kind, name, PROJECT_DIR);
+  if (!loc)
+    return (
+      `promote REJECTED: ${kind}/${name} is not promotable — flat library names ` +
+      `(business-rules.md, project.md) are the project's durable docs and never leave the ` +
+      `project. Library drafts use <kind>/<slug>.md (findings/…, verdicts/…, tools/…).`
+    );
+  const { src, dst } = loc;
   if (existsSync(dst))
     return (
       `promote REJECTED: ${kind}/${name} already exists in the plugin (${dst}). Promote only ` +

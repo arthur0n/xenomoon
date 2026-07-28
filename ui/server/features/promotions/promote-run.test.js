@@ -18,16 +18,27 @@ test("locate: dst defaults to the base plugin and flips with an explicit pluginD
   const project = path.join(scratch, "some-project");
   const otherPlugin = path.join(scratch, "other-plugin");
   const base = locate("skills", "my-skill", project);
+  assert.ok(base);
   assert.equal(base.dst, path.join(FRAMEWORK_PLUGIN_DIR, "skills", "my-skill"));
   const other = locate("skills", "my-skill", project, otherPlugin);
+  assert.ok(other);
   assert.equal(other.dst, path.join(otherPlugin, "skills", "my-skill"));
   // src never depends on the plugin dir — same project-local source either way.
   assert.equal(base.src, other.src);
   // Agents get the .md suffix in both worlds.
   assert.equal(
-    locate("agents", "helper", project, otherPlugin).dst,
+    locate("agents", "helper", project, otherPlugin)?.dst,
     path.join(otherPlugin, "agents", "helper.md"),
   );
+});
+
+test("library kind: flat names (the project's durable docs) are never promotable", () => {
+  const project = path.join(scratch, "flat-guard-project");
+  assert.equal(locate("library", "business-rules.md", project), null);
+  assert.equal(locate("library", "project.md", project), null);
+  const r = promoteOne("library", "business-rules.md", project);
+  assert.equal(r.ok, false);
+  assert.match(r.msg, /never promotable/);
 });
 
 test("promoteOne: moves into the pluginDir it is given (end to end on disk)", () => {
@@ -65,6 +76,7 @@ test("library kind: accepted by all four validation points, moves, and appends t
     "---\nname: lockfile-drift\ndescription: agents must never mutate lockfiles uninvited\n---\nAgnostic finding body.\n",
   );
   const loc = locate("library", "findings/lockfile-drift.md", project, fixturePlugin);
+  assert.ok(loc);
   assert.equal(loc.src, path.join(project, ".claude", "library", "findings", "lockfile-drift.md"));
   assert.equal(loc.dst, path.join(fixturePlugin, "library", "findings", "lockfile-drift.md"));
   const r = promoteOne("library", "findings/lockfile-drift.md", project, {

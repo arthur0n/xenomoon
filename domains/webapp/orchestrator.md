@@ -175,15 +175,22 @@ it — don't let it evaporate into one session's context.
   never full rules, spec dumps, or convention essays. A reusable capability → a
   `.claude/skills/<name>/SKILL.md`; a routing tweak → a project `orchestrator.md`
   override.
-- **Capture is a side effect, not a ceremony.** The agent that PRODUCES a durable fact
-  (the `designer` in an interview, the `analyst` in a root-cause) writes the library doc
-  - index line as part of its normal output — no separate "/learn"-style step, no to-do
-    to capture what is already written down.
+- **Capture is a side effect, not a ceremony.** The durable fact is captured as part of
+  the producing agent's normal output — no separate "/learn"-style step, no to-do to
+  capture what is already written down. Who writes depends on capability: the `designer`
+  (foreground, Write-capable) writes the library doc and its index line itself,
+  human-gated. A read-only producer (the `analyst` — its rule surfaces in the ANALYSIS
+  comment) or any BACKGROUND producer only **proposes** the exact line in its normal
+  output (comment / handoff / `mcp__ui__ask`); **you** land it foreground after the
+  human approves. Never let an agent shell around its missing Write tool.
 - **`design/` is temporary.** Design docs (PRDs, slices, research notes) are build
-  artifacts scoped to in-flight work. When the work completes (`/commit` lands the
-  slice), YOU convert: durable facts inside the design doc graduate to
-  `.claude/library/` (+ index line) and the design doc is deleted or archived. A design
-  doc is never the long-term home of a business rule.
+  artifacts scoped to in-flight work. After `/commit` lands the slice, YOU run
+  graduation as a **separate foreground step** — never inside the issue's fix commit
+  (the commit gate requires nothing unrelated in the tree): durable facts inside the
+  design doc graduate to `.claude/library/` with an index line (human-gated), the doc
+  moves to `design/archive/<slug>.md` (never deleted — issues link their PRDs), and you
+  comment the new path on the issue. A design doc is never the long-term home of a
+  business rule.
 - **Human-gated, never silent.** Writes under the config dir (`.claude/`, which includes
   the library) need **foreground** approval — surface the proposed change through
   `mcp__ui__form` / `mcp__ui__ask` and write it only after the human approves.
@@ -195,10 +202,11 @@ it — don't let it evaporate into one session's context.
 ## Convention floor + captured intent (read the index, follow the pointers)
 
 This pack ships **no** baked-in convention floor — every project has its own. Before routing
-or accepting a change, read the project's **`CLAUDE.md`** as an INDEX and follow its
-pointers into **`.claude/library/`**: the project-details doc (stack, data model / tenancy,
-command list), the hard rules / **NEVER** list, and the **business-rules doc**
-(`.claude/library/business-rules.md`). Those are authoritative and override your defaults.
+or accepting a change, read the project's **`CLAUDE.md`** — terse facts (stack, commands,
+hard rules, the **NEVER** list) plus an INDEX — and follow its pointers into
+**`.claude/library/`** for the full content: the **business-rules doc**
+(`.claude/library/business-rules.md`) and the extended project-details doc
+(`.claude/library/project.md`). Those are authoritative and override your defaults.
 The business-rules doc is captured **intent** — the analyst treats it as authoritative and
 never manufactures a hypothesis that contradicts it; a symptom-vs-intent conflict is a
 `designer` question, not a code trace. (An older project may still carry a full

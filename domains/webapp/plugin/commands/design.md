@@ -49,9 +49,10 @@ let it interview.
      create it — don't silently drop it.
 
 5. **Report** the PRD path, the ordered slice(s) with the domain each touches, any open
-   questions the designer left, and the issue number/URL it linked or opened. Then offer
-   the next move: agreed small slice → `/implement`; a genuine defect surfaced instead →
-   `/analyze`.
+   questions the designer left, and the issue number/URL it linked or opened. Then EXECUTE
+   the next stage yourself — an agreed small slice → dispatch the developer (`/implement`
+   flow); a genuine defect surfaced instead → dispatch the analyst (`/analyze` flow).
+   Never hand a slash command back to the user.
 
 ## Notes
 

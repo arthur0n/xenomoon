@@ -4,6 +4,9 @@
 > Fill in every `{{…}}` placeholder; delete any section that genuinely doesn't apply.
 > The webapp domain's agents and orchestrator read this file and treat it as
 > authoritative — it overrides their generic defaults.
+> **Keep this file an INDEX:** each section holds terse one-liners; anything longer than
+> a line (full rules, specs, runbooks) lives in a `.claude/library/` doc with a one-line
+> pointer here (see the Library index section).
 
 ## Project overview
 

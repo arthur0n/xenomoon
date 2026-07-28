@@ -22,8 +22,9 @@ In the **project** (the complete list):
   materialize)
 - Its own `CLAUDE.md` (an index into `.claude/library/`, incl. `business-rules.md`), `docs/conventions.md`,
   `design/` PRDs
-- `.claude/` — project-local skills/agents + learning DRAFTS (`.claude/library/`)
-  awaiting promotion
+- `.claude/` — project-local skills/agents, the project's durable docs
+  (`.claude/library/business-rules.md`, `project.md` — never promotable), and learning
+  DRAFTS awaiting promotion (`.claude/library/<kind>/<slug>.md`)
 - `.xenomoon/` — runtime state (tasks, promotions queue, handoffs) — **gitignored**
 
 In the **install** (framework checkout): everything else — spine (`ui/`), CORE plugin

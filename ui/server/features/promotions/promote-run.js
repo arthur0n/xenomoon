@@ -43,9 +43,11 @@ export function isGateWired(name, projectDir) {
 }
 
 /** Resolve the project-local source path and the plugin destination for this capability.
+ * Returns null for a non-promotable name (a flat `library` name — the project's durable docs).
  * @param {string} kind @param {string} name @param {string} projectDir
  * @param {string} [pluginDir] destination plugin root override (temp fixtures in tests);
- *   defaults to the base plugin so existing project-path callers are byte-identical. */
+ *   defaults to the base plugin so existing project-path callers are byte-identical.
+ * @returns {{ src: string, dst: string } | null} */
 export function locate(kind, name, projectDir, pluginDir = FRAMEWORK_PLUGIN_DIR) {
   if (kind === "skills") {
     return {
@@ -62,7 +64,10 @@ export function locate(kind, name, projectDir, pluginDir = FRAMEWORK_PLUGIN_DIR)
   }
   if (kind === "library") {
     // name carries `<kind>/<slug>.md` (e.g. findings/jsdom-lockfile.md) — drafts live
-    // project-local under .claude/library/, records land in the pack's library/.
+    // project-local under .claude/library/<kind>/, records land in the pack's library/.
+    // FLAT names are rejected: the flat files there (business-rules.md, project.md) are
+    // the project's durable facts — never promotable, by construction.
+    if (!name.includes("/")) return null;
     const file = name.endsWith(".md") ? name : `${name}.md`;
     return {
       src: path.join(projectDir, ".claude", "library", file),
@@ -96,7 +101,15 @@ export function promoteOne(kind, name, projectDir, opts = {}) {
   if (!PROMOTE_KINDS.has(kind)) return { ok: false, msg: `skip ${kind}/${name}: unknown kind` };
   const pluginDir = opts.pluginDir ?? FRAMEWORK_PLUGIN_DIR;
   ensureDomainLibrary(pluginDir); // lazily heal the pack's learning scaffolds (idempotent)
-  const { src, dst } = locate(kind, name, projectDir, pluginDir);
+  const loc = locate(kind, name, projectDir, pluginDir);
+  if (!loc)
+    return {
+      ok: false,
+      msg:
+        `skip ${kind}/${name}: flat library names are the project's durable docs ` +
+        `(business-rules.md, project.md) — never promotable. Drafts use <kind>/<slug>.md.`,
+    };
+  const { src, dst } = loc;
   // Check "already in the plugin" BEFORE "missing project-local source": a capability already shipped
   // in the plugin usually has NO project-local copy, so the src-missing check would otherwise fire a
   // confusing "not found at <project path>" instead of the clear "already in the plugin" skip.

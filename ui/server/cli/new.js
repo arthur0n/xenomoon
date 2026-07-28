@@ -207,6 +207,28 @@ if (existsSync(claudeMd)) {
   );
 }
 
+// 1c. Seed the project library stubs the CLAUDE.md index points at (CLAUDE.md is an INDEX;
+//     full durable content lives here). Only ever created, never overwritten.
+const projectLibrary = path.join(target, ".claude", "library");
+const LIBRARY_STUBS = {
+  "business-rules.md":
+    "# Business rules / product facts\n\n" +
+    "Standing facts about what this product does / doesn't do — captured product INTENT,\n" +
+    "in the user's own words, verbatim. Designer-maintained, human-gated. The agents treat\n" +
+    "this doc as AUTHORITATIVE intent. Empty until the first /design seeds it.\n",
+  "project.md":
+    "# Project details\n\n" +
+    "Extended project details too long for a CLAUDE.md one-liner — infra notes, service\n" +
+    "map, environment quirks. Keep CLAUDE.md as the index; put the content here.\n",
+};
+for (const [stub, content] of Object.entries(LIBRARY_STUBS)) {
+  const p = path.join(projectLibrary, stub);
+  if (existsSync(p)) continue;
+  mkdirSync(projectLibrary, { recursive: true });
+  writeFileSync(p, content);
+  console.log(`new: seeded project library stub → ${p}`);
+}
+
 // 2. Remember the path (writes .xenomoon.json projectDir).
 node(path.join(here, "setup.js"), target);
 

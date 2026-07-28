@@ -256,8 +256,8 @@ const requested = readPromotions().filter((p) => p.status === "requested").lengt
 // erodes trust in the board. Split appliable from dead and say which is which.
 const approvedEntries = approvedPending();
 const appliable = approvedEntries.filter((p) => {
-  const { src, dst } = locate(p.kind, p.name, PROJECT_DIR);
-  return existsSync(src) && !existsSync(dst);
+  const loc = locate(p.kind, p.name, PROJECT_DIR);
+  return loc !== null && existsSync(loc.src) && !existsSync(loc.dst);
 });
 const dead = approvedEntries.length - appliable.length;
 if (requested || approvedEntries.length) {

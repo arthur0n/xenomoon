@@ -48,6 +48,13 @@ Arguments: `$ARGUMENTS`
    On a gate miss, the exact failing condition and the next move (`/qa`, `/audit`, or
    `/implement`).
 
+8. **Graduate the design doc (separate, AFTER the fix commit — never inside it).** If the
+   issue had a PRD (`design/<slug>.md`): propose (human-gated) moving its durable facts
+   to `.claude/library/business-rules.md` (+ the `CLAUDE.md` index line), move the doc to
+   `design/archive/<slug>.md`, and comment the new path on the issue. Keep this out of
+   the issue's commit — the gate's "nothing unrelated" rule applies to the fix commit
+   only.
+
 ## Notes
 
 - Typical flow: `/qa <#>` → `/audit <#>` → `/commit <#>`. Commit is **automatic once

@@ -58,26 +58,36 @@ export function denylistFor(projectDir) {
   );
 }
 
-/** Verbatim lines from the project CLAUDE.md's `## Business rules` / `## Data model` blocks —
- * the opt-in leakage signal (a promoted artifact reproducing one of these lines verbatim is
- * carrying THIS project's facts). Degrades to [] when the headings are absent — the denylist
- * floor still applies; /onboard adds the headings to projects missing them.
+/** Verbatim project-fact lines — the opt-in leakage signal (a promoted artifact reproducing
+ * one of these lines verbatim is carrying THIS project's facts). Sources, both read when
+ * present: the durable library docs (`.claude/library/business-rules.md` + `project.md`,
+ * the current model — CLAUDE.md is an index) and any legacy `## Business rules` /
+ * `## Data model` blocks still inside CLAUDE.md. Degrades to [] when neither exists — the
+ * denylist floor still applies.
  * @param {string} projectDir @returns {string[]} */
 export function businessTermsFor(projectDir) {
-  let text;
-  try {
-    text = readFileSync(path.join(projectDir, "CLAUDE.md"), "utf8");
-  } catch {
-    return [];
-  }
   /** @type {string[]} */
   const terms = [];
-  const re = /^##\s+(?:Business rules|Data model)[^\n]*\n([\s\S]*?)(?=^## |\n*$)/gim;
-  for (const m of text.matchAll(re))
-    for (const line of (m[1] ?? "").split("\n")) {
+  const collect = (/** @type {string} */ block) => {
+    for (const line of block.split("\n")) {
       const t = line.replace(/^[-*]\s+/, "").trim();
-      if (t.length >= 25) terms.push(t); // short fragments would false-positive
+      if (t.length >= 25 && !t.startsWith("#")) terms.push(t); // short fragments would false-positive
     }
+  };
+  for (const doc of ["business-rules.md", "project.md"]) {
+    try {
+      collect(readFileSync(path.join(projectDir, ".claude", "library", doc), "utf8"));
+    } catch {
+      /* doc absent — fine */
+    }
+  }
+  try {
+    const text = readFileSync(path.join(projectDir, "CLAUDE.md"), "utf8");
+    const re = /^##\s+(?:Business rules|Data model)[^\n]*\n([\s\S]*?)(?=^## |\n*$)/gim;
+    for (const m of text.matchAll(re)) collect(m[1] ?? "");
+  } catch {
+    /* no CLAUDE.md — fine */
+  }
   return terms;
 }
 

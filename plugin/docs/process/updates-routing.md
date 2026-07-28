@@ -27,9 +27,10 @@ needs a server restart).
 
 **PROJECT** — a fact or rule of THIS project only: business rules, data-model facts,
 naming conventions, "we don't use X".
-→ Lands in the project's own `CLAUDE.md` (the Business rules / convention floor blocks)
-or `.claude/skills/`. **Never leaves the project** — not promotable, not PR-able; the
-contamination gate is the backstop, the human gate the guarantee.
+→ Lands in the project's library (`.claude/library/business-rules.md` / `project.md`,
+with a one-line pointer in the project `CLAUDE.md` index) or `.claude/skills/`.
+**Never leaves the project** — not promotable, not PR-able; the contamination gate is
+the backstop, the human gate the guarantee.
 
 ## Decision table
 
@@ -38,7 +39,7 @@ contamination gate is the backstop, the human gate the guarantee.
 | A hook/gate misfired, orchestrator routed wrong, server bug  | FRAMEWORK        | audit ledger → framework commit                      | framework owner     |
 | "Agents keep re-solving X in every webapp project"           | DOMAIN           | draft → promotions board → domain pack               | board approval      |
 | A hard-won verdict/footgun worth remembering across projects | DOMAIN (library) | `.claude/library/` draft → board → `library/<kind>/` | board approval      |
-| "In this project, column X is unused / flow Y is intended"   | PROJECT          | project CLAUDE.md business rules                     | human edit approval |
+| "In this project, column X is unused / flow Y is intended"   | PROJECT          | `.claude/library/business-rules.md` + index line     | human edit approval |
 | A token-audit find that's really a missing domain tool       | DOMAIN           | via the audit's learn arm → board                    | board approval      |
 | A token-audit find in the spine's own machinery              | FRAMEWORK        | audit ledger                                         | framework owner     |
 

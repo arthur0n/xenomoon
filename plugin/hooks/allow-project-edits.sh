@@ -17,6 +17,9 @@
 #   * `.claude/` stays gated — never granted here; config-dir authoring (skills/agents/
 #     CLAUDE.md) remains a foreground, human-approved act (it falls through to the normal
 #     layer → prompts foreground, auto-denies in background, as documented).
+#   * The project-root `design/` dir stays gated — PRDs belong to the designer, which is
+#     foreground-only by charter, so its writes take interactive approval. Only the ROOT
+#     design/ dir is carved out: a product folder like src/design/ stays granted.
 #   * Writes only under the game project (cwd), the framework library, or the shared
 #     asset library ($XENOMOON_LIBRARY / $XENOMOON_ASSET_LIBRARY). Anything else falls
 #     through to the normal layer rather than being broadened.
@@ -34,11 +37,12 @@ fp="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // .tool_input.noteb
 [ -z "$fp" ] && exit 0
 
 # Never grant config-dir edits — keep `.claude/` foreground/human-approved.
-# design/ is likewise carved out: it belongs to the designer, which runs FOREGROUND-ONLY
-# by charter, so its writes get interactive approval — background workers must not
-# silently write design docs (handcrafted access, not a blanket grant).
+# The project-ROOT design/ dir is likewise carved out: it belongs to the designer, which
+# runs FOREGROUND-ONLY by charter, so its writes get interactive approval — background
+# workers must not silently write design docs (handcrafted access, not a blanket grant).
+# Anchored to the root on purpose: a product folder like src/design/ stays granted.
 case "$fp" in
-  .claude/* | */.claude/* | design/* | */design/*) exit 0 ;;
+  .claude/* | */.claude/* | design/* | ./design/* | "$PWD"/design/*) exit 0 ;;
 esac
 
 # Only grant writes under known-good roots: relative paths resolve under the game cwd;

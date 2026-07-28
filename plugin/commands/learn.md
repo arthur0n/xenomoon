@@ -55,8 +55,11 @@ judgment call is not a learning. Aim for 0–3 candidates per run; zero is a fin
   format per the `library-record-writing` skill (machine-face frontmatter `name` +
   one-line verdict `description`, one page, a 4-field Lesson). Then
   `mcp__ui__promote` `{ kind: "library", name: "<kind>/<slug>.md", reason: "…" }`.
-- **4c PROJECT convention**: propose the exact line(s) for the project `CLAUDE.md`
-  (Business rules / convention floor) as a human-gated Edit. Never promoted, never PR'd.
+- **4c PROJECT convention**: propose the exact line(s) for the project's
+  `.claude/library/business-rules.md` (plus its one-line `CLAUDE.md` index pointer) as a
+  human-gated Edit — `CLAUDE.md` stays an index, never the content sink. Never promoted,
+  never PR'd. (Normally capture is a side effect of the producing agent's output — use
+  this arm only for a fact that surfaced OUTSIDE any agent's normal flow.)
 - **4d FRAMEWORK finding**: append it to the framework feedback flow (the
   `/framework-feedback` mechanism where present; otherwise state it plainly in your report
   for the framework owner). Never promoted.

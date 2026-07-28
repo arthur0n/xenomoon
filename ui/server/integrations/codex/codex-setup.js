@@ -40,7 +40,9 @@ const val = (n) =>
     .slice(1)
     .join("=");
 
-const ASSUME_YES = flag("yes");
+// Piped stdin (the UI's setup route) can never answer a prompt — a blocked question
+// would hang until the route's 5-min SIGKILL, so non-TTY implies --yes.
+const ASSUME_YES = flag("yes") || !process.stdin.isTTY;
 const RESET = flag("reset");
 const REPO_URL = "https://github.com/openai/codex-plugin-cc";
 const REF = val("ref"); // optional tag/branch to pin the clone to

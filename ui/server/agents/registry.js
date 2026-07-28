@@ -155,7 +155,7 @@ export const AGENT_REGISTRY = [
     saveConfig: (patch) =>
       saveCodexConfig(/** @type {import("../core/config.js").CodexConfig} */ (patch)),
     check: () => checkCodex(),
-    setup: { script: "codex:setup", extraArgs: [], manual: null },
+    setup: { script: "codex:setup", extraArgs: ["--yes"], manual: null },
   },
   {
     id: "kimi",

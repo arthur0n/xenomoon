@@ -87,7 +87,10 @@ Right-size the gate to the work:
 - **Skip `/audit`** for `sev:low` / cosmetic / trivial glue — `/qa` still runs (the cheap
   floor). **But NEVER skip the full gate when the change touches auth, data scoping, or
   migrations**, regardless of severity — those force `/qa` + `/audit`.
-- **Commit-gate + push-gate hooks ALWAYS run** — they're deterministic and not skippable.
+- **Commit-gate + commit-label + push-gate hooks ALWAYS run** — they're deterministic and not
+  skippable. `commit-label` (PostToolUse) stamps `committed` + `fixed-pending-deploy` and drops
+  `needs-deploy` the instant a `(#N)` commit lands, so the deploy-close workflow can never orphan
+  a merged fix on a slipped label.
 - **UAT stays out-of-band** (batch POC, `/uat`) — never a per-issue gate.
 - **Never silently expand scope.** More than one slice → back to the `designer`. A change
   broader than the issue's diff → stop.

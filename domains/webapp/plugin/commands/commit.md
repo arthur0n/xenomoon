@@ -39,7 +39,10 @@ Arguments: `$ARGUMENTS`
 <name> · QA pass · review pass.` line.
 
 6. **Label + comment:** apply `committed` + `fixed-pending-deploy`; comment
-   `Committed in <sha> — auto-closes on deploy.`
+   `Committed in <sha> — auto-closes on deploy.` (The `commit-label` PostToolUse hook also
+   stamps `committed` + `fixed-pending-deploy` and drops `needs-deploy` deterministically once
+   the `(#N)` commit lands — so a slipped step can't orphan the issue. Your comment still adds
+   the human-readable sha note.)
 
 7. **Report:** the `<sha>`, subject line, labels applied, and that **nothing was pushed**.
    On a gate miss, the exact failing condition and the next move (`/qa`, `/audit`, or
@@ -51,4 +54,6 @@ Arguments: `$ARGUMENTS`
   green** — the human gate is the **push**, not the commit (the `push-gate` hook enforces
   that too: sub-agents can never push; your push always asks the human).
 - **Closing is deploy-gated.** `fixed-pending-deploy` closes when the human pushes and CI
-  ships it — see `/build deploy`.
+  ships it — see `/build deploy`. `fixed-pending-deploy` is the ONLY label the
+  `close-deployed-issues` workflow reads; the `commit-label` hook guarantees it lands at commit
+  time (history: #43/#45/#47 merged but stayed open because only `needs-deploy` was set).

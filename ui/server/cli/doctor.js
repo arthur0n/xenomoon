@@ -103,6 +103,32 @@ async function integrationRows() {
   return rows;
 }
 
+/** Project-local agents that break the naming convention: shadowing a framework agent's
+ * name, or missing the `p-` prefix (see docs/ROSTER.md "Naming convention"). Empty = clean.
+ * @returns {string[]} */
+function projectAgentNamingIssues() {
+  /** @type {string[]} */
+  const issues = [];
+  const projectAgents = path.join(PROJECT_DIR, ".claude", "agents");
+  let names;
+  try {
+    names = readdirSync(projectAgents).filter((f) => f.endsWith(".md"));
+  } catch {
+    return issues; // no project agents — clean
+  }
+  const frameworkNames = new Set(
+    readdirSync(path.join(FRAMEWORK_DIR, "plugin", "agents"))
+      .filter((f) => f.endsWith(".md"))
+      .map((f) => f.replace(/\.md$/, "")),
+  );
+  for (const f of names) {
+    const name = f.replace(/\.md$/, "");
+    if (frameworkNames.has(name)) issues.push(`${name} shadows a framework agent`);
+    else if (!name.startsWith("p-")) issues.push(`${name} missing the p- prefix`);
+  }
+  return issues;
+}
+
 /** @returns {boolean} */
 function hasRtk() {
   try {
@@ -216,6 +242,17 @@ const checks = [
       ]
     : []),
   { ok: hasRtk(), hard: false, label: "rtk on PATH (optional — hook no-ops without it)" },
+  (() => {
+    const issues = projectAgentNamingIssues();
+    return {
+      ok: issues.length === 0,
+      hard: false,
+      label:
+        issues.length === 0
+          ? "project agents follow the p- naming convention"
+          : `project agent naming: ${issues.join("; ")} (convention: docs/ROSTER.md)`,
+    };
+  })(),
   {
     ok: hasGraphify(),
     hard: false,

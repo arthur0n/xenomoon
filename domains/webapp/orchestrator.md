@@ -175,6 +175,12 @@ This pack is a head start, not the whole story — the project teaches you as yo
 discover a **durable project convention, footgun, business rule, or reusable skill**, RECORD
 it — don't let it evaporate into one session's context.
 
+- **Offer a retro when something broke, chafed, or was overridden.** After a fix lands
+  with a non-obvious root cause, after an agent reports friction (improvised pattern,
+  first-try gate failure, scope overrun), or after a human OVERRIDES a `/qa`/`/audit`/
+  `/uat` verdict — offer `/retro` (the `retro` agent). **Opt-in, never auto-run**; "no
+  change" is a valid outcome. Retro proposes, the human approves, only project surfaces
+  change; a domain/framework finding comes back as a report, not an edit.
 - **The library is the durable home; `CLAUDE.md` is an INDEX.** Full content — a
   convention, footgun, or **standing product fact** ("we don't use Y") — goes into a
   project library doc (`.claude/library/<topic>.md`; business rules →

@@ -33,6 +33,7 @@ const ROLE_COLOR = {
   designer: "oklch(0.78 0.11 200)", // cyan — the interviewer, PRD author
   developer: "oklch(0.79 0.12 60)", // amber — hot iron, the implementer
   researcher: "oklch(0.81 0.12 90)", // moon gold — the library (one research role, mode skills)
+  retro: "oklch(0.72 0.14 25)", // ember red — the retrospective / learning loop
   hermes: "#3b2aff", // electric indigo — the external Hermes researcher (not a Xenomoon)
   kimi: "#10b981", // Moonshot teal — the external Kimi coder (not a Xenomoon)
 };
@@ -46,19 +47,25 @@ function stripNs(name) {
   return i === -1 ? name : name.slice(i + 1);
 }
 
-// Display-name (brand) map: identifier -> what the user sees. Brand first
-// ("Xenomoon <role>"), so every agent reads as one of our Xenomoons. Pure UI
-// flavor — the SDK identifiers (subagent_type) and agent filenames stay literal
-// so routing keeps working. Only the rendered text changes.
-//   main -> Xenomoon Hive, addon-researcher -> Xenomoon Researcher, etc.
+// Display-name map: identifier -> what the user sees. The naming CONVENTION does the
+// distinguishing (no brand prefix — the app itself is the brand):
+//   • framework agents (namespaced xenomoon:*/xenomoon-<domain>:*) → plain role name;
+//   • PROJECT-local agents (bare names from <project>/.claude/agents/, convention
+//     `p-<name>`) → "Project · <Name>", so the user always knows whose agent is talking;
+//   • externals keep their vendor prefix ("Hermes: Researcher").
+// Pure UI flavor — SDK identifiers (subagent_type) and filenames stay literal.
 /** @type {Record<string, string>} */
 const DISPLAY = {
-  main: "Xenomoon Hive",
-  analyst: "Xenomoon Analyst",
-  designer: "Xenomoon Designer",
-  developer: "Xenomoon Developer",
-  researcher: "Xenomoon Researcher",
-  "handoff-summarizer": "Xenomoon Handoff",
+  main: "Hive",
+  analyst: "Analyst",
+  designer: "Designer",
+  developer: "Developer",
+  researcher: "Researcher",
+  retro: "Retro",
+  tester: "Tester",
+  reviewer: "Reviewer",
+  "uat-runner": "UAT Runner",
+  "handoff-summarizer": "Handoff",
   hermes: "Hermes: Researcher",
   "codex-rescue": "Codex: Reviewer",
   kimi: "Kimi: Coder",
@@ -67,30 +74,33 @@ const DISPLAY = {
 /** @param {string} name @returns {string} */
 export function agentLabel(name) {
   if (!name) return name;
-  if (DISPLAY[name]) return DISPLAY[name];
+  const hadNs = name.includes(":");
   const bare = stripNs(name);
+  if (DISPLAY[name]) return DISPLAY[name];
   if (DISPLAY[bare]) return DISPLAY[bare];
-  // Fallback for any agent not in the map: brand first, dashes to spaces.
-  const role = bare.replace(/-/g, " ");
-  const titled = role.replace(/\b\w/g, (c) => c.toUpperCase());
-  return `Xenomoon ${titled}`;
+  const titled = bare
+    .replace(/^p-/, "")
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  // Namespaced-but-unmapped = a framework/pack agent (plain role). Bare or `p-` = the
+  // PROJECT's own agent — marked so the user knows whose agent is talking.
+  return hadNs && !bare.startsWith("p-") ? titled : `Project · ${titled}`;
 }
 
-/** The avatar/initial for an agent: the first word of its display name that
- * isn't "Xenomoon" — so "Xenomoon Hive" reads "H" and "Xenomoon Designer" reads "D".
+/** The avatar/initial for an agent: the first word of its display name that isn't the
+ * "Project ·" marker — so "Hive" reads "H" and "Project · Bug Triage" reads "B".
  * @param {string} name @returns {string} */
 export function agentInitial(name) {
   const word = agentLabel(name)
     .split(" ")
-    .find((w) => w && w !== "Xenomoon");
+    .find((w) => w && w !== "Project" && w !== "·");
   return (word ?? agentLabel(name)).charAt(0).toUpperCase();
 }
 
-/** The agent's role, brand prefix dropped — "Xenomoon Developer" -> "Developer",
- * "main" -> "Hive". For tight spots (the task board's owner stamp) where the
- * "Xenomoon" brand is already implied by the surrounding UI. @param {string} name @returns {string} */
+/** The agent's role for tight spots (the task board's owner stamp) — the display name
+ * with the "Project ·" marker dropped. @param {string} name @returns {string} */
 export function agentRole(name) {
-  return agentLabel(name).replace(/^Xenomoon\s+/, "") || agentLabel(name);
+  return agentLabel(name).replace(/^Project\s*·\s*/, "") || agentLabel(name);
 }
 
 /** @param {string} name @returns {string} */

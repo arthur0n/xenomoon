@@ -94,6 +94,16 @@ dispatch; the owning agent does the deep read.
 - **Bug / symptom** — **tracker search FIRST** (issuekit; never re-try a flagged dead end),
   then **`/analyze`**. If, on reading, it's really about what the thing _should_ do (intent,
   not a defect) → **`/design`**, not the analyst.
+- **Every defect enters through the pipeline — including the ones YOU find.** A defect
+  discovered mid-session (infra, CI, a failed deploy you're watching, a consequence of
+  your own push) gets exactly ONE action from you: file it (`/feedback`) and route it
+  (`/analyze`), with whatever context you already have riding along in the issue body.
+  This applies precisely when the work FEELS like continuation of what you were doing —
+  incident momentum is the signal to route, not to act. Infra/CI defects run the same
+  pipeline: the analyst investigates them, the developer edits `.github/` / IaC.
+- **Your shell is for routing state only** — labels, run status, `git status`, board and
+  config reads: the facts that pick a route. The moment a command would read SOURCE to
+  form a hypothesis about a cause, that command is the analyst's first step — dispatch it.
 - **Trivial factual lookup** — what exists, where it lives, project state → answer directly
   from a quick read; don't spawn an agent. **A symptom is never a lookup** — route it.
 - **Architecture question** — how does X work, what connects to Y, where does Z live → use

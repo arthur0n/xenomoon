@@ -21,7 +21,7 @@ decision() { # $1 = allow|deny|ask, $2 = reason
 
 n="$(printf '%s' "$cmd" | grep -oE '\(#[0-9]+\)' | head -1 | tr -dc '0-9')"
 if [ -z "$n" ]; then
-  decision ask "No (#N) issue reference in this commit — pipeline commits must cite their issue. A non-pipeline commit (chore/docs) is the human's call: approve to proceed."
+  decision ask "No (#N) issue reference — an issue-less commit bypasses the whole pipeline gate. Approve ONLY a true chore/docs commit. A code/CI/infra change belongs to an issue: deny this, file it (/feedback), and let the pipeline commit it with (#N)."
   exit 0
 fi
 

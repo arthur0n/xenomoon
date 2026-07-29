@@ -4,8 +4,11 @@ description: >-
   Implements the fix for an analyzed GitHub issue using the analyst's ANALYSIS
   handoff (or a PRD's Acceptance when one exists), following THIS project's
   conventions, and PROVES it with the project's validate + build + test commands.
-  This agent EDITS code (not read-only). Invoke with an issue number, e.g.
-  "Implement issue #42". Used by the /implement command.
+  This agent EDITS code (not read-only) — and its ownership INCLUDES the repo's
+  infra surfaces: .github/workflows, IaC templates (template.yaml, wrangler/CDK
+  config), CI config. An infra/CI defect routes here like any other defect, so
+  routing always has a target. Invoke with an issue number, e.g. "Implement
+  issue #42". Used by the /implement command.
 model: opus
 effort: high
 color: green

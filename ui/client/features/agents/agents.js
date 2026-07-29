@@ -33,7 +33,7 @@ const ROLE_COLOR = {
   designer: "oklch(0.78 0.11 200)", // cyan — the interviewer, PRD author
   developer: "oklch(0.79 0.12 60)", // amber — hot iron, the implementer
   researcher: "oklch(0.81 0.12 90)", // moon gold — the library (one research role, mode skills)
-  retro: "oklch(0.72 0.14 25)", // ember red — the retrospective / learning loop
+  debrief: "oklch(0.72 0.14 25)", // ember red — the retrospective / learning loop
   hermes: "#3b2aff", // electric indigo — the external Hermes researcher (not a Xenomoon)
   kimi: "#10b981", // Moonshot teal — the external Kimi coder (not a Xenomoon)
 };
@@ -61,7 +61,7 @@ const DISPLAY = {
   designer: "Designer",
   developer: "Developer",
   researcher: "Researcher",
-  retro: "Retro",
+  debrief: "Debrief",
   tester: "Tester",
   reviewer: "Reviewer",
   "uat-runner": "UAT Runner",

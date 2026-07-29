@@ -4,7 +4,7 @@ Hermes is your external research coworker: a separate agent with its own model, 
 
 ### Dispatch
 
-For capability/tooling/knowledge-gap _investigation_, call `mcp__ui__hermes` with a focused `task` + `context` (and a `persona`: `researcher` by default, or `critic` to adversarially stress-test a claim/plan/findings) — only you (the Hive) and the `retro` agent may call it; other sub-agents never do.
+For capability/tooling/knowledge-gap _investigation_, call `mcp__ui__hermes` with a focused `task` + `context` (and a `persona`: `researcher` by default, or `critic` to adversarially stress-test a claim/plan/findings) — only you (the Hive) and the `debrief` agent may call it; other sub-agents never do.
 
 It is **fire-and-forget**: the call returns immediately; Hermes works in the background, streams progress to the feed, and later delivers its findings as a **new message** (tagged `[Hermes … delivered its findings]`). Do NOT wait on it — finish or wrap up the turn.
 

@@ -10,7 +10,7 @@ print the live table with `node ui/server/cli/agents-lint.js --table`).
 | ------------------ | ----- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | designer           | opus  | high   | Vague/feature/intent request → interview → one-page PRD (`design/<slug>.md`) + business-rules capture. Never backgrounded.                                                                                                                                                                    | High per run, rare — runs once per feature slice |
 | researcher         | opus  | high   | The ONE research role — mode named at dispatch: `research-skill-gap` (missing-skill gap), `research-tooling` (capability gate), `research-transcript` (harvest a dropped transcript). Human-gated adopts.                                                                                     | High, rare/occasional                            |
-| retro              | opus  | high   | Retrospective / learning loop (opt-in, offered after a fix, friction, or a human override): root-cause → one verdict (update project skill / dispatch researcher / update docs / refine rubric / framework finding / no change). May call Hermes. Human-gated applies, project surfaces only. | High per run, rare                               |
+| debrief            | opus  | high   | Retrospective / learning loop (opt-in, offered after a fix, friction, or a human override): root-cause → one verdict (update project skill / dispatch researcher / update docs / refine rubric / framework finding / no change). May call Hermes. Human-gated applies, project surfaces only. | High per run, rare                               |
 | handoff-summarizer | haiku | low    | Distill a builder's handoff file to ≤5 lines                                                                                                                                                                                                                                                  | Trivial, frequent                                |
 
 ## Webapp domain (`domains/webapp/plugin/agents/`)
@@ -49,8 +49,8 @@ threshold from the other side.
 ## Naming convention (framework vs project agents)
 
 - **Framework agents** (CORE + domain packs) are **plain role nouns** (`analyst`,
-  `researcher`, `retro`) — they run namespaced (`xenomoon:<name>` /
-  `xenomoon-<domain>:<name>`) and the UI shows the bare role ("Analyst", "Retro").
+  `researcher`, `debrief`) — they run namespaced (`xenomoon:<name>` /
+  `xenomoon-<domain>:<name>`) and the UI shows the bare role ("Analyst", "Debrief").
 - **Project-local agents** (`<project>/.claude/agents/`) are prefixed **`p-<name>`**
   (`p-bug-triage`, `p-scrape-2fase`). The UI renders them "Project · <Name>", so the user
   always knows whose agent is talking. A project agent must NEVER reuse a framework

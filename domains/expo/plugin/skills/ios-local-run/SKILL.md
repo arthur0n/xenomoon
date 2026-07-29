@@ -50,6 +50,13 @@ and target device — read it first; this skill is the diagnostic knowledge arou
   as the Metro-identity trap. Check Metro ownership FIRST (cheap), then suspect a
   missing rebuild.
 
+## Shell-script gotcha (macOS launch scripts)
+
+Stock `/bin/bash` 3.2 under `set -u` dies with a spurious `"unbound variable"` when a
+UTF-8 ellipsis (`…`) directly follows a `$VAR` interpolation — the multibyte chars parse
+into the variable name. Use ASCII `...` in echo/log lines of launch scripts. (Caught live
+in an Android run script — see `android-local-run`; applies to any macOS shell script.)
+
 ## Verdict for runners
 
 A broken link in this chain is **BLOCKED**, never FAIL — the app wasn't testable. Name

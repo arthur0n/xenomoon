@@ -14,6 +14,11 @@ launch), `ios-local-uat` (Maestro acceptance). Android: `android-local-run` (emu
 domain-agnostic (a product fork tracking an upstream) and a promotion candidate for the
 CORE plugin.
 
+Skill naming rule (owner-set): a platform-specific skill name always carries its platform
+prefix (`ios-*` / `android-*`); platform-agnostic skills carry none. Tool brand names and
+device shorthand (Maestro, "emu", "sim") never go in a skill name — name the capability
+(`-local-run`, `-local-uat`, `-play-ship`) and explain the tooling in the description.
+
 Route everything through the standard human-gated loop: understand the request, cut it to
 one small slice, implement, verify with the project's own commands (`build` / `lint` /
 `test` / `sim` / `e2e` from the manifest), and stop for a human look. Verify **only via

@@ -26,6 +26,10 @@ graphify-out/
 # Detached `npm run start:bg` process records (PID + log per game) — runtime, machine-local.
 .xenomoon-run/
 
+# UI server runtime records/logs — machine-local; a tracked log here blocks every
+# `xenomoon update` (git refuses the ff-merge over a locally-modified file).
+.xm-run/
+
 # Sub-agent handoff documents written under the plugin at runtime — machine-local, not shipped.
 plugin/.xenomoon/
 

@@ -16,6 +16,7 @@ import {
   chmodSync,
 } from "node:fs";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseJSON } from "../../lib/json.js";
 import { loadDomain } from "../core/domain-resolver.js";
 
@@ -122,4 +123,29 @@ export function installCapabilities(frameworkDir, domainName) {
   writeFileSync(cfgFile, JSON.stringify({ ...cfg, domainDescriptor: descriptor }, null, 2) + "\n");
 
   return { copied, descriptor };
+}
+
+// --- CLI: `node ui/server/cli/install-capabilities.js` (used by `xenomoon update`) ------------
+// Re-applies the BAKED domain's overlay onto plugin/ — repair/refresh after a framework pull.
+// Reads the domain name from .xenomoon.json; a clone with no baked domain is a no-op (trunk).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const frameworkDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+  /** @type {string | undefined} */
+  let domainName;
+  try {
+    const cfg = /** @type {{ domain?: string }} */ (
+      parseJSON(readFileSync(path.join(frameworkDir, ".xenomoon.json"), "utf8"))
+    );
+    domainName = cfg.domain;
+  } catch {
+    /* no config — trunk / uninstalled clone */
+  }
+  if (!domainName) {
+    console.log("install-capabilities: no baked domain in .xenomoon.json — nothing to overlay.");
+  } else {
+    const { copied } = installCapabilities(frameworkDir, domainName);
+    console.log(
+      `install-capabilities: re-applied the "${domainName}" pack overlay (${copied.join(", ") || "nothing to copy"}).`,
+    );
+  }
 }

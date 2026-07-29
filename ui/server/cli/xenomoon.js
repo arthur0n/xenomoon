@@ -36,8 +36,17 @@ switch (verb) {
     run(rest.length ? "start-project" : "start", rest);
     break;
   case "update":
-    execFileSync("git", ["pull", "--ff-only"], { cwd: ROOT, stdio: "inherit" });
+    // An installed clone is LEGITIMATELY dirty: the domain pack was copied over plugin/ at
+    // install (README/hooks overlays), and learnings accumulate locally. --autostash parks
+    // those changes around the pull and re-applies them (a pop conflict keeps the stash and
+    // says so). Then the pack overlay is RE-APPLIED from the (possibly updated) domains/
+    // tree — pack-owned files come back canonical even if the pop conflicted on them.
+    execFileSync("git", ["pull", "--ff-only", "--autostash"], { cwd: ROOT, stdio: "inherit" });
     execFileSync("npm", ["ci"], { cwd: ROOT, stdio: "inherit" });
+    execFileSync("node", [path.join(here, "install-capabilities.js")], {
+      cwd: ROOT,
+      stdio: "inherit",
+    });
     break;
   case "promote":
     run("promote", ["--pending", ...rest]);

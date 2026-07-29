@@ -71,7 +71,11 @@ function settleAgentTasks(taskId, { runningByTask, send }, status = "") {
  * orchestrator's own cross-turn board are preserved.
  * @param {{ runningByTask: Map<string, RunningChip>, send: Send }} deps */
 function sweepStragglers({ runningByTask, send }) {
-  const list = closeStragglerTasks(new Set([...runningByTask.values()].map((v) => v.label)));
+  const chips = [...runningByTask.values()];
+  const list = closeStragglerTasks(
+    new Set(chips.map((v) => v.label)),
+    chips.some((v) => v.background),
+  );
   if (list) send({ type: "tasks", tasks: list });
 }
 

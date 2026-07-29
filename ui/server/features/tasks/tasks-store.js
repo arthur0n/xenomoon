@@ -243,19 +243,22 @@ export function closeOpenByAgent(agent) {
  * own board (`agent: "main"`), live background workers (`agent: "background"`),
  * and any sub-agent still listed in `running`. Returns the new list, or null when
  * nothing changed (so the caller can skip a redundant broadcast).
+ *
+ * "background"-labeled tasks need the extra flag: the subagent-ui-control hook bypasses
+ * canUseTool for EVERY sub-agent (foreground included), so its tasks arrive without the
+ * `_by` stamp and get attributed to "background" — a hard exclusion here left those stuck
+ * in_progress forever. They are swept exactly when NO background worker is live.
  * @param {Set<string>} running labels of sub-agents still in flight
+ * @param {boolean} [anyBackgroundLive] a background worker is still in flight (default
+ *   true = conservative: keep "background" tasks unless the caller knows none live)
  * @returns {Task[] | null} */
-export function closeStragglerTasks(running) {
+export function closeStragglerTasks(running, anyBackgroundLive = true) {
   const list = readTasks();
   let changed = false;
   const next = list.map((t) => {
-    const straggler =
-      t.owner === "agent" &&
-      t.status !== "done" &&
-      t.agent != null &&
-      t.agent !== "main" &&
-      t.agent !== "background" &&
-      !running.has(t.agent);
+    if (t.owner !== "agent" || t.status === "done" || t.agent == null || t.agent === "main")
+      return t;
+    const straggler = t.agent === "background" ? !anyBackgroundLive : !running.has(t.agent);
     if (!straggler) return t;
     changed = true;
     return { ...t, status: /** @type {Task["status"]} */ ("done") };

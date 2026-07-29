@@ -44,9 +44,10 @@ _No entry yet — same rule: vendor-official first, Hermes researches, human app
 
 ## AWS
 
-_No skills entry yet. Note for the `research-tooling` mode:
-https://github.com/awslabs/mcp (Apache-2.0, AWS-official) is a verified LIFT source for AWS
-tooling (MCP servers) — a tooling candidate, not a skill collection._
+_No entry yet. AWS gaps are `aws` CLI territory — the harness convention: **CLI + tools +
+KB first** (`research-tooling` mode wraps the CLI thin, deterministic); MCP is created ONLY
+when a gap is proven unsolvable deterministically (live/stateful against a running
+process). Never reach for an MCP server while a CLI can cover the need._
 
 ## Adding a source
 

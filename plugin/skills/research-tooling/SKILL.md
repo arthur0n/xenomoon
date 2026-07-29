@@ -12,6 +12,11 @@ entry for a tool an agent can later discover and call. Output: `library/tools/<s
 recommendation. Tools live in the active domain pack's `tools/` and are registered there. You
 never write the tool, never touch `tools/` or project files.
 
+**The harness convention: CLI + tools + KB first.** Every capability is solved
+deterministically when possible — a vendor CLI (`aws`, `gh`, …) wrapped thin, a script, a
+knowledge record. An MCP server is CREATED only when the gap is proven unsolvable by a
+deterministic approach (genuinely live/stateful). MCP is the last resort, never the reflex.
+
 ## The decision you own: transport follows statefulness
 
 Get this right before anything else:

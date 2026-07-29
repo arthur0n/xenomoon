@@ -262,12 +262,15 @@ function bridgeSettle(t, { bgBoard, send }) {
  * that the background change removed for foreground work — no LLM cooperation
  * needed. @param {string | undefined} taskId
  * @param {{ runningByTask: Map<string, RunningChip>, send: (obj: OutMsg) => void }} deps */
-function settleAgentTasks(taskId, { runningByTask, send }) {
+function settleAgentTasks(taskId, { runningByTask, send }, status = "") {
   if (!taskId) return;
-  const label = runningByTask.get(taskId)?.label;
+  const chip = runningByTask.get(taskId);
   runningByTask.delete(taskId);
-  if (!label) return;
-  send({ type: "tasks", tasks: closeOpenByAgent(label) });
+  if (!chip?.label) return;
+  // Background hand-back: instant banner — the Hive's next streamed token can lag by seconds.
+  const note = `⇠ ${chip.label} finished (${status}) — result handed to the Hive…`;
+  if (chip.background && status) send({ type: "status", text: note });
+  send({ type: "tasks", tasks: closeOpenByAgent(chip.label) });
 }
 
 /** Turn-end backstop: close any open sub-agent task whose owner is no longer
@@ -340,7 +343,7 @@ function trackMessage(message, { agentByTool, bgSpawns, bgBoard, runningByTask, 
     );
   } else if (message.type === "system" && message.subtype === "task_notification") {
     bridgeSettle({ taskId: message.task_id, status: message.status }, { bgBoard, send });
-    settleAgentTasks(message.task_id, { runningByTask, send });
+    settleAgentTasks(message.task_id, { runningByTask, send }, message.status);
     emitRunning(runningByTask, send);
   } else if (message.type === "system" && message.subtype === "permission_denied") {
     surfaceDenial(message, { agentByTool, send });
@@ -596,7 +599,10 @@ function handleBoardMessage(msg, send, inbox) {
     // so status toggles / removals / re-clicks don't spawn spurious turns.
     if (msg.answer != null) {
       const task = list.find((t) => t.id === msg.id);
-      if (task?.kind === "question") inbox.push(answerTurn(task));
+      if (task?.kind === "question") {
+        inbox.push(answerTurn(task));
+        send({ type: "status", text: `⇠ answer to ${task.id} received — the Hive is resuming…` }); // instant banner
+      }
     }
     return true;
   }

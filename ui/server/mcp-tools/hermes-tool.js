@@ -363,6 +363,10 @@ async function watchRun(base, key, runId, persona, send, push) {
     if (!settleRun(runId)) return; // already reported by another watcher — don't double-deliver
     relay(send, persona.id, "done", `Hermes run ${runId} ${reason}.`, runId);
     queueHermesFailure(runId, reason); // the record outlives the offer
+    send({
+      type: "status",
+      text: `⇠ Hermes run ${runId} failed — the Hive is handling it…`,
+    });
     try {
       push(fallbackTurn(runId, persona, reason));
     } catch {
@@ -407,6 +411,12 @@ async function watchRun(base, key, runId, persona, send, push) {
       // completed
       if (!settleRun(runId)) return; // already reported by another watcher — don't double-deliver
       relay(send, persona.id, "done", "Hermes delivered its findings.", runId);
+      // Instant middle-panel banner (same moment as the board task below): the Hive's next
+      // turn can take seconds to start streaming — without this the delivery looks like nothing.
+      send({
+        type: "status",
+        text: `⇠ Hermes findings received (run ${runId}) — the Hive is reading them…`,
+      });
       try {
         push(findingsTurn(runId, persona, verdict.output));
       } catch {

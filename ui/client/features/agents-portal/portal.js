@@ -77,6 +77,27 @@ async function testAgent(card) {
   }
 }
 
+/** Re-sync a card's non-secret field values from the server catalog — setup scripts
+ * rewrite the saved config (URL/port/model), and a stale rendered field would otherwise
+ * OVERRIDE the fresh saved value on the next Test (typed values win over saved ones).
+ * @param {Card} card */
+async function refreshCardFields(card) {
+  try {
+    const catalog = /** @type {AgentDescriptor[]} */ (await fetchJSON("/api/agents"));
+    const fresh = catalog.find((d) => d.id === card.desc.id);
+    if (!fresh) return;
+    card.desc = fresh;
+    for (const [key, input] of card.inputs) {
+      const field = fresh.fields.find((f) => f.key === key);
+      if (!field || field.secret) continue; // secrets stay blank (= keep saved)
+      const value = statusText(fresh.status, key);
+      if (input instanceof HTMLInputElement && value) input.value = value;
+    }
+  } catch {
+    /* refresh is best-effort — the card still works, just possibly stale */
+  }
+}
+
 /** Run the vendor-CLI sign-in for an agent (`POST /api/agents/:id/auth`): the server
  * probes auth state and, when needed (or `force`), runs the vendor's browser sign-in
  * command — the same one the terminal flow prints (e.g. `hermes portal open`).
@@ -123,6 +144,7 @@ async function runAgentSetup(card) {
       const manual = r.manual ? `${r.manual} ` : "";
       setStatus(card.status, "ok", `✓ Set up. ${manual}RESTART the session to activate.`);
       void refreshPaidAgents(); // setup may have just enabled the agent — repaint the strip
+      await refreshCardFields(card); // setup rewrote the config — stale fields would override it on Test
       if (card.desc.hasAuth) await runAgentAuth(card, false);
     } else {
       setStatus(card.status, "bad", `✗ Setup failed — ${r.error ?? "see the output below"}`);

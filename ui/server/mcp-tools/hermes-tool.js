@@ -35,7 +35,8 @@ import { getPersona, PERSONA_IDS } from "../../lib/hermes-personas.js";
 /** Infra/config fault — a BROKEN TOOL (gateway down, bad request, missing model), as opposed
  * to a run that genuinely produced no result (timeout, approval stall). The two classes get
  * opposite guidance: fix-and-surface vs fall-back-to-a-native-researcher. @param {string} reason */
-const isInfraFault = (reason) => /HTTP \d|fetch failed|did not accept|ECONNREFUSED/i.test(reason);
+const isInfraFault = (reason) =>
+  /HTTP \d|Hermes \d{3}\b|fetch failed|did not accept|ECONNREFUSED/i.test(reason);
 
 /** Deterministically log a Hermes failure to the project's debrief queue — the signal must
  * outlive the offer (a forgotten follow-up loses nothing; /debrief drains the queue).

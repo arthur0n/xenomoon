@@ -11,6 +11,7 @@ import { openSync, closeSync } from "node:fs";
 import path from "node:path";
 import { getHermesConfig, LOG_DIR } from "../../core/config.js";
 import { checkHermes } from "./hermes-check.js";
+import { hermesEnv } from "./hermes-profile.js";
 
 /** Kill a child gateway once, ignoring if it's already gone.
  * @param {import("node:child_process").ChildProcess} child */
@@ -54,7 +55,12 @@ export async function maybeStartHermesGateway() {
     // Pass a real fd — a WriteStream's fd is null until its async 'open', which spawn rejects.
     const fd = openSync(logFile, "a");
     try {
-      child = spawn("hermes", ["gateway"], { stdio: ["ignore", fd, fd] });
+      // hermesEnv selects the per-DOMAIN profile brain (HERMES_HOME); the probe above hit the
+      // profile's own port, so an "already running" reuse can only match the SAME profile.
+      child = spawn("hermes", ["gateway"], {
+        stdio: ["ignore", fd, fd],
+        env: hermesEnv(cfg.profile),
+      });
     } finally {
       closeSync(fd); // the child kept a dup of the fd; close our copy
     }

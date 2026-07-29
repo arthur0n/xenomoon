@@ -41,7 +41,14 @@ import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { parseJSON } from "../../../lib/json.js";
-import { saveHermesConfig, CONFIG_FILE } from "../../core/config.js";
+import { saveHermesConfig, getHermesConfig, CONFIG_FILE } from "../../core/config.js";
+import {
+  hermesHome,
+  hermesEnv,
+  hermesEnvPrefix,
+  ensureProfile,
+  defaultGatewayPort,
+} from "./hermes-profile.js";
 
 const argv = process.argv.slice(2);
 /** @param {string} n @returns {boolean} */
@@ -56,12 +63,16 @@ const val = (n) =>
 
 const ASSUME_YES = flag("yes");
 const RESET = flag("reset");
-const HERMES_DIR = path.join(homedir(), ".hermes");
+// Per-DOMAIN profile (see hermes-profile.js): the baked domain by default, `--profile=<name>`
+// overrides, "default" = the legacy shared ~/.hermes (godot's — untouched).
+const PROFILE = val("profile") ?? getHermesConfig().profile;
+const ENV_PREFIX = hermesEnvPrefix(PROFILE);
+const HERMES_DIR = hermesHome(PROFILE) ?? path.join(homedir(), ".hermes");
 const ENV_FILE = path.join(HERMES_DIR, ".env");
 const SOUL_FILE = path.join(HERMES_DIR, "SOUL.md");
-// The repo's source of truth for the "partner" persona, installed into ~/.hermes/SOUL.md.
+// The repo's source of truth for the "partner" persona, installed into <profile>/SOUL.md.
 const SOUL_TEMPLATE = path.join(path.dirname(fileURLToPath(import.meta.url)), "hermes-soul.md");
-const PORT = val("port") ?? "8642";
+const PORT = val("port") ?? String(defaultGatewayPort(PROFILE));
 const URL = `http://localhost:${PORT}`;
 const INSTALL_CMD = "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash";
 
@@ -96,16 +107,25 @@ function hermesInstalled() {
   return spawnSync("hermes", ["--version"], { stdio: "ignore" }).status === 0;
 }
 
-/** `hermes config set KEY VALUE`, logging the outcome. @param {string} key @param {string} value */
+/** `hermes config set KEY VALUE` under the active profile, logging the outcome.
+ * @param {string} key @param {string} value */
 function configSet(key, value) {
-  const ok = spawnSync("hermes", ["config", "set", key, value], { stdio: "ignore" }).status === 0;
+  const ok =
+    spawnSync("hermes", ["config", "set", key, value], {
+      stdio: "ignore",
+      env: hermesEnv(PROFILE),
+    }).status === 0;
   console.log(`  ${ok ? "✓" : "✗"} ${key} = ${value}`);
   return ok;
 }
 
-/** Absolute path to Hermes' config.yaml (`hermes config path`), or null. @returns {string | null} */
+/** Absolute path to the active profile's config.yaml (`hermes config path`), or null.
+ * @returns {string | null} */
 function configPath() {
-  const r = spawnSync("hermes", ["config", "path"], { encoding: "utf8" });
+  const r = spawnSync("hermes", ["config", "path"], {
+    encoding: "utf8",
+    env: hermesEnv(PROFILE),
+  });
   const p = (r.stdout ?? "").trim();
   return p && existsSync(p) ? p : null;
 }
@@ -234,7 +254,7 @@ function ensureEnv() {
   }
   let key = val("key") ?? envValue(text, "API_SERVER_KEY");
   if (key) {
-    console.log("Reusing the existing API_SERVER_KEY in ~/.hermes/.env.");
+    console.log(`Reusing the existing API_SERVER_KEY in ${ENV_FILE}.`);
   } else {
     key = randomBytes(24).toString("hex");
     KEY_GENERATED = true;
@@ -276,7 +296,7 @@ function configureModelAndTools() {
     `  ${ok ? "✓" : "✗"} API-path tools (platform_toolsets.api_server) → ${arr.join(", ")}`,
   );
   console.log(
-    "    memory + skills = Hermes' own brain (self-improvement, written to ~/.hermes/ — not your code).",
+    `    memory + skills = Hermes' own brain (self-improvement, written to ${HERMES_DIR}/ — not your code).`,
   );
   console.log(
     "    terminal/file/code_execution/browser stay OFF unless you list them (they run on THIS machine).",
@@ -298,7 +318,10 @@ function configureModelAndTools() {
  * (see hermes-tool.js) — so `mcp_servers.xenomoon` is dead config. `hermes mcp remove` edits the
  * YAML correctly; this is idempotent (a no-op when there's nothing to remove). */
 function removeLegacyCallback() {
-  const r = spawnSync("hermes", ["mcp", "remove", "xenomoon"], { stdio: "ignore" });
+  const r = spawnSync("hermes", ["mcp", "remove", "xenomoon"], {
+    stdio: "ignore",
+    env: hermesEnv(PROFILE),
+  });
   if (r.status === 0) {
     console.log(
       "\n✓ Removed a stale Hermes→Xenomoon MCP callback (the bridge no longer uses one).",
@@ -307,13 +330,18 @@ function removeLegacyCallback() {
 }
 
 /** True when SOUL.md carries no real persona content — the stock template (a heading + the
- * help comment) or an empty file — so it's safe to replace. @param {string} text @returns {boolean} */
+ * help comment), an empty file, or the stock identity paragraph `hermes profile create`
+ * scaffolds into a fresh profile — so it's safe to replace. @param {string} text @returns {boolean} */
 function soulIsDefault(text) {
   const stripped = text
     .replace(/<!--[\s\S]*?-->/g, "") // strip HTML comments (the stock help block)
     .replace(/^#.*$/gm, "") // strip markdown headings
     .trim();
-  return stripped.length === 0;
+  if (stripped.length === 0) return true;
+  // A fresh profile's scaffold: Hermes' own default identity paragraph, nothing custom.
+  return stripped.startsWith(
+    "You are Hermes Agent, an intelligent AI assistant created by Nous Research.",
+  );
 }
 
 /** Install the Xenomoon "partner" persona into ~/.hermes/SOUL.md from the repo template, but
@@ -359,25 +387,39 @@ function printAuthGuidance() {
     console.log(
       "\nNous models need a one-time Portal sign-in (browser OAuth) — do it WITHOUT the wizard:",
     );
-    console.log("  hermes portal status     # are you already authed?");
-    console.log("  hermes portal open       # opens the Portal page to sign in / subscribe");
-    console.log("  hermes model             # (optional) pick the exact Nous model");
+    console.log(`  ${ENV_PREFIX}hermes portal status     # are you already authed?`);
+    console.log(
+      `  ${ENV_PREFIX}hermes portal open       # opens the Portal page to sign in / subscribe`,
+    );
+    console.log(`  ${ENV_PREFIX}hermes model             # (optional) pick the exact Nous model`);
+    if (ENV_PREFIX) {
+      console.log(`  (the HERMES_HOME prefix targets THIS domain's profile — "${PROFILE}")`);
+    }
     return;
   }
-  console.log(`\nProvider "${PROVIDER}" needs its API key in ~/.hermes/.env:`);
-  console.log("  hermes auth add          # add the provider key (non-wizard), then:");
-  console.log("  hermes config get model  # verify provider + model");
+  console.log(`\nProvider "${PROVIDER}" needs its API key in ${ENV_FILE}:`);
+  console.log(`  ${ENV_PREFIX}hermes auth add          # add the provider key (non-wizard), then:`);
+  console.log(`  ${ENV_PREFIX}hermes config get model  # verify provider + model`);
 }
 
-/** Point Xenomoon at the local gateway (enabled, URL, the API_SERVER_KEY). @param {string} key */
+/** Point Xenomoon at the local gateway (enabled, URL, the API_SERVER_KEY, the profile).
+ * @param {string} key */
 function wireXenomoon(key) {
-  const res = saveHermesConfig({ enabled: true, apiUrl: URL, apiKey: key, model: MODEL });
+  const res = saveHermesConfig({
+    enabled: true,
+    apiUrl: URL,
+    apiKey: key,
+    model: MODEL,
+    profile: PROFILE,
+  });
   if ("error" in res) {
     console.error(`Failed to save Xenomoon config: ${res.error}`);
     process.exitCode = 1;
     return;
   }
-  console.log(`\n✓ Xenomoon wired → ${CONFIG_FILE} (enabled · ${URL} · key saved)`);
+  console.log(
+    `\n✓ Xenomoon wired → ${CONFIG_FILE} (enabled · ${URL} · key saved · profile "${PROFILE}")`,
+  );
 }
 
 /** Drop every `KEY=...` line from a .env text. @param {string} text @param {string} key @returns {string} */
@@ -447,7 +489,10 @@ function resetSetup() {
   // Remove the MCP callback registration (its whole mcp_servers.xenomoon block). `hermes mcp
   // remove` edits the YAML correctly; its toolset alias was already dropped with api_server above.
   {
-    const r = spawnSync("hermes", ["mcp", "remove", "xenomoon"], { stdio: "ignore" });
+    const r = spawnSync("hermes", ["mcp", "remove", "xenomoon"], {
+      stdio: "ignore",
+      env: hermesEnv(PROFILE),
+    });
     console.log(
       r.status === 0
         ? "✓ Removed the mcp_servers.xenomoon callback registration."
@@ -477,7 +522,9 @@ function resetSetup() {
 function printNext() {
   console.log("\nAlmost done — bring Hermes up:");
   console.log("  1. `npm start` — serves the UI; it also auto-starts `hermes gateway` when Hermes");
-  console.log("     is enabled (skipped if one is already up). Or run `hermes gateway` yourself.");
+  console.log(
+    `     is enabled (skipped if one is already up). Or run \`${ENV_PREFIX}hermes gateway\` yourself.`,
+  );
   if (KEY_GENERATED) {
     console.log("     (A new API_SERVER_KEY was generated — restart any already-running gateway.)");
   }
@@ -491,10 +538,17 @@ async function main() {
     resetSetup();
     return;
   }
-  console.log("Xenomoon · guided Hermes setup (no wizard)\n");
+  console.log(`Xenomoon · guided Hermes setup (no wizard) — profile "${PROFILE}"\n`);
   const rl = createInterface({ input: stdin, output: stdout });
   try {
     if (!(await ensureInstalled(rl))) return;
+    const prof = ensureProfile(PROFILE);
+    if (!prof.ok) {
+      console.error(`✗ ${prof.error}`);
+      process.exitCode = 1;
+      return;
+    }
+    if (hermesHome(PROFILE)) console.log(`✓ Hermes profile "${PROFILE}" → ${HERMES_DIR}`);
     const key = ensureEnv();
     configureModelAndTools();
     removeLegacyCallback();

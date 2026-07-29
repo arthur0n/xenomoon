@@ -105,10 +105,12 @@ const AUTH_PROBE_TIMEOUT_MS = 10_000;
  * `authedRe`); if the user isn't signed in (or `force`), spawn the `open` command
  * (e.g. `hermes portal open`), which boots the browser sign-in exactly like the
  * terminal flow. The server always runs on the user's own machine (localhost-only
- * UI), so the browser opens on the right screen.
- * @param {{ probe: string[], authedRe: string, open: string[] }} auth @param {boolean} force
- * @param {import("node:http").ServerResponse} res */
+ * UI), so the browser opens on the right screen. `auth.env` (when present) supplies the
+ * spawn env — e.g. HERMES_HOME for the per-domain profile.
+ * @param {{ probe: string[], authedRe: string, open: string[], env?: () => NodeJS.ProcessEnv }} auth
+ * @param {boolean} force @param {import("node:http").ServerResponse} res */
 function runAuthFlow(auth, force, res) {
+  const spawnEnv = auth.env ? auth.env() : process.env;
   let out = "";
   let probed = false;
   /** @param {boolean} authed @param {string} [error] */
@@ -121,6 +123,7 @@ function runAuthFlow(auth, force, res) {
           cwd: FRAMEWORK_DIR,
           detached: true,
           stdio: "ignore",
+          env: spawnEnv,
         }).unref();
       } catch (e) {
         respond(res, {
@@ -138,7 +141,7 @@ function runAuthFlow(auth, force, res) {
   let probeChild;
   try {
     const [probeCmd = "", ...probeArgs] = auth.probe;
-    probeChild = spawn(probeCmd, probeArgs, { cwd: FRAMEWORK_DIR });
+    probeChild = spawn(probeCmd, probeArgs, { cwd: FRAMEWORK_DIR, env: spawnEnv });
   } catch (e) {
     finish(false, e instanceof Error ? e.message : String(e));
     return;

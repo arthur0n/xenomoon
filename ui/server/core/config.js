@@ -39,7 +39,7 @@ const args = process.argv.slice(2);
  * file is gitignored) or in env — it is never returned to the browser. `roles` is the
  * user's pick of the hats this agent wears in the hive (see the agents registry);
  * absent → the registry default.
- * @typedef {{ enabled?: boolean, apiUrl?: string, apiKey?: string, model?: string, roles?: string[] }} HermesConfig */
+ * @typedef {{ enabled?: boolean, apiUrl?: string, apiKey?: string, model?: string, roles?: string[], profile?: string }} HermesConfig */
 /** Persisted Codex block (see getCodexConfig). An on/off switch + role pick — auth is owned
  * by the local `codex` CLI (`codex login`), so there is no key or URL to store here.
  * @typedef {{ enabled?: boolean, roles?: string[] }} CodexConfig */
@@ -267,7 +267,10 @@ export function markOnboarded() {
  * `hermes` block → disabled), so switching it on from the CLI or the UI takes effect
  * WITHOUT a server restart. The apiKey is read here but must never be sent to the browser
  * (see hermesPublicConfig).
- * @returns {{ enabled: boolean, apiUrl: string | null, apiKey: string | null, model: string, roles: string[] }} */
+ * `profile` picks the Hermes brain (per-DOMAIN by default — `~/.hermes/profiles/<name>` —
+ * so each domain keeps its own SOUL/memory/skills; `"default"` = the legacy shared
+ * `~/.hermes`, which stays the exclusive home of the godot/upstream side).
+ * @returns {{ enabled: boolean, apiUrl: string | null, apiKey: string | null, model: string, roles: string[], profile: string }} */
 export function getHermesConfig() {
   /** @type {HermesConfig} */
   let saved = {};
@@ -287,11 +290,12 @@ export function getHermesConfig() {
     apiKey: env.HERMES_API_KEY ?? saved.apiKey ?? null,
     model: env.HERMES_MODEL ?? saved.model ?? HERMES_DEFAULT_MODEL,
     roles: saved.roles ?? HERMES_DEFAULT_ROLES,
+    profile: env.HERMES_XM_PROFILE ?? saved.profile ?? DOMAIN.name ?? "default",
   };
 }
 
 /** Browser-safe view of the Hermes config for /api/state: the secret key is replaced
- * by a boolean `hasKey`. @returns {{ enabled: boolean, apiUrl: string | null, model: string, hasKey: boolean, models: string[], roles: string[] }} */
+ * by a boolean `hasKey`. @returns {{ enabled: boolean, apiUrl: string | null, model: string, hasKey: boolean, models: string[], roles: string[], profile: string }} */
 export function hermesPublicConfig() {
   const c = getHermesConfig();
   return {
@@ -301,6 +305,7 @@ export function hermesPublicConfig() {
     hasKey: Boolean(c.apiKey),
     models: HERMES_MODELS,
     roles: c.roles,
+    profile: c.profile,
   };
 }
 
@@ -324,6 +329,7 @@ export function saveHermesConfig(patch) {
   if (patch.model != null) next.model = patch.model;
   if (patch.apiKey) next.apiKey = patch.apiKey; // blank/undefined → keep existing
   if (patch.roles != null) next.roles = patch.roles;
+  if (patch.profile != null && patch.profile !== "") next.profile = patch.profile;
   try {
     writeFileSync(CONFIG_FILE, JSON.stringify({ ...saved, hermes: next }, null, 2) + "\n");
     return { ok: true };

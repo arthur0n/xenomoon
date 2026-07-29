@@ -51,8 +51,29 @@ Defaults: **Nous via Portal**, toolset `web, search, memory, skills` — researc
 brain** (`memory` + `skills` self-improvement), and **no machine access** (no
 `terminal`/`file`/`code_execution`/`browser`; see "Restrict the toolset" and "Self-improvement"
 below for why that one line is the whole guardrail). Two things it leaves to you: the Nous Portal
-sign-in (a browser OAuth — run `hermes portal open`, _not_ the wizard) and leaving `hermes gateway`
-running.
+sign-in (a browser OAuth — run `hermes portal open` with the profile prefix below, _not_ the
+wizard) and leaving `hermes gateway` running.
+
+## Per-domain profiles (each domain gets its own brain)
+
+Hermes' brain — SOUL persona, ~2,200-char memory, skills — is global per home dir. Sharing
+one `~/.hermes` across the godot upstream and xenomoon domains poisons personas and starves
+the memory budget, so setup uses a **native Hermes profile per DOMAIN**
+(`~/.hermes/profiles/<domain>`), selected per spawn via `HERMES_HOME` — never the sticky
+`hermes profile use` (that would flip the default profile every other tool sees).
+
+- **Profile name** = the baked domain (`webapp`, `expo`, `app`); override with
+  `npm run hermes:setup -- --profile=<name>`. Profile `default` = the legacy shared
+  `~/.hermes` (godot's home — xenomoon never writes there).
+- **Default gateway ports are per-domain** so two profiles never share one gateway (the
+  starter reuses any answering gateway): `webapp 8643 · expo 8644 · app 8645` (default
+  profile keeps 8642). `--port` overrides.
+- **One-time Portal sign-in PER profile.** Manual terminal commands need the profile's env
+  prefix, e.g. `HERMES_HOME="$HOME/.hermes/profiles/webapp" hermes portal open` — setup
+  prints the exact commands. The UI's "Sign in (browser)" button targets the profile
+  automatically.
+- Skills/memory compound **within the domain** (every webapp project shares the webapp
+  brain), never across domains.
 
 > **Got stuck in `hermes setup` (or `--portal`) before?** Hit **Ctrl+C**. You never need that
 > wizard — the script sets every value non-interactively. For Portal auth use `hermes portal`,

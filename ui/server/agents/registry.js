@@ -19,6 +19,7 @@ import {
   KIMI_DEFAULT_ROLES,
 } from "../core/config.js";
 import { checkHermes } from "../integrations/hermes/hermes-check.js";
+import { hermesEnv } from "../integrations/hermes/hermes-profile.js";
 import { checkCodex } from "../integrations/codex/codex-check.js";
 import { checkKimi } from "../integrations/kimi/kimi-check.js";
 
@@ -44,7 +45,7 @@ import { checkKimi } from "../integrations/kimi/kimi-check.js";
  * @property {(patch: object) => ({ ok: true } | { error: string })} saveConfig - existing saveXConfig
  * @property {(body: Record<string, string | undefined>) => object | Promise<object>} check - readiness probe; `body` carries typed-but-unsaved field values
  * @property {{ script: string, extraArgs: string[], manual: string | null }} [setup] - npm setup script for POST /api/agents/:id/setup
- * @property {{ probe: string[], authedRe: string, open: string[] }} [auth] - vendor-CLI sign-in commands for POST /api/agents/:id/auth: `probe` reports auth state (authed when it exits 0 AND its output matches `authedRe`, case-insensitive), `open` boots the vendor's browser sign-in (the same commands the terminal flow prints)
+ * @property {{ probe: string[], authedRe: string, open: string[], env?: () => NodeJS.ProcessEnv }} [auth] - vendor-CLI sign-in commands for POST /api/agents/:id/auth: `probe` reports auth state (authed when it exits 0 AND its output matches `authedRe`, case-insensitive), `open` boots the vendor's browser sign-in (the same commands the terminal flow prints); `env` supplies the spawn env (e.g. HERMES_HOME for the per-domain profile)
  */
 
 /** A trimmed typed value, or the saved fallback when it's blank/missing.
@@ -128,6 +129,8 @@ export const AGENT_REGISTRY = [
       probe: ["hermes", "portal", "status"],
       authedRe: "auth:\\s*✓|✓ logged in",
       open: ["hermes", "portal", "open"],
+      // Target the per-DOMAIN profile brain, not the shared ~/.hermes (godot's).
+      env: () => hermesEnv(getHermesConfig().profile),
     },
   },
   {

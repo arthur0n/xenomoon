@@ -20,7 +20,7 @@ Hermes' `memory` + `skills` toolsets are its own brain — but they only compoun
 - **Frame by durable SUBDOMAIN, never by incident.** "Supabase RLS for multi-tenant reads", "Expo Router deep-linking patterns" — not "why issue #412 fails". Hermes files its own skill under the framing you gave it; incident-shaped framing produces a skill that can never match a future task.
 - **Reuse the same vocabulary across runs.** Hermes re-selects a saved skill by literally reading its one-line description against the new task. Drifting nouns ("RN" vs "React Native") makes a good skill go unread.
 - **Its brain lags by one run.** Memory renders into its prompt at run start; anything learned in run N only changes behavior from run N+1. Don't expect a same-run fix.
-- **Its brain is tiny and global** (~2,200 chars of agent memory, shared across every project on this machine). Never ask it to memorize project trivia — that belongs in our library. Only durable, cross-project stack facts.
+- **Its brain is tiny and per-domain** (~2,200 chars of agent memory in this DOMAIN's profile, shared across every project of this domain). Never ask it to memorize project trivia — that belongs in our library. Only durable stack facts that serve the whole domain.
 - **Hermes never touches this project.** It investigates and reports; adoption is the researcher → `library/` → human verdict → promote path. Each dispatch is gated.
 
 ### Feedback

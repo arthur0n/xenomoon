@@ -42,7 +42,8 @@ const ok = (text) => ({ content: [{ type: /** @type {const} */ ("text"), text }]
 // up to a wall-clock cap (research can be long, but never unbounded).
 const CREATE_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 3_000;
-const RUN_WALLCLOCK_MS = 15 * 60_000;
+// Hermes' own gateway timeout is 1800s — stay under it but don't cut deep research first.
+const RUN_WALLCLOCK_MS = 25 * 60_000;
 
 /** Push a Hermes activity line to the UI feed; `persona` names + colors the pill.
  * @param {Send} send @param {string} persona @param {"start" | "progress" | "done"} phase
@@ -82,7 +83,8 @@ function buildInstructions(persona, context) {
     "- Skills: before creating one, list your existing skills and PATCH the closest match instead of " +
     "spawning a near-duplicate — an overlapping, bloated library is worse than a lean one. Give every " +
     "skill a sharp, trigger-rich description (when to use it); that one line is what makes future-you " +
-    "re-select it.\n" +
+    "re-select it — put the trigger vocabulary IN the description (a `trigger:` field is never read), " +
+    "and file it under a stable, durable category you reuse across runs.\n" +
     "- Memory: keep durable conventions and stack facts in memory; when it nears capacity (the header " +
     "shows the percentage), CONSOLIDATE or replace stale entries rather than appending, so writes " +
     "don't fail at the cap.\n" +
@@ -94,13 +96,15 @@ function buildInstructions(persona, context) {
 }
 
 /** Create a run and return its id. The POST returns immediately; the agent loops server-side.
+ * `extra` merges additional run fields (e.g. `previous_response_id` so a feedback run lands
+ * in-band with the run it grades instead of opening a blind fresh conversation).
  * @param {string} base @param {string} key @param {string} task @param {string} instructions
- * @param {AbortSignal} signal @returns {Promise<string>} */
-async function createRun(base, key, task, instructions, signal) {
+ * @param {AbortSignal} signal @param {Record<string, unknown>} [extra] @returns {Promise<string>} */
+async function createRun(base, key, task, instructions, signal, extra) {
   const res = await fetch(`${base}/v1/runs`, {
     method: "POST",
     headers: { "content-type": "application/json", ...authHeaders(key) },
-    body: JSON.stringify({ input: task, instructions }),
+    body: JSON.stringify({ input: task, instructions, ...(extra ?? {}) }),
     signal,
   });
   if (!res.ok) {
@@ -131,7 +135,7 @@ function findingsTurn(runId, persona, findings) {
           type: "text",
           text:
             `[Hermes · ${persona.name} — run ${runId} delivered its findings]\n\n${findings}\n\n` +
-            "Hand these to the matching xenomoon:*-researcher for the human verdict + library write.",
+            "Hand these to the xenomoon:researcher (name the matching research-* mode) for the human verdict + library write.",
         },
       ],
     },
@@ -382,7 +386,7 @@ async function watchRun(base, key, runId, persona, send, push) {
             op: "add",
             owner: "user",
             title: `Hermes · ${persona.name} findings ready (run ${runId})`,
-            note: "Review the findings in the feed, then route to the matching xenomoon:*-researcher for the verdict + library write.",
+            note: "Review the findings in the feed, then route to the xenomoon:researcher (matching research-* mode) for the verdict + library write.",
           },
           new Date().toISOString(),
         );
@@ -443,7 +447,7 @@ export function makeHermesFeedbackTool(send) {
   return tool(
     "hermes_feedback",
     "Send the team's verdict on a Hermes findings delivery back to Hermes so it can update its " +
-      "own memory/skills. Call this ONCE per delivery — after the matching xenomoon:*-researcher " +
+      "own memory/skills. Call this ONCE per delivery — after the xenomoon:researcher " +
       "has written the verdict to library/verdicts/. Fire-and-forget: returns immediately, no " +
       "findings come back. Even 'not-useful' runs deserve feedback so Hermes learns what to avoid.",
     {
@@ -480,7 +484,11 @@ export function makeHermesFeedbackTool(send) {
       }, CREATE_TIMEOUT_MS);
       let runId;
       try {
-        runId = await createRun(base, apiKey, task, instructions, ctrl.signal);
+        // previous_response_id chains the feedback onto the graded run's conversation, so
+        // Hermes sees what it actually did instead of grading blind from a fresh context.
+        runId = await createRun(base, apiKey, task, instructions, ctrl.signal, {
+          previous_response_id: input.runId,
+        });
       } catch (err) {
         const msg = ctrl.signal.aborted
           ? "Hermes did not accept the feedback run within 30s."

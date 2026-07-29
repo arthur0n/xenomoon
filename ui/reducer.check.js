@@ -170,7 +170,7 @@ check("a background permission_denied logs to activity AND raises a banner", () 
   const s = reduce(initialState(), {
     type: "permission_denied",
     toolName: "Write",
-    agent: "skill-researcher",
+    agent: "researcher",
     reason: "asyncAgent",
     background: true,
   });

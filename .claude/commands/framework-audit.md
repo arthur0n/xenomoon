@@ -1,5 +1,5 @@
 ---
-description: Framework self-audit — score agents/skills/orchestrator/commands across 10 quality dimensions, record findings in the ledger, propose fixes, critique itself. Manual, human-run. Forge-local (not shipped).
+description: Framework self-audit — score agents/skills/orchestrator/commands across 11 quality dimensions, record findings in the ledger, propose fixes, critique itself. Manual, human-run. Forge-local (not shipped).
 argument-hint: "[D1..D10 | all]"
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Agent, Skill, mcp__ui__form, mcp__ui__tasks, mcp__ui__ask
 model: opus
@@ -196,6 +196,18 @@ contamination; give the agnostic technical rationale instead and drop the citati
      godot-project-conventions fused a quality baseline with 3D-pixel-art payload (fixed 322e4da);
      invisible to every single-domain loop (contamination gates catch one project's facts, session
      mining only sees the domain in use) — surfaced only by a fork's second-domain strip.
+
+   - **D11 — Research-loop wiring (dead-wiring probe).** The struggle→research→wire-local→proceed
+     loop must be REACHABLE end-to-end, not just described. Walk the chain and flag any dead link:
+     (a) the domain orchestrator has the capability/knowledge-gap routing bullet (Hermes-first when
+     enabled → `researcher` with a named `research-*` mode); (b) `ui/hermes-block.md` still carries
+     the dispatch + compound + feedback sections and names agents that exist; (c) the sources
+     registry the `research-skill-gap` skill points at (`library/sources/skill-sources.md`) exists
+     in the installed tree (the domain pack must ship it); (d) the `research-*` mode skills are
+     scoped to the `researcher` in skill-scope; (e) consumer paragraphs ("If the Hive handed you
+     Hermes findings…") survived edits. Origin: the fork kept the consumer half of the loop while
+     the orchestrator routing + sources registry silently dropped — agents pointed at files and
+     dispatchers that didn't exist, and sessions improvised general-purpose spawns instead.
 
 4. **Judge + id each finding.** EXPECT most findings to be false positives on inspection — they are
    hypotheses until checked against the actual files: generic industry vocabulary (tank/grunt/runner)

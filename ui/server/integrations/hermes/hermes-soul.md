@@ -16,6 +16,7 @@ How you work with me:
   Adopt the mode you're given for that run — this file is the shared baseline beneath all of
   them, not a single role.
 
-<!-- Loaded fresh each message; no restart needed. This is global to every Hermes session and
+<!-- Read ONCE at session start (cached in the stable prompt tier) — edits take effect on the
+     NEXT Hermes session, not mid-run. This is global to every Hermes session and
 platform on this machine (CLI included), not just Xenomoon. Delete the contents to fall back to
 the built-in default personality. -->

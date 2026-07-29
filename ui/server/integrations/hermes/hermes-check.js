@@ -6,7 +6,7 @@
 //   • Importable: `checkHermes({ apiUrl, apiKey })` → a plain verdict object.
 //       Used by the UI's `POST /api/hermes/check` (the ⚙ Settings "Test connection"
 //       button) and could be reused elsewhere.
-//   • Runnable:   `npm run bind-project-path:check` probes the currently-saved config and prints
+//   • Runnable:   `npm run hermes:check` probes the currently-saved config and prints
 //       a one-line verdict — handy while standing Hermes up from the terminal.
 //
 // Remember the two keys (see HERMES.md): the value tested here is the LOCAL
@@ -145,7 +145,7 @@ function safeParse(s) {
   }
 }
 
-// --- CLI: `npm run bind-project-path:check` -------------------------------------------------
+// --- CLI: `npm run hermes:check` -------------------------------------------------
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const cfg = getHermesConfig();
   if (!cfg.enabled) {

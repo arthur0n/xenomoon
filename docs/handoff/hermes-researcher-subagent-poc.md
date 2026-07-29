@@ -36,7 +36,7 @@ Xenomoon Hive (human-gated)
 
 There is **no MCP callback** (the old `mcp_servers.xenomoon` / `/mcp` / `deliver_findings`
 subsystem was deleted). Hermes' runs API has no webhook; findings are **read** from
-`GET /v1/runs/{id}`. See `memory/hermes-integration.md` for the runs-API facts.
+`GET /v1/runs/{id}`. Runs-API facts live in `ui/server/mcp-tools/hermes-tool.js` header comments.
 
 ### Where it lives in the codebase
 
@@ -51,7 +51,7 @@ subsystem was deleted). Hermes' runs API has no webhook; findings are **read** f
 - **Setup / probe / gateway:** `ui/server/integrations/hermes/{hermes-setup,hermes-check,
 hermes-gateway}.js`; persona text in `hermes-soul.md` + `ui/lib/hermes-personas.js`.
 - **Researchers that consume findings:** `plugin/agents/{cli,skill,addon}-researcher.md`.
-- **User docs:** `HERMES.md`. **Orchestrator routing:** `ui/orchestrator.md`.
+- **User docs:** `HERMES.md`. **Orchestrator routing:** `ui/hermes-block.md` (injected when Hermes is enabled) + the domain `orchestrator.md`.
 
 ## The self-improvement change (this update)
 
@@ -107,7 +107,7 @@ accepted on purpose**: Hermes investigates and gets smarter at it; humans adopt.
 
 - `npm run hermes:setup -- --reset && npm run hermes:setup -- --yes` → `config.yaml` shows
   `platform_toolsets.api_server: [web, search, memory, skills]`.
-- `npm run bind-project-path:check` → lists `skills` + `memory` as enabled, **not** flagged as machine-access.
+- `npm run hermes:check` → lists `skills` + `memory` as enabled, **not** flagged as machine-access.
 - Real research task → watch the feed for `🧠 Hermes is updating its own skills`; confirm a new
   `~/.hermes/skills/<name>/SKILL.md` exists and **no** game/framework file was touched by Hermes.
 - Re-run a similar task later → Hermes loads its saved skill (self-improvement across runs).
@@ -119,4 +119,4 @@ accepted on purpose**: Hermes investigates and gets smarter at it; humans adopt.
   · [Skills](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills/)
   · [Memory](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory)
   · [Configuration](https://hermes-agent.nousresearch.com/docs/user-guide/configuration).
-- Memory note: `memory/hermes-integration.md` (runs-API facts; no callback).
+- Runs-API facts (no callback): `ui/server/mcp-tools/hermes-tool.js` header comments.

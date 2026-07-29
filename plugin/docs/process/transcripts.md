@@ -7,7 +7,7 @@ This folder is the **drop zone** — at rest it holds only transcripts still wai
 harvested:
 
 1. You (or the UI) drop `something.md` here.
-2. The orchestrator spawns the **transcript-researcher** agent on it.
+2. The orchestrator spawns the **researcher** agent on it in `research-transcript` mode.
 3. The agent distills + verifies the video, writes a durable one-page digest to
    `library/transcripts/something.md`, then **moves the raw into `transcripts/archive/`**.
 4. `transcripts/archive/` is the kept full-text backup — the source we can always go
@@ -16,4 +16,4 @@ harvested:
 
 So two things are kept per video: the distilled **digest** in `library/transcripts/`
 (the warm-knowledge record) and the **archived raw** here (the full source). See
-`.claude/agents/transcript-researcher.md` for the full workflow.
+the `research-transcript` skill for the full workflow.

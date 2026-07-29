@@ -1,5 +1,5 @@
 // Write a raw transcript pasted in the web UI into the project's transcripts/ drop
-// zone, where transcript-researcher harvests it. This is the UI's only
+// zone, where the researcher (transcript mode) harvests it. This is the UI's only
 // project-write path, so it stays narrow: the name is slugified to
 // [a-z0-9-] and the file is confined to <project>/transcripts/.
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";

@@ -121,7 +121,7 @@ cronjob, moa`. `memory` + `skills` are self-improvement (see below) and stay on 
 `~/.hermes`; `terminal`/`file`/`code_execution`/`browser` are the ones that could touch the game or
 this framework, so they stay off.
 
-**Confirm what's actually live** (the only sure check) — `npm run bind-project-path:check` queries the
+**Confirm what's actually live** (the only sure check) — `npm run hermes:check` queries the
 gateway's `GET /v1/toolsets` and prints the enabled tools, loudly flagging any machine-access ones:
 
 ```
@@ -173,7 +173,7 @@ project except through the researcher → library → promote gate.
 
 ```bash
 npm run bind-project-path -- --hermes --hermes-url=http://localhost:8642 --hermes-key=pick-any-secret
-npm run bind-project-path:check     # probes the saved config, prints a one-line verdict
+npm run hermes:check     # probes the saved config, prints a one-line verdict
 npm run bind-project-path -- --hermes-off   # turn it back off
 ```
 

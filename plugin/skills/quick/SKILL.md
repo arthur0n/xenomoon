@@ -17,7 +17,7 @@ Route straight to the active domain's builder ONLY if all four hold:
 3. **Observable** — the result is verifiable with the project's own checks (build / lint / test) plus one quick look.
 4. **No new conventions** — no new project-wide decisions, dependencies, or folders.
 
-If any check fails, do not dispatch directly. Report in one line _which_ check failed and why, then offer the right route: the **full pipeline** (too big / unclear scope), or **skill-researcher** (uncovered pattern — check 1 failed). Failing the check is a correct outcome of /quick, not an error.
+If any check fails, do not dispatch directly. Report in one line _which_ check failed and why, then offer the right route: the **full pipeline** (too big / unclear scope), or the **researcher** in `research-skill-gap` mode (uncovered pattern — check 1 failed). Failing the check is a correct outcome of /quick, not an error.
 
 ## Dispatch (on pass)
 

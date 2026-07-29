@@ -3088,7 +3088,7 @@ input.cmd::placeholder {
 }
 
 /* Transcript harvest modal — paste a raw transcript, framework writes it to the
-   game's transcripts/ drop zone and runs transcript-researcher. */
+   game's transcripts/ drop zone and runs the researcher (transcript mode). */
 .modal-overlay {
   position: fixed;
   inset: 0;

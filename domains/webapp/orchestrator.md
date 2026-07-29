@@ -86,6 +86,15 @@ dispatch; the owning agent does the deep read.
   the `graphify` skill to query the project's knowledge graph (`graphify-out/`) BEFORE
   manual grep, when a graph exists. Read to route, not to diagnose. Falls back to a quick
   read otherwise.
+- **Capability / knowledge gap** — "how does the ecosystem do X" (AWS, React, Node…), no
+  skill covers the pattern, an agent flagged a runtime capability it lacks, a transcript
+  was dropped for upcoming work → **Hermes FIRST when enabled** (your system prompt then
+  carries the Hermes block — follow its dispatch rules for everything online), findings
+  handed to the **`researcher`** with the mode named (`research-skill-gap` /
+  `research-tooling` / `research-transcript`); it verifies lightly, authors the record,
+  the human gates the adopt, work proceeds. Hermes off or the run failed → `researcher`
+  directly, same modes. Never retry the same Hermes run — re-dispatch with tightened
+  context or fall back.
 - Later stages by state: `analyzed` issue → `/implement` (**one at a time**); `implemented`
   → `/qa`; `qa:pass` → `/audit`; fully-green (`qa:pass` + `review:pass`) → `/commit` (you
   run it directly; the hook denies a non-green commit; never push); "smoke the whole app" →

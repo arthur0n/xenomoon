@@ -1,7 +1,7 @@
 ---
 name: research-presenting
-agents: [cli-researcher, skill-researcher, transcript-researcher]
-description: How a *-researcher presents a finding/verdict to the human — the 6-bucket framework. Use whenever a cli / skill / transcript researcher is about to present an adopt/reject/keep verdict: never gate on a bare verdict — decompose into the six buckets first, put the verdict ON TOP, and (where the agent has `mcp__ui__form`) have the `select` reference them so the human decides per bucket.
+agents: [researcher]
+description: How the researcher presents a finding/verdict to the human — the 6-bucket framework. Use whenever the researcher (any mode — skill-gap, tooling, transcript) is about to present an adopt/reject/keep verdict: never gate on a bare verdict — decompose into the six buckets first, put the verdict ON TOP, and (where the agent has `mcp__ui__form`) have the `select` reference them so the human decides per bucket.
 ---
 
 # Presenting a research finding — the 6 buckets
@@ -17,4 +17,4 @@ Never gate a finding with a bare adopt/reject. First decompose it into these six
 
 The adopt/reject/subset verdict still happens — it sits on top of the buckets as your recommendation. Bucket 5 is framework/system only; anything game-specific routes through the normal build handoff, not here.
 
-For an agent with NO `select` in its tools (e.g. transcript-researcher): the block still applies — structure the returned verdict + digest "Recommended next" / "Later" into the 6 buckets (bucket 5 → its existing Later section, buckets 3/4 → Recommended next). Reuse each agent's existing "Later" / park language for bucket 5; don't add a second parking mechanism.
+For a run with no `select` gate (e.g. the transcript mode — it maps and hands off, no adopt decision): the block still applies — structure the returned verdict + digest "Recommended next" / "Later" into the 6 buckets (bucket 5 → its existing Later section, buckets 3/4 → Recommended next). Reuse the mode's existing "Later" / park language for bucket 5; don't add a second parking mechanism.

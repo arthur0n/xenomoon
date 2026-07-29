@@ -1,6 +1,6 @@
 // "Add transcript" — paste a raw video transcript; the framework writes it into
 // the game's transcripts/ drop zone (POST /api/transcript) and kicks off the
-// source-driven harvest by prompting the orchestrator to run transcript-researcher.
+// source-driven harvest by prompting the orchestrator to run the researcher (transcript mode).
 import { $, $input } from "../../core/dom.js";
 import { postJSON } from "../../../lib/json.js";
 import { send } from "../../core/websocket.js";
@@ -18,7 +18,7 @@ function close() {
 /** Build the harvest prompt the orchestrator acts on. @param {string} path @param {string} building */
 function harvestPrompt(path, building) {
   const why = building ? `We're about to build ${building}. ` : "";
-  return `${why}Harvest the new transcript at ${path} with transcript-researcher first, then bring me its recommendations.`;
+  return `${why}Harvest the new transcript at ${path} with the researcher in research-transcript mode first, then bring me its recommendations.`;
 }
 
 async function submit() {

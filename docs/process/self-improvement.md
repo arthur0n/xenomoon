@@ -9,7 +9,7 @@
 > deferred divergence tracked in [`docs/fork/SEAMS.md`](../fork/SEAMS.md). Only
 > `/token-audit` (which writes its own live `.claude/token-audits/LEDGER.md`) runs locally today.
 
-The **agent** self-improvement loop (`bug-triage`, `skill-researcher`, `godot-refactor` closing the
+The **agent** self-improvement loop (`bug-triage`, the `researcher`, `godot-refactor` closing the
 friction→root-cause→skill-update loop) is the one `README.md` sells to users. This doc maps the other
 half: the **command** loop the framework maintainer runs _on the framework itself_ — a set of
 forge-local slash-commands + one agent, all coordinating through a **single shared ledger**.

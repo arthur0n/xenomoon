@@ -22,5 +22,5 @@ learns the project, and broadly-useful findings promote up here alongside the ca
 | always-relevant **routing / convention**                | —           | the orchestrator / `CLAUDE.md`     |
 
 A record is OUR verdict (an output); a source list points OUT to the world (an input) — separate
-shelves. The researcher agents (`skill-researcher`, `cli-researcher`, `transcript-researcher`) write
+shelves. The `researcher` agent (modes: skill-gap, tooling, transcript) writes
 their findings here on demand; they never load it automatically.

@@ -1,8 +1,8 @@
 ---
 name: library-record-writing
-agents: [cli-researcher]
+agents: [researcher]
 domain: universal
-description: How a *-researcher writes a durable `library/<kind>/` record — the machine-face frontmatter rule, the index-append step, the one-page limit, and the post-adopt/post-build 4-field Lesson section. Use whenever a cli researcher writes its verdict doc (`library/addons/<slug>.md`, `library/tools/<slug>.md`) so the record is queryable, indexed, and agnostic. Owns the shared record-writing METHOD; each agent still owns its own per-kind template (frontmatter fields + doc structure).
+description: How the researcher writes a durable `library/<kind>/` record — the machine-face frontmatter rule, the index-append step, the one-page limit, and the post-adopt/post-build 4-field Lesson section. Use whenever the researcher writes a verdict doc (`library/tools/<slug>.md`, `library/transcripts/<slug>.md`, …) so the record is queryable, indexed, and agnostic. Owns the shared record-writing METHOD; each mode skill still owns its own per-kind template (frontmatter fields + doc structure).
 ---
 
 # Writing a library record (the shared method)

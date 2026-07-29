@@ -6,13 +6,11 @@ print the live table with `node ui/server/cli/agents-lint.js --table`).
 
 ## CORE (`plugin/agents/` — loads in every session)
 
-| agent                 | model  | effort | when used                                                                                                                  | cost expectation                                 |
-| --------------------- | ------ | ------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| designer              | opus   | high   | Vague/feature/intent request → interview → one-page PRD (`design/<slug>.md`) + business-rules capture. Never backgrounded. | High per run, rare — runs once per feature slice |
-| skill-researcher      | opus   | high   | Missing-skill gap → research → adopt/reject recommendation (human-gated)                                                   | High, rare                                       |
-| transcript-researcher | opus   | high   | Harvest a saved transcript into a durable digest                                                                           | High, rare                                       |
-| cli-researcher        | sonnet | medium | Quick capability/tooling research (transport pick, tool definition)                                                        | Medium, occasional                               |
-| handoff-summarizer    | haiku  | low    | Distill a builder's handoff file to ≤5 lines                                                                               | Trivial, frequent                                |
+| agent              | model | effort | when used                                                                                                                                                                                                 | cost expectation                                 |
+| ------------------ | ----- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| designer           | opus  | high   | Vague/feature/intent request → interview → one-page PRD (`design/<slug>.md`) + business-rules capture. Never backgrounded.                                                                                | High per run, rare — runs once per feature slice |
+| researcher         | opus  | high   | The ONE research role — mode named at dispatch: `research-skill-gap` (missing-skill gap), `research-tooling` (capability gate), `research-transcript` (harvest a dropped transcript). Human-gated adopts. | High, rare/occasional                            |
+| handoff-summarizer | haiku | low    | Distill a builder's handoff file to ≤5 lines                                                                                                                                                              | Trivial, frequent                                |
 
 ## Webapp domain (`domains/webapp/plugin/agents/`)
 
@@ -29,17 +27,20 @@ Deleted (2026-07-21 redesign): `bug-triage` + `senior-dev` → merged into `anal
 
 ## Roster discipline (the bar for adding an agent)
 
-An agent earns a roster slot only as one of two shapes:
+**One agent per cluster.** A new agent is created ONLY when:
 
-- **Highly specialized** — a distinct charter no other agent covers (its own inputs,
-  outputs, write surface, gates).
-- **Generic + skills** — an analyst-style generalist whose variations are SKILLS it
-  loads, not sibling agents.
+- **(a) an existing agent exceeds ~12 skills** — the cluster has outgrown one charter and
+  splits along its natural seam; or
+- **(b) the role must run in parallel all the time** — it needs its own slot because it
+  runs alongside the others constantly (the pipeline stages: analyst/developer/tester/…).
 
-Never multiple same-model agents whose instructions differ by a few lines — that is
-roster bloat: it widens the orchestrator's mis-routing surface, costs a description line
-every turn, and multiplies maintenance. `agents-lint` WARNs on same-model multiplicity
-without a `roster-justification:` — treat that warning as a design smell, not noise. A
-new capability defaults to a **skill on an existing agent** (or an `mcp__ui__promote`
-request); an agent exists to be safely parallelizable — distinct charter, distinct write
-surface — never to hold three lines of instructions.
+Everything else is a **skill on an existing agent**: variations of one role are modes the
+agent loads (see `researcher` + its `research-*` mode skills), never sibling agents. Never
+multiple same-model agents whose instructions differ by a few lines — that is roster
+bloat: it widens the orchestrator's mis-routing surface, costs a description line every
+turn, and multiplies maintenance.
+
+Enforcement pair: `agents-lint` WARNs on same-model multiplicity without a
+`roster-justification:` (treat the warning as a design smell, not noise), and the
+framework-audit's D1 dimension ("agents with too many skills") watches the ~12-skill split
+threshold from the other side.

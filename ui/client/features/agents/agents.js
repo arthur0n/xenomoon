@@ -32,8 +32,7 @@ const ROLE_COLOR = {
   analyst: "oklch(0.74 0.13 300)", // violet — investigation + solution design (ex triage/senior)
   designer: "oklch(0.78 0.11 200)", // cyan — the interviewer, PRD author
   developer: "oklch(0.79 0.12 60)", // amber — hot iron, the implementer
-  "skill-researcher": "oklch(0.81 0.12 90)", // moon gold — the library
-  "transcript-researcher": "oklch(0.74 0.15 340)", // magenta — raw signal
+  researcher: "oklch(0.81 0.12 90)", // moon gold — the library (one research role, mode skills)
   hermes: "#3b2aff", // electric indigo — the external Hermes researcher (not a Xenomoon)
   kimi: "#10b981", // Moonshot teal — the external Kimi coder (not a Xenomoon)
 };
@@ -58,9 +57,7 @@ const DISPLAY = {
   analyst: "Xenomoon Analyst",
   designer: "Xenomoon Designer",
   developer: "Xenomoon Developer",
-  "skill-researcher": "Xenomoon Researcher",
-  "cli-researcher": "Xenomoon CLI Researcher",
-  "transcript-researcher": "Xenomoon Transcript",
+  researcher: "Xenomoon Researcher",
   "handoff-summarizer": "Xenomoon Handoff",
   hermes: "Hermes: Researcher",
   "codex-rescue": "Codex: Reviewer",

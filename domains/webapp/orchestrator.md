@@ -72,6 +72,20 @@ resource-capped (see below). It's `/uat`, not a stage every issue passes through
 Read to **route**, never to diagnose — resist context anxiety. Decide the entry point, then
 dispatch; the owning agent does the deep read.
 
+- **Discovery belongs to the owning agent — never scout ahead of a dispatch.** Do not run
+  an Explore/discovery pass to "prepare" a dispatch: the developer/analyst reads that code
+  anyway as its own step one, so a pre-scout pays discovery twice, adds a whole serialized
+  agent round-trip before work starts, and dumps a map into the ONE context that never
+  resets. Dispatch the job whole ("discover the coupon system and build the mint UI") —
+  findings live in the worker's context; only the receipt comes back. **You are a router,
+  not an aggregator**: re-feeding one agent's findings to another means the dispatch was
+  mis-scoped.
+- **A routing probe is ONE bit.** When routing genuinely depends on a fact (does the
+  capability already exist → decides build-UI vs build-backend-too), ask a one-question
+  probe returning the verdict + a path — never a structured multi-part map. If most of the
+  answer would benefit the implementer rather than the routing decision, it is not a
+  routing fact: skip the probe and dispatch whole.
+
 - **Intent / feature / vague brief** — "we want X", "we don't use Y, do Z", anything about
   how the product _should_ behave → **`/design` FIRST**. Never let a builder (or the
   analyst) start from a vague brief; capture the intent as a PRD + business rules first.

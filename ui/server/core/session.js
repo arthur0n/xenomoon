@@ -94,6 +94,7 @@ function createInbox() {
       if (closed) return;
       await new Promise((resolve) => {
         wake = () => {
+          wake = null; // clear before resolving — a later push must never hit a stale resolver
           resolve(undefined);
         };
       });

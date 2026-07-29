@@ -101,10 +101,16 @@ export function handleAutonomousControl(msg, { send, push, loop }) {
     send({ type: "status", text: `Autonomous Mode on — goal: ${state.goal}` });
     push(kickoffTurn(state.goal));
     loop.arm();
-  } else if (msg.action === "stop") {
+    return true;
+  }
+  if (msg.action === "stop") {
     send({ type: "autonomousMode", payload: stopAutonomous(now) });
     send({ type: "status", text: "Autonomous Mode off." });
     loop.disarm();
+    return true;
   }
-  return true;
+  // Malformed payload (start with no goal, unknown action): a NO-OP, not "handled" — the
+  // caller derives session.autonomousActive (= auto-allow EVERY tool) from our verdict, so
+  // returning true here would let a bad message flip the permission policy with no goal set.
+  return false;
 }

@@ -41,6 +41,14 @@ diff` the recent history, the issue thread, and the skills that were (or should 
   bug. Root-cause the divergence — a wrong threshold, an over/under-strict check, a
   missing criterion — or the build was genuinely wrong (then the rubric was RIGHT: no
   change). This input's home verdict is **refine rubric**.
+- **A near-miss** — a human question or correction changed the hive's recommendation or
+  surfaced a hazard it missed (the safety came from the human, not the pipeline). Treat
+  it as a real miss: root-cause why no gate, label, or checklist caught it.
+- **The queue** — `.xenomoon/debrief-queue.md`, the orchestrator's signal log (one keyed
+  line per override/near-miss/friction, appended the moment it happened). A queue-drain
+  run hands you ALL open entries: triage each to a verdict (entries may share one root
+  cause — say so and fold them), and name any entry you PARK for later so the
+  orchestrator keeps its line.
 
 ## Where to look
 

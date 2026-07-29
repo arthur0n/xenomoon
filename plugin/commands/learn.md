@@ -23,7 +23,7 @@ Read `.xenomoon/learn-state.json` in the project ({ lastRun, seenIssues: [], see
 — create on first run). Proceed ONLY if at least one exists since last run:
 
 - a newly CLOSED issue (compare `gh issue list --state closed` against `seenIssues`),
-- a new entry in `.xenomoon/qa-divergence.md`,
+- a new entry in `.xenomoon/debrief-queue.md`,
 - a new REJECTED promotion in `.xenomoon/promotions.json`,
 - an explicit target in the arguments (a number or PRD slug always runs).
 

@@ -175,12 +175,20 @@ This pack is a head start, not the whole story — the project teaches you as yo
 discover a **durable project convention, footgun, business rule, or reusable skill**, RECORD
 it — don't let it evaporate into one session's context.
 
-- **Offer a debrief when something broke, chafed, or was overridden.** After a fix lands
-  with a non-obvious root cause, after an agent reports friction (improvised pattern,
-  first-try gate failure, scope overrun), or after a human OVERRIDES a `/qa`/`/audit`/
-  `/uat` verdict — offer `/debrief` (the `debrief` agent). **Opt-in, never auto-run**; "no
-  change" is a valid outcome. Debrief proposes, the human approves, only project surfaces
-  change; a domain/framework finding comes back as a report, not an edit.
+- **Log the signal, then offer the debrief (the record outlives the offer).** When the
+  human OVERRIDES a `/qa`/`/audit`/`/uat` verdict (a FAIL they say is fine, a PASS that
+  shipped a bug), when a **human question or correction changes your recommendation or
+  surfaces a hazard you missed** (a near-miss IS a miss — "push succeeded" is not
+  "shipped safely"), when a fix lands with a non-obvious root cause, or when an agent
+  reports friction (improvised pattern, first-try gate failure, scope overrun): FIRST
+  **append one keyed line to `.xenomoon/debrief-queue.md`** (`- <date> · <issue#/moment> ·
+<override|near-miss|friction|bug> · <one line>`) — deterministic, same turn, never
+  skipped — THEN offer `/debrief` (**opt-in, never auto-run**). A declined or forgotten
+  offer loses nothing: `/debrief` with no arguments drains the queue. Out-of-box gates
+  and your own judgment earn trust only by being tuned from where they diverged from the
+  human. Debrief proposes, the human approves, only project surfaces change; a
+  domain/framework finding comes back as a report, not an edit. "No change" is a valid
+  outcome.
 - **The library is the durable home; `CLAUDE.md` is an INDEX.** Full content — a
   convention, footgun, or **standing product fact** ("we don't use Y") — goes into a
   project library doc (`.claude/library/<topic>.md`; business rules →

@@ -68,10 +68,10 @@ library}` → optional PR) · PROJECT (project fact → project CLAUDE.md/.claud
   audit-loop learn arms (which run as sub-agents) do NOT write drafts — they emit draft CONTENT
   in their report; the human materializes via foreground `/learn`.
 - **Deterministic cost gate (adversarial catch):** before any LLM pass, check
-  `.xenomoon/learn-state.json` — run only when there's a NEW closed-issue delta / qa-divergence
+  `.xenomoon/learn-state.json` — run only when there's a NEW closed-issue delta / debrief-queue
   entry / rejected promotion since last run (token-audit's discipline, applied here).
 - CREATE `plugin/commands/learn.md` (CORE, domain-agnostic): triggers (issue closed / PRD
-  delivered / UAT / manual); inputs (ANALYSIS verdicts, qa-divergence.md, PRDs, session logs,
+  delivered / UAT / manual); inputs (ANALYSIS verdicts, debrief-queue.md, PRDs, session logs,
   promotions rejects); Step 1 gate → Step 2 distill → Step 3 classify (updates-routing.md) →
   Step 4 land: DOMAIN skill → `<project>/.claude/skills/` + promote kind skills; DOMAIN record →
   `<project>/.claude/library/<kind>/` + promote kind library; PROJECT convention → human-gated

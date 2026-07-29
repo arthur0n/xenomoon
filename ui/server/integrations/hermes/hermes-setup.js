@@ -41,7 +41,12 @@ import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { parseJSON } from "../../../lib/json.js";
-import { saveHermesConfig, getHermesConfig, CONFIG_FILE } from "../../core/config.js";
+import {
+  saveHermesConfig,
+  getHermesConfig,
+  CONFIG_FILE,
+  HERMES_DEFAULT_MODEL,
+} from "../../core/config.js";
 import {
   hermesHome,
   hermesEnv,
@@ -276,7 +281,21 @@ function ensureEnv() {
 function configureModelAndTools() {
   console.log(`\nProvider + tools (non-interactive, no wizard):`);
   configSet("model.provider", PROVIDER);
-  if (MODEL) configSet("model.default", MODEL);
+  if (MODEL) {
+    configSet("model.default", MODEL);
+  } else if (PROVIDER === "nous") {
+    // A fresh (per-domain) profile ships with NO model.default, and the runs API 400s
+    // without a model. Seed the Nous default ONLY when unset — a model the user picked
+    // (hermes model) is never overwritten.
+    const cfg0 = configPath();
+    const cur = cfg0
+      ? scalarUnder(readFileSync(cfg0, "utf8").split("\n"), "model", "default")
+      : "(unset)";
+    if (cur === "(unset)" || cur === "") {
+      configSet("model.default", HERMES_DEFAULT_MODEL);
+      console.log("    (seeded — pick a different Nous model anytime with `hermes model`)");
+    }
+  }
 
   const arr = TOOLSETS.split(",")
     .map((s) => s.trim())

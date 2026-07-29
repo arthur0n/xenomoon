@@ -486,8 +486,10 @@ export function makeHermesFeedbackTool(send) {
       try {
         // previous_response_id chains the feedback onto the graded run's conversation, so
         // Hermes sees what it actually did instead of grading blind from a fresh context.
+        // model included for the same reason as the main run (fresh profiles have no default).
         runId = await createRun(base, apiKey, task, instructions, ctrl.signal, {
           previous_response_id: input.runId,
+          ...(cfg.model ? { model: cfg.model } : {}),
         });
       } catch (err) {
         const msg = ctrl.signal.aborted
@@ -560,7 +562,11 @@ export function makeHermesTool(send, push) {
         ctrl.abort();
       }, CREATE_TIMEOUT_MS);
       try {
-        const runId = await createRun(base, cfg.apiKey, input.task, instructions, ctrl.signal);
+        // Send the configured model with the run: a fresh per-domain profile has no
+        // model.default yet and the runs API 400s ("Model parameter is required") without one.
+        const runId = await createRun(base, cfg.apiKey, input.task, instructions, ctrl.signal, {
+          ...(cfg.model ? { model: cfg.model } : {}),
+        });
         // Read the run to completion in the background; the tool returns now (fire-and-forget).
         void watchRun(base, cfg.apiKey, runId, persona, send, push);
         relay(send, persona.id, "start", input.task.slice(0, 240), runId);

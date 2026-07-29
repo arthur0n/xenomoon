@@ -23,12 +23,38 @@
 //
 // Graceful absence: if Hermes is off/unconfigured the handler returns a plain advisory string
 // (never throws), so the framework runs exactly as today and the Hive dispatches a researcher itself.
+import { appendFileSync, mkdirSync, existsSync } from "node:fs";
+import path from "node:path";
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { parseJSON } from "../../lib/json.js";
-import { getHermesConfig } from "../core/config.js";
+import { getHermesConfig, PROJECT_DIR } from "../core/config.js";
 import { applyOp } from "../features/tasks/tasks-store.js";
 import { getPersona, PERSONA_IDS } from "../../lib/hermes-personas.js";
+
+/** Infra/config fault — a BROKEN TOOL (gateway down, bad request, missing model), as opposed
+ * to a run that genuinely produced no result (timeout, approval stall). The two classes get
+ * opposite guidance: fix-and-surface vs fall-back-to-a-native-researcher. @param {string} reason */
+const isInfraFault = (reason) => /HTTP \d|fetch failed|did not accept|ECONNREFUSED/i.test(reason);
+
+/** Deterministically log a Hermes failure to the project's debrief queue — the signal must
+ * outlive the offer (a forgotten follow-up loses nothing; /debrief drains the queue).
+ * Best-effort: a failed write never breaks the failure delivery itself.
+ * @param {string} runId @param {string} reason */
+function queueHermesFailure(runId, reason) {
+  try {
+    if (!existsSync(PROJECT_DIR)) return; // no bound project (tests, trunk) — nowhere to queue
+    const dir = path.join(PROJECT_DIR, ".xenomoon");
+    mkdirSync(dir, { recursive: true });
+    const day = new Date().toISOString().slice(0, 10);
+    appendFileSync(
+      path.join(dir, "debrief-queue.md"),
+      `- ${day} · hermes run ${runId} · ${isInfraFault(reason) ? "infra-fault" : "no-result"} · ${reason.slice(0, 160)}\n`,
+    );
+  } catch {
+    /* queue write is best-effort */
+  }
+}
 
 /** @typedef {(obj: import("../../lib/types.js").OutMsg) => void} Send */
 /** @typedef {import("@anthropic-ai/claude-agent-sdk").SDKUserMessage} SDKUserMessage */
@@ -147,6 +173,16 @@ function findingsTurn(runId, persona, findings) {
  * fallback fires — dispatch the matching researcher directly instead of waiting forever.
  * @param {string} runId @param {HermesPersona} persona @param {string} reason @returns {SDKUserMessage} */
 function fallbackTurn(runId, persona, reason) {
+  const guidance = isInfraFault(reason)
+    ? "This is a BROKEN TOOL, not a missing result: the error is diagnosable (gateway down, " +
+      "bad request, missing config). READ it, surface it to the human with the likely fix — " +
+      "do NOT silently substitute a researcher for a broken gateway, and do NOT re-dispatch " +
+      "the same run until the cause is confirmed fixed. (This failure was already appended to " +
+      ".xenomoon/debrief-queue.md.)"
+    : "Hermes is ENABLED — a failed run is NOT absence, and the native-researcher fallback " +
+      "is reserved for Hermes OFF/not-configured only. Re-dispatch with a tightened scope " +
+      "(up to 3×, per the Hermes block), send mcp__ui__hermes_feedback, and if the runs keep " +
+      "dying surface it to the human. (Failure appended to .xenomoon/debrief-queue.md.)";
   return {
     type: "user",
     parent_tool_use_id: null,
@@ -155,10 +191,7 @@ function fallbackTurn(runId, persona, reason) {
       content: [
         {
           type: "text",
-          text:
-            `[Hermes · ${persona.name} — run ${runId} did NOT deliver findings: ${reason}]\n\n` +
-            "Treat this as no Hermes result. Dispatch the matching xenomoon:*-researcher yourself to " +
-            "run the investigation instead.",
+          text: `[Hermes · ${persona.name} — run ${runId} did NOT deliver findings: ${reason}]\n\n${guidance}`,
         },
       ],
     },
@@ -328,6 +361,7 @@ async function watchRun(base, key, runId, persona, send, push) {
   const fail = (/** @type {string} */ reason) => {
     if (!settleRun(runId)) return; // already reported by another watcher — don't double-deliver
     relay(send, persona.id, "done", `Hermes run ${runId} ${reason}.`, runId);
+    queueHermesFailure(runId, reason); // the record outlives the offer
     try {
       push(fallbackTurn(runId, persona, reason));
     } catch {
@@ -580,8 +614,16 @@ export function makeHermesTool(send, push) {
           ? "Hermes did not accept the run within 30s."
           : `Hermes call failed: ${err instanceof Error ? err.message : String(err)}`;
         relay(send, persona.id, "done", msg);
+        queueHermesFailure("(not created)", msg);
         return ok(
-          `${msg} Treat this as no Hermes result — dispatch a xenomoon:*-researcher instead.`,
+          isInfraFault(msg)
+            ? `${msg} This is a BROKEN TOOL (gateway down / bad request / missing config) — READ ` +
+                "the error and surface it to the human with the likely fix. Do NOT silently " +
+                "substitute a researcher for a broken gateway; re-dispatch only after the cause " +
+                "is confirmed fixed. (Failure appended to .xenomoon/debrief-queue.md.)"
+            : `${msg} Hermes is ENABLED — this is not absence, and the researcher fallback is ` +
+                "reserved for Hermes OFF/not-configured only. Re-dispatch with a tightened scope " +
+                "or surface it to the human. (Failure appended to .xenomoon/debrief-queue.md.)",
         );
       } finally {
         clearTimeout(timer);

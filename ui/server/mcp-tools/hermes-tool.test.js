@@ -97,7 +97,7 @@ test("hermes: off/unconfigured returns a plain advisory — no network, no pills
   assert.equal(pushed.length, 0);
 });
 
-test("hermes: a failed POST returns the researcher fallback and a done pill for the persona", async () => {
+test("hermes: a failed POST (infra fault) surfaces fix-the-tool guidance, never a researcher substitution", async () => {
   enableHermes();
   installFetch(() => fakeRes({ ok: false, status: 503, payload: { err: "down" } }));
   const { send, sent } = makeSend();
@@ -106,7 +106,8 @@ test("hermes: a failed POST returns the researcher fallback and a done pill for 
   });
   const out = await t.handler(runArgs({ task: "investigate crash", persona: "critic" }), {});
   assert.match(textOf(out), /Hermes call failed: Hermes 503/);
-  assert.match(textOf(out), /dispatch a xenomoon:\*-researcher/);
+  assert.match(textOf(out), /BROKEN TOOL/);
+  assert.doesNotMatch(textOf(out), /dispatch a xenomoon:\*-researcher/);
   // exactly one POST (no watcher spawned), to the slash-stripped base
   assert.equal(fetchCalls.length, 1);
   assert.equal(fetchCalls[0]?.url, "http://hermes.test/api/v1/runs");

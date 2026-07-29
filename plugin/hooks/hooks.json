@@ -1,10 +1,14 @@
 {
-  "description": "Xenomoon Forge hooks — block destructive git/shell ops before they run, grant sub-agent project/library edits so backgrounded workers aren't auto-denied, re-inject the caveman terse-output rule on every sub-agent tool call so it survives long turns, log sub-agent rtk-prefix usage (observe-only), dedup byte-identical repeat Read calls (deny a same-view re-read when mtime is unchanged and still recent — token-audit read-dedup, emits policy:\"read-dedup\"), and (opt-in) refresh the project's graphify knowledge graph after edits (PostToolUse — AST-only graphify update; OFF by default, enabled per-project via graphify-out/.autoupdate or XENOMOON_GRAPHIFY_AUTOUPDATE). (rtk enforcement itself is the user's own global hook, not shipped here — this only measures whether sub-agents follow the instruction.)",
+  "description": "Xenomoon Forge hooks — auto-route Bash through rtk when it's installed (rtk-rewrite: token-filtered command output, silent no-op on machines without rtk), block destructive git/shell ops before they run, grant sub-agent project/library edits so backgrounded workers aren't auto-denied, re-inject the caveman terse-output rule on every sub-agent tool call so it survives long turns, log rtk usage (observe-only — now measures what actually ran, post-rewrite), dedup byte-identical repeat Read calls (deny a same-view re-read when mtime is unchanged and still recent — token-audit read-dedup, emits policy:\"read-dedup\"), and (opt-in) refresh the project's graphify knowledge graph after edits (PostToolUse — AST-only graphify update; OFF by default, enabled per-project via graphify-out/.autoupdate or XENOMOON_GRAPHIFY_AUTOUPDATE).",
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "Bash",
         "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/rtk-rewrite.sh\""
+          },
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/block-destructive-git.sh\""

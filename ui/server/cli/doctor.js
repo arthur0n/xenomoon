@@ -241,7 +241,13 @@ const checks = [
         },
       ]
     : []),
-  { ok: hasRtk(), hard: false, label: "rtk on PATH (optional — hook no-ops without it)" },
+  {
+    ok: hasRtk(),
+    hard: false,
+    label: hasRtk()
+      ? "rtk on PATH — sessions auto-route Bash through it (rtk-rewrite hook)"
+      : "rtk not installed (optional — sessions run plain; install it for 60-90% output savings)",
+  },
   (() => {
     const issues = projectAgentNamingIssues();
     return {

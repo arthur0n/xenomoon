@@ -71,9 +71,10 @@ npm run install-project  # the questionnaire (or pass flags: -- <PATH> --domain=
 npm start                # http://localhost:3117 (or your chosen port)
 ```
 
-(Have the optional `rtk` (Rust Token Killer) token-saving proxy on PATH? Prefix
-commands with it — `rtk npm ci` — it passes anything it doesn't filter through unchanged. Everything
-works identically without it; `doctor` reports it as a soft, optional check.)
+(Have the optional `rtk` (Rust Token Killer) token-saving proxy on PATH? The framework
+detects it per session and auto-routes agent shell commands through it (the `rtk-rewrite`
+hook) — nothing to configure. For your own terminal commands, prefix manually (`rtk npm ci`).
+Everything works identically without it; `doctor` reports it as a soft, optional check.)
 
 Or hand the whole install to an agent — paste this verbatim, replacing the target path:
 

@@ -32,7 +32,7 @@ export function maybeKickoffOnboarding(push) {
             `Read ${path.join(FRAMEWORK_PLUGIN_DIR, "commands", "onboard.md")} and follow it ` +
             "EXACTLY, now — it inventories the project's CLAUDE.md and .claude/skills, " +
             "reports hook conflicts, maps its commands, and hands the merge proposal + " +
-            "business-rules interview to the designer. (Slash commands are user-typed — " +
+            "business-rules interview to the product-owner. (Slash commands are user-typed — " +
             "you execute the FILE's instructions, don't try to invoke /onboard.) Every " +
             "write is human-gated. When it finishes, tell the user to START A NEW SESSION " +
             "so the results load.",

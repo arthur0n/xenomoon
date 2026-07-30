@@ -45,7 +45,7 @@ the seeded convention floor. A pack's `orchestrator.md` should **use** these, no
 ## Shipped packs
 
 - **`webapp`** — a populated HEAD-START for React + Node apps: an issue-driven, human-gated pipeline
-  (`designer → analyst → developer → tester → reviewer`; the `/feedback /design /analyze /implement
+  (`product-owner → analyst → developer → tester → reviewer`; the `/feedback /design /analyze /implement
 /qa /audit /commit /build /uat` commands). The orchestrator then learns the specific project and
   promotes broadly-useful capabilities back into the pack for the next project.
 - **`expo`** — a populated React Native / Expo pack: the `uat-runner` agent, the `/uat` command, and

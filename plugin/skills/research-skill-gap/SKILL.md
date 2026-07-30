@@ -43,8 +43,10 @@ worth registering → propose the registry line in your verdict (human approves 
    then a required `select`: adopt / reject / adopt-a-subset, your recommendation first.
    Cutting is the default: if the project doesn't need it _now_, recommend reject and note
    where the pattern lives for later.
-6. **On adopt — rewrite, never copy.** Create `.claude/skills/<name>/SKILL.md` in the
-   project's skill template:
+6. **On adopt — rewrite, never copy.** Write to the skill-writing doctrine
+   (`<framework>/plugin/docs/process/skill-writing.md` — description = triggers only,
+   checkable completion criteria, no no-ops/negation, one page). Create
+   `.claude/skills/<name>/SKILL.md` in the project's skill template:
    - Frontmatter: `name: <name>`, `description:` stating what it does AND concrete trigger
      phrases/situations.
    - Sections in order: title + one paragraph of _why this way_ → `## Requirements` →

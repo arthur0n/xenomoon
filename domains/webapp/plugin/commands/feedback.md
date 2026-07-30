@@ -19,7 +19,7 @@ Feedback splits two ways, and they go to different places. Read the notes and de
 - **INTENT / product change** — a statement about how the product **should** behave: a new
   feature, a vague ask ("we want X"), or a "we don't use Y, do Z" that expresses a business
   rule or a change of direction. This is **not a bug** — there's no defect to trace, there's
-  a decision to capture. → goes to **`/design`** (the designer interviews, captures the rule
+  a decision to capture. → goes to **`/design`** (the product-owner interviews, captures the rule
   verbatim, writes a PRD). **Never file intent as a bug and send it to `/analyze`** — the
   analyst would manufacture a code hypothesis for a thing that was never broken (the exact
   failure this pipeline exists to stop).
@@ -63,7 +63,7 @@ the defect, and route the intent to `/design`.
 
 4. **Route by the Step 0 verdict:**
    - **Intent** → suggest (or, if `--analyze` was NOT given and it's clearly a product
-     decision, hand off to) **`/design`** — the designer captures the rule and writes the
+     decision, hand off to) **`/design`** — the product-owner captures the rule and writes the
      PRD. Do not send intent to `/analyze`.
    - **Defect** → if `--analyze` is present in the args, immediately spawn the `analyst`
      agent (Agent tool, `subagent_type: "analyst"`) for each newly created bug issue, then

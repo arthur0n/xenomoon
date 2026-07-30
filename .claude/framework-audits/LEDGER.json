@@ -59,6 +59,24 @@
       "finding": "caveman enforcement is prompt-only (per-tool reminder hook deleted afa2a79, 2026-06-26) with NO compliance measurement; review iter1 claims ~0% compliance ('[cvmn]' in 0/708 blocks); decide: restore a slim observe+score hook (review P0B-2 + P0B-7 banned-pattern list) or measure first and accept prompt-only. Fork note: the shipped skill is caveman-forge (renamed over a builtin collision)."
     },
     {
+      "id": "D8-epic-grill-layer-unproven",
+      "dim": "D8",
+      "bucket": 4,
+      "verdict": "fix-now",
+      "status": "open",
+      "finding": "The 2026-07-30 adaptation wave (designer→product-owner rename across ~24 files; grill skill + /grill; xeno-epic skill + mcp__ui__epic tool + /epic; skill-writing doctrine doc) landed green on `npm run validate` but has ZERO end-to-end runs: the epic tool's gh path (label create, issue create/edit, body round-trip) is untested against a real repo, grill mode has never driven a real form sequence, and live clones (lexflow-xm) still run the old designer roster until /sync-framework. Next audit pass: exercise epic chart→decide→slice on a real project, score grill/xeno-epic against plugin/docs/process/skill-writing.md, and verify the rename left no dangling designer references in generated/derived surfaces.",
+      "pattern": "a new capability is DONE when a real project run proves it, not when validate passes — pilot on lexflow-xm, then close."
+    },
+    {
+      "id": "D10-fork-divergence-wiring",
+      "dim": "D10",
+      "bucket": 5,
+      "verdict": "later",
+      "status": "open",
+      "finding": "Xenomoon now diverges from xenodot on more than identity: renamed roster (product-owner), fork-only tools (mcp__ui__epic), fork-only skills (grill, xeno-epic), fork-only process docs (skill-writing). No systematic check that these divergent surfaces are wired everywhere xenodot's originals were (hooks matchers, skill-catalog derivations, templates, first-boot copy, /sync-upstream seam list) — each landed by hand-grep. Add the fork-divergent surfaces to docs/fork/SEAMS.md so /sync-upstream and the audit suite treat them as first-class seams instead of rediscovering them per session.",
+      "pattern": "every fork-divergent surface is a named seam in SEAMS.md — sync and audit read the list, not the diff."
+    },
+    {
       "id": "D8-result-contract-unenforced",
       "dim": "D8",
       "bucket": 5,

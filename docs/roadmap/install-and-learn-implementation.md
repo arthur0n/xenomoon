@@ -63,7 +63,7 @@ library}` → optional PR) · PROJECT (project fact → project CLAUDE.md/.claud
 
 - **FOREGROUND-ONLY (adversarial catch C1):** `allow-project-edits.sh:37-39` deliberately
   excludes `.claude/*` from the sub-agent write grant — a backgrounded `/learn` would have every
-  draft write auto-denied. So: `/learn` runs foreground (like the designer — never backgrounded);
+  draft write auto-denied. So: `/learn` runs foreground (like the product-owner — never backgrounded);
   its `.claude/` draft writes go through normal human-gated approval, which IS the design. The
   audit-loop learn arms (which run as sub-agents) do NOT write drafts — they emit draft CONTENT
   in their report; the human materializes via foreground `/learn`.
@@ -90,11 +90,11 @@ library}` → optional PR) · PROJECT (project fact → project CLAUDE.md/.claud
   writable, local disk (reject iCloud `Mobile Documents` + network mounts, soft with
   `--allow-nonlocal`), no framework/project nesting. Wire into setup.js (which stays
   config.js-free) + new.js + UI first-run.
-- W4b (adversarial cut: NO new onboarder agent — roster rule, and the designer already owns the
+- W4b (adversarial cut: NO new onboarder agent — roster rule, and the product-owner already owns the
   interview): CREATE `plugin/commands/onboard.md` — a thin `/onboard` command. Deterministic
   parts SCRIPTED (skill inventory, hooks/settings diff report, package.json command detection);
   the judgment parts (annotated CLAUDE.md merge proposal — their content authoritative — and
-  the business-rules interview) hand to the EXISTING `designer`. Day-zero harvest = flagged
+  the business-rules interview) hand to the EXISTING `product-owner`. Day-zero harvest = flagged
   skills filed via mcp**ui**promote. Foreground-only (same `.claude/` write-gate reality as
   /learn). MODIFY `ui/server/cli/new.js`: up-front interactive asks (domain, validated path,
   hermes/codex/kimi configure-or-skip via existing setup scripts) — TTY-gated AND
@@ -149,7 +149,7 @@ library}` → optional PR) · PROJECT (project fact → project CLAUDE.md/.claud
    remotes/credential pin (this checkout has none — verify); salvage nothing.
 2. Bind lexflow from this checkout via W4 flow — its existing CLAUDE.md/.claude exercises the
    onboarder (day-zero harvest of its skills/rules).
-3. One real issue end-to-end (designer → analyst → … → commit).
+3. One real issue end-to-end (product-owner → analyst → … → commit).
 4. `/learn` on it — expect ≥1 webapp library `findings/` record from the Explicação/propagate saga
    - the jsdom lockfile incident.
 5. Approve on board → verify landing in `domains/webapp/plugin/` → `/contribute` self-PR

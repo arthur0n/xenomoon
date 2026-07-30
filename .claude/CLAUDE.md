@@ -1,5 +1,10 @@
 # Xenomoon Forge — framework spine rules
 
+> **Session-start orientation:** before researching this codebase, read
+> [docs/FRAMEWORK.md](../docs/FRAMEWORK.md) — the timeless agent-facing map (what the
+> framework is, goals, layout directions, self-improvement loops). Read on demand; it is
+> intentionally NOT auto-loaded.
+
 Rules for working **on the framework itself** (the Node/JS web UI and tooling under
 `ui/`). The bound project's own rules live in the project, not here — they come from the
 active domain pack's `orchestrator.md` + the project's own `CLAUDE.md`, which the

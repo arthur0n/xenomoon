@@ -11,6 +11,7 @@ import { makeHermesTool, makeHermesFeedbackTool } from "./hermes-tool.js";
 import { makeKimiTool } from "./kimi-tool.js";
 import { makeAutonomousTool } from "./autonomous-tool.js";
 import { makeSetSkillTool } from "./set-skill-tool.js";
+import { makeEpicTool } from "./epic-tool.js";
 
 /**
  * Build the in-process "ui" MCP server for one session. Deps are the session-scoped closures the
@@ -40,6 +41,7 @@ export function buildUiServer({ waitFor, formAgentQueue, send, hermesPush, disar
       makeKimiTool({ send, push: hermesPush, waitFor }),
       makeAutonomousTool(send, disarm),
       makeSetSkillTool(),
+      makeEpicTool(),
     ],
   });
 }

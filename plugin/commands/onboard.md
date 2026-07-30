@@ -1,5 +1,5 @@
 ---
-description: Onboard an EXISTING Claude-using project into the framework — inventory + conflict report scripted, CLAUDE.md merge + business-rules interview via the designer; every write human-gated
+description: Onboard an EXISTING Claude-using project into the framework — inventory + conflict report scripted, CLAUDE.md merge + business-rules interview via the product-owner; every write human-gated
 argument-hint: "(no args — runs against the bound project)"
 ---
 
@@ -10,7 +10,7 @@ hooks, conventions). Installing the framework must NEGOTIATE with what exists, n
 overwrite it. **Their content is authoritative** — the framework's structure fills gaps.
 
 **FOREGROUND ONLY** (writes under the project and its `.claude/` are human-gated per write).
-Deterministic parts are scripted below; judgment parts hand to the **designer**.
+Deterministic parts are scripted below; judgment parts hand to the **product-owner**.
 
 ## Step 1 — scripted inventory (read-only, no judgment)
 
@@ -27,14 +27,14 @@ Deterministic parts are scripted below; judgment parts hand to the **designer**.
 4. **Stack commands:** read `package.json` scripts and map validate / build / test / smoke /
    e2e onto the domain's command expectations; note gaps (no test script, etc.).
 
-## Step 2 — the judgment half → the designer
+## Step 2 — the judgment half → the product-owner
 
-Hand the inventory to the **designer** (foreground, form-driven). **Dispatch it CLEAN: pass
+Hand the inventory to the **product-owner** (foreground, form-driven). **Dispatch it CLEAN: pass
 the step-1 inventory as facts, but do NOT suggest candidate rule areas or topics** — a
-pre-loaded topic list manufactures rubber-stamp questions (the designer will dutifully cite
+pre-loaded topic list manufactures rubber-stamp questions (the product-owner will dutifully cite
 code for whatever you seed it with).
 
-- **Annotated CLAUDE.md merge proposal** — their content stays verbatim; the designer
+- **Annotated CLAUDE.md merge proposal** — their content stays verbatim; the product-owner
   proposes ADDING the missing framework blocks (Commands mapping from step 1.4, a
   `## Library index` scaffold pointing at an empty `.claude/library/business-rules.md`,
   a NEVER-list seed). CLAUDE.md stays an INDEX — full rules go in the library doc, one
@@ -47,14 +47,14 @@ code for whatever you seed it with).
   a rule earns the block only when it is non-obvious, decision-bearing, or has a failure
   history. **"Nothing to capture yet" is a first-class, expected outcome** — an empty
   scaffold plus zero rules is a SUCCESS, not a gap to fill; rules accrue later as a side
-  effect of real work (the designer's interviews, the analyst's findings — `/learn` is
+  effect of real work (the product-owner's interviews, the analyst's findings — `/learn` is
   only the manual fallback). (Why this block matters when it IS filled: it bootstraps the
   analyst's intent guardrail and the contamination business-terms signal.)
 
 ## Step 3 — report
 
 The checklist (found/missing blocks), skills kept-local vs flagged (board links), hook
-conflicts found, the commands mapping, and what the designer proposed vs what the human
+conflicts found, the commands mapping, and what the product-owner proposed vs what the human
 approved. End with the doctor's verdict (run `npm run doctor`, paste the summary line) and
 this instruction, verbatim: **start a NEW session now — this one predates what we just
 learned; the next one loads it all.**

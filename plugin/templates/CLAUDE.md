@@ -54,7 +54,7 @@ This file stays an **index** — full durable content lives in `.claude/library/
 gets ONE line here. Never dump full rules or specs into this file.
 
 - `.claude/library/business-rules.md` — standing product facts, user's words verbatim.
-  **Designer-maintained, human-gated.** The framework's agents treat it as
+  **Product-owner-maintained, human-gated.** The framework's agents treat it as
   **AUTHORITATIVE intent** — they build and reason to it and never manufacture an
   assumption that contradicts a rule stated there. Empty until the first `/design`
   seeds it.

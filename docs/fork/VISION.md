@@ -5,7 +5,7 @@
 ## What we're trying
 
 fork the upstream framework (a Godot game-dev pipeline) into a **domain-neutral** one
-that drives the same human-gated loop (designer → dev → verify → you) for _any_ kind of work.
+that drives the same human-gated loop (product-owner → dev → verify → you) for _any_ kind of work.
 Godot is what we forked from — it stays as the upstream reference, not one of our products.
 
 Two ideas anchor it:

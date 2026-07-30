@@ -194,6 +194,15 @@ export const PROMOTE_TOOL = "mcp__ui__promote";
 // bypasses the permission policy.
 export const AUTONOMOUS_TOOL = "mcp__ui__autonomous";
 
+// In-process MCP tool the orchestrator (and the foreground product-owner) calls to
+// maintain a xeno-epic — the durable decision container for efforts bigger than one
+// slice (see mcp-tools/epic-tool.js + the xeno-epic skill). It writes the epic issue
+// body on the PROJECT's tracker (or the design/epics/ fallback) — a deliberate,
+// deterministic ceremony write, template-shaped by the tool; auto-allowed like the
+// task board because the alternative is the agent doing the same write freehand
+// through Bash `gh`, with no contract.
+export const EPIC_TOOL = "mcp__ui__epic";
+
 // In-process MCP tool the HIVE (orchestrator main loop) calls to delegate the heavy
 // investigation half of research to an external Hermes Agent. Unlike the UI-control
 // tools above it is a REAL side effect (a billable network call), so it deliberately

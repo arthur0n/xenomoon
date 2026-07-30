@@ -30,7 +30,7 @@ let nextIdx = 0;
 /** @type {Record<string, string>} */
 const ROLE_COLOR = {
   analyst: "oklch(0.74 0.13 300)", // violet — investigation + solution design (ex triage/senior)
-  designer: "oklch(0.78 0.11 200)", // cyan — the interviewer, PRD author
+  "product-owner": "oklch(0.78 0.11 200)", // cyan — the interviewer, PRD author
   developer: "oklch(0.79 0.12 60)", // amber — hot iron, the implementer
   researcher: "oklch(0.81 0.12 90)", // moon gold — the library (one research role, mode skills)
   debrief: "oklch(0.72 0.14 25)", // ember red — the retrospective / learning loop
@@ -58,7 +58,7 @@ function stripNs(name) {
 const DISPLAY = {
   main: "Hive",
   analyst: "Analyst",
-  designer: "Designer",
+  "product-owner": "Product Owner",
   developer: "Developer",
   researcher: "Researcher",
   debrief: "Debrief",

@@ -24,6 +24,9 @@ After writing the doc, append its line to that kind's `library/<kind>/index.md`,
 ## One page, no more
 
 Keep the record under a page. A catalog/registry nobody reads is research nobody reuses.
+When the record IS a capability (a skill/agent you authored or rewrote), it also meets
+the skill-writing doctrine — `plugin/docs/process/skill-writing.md` (checkable
+completion criteria, no no-ops, description = triggers, positive form).
 
 ## The Lesson section (post-adopt / post-build)
 

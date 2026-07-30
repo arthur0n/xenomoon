@@ -65,9 +65,9 @@ This file stays an **index** — full durable content lives in `.claude/library/
 gets ONE line here. Never dump full rules or specs into this file.
 
 - `.claude/library/business-rules.md` — standing product facts, user's words verbatim.
-  **Designer-maintained, human-gated.** The agents treat it as **AUTHORITATIVE intent**:
+  **Product-owner-maintained, human-gated.** The agents treat it as **AUTHORITATIVE intent**:
   the analyst never manufactures a hypothesis that contradicts it (a symptom-vs-intent
-  conflict is a designer question, not a code trace); the developer builds to it; the
+  conflict is a product-owner question, not a code trace); the developer builds to it; the
   tester reads it as rubric. Empty until the first `/design` seeds it.
 - `.claude/library/project.md` — extended project details (infra notes, service map,
   anything too long for the sections above).

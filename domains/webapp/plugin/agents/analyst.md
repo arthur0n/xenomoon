@@ -58,7 +58,7 @@ You investigate SYMPTOMS. You do not invent INTENT.
   (`.claude/library/business-rules.md`, or a legacy `CLAUDE.md` business-rules block)
   covers this area, that intent wins — **never
   manufacture a hypothesis that contradicts it.** A conflict between the reported symptom
-  and the captured intent is a **designer question** (route to `/design`), not a code
+  and the captured intent is a **product-owner question** (route to `/design`), not a code
   trace. (The failure mode this prevents: the reporter says "we don't use the X columns —
   propagate instead", and you trace an auto-save bug that was never the point.)
 - **(b) BOOTSTRAP — no rule captured + diagnosis depends on intent → ASK.** If no business

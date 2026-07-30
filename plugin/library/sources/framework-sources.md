@@ -1,8 +1,12 @@
-# Skill sources — where to fetch external skill material
+# Framework sources — external material the FRAMEWORK itself adapted
 
-Registry the `researcher` (skill-gap mode) searches on demand. One entry per source:
-URL, license, what it's good for, and what we already took (so demand-pull starts from
-the delta, not from scratch).
+Registry of sources for framework-level (meta/methodology) capabilities: what we took,
+what we deliberately dropped, where to fetch the rest. One entry per source.
+
+NOT the project-stack registry: domain packs install their own
+`library/sources/skill-sources.md` (vendor-official repos the `researcher` searches in
+skill-gap mode) — this file deliberately lives at a DIFFERENT path so the trunk never
+tracks a path a domain-pack install writes (that collision breaks `xenomoon update`).
 
 ## General / agent-workflow
 

@@ -2,7 +2,7 @@
 
 # Framework audit ledger
 
-**open (fix-now): 2 · later: 4 · skip: 0**
+**open (fix-now): 3 · later: 4 · skip: 0**
 
 _Last audit:_ 2026-07-24 (recalibration) — D7-ledger-godot-stale + D7-suite-godot-stale APPLIED: pruned the 10 godot-world rows (their spine is absent from this fork) and re-authored the suite to the fork spine; kept the 2 rows that still apply (caveman-gate, result-contract). Earlier same day: domain-fork reality check. PRIOR: 2026-07-08 — full 9-dim fan-out pass.
 
@@ -12,8 +12,9 @@ _Last audit:_ 2026-07-24 (recalibration) — D7-ledger-godot-stale + D7-suite-go
 
 _none_
 
-## Bucket 4 — improvements (2) · fix-now · needs judgment (/framework-audit-fix)
+## Bucket 4 — improvements (3) · fix-now · needs judgment (/framework-audit-fix)
 
+- **D9-priors-beat-prose** · `D9` · _open_ — SYSTEMIC (every fresh install; first live bite maggie-xm onboarding 2026-07-31): orchestrator reverts to generic Claude Code behavior over the framework layer (implements instead of delegating; generic agents over pipeline roster; raw gh over issuekit; ask-storm ↔ "never ask again" oscillation). Root cause: instructions don't beat priors, affordances do — the session front-loads the FULL claude_code toolset. Fix track, 3 mechanizations: (1) orchestrator tool-strip via makeCanUseTool (deny Edit/Write/mutating-Bash → delegation forced); (2) PreToolUse redirect gates (bare `gh issue`→issuekit; Explore/general-purpose→named pipeline agent — the rtk-hook mechanism, proven); (3) ask-shape enforcement on mcp**ui**ask (required recommendation+default; three bands: must-ask gates / must-not-ask procedure / judgment-with-recommendation). Doctrine: any NEVER/ALWAYS violated twice becomes a mechanization; orchestrator.md shrinks as mechanisms land. Model behavior-promises are never load-bearing.
 - **D8-epic-grill-layer-unproven** · `D8` · _open_ — the 2026-07-30 adaptation wave (designer→product-owner rename; grill + /grill; xeno-epic + `mcp__ui__epic` + /epic; skill-writing doctrine) is validate-green but has zero end-to-end runs: epic tool's gh path untested on a real repo, grill mode never drove a real form sequence, live clones still on old roster until /sync-framework. Next pass: pilot epic chart→decide→slice on lexflow-xm, score the new skills against skill-writing.md, sweep for dangling designer refs in derived surfaces.
 - **D7-contribute-two-tree** · `D7` · _open_ — plugin/commands/contribute.md (SHIPPED) is still built on the dead two-tree model: it stages domains/<name>/plugin/{skills,library}/ and its scope-safety rule forbids staging plugin/ (CORE) — but promote-run.js locate() lands promotions in plugin/{skills,library}/ (one tree). Needs a redesign (provenance by git history / promotions board, not path), not a path fix. Found 2026-07-24.
 

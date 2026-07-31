@@ -83,6 +83,14 @@
       "verdict": "later",
       "status": "open",
       "finding": "agent-report/SKILL.md:31 contracts the relayed result to '<path> — gate PASS|FAIL' but nothing enforces it — no SubagentStop hook anywhere (verified 2026-07-08); review measured ~1.2k-char avg prose results vs the ~50-char contract; harden: SubagentStop regex validator + digest cap ≤6 lines (review P0B-3 merged schema)."
+    },
+    {
+      "id": "D9-priors-beat-prose",
+      "dim": "D9",
+      "bucket": 4,
+      "verdict": "fix-now",
+      "status": "open",
+      "finding": "SYSTEMIC (every fresh install; first live bite: maggie-xm onboarding 2026-07-31): the orchestrator reverts to generic Claude Code behavior over the framework layer -- implements in its own context instead of delegating, spawns generic Explore/general-purpose over pipeline agents, reaches for raw gh over issuekit, and oscillates on asking (ask-storm -> 'never ask again' after scolding). Root cause is architectural, not prompt volume: instructions do not beat priors; affordances do. Prose self-correction can only oscillate. Doctrine: every NEVER/ALWAYS in orchestrator.md violated twice becomes a mechanization candidate, and the prose shrinks as mechanisms land. Fix track (3 mechanizations): (1) ORCHESTRATOR TOOL-STRIP -- deny Edit/Write/mutating-Bash to the Hive session via makeCanUseTool (ui/server/core/session-permissions.js) so delegation is forced, not requested; (2) PreToolUse REDIRECT GATES -- block bare `gh issue` with 'use issuekit', block subagent_type Explore/general-purpose when the installed roster has an owner, error message names the right tool (same mechanism that successfully enforces rtk); (3) ASK-SHAPE ENFORCEMENT -- mcp__ui__ask schema gains required recommendation+default fields and the channel rejects procedural asks; three bands: must-ask (human gates: commit/ship/promote/scope -- unchanged), must-not-ask (procedure -- mechanically rejected), judgment middle (allowed only with recommendation). Behavior promises from the model are never load-bearing."
     }
   ]
 }

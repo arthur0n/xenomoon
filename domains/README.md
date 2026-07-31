@@ -48,6 +48,10 @@ the seeded convention floor. A pack's `orchestrator.md` should **use** these, no
   (`product-owner → analyst → developer → tester → reviewer`; the `/feedback /design /analyze /implement
 /qa /audit /commit /build /uat` commands). The orchestrator then learns the specific project and
   promotes broadly-useful capabilities back into the pack for the next project.
-- **`expo`** — a populated React Native / Expo pack: the `uat-runner` agent, the `/uat` command, and
+- **`expoapp`** — a populated React Native / Expo pack (one pack, both platforms — platform is a
+  UAT/launch concern, not a domain boundary): the `uat-runner` agent, the `/uat` command, and
   Android/iOS local-run, local-UAT, identity and Play-ship skills.
-- **`app`** — an empty Node learning pack (ships no pre-baked capabilities; learns the project).
+
+Future native-toolchain domains (Swift, Kotlin) would be new packs (`iosapp`, `androidapp`) — created
+when a real project needs them, never as empty placeholders. An empty starter pack existed once
+(`app`) and was removed; recover from git history if ever needed.

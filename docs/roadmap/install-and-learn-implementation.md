@@ -45,7 +45,7 @@ library}` → optional PR) · PROJECT (project fact → project CLAUDE.md/.claud
     block).
 - W2a-generalized (adversarial catch C3): the scaffold is GENERATED, not hand-authored — a small
   `ensureDomainLibrary(pluginDir)` (called from materialize/doctor/promoteOne) creates
-  `<domain>/plugin/{skills,library}/` + kind indexes on demand for ANY domain (expo/app have the
+  `<domain>/plugin/{skills,library}/` + kind indexes on demand for ANY domain (expoapp has the
   same hole). Webapp gets the first generated set for the case study.
 - W2c contamination modernization: replace stale `GAME_CODENAMES` with per-project terms —
   caller-supplied (`denylistFor(projectDir)`: PROJECT_DIR basename + package.json name + optional

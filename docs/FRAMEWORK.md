@@ -26,7 +26,7 @@ palette. Never reintroduce upstream's green alien identity.
 - **One clone per project** (`xm-<name>` convention, e.g. `probius/lexflow-xm`). A clone
   is a full framework checkout **bound** to an external project via a gitignored
   `.xenomoon.json` (`projectDir`, baked `domainDescriptor`, worker config).
-- **Domains are install-time pickers only** (`domains/app|webapp|expo`). `forge new
+- **Domains are install-time pickers only** (`domains/webapp|expoapp`). `forge new
 --domain X` COPIES the pack's agents/skills/commands into `plugin/` and bakes the
   descriptor into `.xenomoon.json`. **Nothing under `domains/` is read at runtime.**
 - **At runtime there is exactly ONE capability tree: `plugin/`.** Every session loads it

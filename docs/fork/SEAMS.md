@@ -16,9 +16,9 @@ applies.
 - `docs/fork/**` — this contract, the sync runbook.
 - `scripts/rebrand.mjs` — the rebrand codemod; `.claude/commands/sync-upstream.md` — the
   analysis-driven up-sync command that drives it (replaced the old blind `scripts/sync-upstream.sh`).
-- `domains/**` — the domain packs. The shipped packs are `domains/app/` and `domains/webapp/`
-  (Node / React, empty learning starters). The upstream we track is a Godot framework, but
-  Xenomoon ships **no** godot domain, plugin, or engine binary.
+- `domains/**` — the domain packs. The shipped packs are `domains/webapp/` (React + Node
+  head-start) and `domains/expoapp/` (React Native / Expo, both platforms). The upstream we
+  track is a Godot framework, but Xenomoon ships **no** godot domain, plugin, or engine binary.
 - `ui/server/core/domain-resolver.js` + `ui/server/cli/install-capabilities.js` — the INSTALL-time
   domain picker: `forge new --domain X` copies pack X's capabilities into `plugin/` and bakes X's
   descriptor into `.xenomoon.json`. At runtime the spine reads the baked descriptor, never `domains/`.

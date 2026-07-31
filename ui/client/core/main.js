@@ -14,7 +14,7 @@ import { loadState, initProjectTabs } from "../features/project/project-tree.js"
 import { loadSessions } from "../features/sessions/sessions.js";
 import { initComposer } from "../features/chat/composer.js";
 import { initTranscript } from "../features/sessions/transcript.js";
-import { initSettings, maybeAutoOpenSkillSetup } from "../features/settings/settings.js";
+import { initSettings } from "../features/settings/settings.js";
 import { initPaidAgents } from "../features/agents-portal/paid-agents.js";
 import { initAutonomous } from "../features/autonomous/autonomous.js";
 import { send } from "./websocket.js";
@@ -38,7 +38,6 @@ initTranscript();
 initPaidAgents();
 initSettings();
 initAutonomous();
-void maybeAutoOpenSkillSetup();
 
 $input("mode-select").onchange = () => {
   send({ type: "policy", value: $input("mode-select").value });

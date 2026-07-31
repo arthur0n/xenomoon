@@ -441,14 +441,3 @@ export function initSettings() {
     });
   }
 }
-
-/** Auto-open the skill setup wizard when no setup has been done yet.
- * Called from main.js after the initial state load. */
-export async function maybeAutoOpenSkillSetup() {
-  try {
-    _skillsData = /** @type {typeof _skillsData} */ (await fetchJSON("/api/skills"));
-    if (!_skillsData?.setupDone) void openSkillSetup();
-  } catch {
-    /* non-fatal */
-  }
-}

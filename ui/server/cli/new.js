@@ -301,5 +301,5 @@ if (rl) {
 rl?.close();
 
 console.log(
-  `\nnew: done (domain "${domainName}"). Start the server:\n    xenomoon start      # web UI on port ${portAnswer ?? "3117"} — the FIRST session runs the /onboard interview, then the UI asks the rest.`,
+  `\nnew: done (domain "${domainName}"). Start the server:\n    ./start_server      # web UI on port ${portAnswer ?? "3117"}, DETACHED (terminal stays free; ./stop_server to stop)\n    xenomoon start      # same server in the foreground, logs in this terminal\nThe FIRST session runs the /onboard interview, then the UI asks the rest.`,
 );

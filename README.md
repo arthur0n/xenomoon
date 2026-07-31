@@ -57,7 +57,8 @@ offers the `/onboard` interview (terminal Claude Code) BEFORE the server starts.
 the `xenomoon` CLI, so from then on the verbs are real words:
 
 ```bash
-xenomoon start           # serve the UI for the bound project
+./start_server           # serve the UI DETACHED (recommended — terminal stays free; ./stop_server stops it)
+xenomoon start           # same server, foreground (logs in the terminal)
 xenomoon doctor          # health check
 xenomoon update          # pull the latest framework
 xenomoon promote         # apply approved promotions

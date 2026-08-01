@@ -2,7 +2,7 @@
 // broadcast to the browser (no real side effect), so canUseTool auto-allows them without
 // the permission gate. Split out of session.js to keep makeCanUseTool's complexity (and
 // that file's length) in check.
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   TASK_TOOL,
@@ -91,6 +91,18 @@ const GH_ISSUE_RE = /(^|&&|\|\||;|\|)\s*(rtk\s+)?gh\s+issue\b/;
 const GIT_MUTATE_RE =
   /(^|&&|\|\||;|\|)\s*(rtk\s+)?git\s+(-C\s+\S+\s+)?(add|commit|stash|rebase|merge|reset|push|pull|cherry-pick|revert|am|apply|restore|switch|checkout|rm|mv|clean|tag)\b/;
 
+// The domain pack's own deterministic commit gate (webapp: commit-gate.sh re-derives
+// qa/review labels at commit time and denies non-green). When the INSTALLED plugin ships
+// it, the pipeline's /commit stage is the orchestrator's sanctioned direct git write —
+// add/commit only; everything else stays denied. No hook installed → no carve-out.
+let _commitGateHook = /** @type {boolean | null} */ (null);
+function hasCommitGateHook() {
+  _commitGateHook ??= existsSync(join(FRAMEWORK_PLUGIN_DIR, "hooks", "commit-gate.sh"));
+  return _commitGateHook;
+}
+const GIT_ADD_COMMIT_ONLY_RE =
+  /^(\s*(rtk\s+)?git\s+(-C\s+\S+\s+)?(add|commit)\b[^&|;]*)(&&\s*(rtk\s+)?git\s+(-C\s+\S+\s+)?(add|commit)\b[^&|;]*)*$/;
+
 /** Deny message for a main-loop Bash command that bypasses the framework, or null.
  * Live bite (2026-08-01): the Hive hand-cranked `git commit` on the USER's working tree
  * to unblock a rebase — exactly the class the worktree-isolated developer owns.
@@ -98,6 +110,7 @@ const GIT_MUTATE_RE =
 function mainBashDenyMessage(input) {
   const cmd = /** @type {{ command?: unknown }} */ (input)?.command;
   if (typeof cmd !== "string") return null;
+  if (hasCommitGateHook() && GIT_ADD_COMMIT_ONLY_RE.test(cmd.trim())) return null;
   if (GH_ISSUE_RE.test(cmd))
     return (
       "Raw `gh issue` is denied for the orchestrator — the issue tracker is owned by " +

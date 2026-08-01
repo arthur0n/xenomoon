@@ -57,12 +57,17 @@ offers the `/onboard` interview (terminal Claude Code) BEFORE the server starts.
 the `xenomoon` CLI, so from then on the verbs are real words:
 
 ```bash
-./start_server           # serve the UI DETACHED (recommended — terminal stays free; ./stop_server stops it)
+xenomoon up              # serve the UI DETACHED (recommended — terminal stays free)
+xenomoon restart         # stop + start detached (after an update or config change)
+xenomoon stop            # stop the detached server
 xenomoon start           # same server, foreground (logs in the terminal)
 xenomoon doctor          # health check
 xenomoon update          # pull the latest framework
 xenomoon promote         # apply approved promotions
 ```
+
+(`up`/`stop`/`restart` are thin wrappers over `./start_server` / `./stop_server` — PID file
+under `.xm-run/`, port reclaim, survives the launching terminal.)
 
 Already have the framework checked out? Same flow, minus step zero:
 

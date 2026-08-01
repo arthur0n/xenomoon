@@ -17,7 +17,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { getCodexConfig, CODEX_PLUGIN_DIR } from "../../core/config.js";
+import { getCodexConfig, saveCodexConfig, CODEX_PLUGIN_DIR } from "../../core/config.js";
 
 /** The verdict of one probe. `cli` = the `codex` binary is on PATH; `authOk` = `codex login
  * status` reports credentials; `vendored` = the plugin is cloned on disk (loadable). `ok` = all
@@ -113,6 +113,12 @@ export function checkCodex(timeoutMs = 8000) {
   // the model does. Warn before the first review fails.
   const model = configuredModel() ?? undefined;
   const caveat = authOk ? chatgptCodexCaveat(authMethod, model) : undefined;
+  // Persist the cost basis the login mode implies: a ChatGPT-account login is the user's
+  // SUBSCRIPTION (zero marginal cost → the orchestrator uses Codex freely at quality gates);
+  // an API key is metered (deliberate dispatch). Auto-detected here so it stays true to the
+  // actual auth without the user configuring anything.
+  if (authMethod)
+    saveCodexConfig({ costBasis: authMethod === "chatgpt" ? "subscription" : "metered" });
 
   return {
     // cli is already proven (we returned early otherwise) — ready iff logged in AND vendored.

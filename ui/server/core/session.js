@@ -28,6 +28,7 @@ import {
   getOrchestratorPrompt,
   getHermesBlock,
   getCodexBlock,
+  getEconomicsBlock,
   getKimiBlock,
   getHermesConfig,
   getKimiConfig,
@@ -235,7 +236,9 @@ function runSession({
                 getOrchestratorPrompt() +
                 (getHermesConfig().enabled ? "\n\n" + getHermesBlock() : "") +
                 (getKimiConfig().enabled ? "\n\n" + getKimiBlock() : "") +
-                (codexOn ? "\n\n" + getCodexBlock() : ""),
+                (codexOn ? "\n\n" + getCodexBlock() : "") +
+                "\n\n" +
+                getEconomicsBlock(),
             },
             canUseTool,
             abortController: abort,

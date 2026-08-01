@@ -42,7 +42,7 @@ const args = process.argv.slice(2);
  * @typedef {{ enabled?: boolean, apiUrl?: string, apiKey?: string, model?: string, roles?: string[], profile?: string }} HermesConfig */
 /** Persisted Codex block (see getCodexConfig). An on/off switch + role pick — auth is owned
  * by the local `codex` CLI (`codex login`), so there is no key or URL to store here.
- * @typedef {{ enabled?: boolean, roles?: string[] }} CodexConfig */
+ * @typedef {{ enabled?: boolean, roles?: string[], costBasis?: "subscription" | "metered" }} CodexConfig */
 /** Persisted Kimi block (see getKimiConfig). An on/off switch + role pick — auth is owned by
  * the local `kimi` CLI (`kimi login` → ~/.kimi/config.toml), so there is no key to store here
  * (same zero-secret model as Codex). @typedef {{ enabled?: boolean, roles?: string[] }} KimiConfig */
@@ -356,7 +356,9 @@ export function saveHermesConfig(patch) {
  * `.xenomoon.json` `codex` block → disabled), so toggling it from the UI or the CLI takes
  * effect WITHOUT a server restart (session.js re-reads it when a new session starts).
  * There is no secret here — Codex auth lives in the local `codex` CLI (`codex login`).
- * @returns {{ enabled: boolean, roles: string[] }} */
+ * `costBasis` is auto-detected by codex-check from the login mode (ChatGPT account =
+ * "subscription" → zero marginal cost, use freely; API key = "metered" → deliberate).
+ * @returns {{ enabled: boolean, roles: string[], costBasis: "subscription" | "metered" }} */
 export function getCodexConfig() {
   /** @type {CodexConfig} */
   let saved = {};
@@ -369,7 +371,11 @@ export function getCodexConfig() {
   }
   const env = process.env;
   const enabled = env.CODEX_ENABLED != null ? env.CODEX_ENABLED === "true" : Boolean(saved.enabled);
-  return { enabled, roles: saved.roles ?? CODEX_DEFAULT_ROLES };
+  return {
+    enabled,
+    roles: saved.roles ?? CODEX_DEFAULT_ROLES,
+    costBasis: saved.costBasis ?? "metered",
+  };
 }
 
 /** Browser-safe view of the Codex config for /api/state: `enabled` plus whether the plugin
@@ -397,6 +403,7 @@ export function saveCodexConfig(patch) {
   const next = { ...prev };
   if (patch.enabled != null) next.enabled = patch.enabled;
   if (patch.roles != null) next.roles = patch.roles;
+  if (patch.costBasis != null) next.costBasis = patch.costBasis;
   try {
     writeFileSync(CONFIG_FILE, JSON.stringify({ ...saved, codex: next }, null, 2) + "\n");
     return { ok: true };
@@ -503,11 +510,54 @@ export function getHermesBlock() {
  * placeholder) so the orchestrator can launch reviews/tasks ITSELF via Bash, not just tell the
  * user to type a slash command. The launch path is consent-gated by policy, not by capability. */
 export const CODEX_COMPANION = path.join(CODEX_PLUGIN_DIR, "scripts", "codex-companion.mjs");
+/** Cost doctrine injected into the Codex block per the detected auth economics: a
+ * subscription login has ZERO marginal cost, so quality is free and the default flips
+ * from "dispatch deliberately" to "offer and use at every natural gate". */
+const CODEX_COST_DOCTRINE = {
+  subscription:
+    "**Billing: the user's ChatGPT SUBSCRIPTION — zero marginal cost.** Quality here is " +
+    "free; rationing it is the mistake. USE IT BY DEFAULT: offer (or, policy allowing, " +
+    "dispatch) an adversarial review at every natural quality gate — post-implement, " +
+    "pre-commit, pre-push, post-merge — and on any diff you are less than sure about. " +
+    "A review takes time, so run it in the background alongside other work.",
+  metered:
+    "It runs on OpenAI's own model with its **own METERED billing** (NOT the user's " +
+    "Anthropic plan), and a real review takes time — dispatch deliberately at decision " +
+    "points, not habitually.",
+};
+
 /** @returns {string} */
 export function getCodexBlock() {
-  return readFileSync(path.join(UI_DIR, "codex-block.md"), "utf8").replaceAll(
-    "{{CODEX_COMPANION}}",
-    CODEX_COMPANION,
+  const { costBasis } = getCodexConfig();
+  return readFileSync(path.join(UI_DIR, "codex-block.md"), "utf8")
+    .replaceAll("{{CODEX_COMPANION}}", CODEX_COMPANION)
+    .replaceAll("{{CODEX_COST_DOCTRINE}}", CODEX_COST_DOCTRINE[costBasis]);
+}
+
+/** One compact economics table for the orchestrator: which workers are marginal-free
+ * (subscription/plan — spend them for quality by default) vs metered (deliberate).
+ * Appended to every session prompt; ~10 lines, try-and-see calibration. @returns {string} */
+export function getEconomicsBlock() {
+  const codex = getCodexConfig();
+  const rows = [
+    "| worker | basis | default |",
+    "|---|---|---|",
+    "| Claude sub-agents (the roster) | user's Claude plan — marginal-free | dispatch freely; pick the tier the task needs, never skip a gate to save tokens |",
+  ];
+  if (codex.enabled)
+    rows.push(
+      codex.costBasis === "subscription"
+        ? "| Codex review | ChatGPT subscription — marginal-free | offer/use at EVERY quality gate |"
+        : "| Codex review | metered (OpenAI billing) | deliberate dispatch at decision points |",
+    );
+  if (getHermesConfig().enabled)
+    rows.push("| Hermes research | metered API | deliberate dispatch; batch questions |");
+  return (
+    "## Worker economics\n\n" +
+    "Marginal-free capacity is for SPENDING on quality — the user pays the same either way. " +
+    "Metered capacity is deliberate. When a quality gate exists and the worker is " +
+    "marginal-free, running it is the default, skipping it is the exception.\n\n" +
+    rows.join("\n")
   );
 }
 /** @returns {string} */

@@ -1,9 +1,8 @@
 ## Codex · Code reviewer
 
 Codex is an on-demand OpenAI code-review model, loaded as an optional second plugin and active
-this session (Settings → Codex). It **reviews** code — it never edits, stages, or commits. It
-runs on OpenAI's own model with its **own billing** (NOT the user's Anthropic plan), and a real
-review takes time. Surfaces as `/codex:review`, `/codex:adversarial-review`, and the
+this session (Settings → Codex). It **reviews** code — it never edits, stages, or commits.
+{{CODEX_COST_DOCTRINE}} Surfaces as `/codex:review`, `/codex:adversarial-review`, and the
 `codex:codex-rescue` subagent.
 
 ### You can run it yourself — it is NOT user-only

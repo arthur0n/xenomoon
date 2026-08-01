@@ -164,6 +164,11 @@ if (!POLICIES.includes(DEFAULT_POLICY)) {
 }
 export const EDIT_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
 
+// Generic Claude Code agent types the ORCHESTRATOR may not spawn when the installed
+// roster has owners for the work (D9-priors-beat-prose: affordances beat instructions —
+// the deny is mechanical, the message names the roster). Sub-agents are unaffected.
+export const GENERIC_SUBAGENT_TYPES = new Set(["Explore", "general-purpose"]);
+
 // In-process MCP tool the main agent calls to put a typed form in front of the
 // user (see makeFormTool). Like AskUserQuestion, the form IS the user
 // interaction, so it bypasses the permission policy.

@@ -2,7 +2,18 @@
 // broadcast to the browser (no real side effect), so canUseTool auto-allows them without
 // the permission gate. Split out of session.js to keep makeCanUseTool's complexity (and
 // that file's length) in check.
-import { TASK_TOOL, ASK_TOOL, PROMOTE_TOOL, AUTONOMOUS_TOOL, EPIC_TOOL } from "./config.js";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
+import {
+  TASK_TOOL,
+  ASK_TOOL,
+  PROMOTE_TOOL,
+  AUTONOMOUS_TOOL,
+  EPIC_TOOL,
+  EDIT_TOOLS,
+  GENERIC_SUBAGENT_TYPES,
+  FRAMEWORK_PLUGIN_DIR,
+} from "./config.js";
 
 // These get the calling agent stamped as `_by` so the server can attribute the record
 // (task/question/promotion owner). The server overrides any model-supplied `_by`.
@@ -54,11 +65,75 @@ async function gateImageRead({ session, waitFor, log, toolName, input, agent }) 
     : { behavior: /** @type {const} */ ("deny"), message: SCREENSHOT_STUB };
 }
 
-/** Deterministic pre-gates run BEFORE the permission policy: the screenshot read gate. Returns
- * a decision to short-circuit, or null to fall through. Keeps makeCanUseTool's arrow under the
- * complexity cap and its file under the line cap.
+// ── Orchestrator gates (D9-priors-beat-prose) ────────────────────────────────
+// The main loop routes; it never implements. These denials are MECHANICAL — the
+// instruction layer kept losing to the model's generic priors, so the affordance
+// is removed instead of pleaded with. Sub-agents (agent !== "main") pass through.
+
+/** The installed agent roster (plugin/agents/*.md basenames), cached per process.
+ * @returns {string[]} */
+let _roster = /** @type {string[] | null} */ (null);
+function pipelineRoster() {
+  if (_roster) return _roster;
+  try {
+    _roster = readdirSync(join(FRAMEWORK_PLUGIN_DIR, "agents"))
+      .filter((f) => f.endsWith(".md"))
+      .map((f) => f.slice(0, -3));
+  } catch {
+    _roster = [];
+  }
+  return _roster;
+}
+
+const GH_ISSUE_RE = /(^|&&|\|\||;|\|)\s*(rtk\s+)?gh\s+issue\b/;
+
+/** Deny main-loop calls that bypass the framework: direct edits (delegate instead),
+ * generic subagents (the roster owns the work), raw `gh issue` (issuekit owns issues).
+ * Returns a deny decision or null. @param {GateDeps} d */
+function orchestratorGate({ log, toolName, input, agent }) {
+  if (agent !== "main") return null;
+  const deny = (/** @type {string} */ message) => {
+    log("auto", { type: "permission", toolName, policy: "orchestrator-gate" });
+    return { behavior: /** @type {const} */ ("deny"), message };
+  };
+  if (EDIT_TOOLS.has(toolName)) {
+    return deny(
+      `Orchestrator never implements — main-loop ${toolName} is denied by the session. ` +
+        `Dispatch the owning agent (installed roster: ${pipelineRoster().join(", ") || "see plugin/agents/"}) ` +
+        "and let it make the change in its own context.",
+    );
+  }
+  if (toolName === "Task") {
+    const type = /** @type {{ subagent_type?: unknown }} */ (input)?.subagent_type;
+    if (typeof type === "string" && GENERIC_SUBAGENT_TYPES.has(type) && pipelineRoster().length) {
+      return deny(
+        `Generic agent "${type}" is denied — the installed roster owns this work ` +
+          `(${pipelineRoster().join(", ")}). Dispatch the matching agent; discovery belongs ` +
+          "to the owning agent, not a pre-dispatch scout.",
+      );
+    }
+  }
+  if (toolName === "Bash") {
+    const cmd = /** @type {{ command?: unknown }} */ (input)?.command;
+    if (typeof cmd === "string" && GH_ISSUE_RE.test(cmd)) {
+      return deny(
+        "Raw `gh issue` is denied for the orchestrator — the issue tracker is owned by " +
+          "issuekit (the /issue skill): `issuekit search|new|attempt|resolve`. " +
+          "If the repo lacks .issuekit.json, run `issuekit init` once first.",
+      );
+    }
+  }
+  return null;
+}
+
+/** Deterministic pre-gates run BEFORE the permission policy: the orchestrator role gate
+ * (main loop never implements / never goes generic / never freehands the tracker) and the
+ * screenshot read gate. Returns a decision to short-circuit, or null to fall through.
+ * Keeps makeCanUseTool's arrow under the complexity cap and its file under the line cap.
  * @param {GateDeps} d */
 export async function preToolGate({ session, waitFor, log, toolName, input, agent }) {
+  const role = orchestratorGate({ session, waitFor, log, toolName, input, agent });
+  if (role) return role;
   if (isImageRead(toolName, input))
     return gateImageRead({ session, waitFor, log, toolName, input, agent });
   return null;

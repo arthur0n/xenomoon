@@ -23,6 +23,23 @@ export function makeAskTool(send) {
       "should use mcp__ui__form instead.)",
     {
       question: z.string().describe("The single question to put to the user."),
+      // Ask-shape contract (D9): three bands — human GATES (commit/ship/promote/scope)
+      // must ask; PROCEDURE (how to run something, which of two equivalent paths) must
+      // NOT ask — pick the default and proceed; the judgment middle asks ONLY with a
+      // recommendation. An ask with no recommendation is a hedge, not a question.
+      recommendation: z
+        .string()
+        .describe(
+          "REQUIRED: your recommended answer + the one-line why. Decide first, then ask to confirm — " +
+            "never offload an open decision. If you cannot form a recommendation, you are missing " +
+            "context an agent should go get instead.",
+        ),
+      defaultAction: z
+        .string()
+        .optional()
+        .describe(
+          "What you proceed with if no answer arrives (this tool is non-blocking — state the path you take meanwhile).",
+        ),
       options: z
         .array(z.string())
         .optional()
@@ -34,8 +51,12 @@ export function makeAskTool(send) {
       // canUseTool stamps `_by` for foreground callers; a backgrounded sub-agent is
       // granted by the allow-subagent-ui-control hook (which bypasses canUseTool), so
       // `_by` is absent here — attribute it to "background" (the bridge's own label).
+      const text =
+        input.question +
+        `\n→ recommend: ${input.recommendation}` +
+        (input.defaultAction ? ` (proceeding with: ${input.defaultAction})` : "");
       const list = addQuestion(
-        input.question,
+        text,
         input.options,
         input._by ?? "background",
         new Date().toISOString(),

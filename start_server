@@ -8,7 +8,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-PORT="${PORT:-3117}"
+# Port: env override → the bound install's configured port (.xenomoon.json) → default.
+# The banner and the reclaim below must name the port the server will ACTUALLY bind, or a
+# restart reclaims/announces the wrong one.
+CONFIGURED_PORT="$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync(".xenomoon.json","utf8")).port??"")}catch{console.log("")}' 2>/dev/null || true)"
+PORT="${PORT:-${CONFIGURED_PORT:-3117}}"
 RUN_DIR=".xm-run"
 LOG="$RUN_DIR/ui.log"
 PIDFILE="$RUN_DIR/ui.pid"

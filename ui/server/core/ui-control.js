@@ -87,6 +87,15 @@ function pipelineRoster() {
 
 const GH_ISSUE_RE = /(^|&&|\|\||;|\|)\s*(rtk\s+)?gh\s+issue\b/;
 
+/** Sole edit carve-out for the main loop: the debrief signal log. The orchestrator's own
+ * contract says the append is "deterministic, same turn, never skipped" (webapp
+ * orchestrator.md) — a bookkeeping line, not implementation. Everything else delegates.
+ * @param {Record<string, unknown>} input */
+function isQueueAppend(input) {
+  const fp = /** @type {{ file_path?: unknown }} */ (input)?.file_path;
+  return typeof fp === "string" && fp.endsWith(".xenomoon/debrief-queue.md");
+}
+
 /** Deny main-loop calls that bypass the framework: direct edits (delegate instead),
  * generic subagents (the roster owns the work), raw `gh issue` (issuekit owns issues).
  * Returns a deny decision or null. @param {GateDeps} d */
@@ -96,7 +105,7 @@ function orchestratorGate({ log, toolName, input, agent }) {
     log("auto", { type: "permission", toolName, policy: "orchestrator-gate" });
     return { behavior: /** @type {const} */ ("deny"), message };
   };
-  if (EDIT_TOOLS.has(toolName)) {
+  if (EDIT_TOOLS.has(toolName) && !isQueueAppend(input)) {
     return deny(
       `Orchestrator never implements — main-loop ${toolName} is denied by the session. ` +
         `Dispatch the owning agent (installed roster: ${pipelineRoster().join(", ") || "see plugin/agents/"}) ` +

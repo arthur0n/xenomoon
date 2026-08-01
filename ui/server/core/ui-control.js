@@ -86,6 +86,33 @@ function pipelineRoster() {
 }
 
 const GH_ISSUE_RE = /(^|&&|\|\||;|\|)\s*(rtk\s+)?gh\s+issue\b/;
+// State-mutating git subcommands. Read verbs (status/log/diff/show/fetch/branch-list/
+// worktree-list/rev-parse/ls-files) stay allowed — the orchestrator routes on them.
+const GIT_MUTATE_RE =
+  /(^|&&|\|\||;|\|)\s*(rtk\s+)?git\s+(-C\s+\S+\s+)?(add|commit|stash|rebase|merge|reset|push|pull|cherry-pick|revert|am|apply|restore|switch|checkout|rm|mv|clean|tag)\b/;
+
+/** Deny message for a main-loop Bash command that bypasses the framework, or null.
+ * Live bite (2026-08-01): the Hive hand-cranked `git commit` on the USER's working tree
+ * to unblock a rebase — exactly the class the worktree-isolated developer owns.
+ * @param {Record<string, unknown>} input @returns {string | null} */
+function mainBashDenyMessage(input) {
+  const cmd = /** @type {{ command?: unknown }} */ (input)?.command;
+  if (typeof cmd !== "string") return null;
+  if (GH_ISSUE_RE.test(cmd))
+    return (
+      "Raw `gh issue` is denied for the orchestrator — the issue tracker is owned by " +
+      "issuekit (the /issue skill): `issuekit search|new|attempt|resolve`. " +
+      "If the repo lacks .issuekit.json, run `issuekit init` once first."
+    );
+  if (GIT_MUTATE_RE.test(cmd))
+    return (
+      "Orchestrator never touches the working tree — mutating git is denied for the main " +
+      "loop (read verbs like status/log/diff stay open). Dispatch the developer agent; for " +
+      "rebases/conflicts have it work in an ISOLATED git worktree so the user's uncommitted " +
+      "changes are never staged, stashed, or parked. Commits land via the pipeline's commit stage."
+    );
+  return null;
+}
 
 /** Sole edit carve-out for the main loop: the debrief signal log. The orchestrator's own
  * contract says the append is "deterministic, same turn, never skipped" (webapp
@@ -123,14 +150,8 @@ function orchestratorGate({ log, toolName, input, agent }) {
     }
   }
   if (toolName === "Bash") {
-    const cmd = /** @type {{ command?: unknown }} */ (input)?.command;
-    if (typeof cmd === "string" && GH_ISSUE_RE.test(cmd)) {
-      return deny(
-        "Raw `gh issue` is denied for the orchestrator — the issue tracker is owned by " +
-          "issuekit (the /issue skill): `issuekit search|new|attempt|resolve`. " +
-          "If the repo lacks .issuekit.json, run `issuekit init` once first.",
-      );
-    }
+    const message = mainBashDenyMessage(input);
+    if (message) return deny(message);
   }
   return null;
 }

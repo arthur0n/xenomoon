@@ -24,6 +24,7 @@ import { AGENT_REGISTRY } from "../agents/registry.js";
 import { ensureDomainLibrary } from "../features/promotions/ensure-library.js";
 import { readPromotions, approvedPending } from "../features/promotions/promotions-store.js";
 import { locate } from "../features/promotions/promote-run.js";
+import { registerInstall, readRegistry } from "./install-registry.js";
 
 /** Count files with a suffix in a dir (0 if missing). @param {string} dir @param {string} suffix */
 function countFiles(dir, suffix) {
@@ -281,6 +282,20 @@ const checks = [
   // problem; an enabled-but-broken one is the silent failure this catches). Fix hints come
   // from each probe's own error text.
   ...(await integrationRows()),
+  // Registry reconciliation. The machine's install index is what lets a verb find the right
+  // install when cwd is a project rather than an install; an install missing from it silently
+  // degrades to "ambiguous" (or, when it is the only one, to a lucky guess). Self-heal here
+  // rather than merely reporting — doctor already runs inside the install it is checking, so
+  // it has everything the registry needs.
+  (() => {
+    registerInstall(FRAMEWORK_DIR, PROJECT_DIR);
+    const known = Object.keys(readRegistry()).length;
+    return {
+      ok: true,
+      hard: false,
+      label: `install registered (${known} install${known === 1 ? "" : "s"} on this machine — \`xenomoon list\`)`,
+    };
+  })(),
 ];
 
 console.log(`doctor: checking ${PROJECT_DIR}`);

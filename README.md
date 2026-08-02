@@ -64,10 +64,26 @@ xenomoon start           # same server, foreground (logs in the terminal)
 xenomoon doctor          # health check
 xenomoon update          # pull the latest framework
 xenomoon promote         # apply approved promotions
+xenomoon list            # every install on this machine, and what each one drives
 ```
 
 (`up`/`stop`/`restart` are thin wrappers over `./start_server` / `./stop_server` — PID file
 under `.xm-run/`, port reclaim, survives the launching terminal.)
+
+**More than one project?** npm gives every install the same global `xenomoon` bin, so the name
+belongs to whichever install ran `xenomoon install` last. That ownership decides nothing: a verb
+acts on the install your **location** resolves to, and every run prints which install it picked.
+
+```
+xenomoon update → /ws/alpha-xm  (cwd is inside this install)
+```
+
+Resolution order: `--install=<path>` (or `XENOMOON_INSTALL`) → the install you are inside → the
+install bound to the project you are inside → the only install on the machine. If none of those
+settle it, the verb **stops and lists the candidates** rather than guessing — silently driving the
+wrong project is the one outcome worth failing over. Installs register themselves at install time
+in `~/.xenomoon/installs.json` (`XENOMOON_REGISTRY` overrides the path); the file is a cache, so a
+deleted install is pruned on the next read and `xenomoon doctor` re-registers the one it runs in.
 
 Already have the framework checked out? Same flow, minus step zero:
 

@@ -16,6 +16,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
 import { validateProjectPath } from "./validate-path.js";
+import { registerInstall } from "./install-registry.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
@@ -92,6 +93,10 @@ if (arg || !hermesArgs) {
     process.exit(1);
   }
   mergeConfig({ projectDir: target });
+  // This is where the install→project binding is established, so it is also where the machine's
+  // install registry learns about it — covering `xenomoon install` and a direct
+  // `npm run bind-project-path` alike. Best-effort: an unwritable home never fails setup.
+  registerInstall(FRAMEWORK_DIR, target);
   console.log(`Saved project path → ${CONFIG_FILE}`);
   console.log(`  projectDir: ${target}`);
   // Domain-agnostic bootstrap: no engine project marker is named here (no domain is resolved yet).

@@ -15,49 +15,54 @@
 //   xenomoon restart          stop + start detached (the update/config reload verb)
 //   xenomoon update           pull the latest framework (git)
 //   xenomoon promote          apply approved promotions from the board
+//   xenomoon list             every install on this machine, and which owns the global bin
+//
+// Any verb takes --install=<path> (or XENOMOON_INSTALL) to name its target explicitly.
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseJSON } from "../../lib/json.js";
-
-/** Nearest ancestor of `from` that is a framework install (a package.json naming this package),
- * or null when you are outside one. @param {string} from @returns {string|null} */
-function findInstallRoot(from) {
-  for (let dir = path.resolve(from); ; ) {
-    const pkg = path.join(dir, "package.json");
-    try {
-      if (existsSync(pkg)) {
-        const meta = /** @type {{ name?: string }} */ (parseJSON(readFileSync(pkg, "utf8")));
-        if (meta.name === "xenomoon-forge") return dir;
-      }
-    } catch {
-      /* unreadable or not JSON — keep walking up */
-    }
-    const up = path.dirname(dir);
-    if (up === dir) return null;
-    dir = up;
-  }
-}
+import { readRegistry, resolveInstall } from "./install-registry.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const OWN_ROOT = path.join(here, "..", "..", ".."); // the install this linked CLI ships inside
-// The install a verb acts on: the one you're STANDING IN, else the one this CLI belongs to.
-// `npm link` owns a single global `xenomoon` bin name, so with more than one install on the
-// machine the most recent `xenomoon install` silently wins it — and a file-relative root then
-// made every verb drive that winner from every directory (`xenomoon update` run inside install A
-// would pull install B). cwd-first restores "the verb means the install I'm in"; the fallback
-// keeps a bare `npx github:arthur0n/xenomoon` working from anywhere.
-const ROOT = findInstallRoot(process.cwd()) ?? OWN_ROOT;
-const [verb, ...rest] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const [verb, ...rest] = argv.filter((a) => !a.startsWith("--install="));
+const override =
+  argv
+    .find((a) => a.startsWith("--install="))
+    ?.split("=")
+    .slice(1)
+    .join("=") ??
+  process.env.XENOMOON_INSTALL ??
+  null;
 
-// Announce the target for every verb that mutates or serves an install — the silent wrong-install
-// run is the failure this is guarding, so it has to be visible without asking for it. stderr, to
-// keep stdout clean for anything parsing a verb's output.
-if (["doctor", "start", "up", "stop", "restart", "update", "promote"].includes(verb ?? "")) {
-  const how = ROOT === OWN_ROOT ? "linked CLI — cwd is not inside an install" : "cwd install";
-  console.error(`xenomoon ${verb} → ${ROOT}  (${how})`);
+// Verbs that act ON an install (as opposed to creating one, or reporting on all of them).
+const ROOT_VERBS = ["doctor", "start", "up", "stop", "restart", "update", "promote"];
+
+/** Resolve the target install for a ROOT_VERB, or exit non-zero listing the candidates. Ambiguity
+ * must never be resolved by guessing: silently driving whichever install last won the global
+ * `npm link` is precisely the bug the registry exists to eliminate. @returns {string} */
+function targetRoot() {
+  const r = resolveInstall(process.cwd(), OWN_ROOT, override);
+  if (!r.root) {
+    if (r.candidates?.length) {
+      console.error(
+        `xenomoon ${verb}: cwd is neither an install nor a known project, and ` +
+          `${r.candidates.length} installs are registered — say which:\n` +
+          r.candidates.map(([i, p]) => `  ${i}${p ? `  → ${p}` : ""}`).join("\n") +
+          `\nRun it from one of those directories, or pass --install=<path>.`,
+      );
+    } else {
+      console.error(`xenomoon ${verb}: ${r.how}`);
+    }
+    process.exit(1);
+  }
+  // Always announce: an unannounced wrong-install run is what made this failure invisible before.
+  console.error(`xenomoon ${verb} → ${r.root}  (${r.how})`);
+  return r.root;
 }
+
+const ROOT = ROOT_VERBS.includes(verb ?? "") ? targetRoot() : OWN_ROOT;
 
 /** @param {string} script @param {string[]} [args] */
 const run = (script, args = []) =>
@@ -111,10 +116,26 @@ switch (verb) {
   case "promote":
     run("promote", ["--pending", ...rest]);
     break;
+  case "list": {
+    // The diagnostic that makes the shared global bin legible: what exists, what each install
+    // drives, and which one happens to own `xenomoon` right now (ownership is irrelevant to
+    // resolution — it is shown so a surprising `which xenomoon` stops being a mystery).
+    const installs = Object.entries(readRegistry());
+    if (!installs.length) {
+      console.log(`No installs registered yet — they register on \`xenomoon install\`.`);
+      break;
+    }
+    for (const [install, project] of installs) {
+      const owns = path.resolve(install) === path.resolve(OWN_ROOT) ? "  ← owns `xenomoon`" : "";
+      console.log(`${install}${project ? `  → ${project}` : "  (no project bound)"}${owns}`);
+    }
+    break;
+  }
   default:
     console.error(
       `xenomoon: unknown verb "${verb}"\n` +
-        `  install | doctor | start [profile] | up | stop | restart | update | promote`,
+        `  install | doctor | start [profile] | up | stop | restart | update | promote | list\n` +
+        `  any verb: --install=<path> to name the target install explicitly`,
     );
     process.exit(1);
 }

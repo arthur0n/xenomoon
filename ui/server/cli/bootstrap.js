@@ -11,7 +11,7 @@
 // clones the framework there, installs deps, links the `xenomoon` CLI, and hands off to
 // the install questionnaire (domain → port → integrations → /onboard).
 // Deliberately dependency-free and config.js-free (nothing is bound yet).
-import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, realpathSync, rmSync } from "node:fs";
 import { execFileSync, execSync } from "node:child_process";
 import readline from "node:readline/promises";
 import path from "node:path";
@@ -100,12 +100,36 @@ if (existsSync(dest) && readdirSync(dest).length > 0) {
   }
 }
 
+/** The install that currently owns the global `xenomoon` bin, or null when nothing does.
+ * @returns {string|null} */
+function globalLinkTarget() {
+  try {
+    const bin = execSync("command -v xenomoon", { encoding: "utf8" }).trim();
+    // …/bin/xenomoon → (symlink) …/<install>/ui/server/cli/xenomoon.js → the install root
+    return bin ? path.resolve(path.dirname(realpathSync(bin)), "..", "..", "..") : null;
+  } catch {
+    return null;
+  }
+}
+
 // 4. Dependencies + the global CLI (best-effort — real verbs instead of npm-run words).
 console.log("Installing dependencies (npm ci) …");
 execFileSync("npm", ["ci"], { cwd: dest, stdio: "inherit" });
+// There is exactly ONE global `xenomoon` bin name, so linking here takes it from any earlier
+// install. That's fine — verbs resolve cwd-first — but it must never happen silently: an
+// unannounced steal is what made `xenomoon update` appear to update the wrong project.
+const priorLink = globalLinkTarget();
 try {
   execFileSync("npm", ["link"], { cwd: dest, stdio: "ignore" });
   console.log("Linked the `xenomoon` CLI (install | doctor | start | update | promote).");
+  if (priorLink && path.resolve(priorLink) !== path.resolve(dest)) {
+    console.warn(
+      `Note: the global \`xenomoon\` CLI previously pointed at\n` +
+        `        ${priorLink}\n` +
+        `      and now points here. Both installs still work — verbs act on the install you run\n` +
+        `      them from, and each run prints the install it resolved to.`,
+    );
+  }
 } catch {
   console.warn("Could not npm-link the CLI — use `npm run <script>` inside the install instead.");
 }

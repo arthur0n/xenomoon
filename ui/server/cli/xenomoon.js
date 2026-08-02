@@ -2,8 +2,8 @@
 // The `xenomoon` CLI — real verbs instead of npm-run magic words. This file is the package
 // `bin`: reachable via `npx github:arthur0n/xenomoon <verb>` on a fresh machine (only
 // `install` makes sense there) and as a plain `xenomoon <verb>` once an install has been
-// npm-linked. Every verb is a thin dispatcher onto the framework's own scripts, resolved
-// relative to THIS file — so a linked CLI always drives the install it belongs to.
+// npm-linked. Every verb is a thin dispatcher onto the framework's own scripts, run against
+// the install you are STANDING IN — see ROOT below for why cwd wins over this file's location.
 //
 //   xenomoon install          step zero: run from YOUR PROJECT folder — installs the
 //                             framework beside it (default ../<project>-xm), then the
@@ -16,12 +16,48 @@
 //   xenomoon update           pull the latest framework (git)
 //   xenomoon promote          apply approved promotions from the board
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseJSON } from "../../lib/json.js";
+
+/** Nearest ancestor of `from` that is a framework install (a package.json naming this package),
+ * or null when you are outside one. @param {string} from @returns {string|null} */
+function findInstallRoot(from) {
+  for (let dir = path.resolve(from); ; ) {
+    const pkg = path.join(dir, "package.json");
+    try {
+      if (existsSync(pkg)) {
+        const meta = /** @type {{ name?: string }} */ (parseJSON(readFileSync(pkg, "utf8")));
+        if (meta.name === "xenomoon-forge") return dir;
+      }
+    } catch {
+      /* unreadable or not JSON — keep walking up */
+    }
+    const up = path.dirname(dir);
+    if (up === dir) return null;
+    dir = up;
+  }
+}
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
-const ROOT = path.join(here, "..", "..", "..");
+const OWN_ROOT = path.join(here, "..", "..", ".."); // the install this linked CLI ships inside
+// The install a verb acts on: the one you're STANDING IN, else the one this CLI belongs to.
+// `npm link` owns a single global `xenomoon` bin name, so with more than one install on the
+// machine the most recent `xenomoon install` silently wins it — and a file-relative root then
+// made every verb drive that winner from every directory (`xenomoon update` run inside install A
+// would pull install B). cwd-first restores "the verb means the install I'm in"; the fallback
+// keeps a bare `npx github:arthur0n/xenomoon` working from anywhere.
+const ROOT = findInstallRoot(process.cwd()) ?? OWN_ROOT;
 const [verb, ...rest] = process.argv.slice(2);
+
+// Announce the target for every verb that mutates or serves an install — the silent wrong-install
+// run is the failure this is guarding, so it has to be visible without asking for it. stderr, to
+// keep stdout clean for anything parsing a verb's output.
+if (["doctor", "start", "up", "stop", "restart", "update", "promote"].includes(verb ?? "")) {
+  const how = ROOT === OWN_ROOT ? "linked CLI — cwd is not inside an install" : "cwd install";
+  console.error(`xenomoon ${verb} → ${ROOT}  (${how})`);
+}
 
 /** @param {string} script @param {string[]} [args] */
 const run = (script, args = []) =>

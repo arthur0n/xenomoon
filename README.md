@@ -10,36 +10,37 @@
 ![Agents: 4](https://img.shields.io/badge/Agents-4-b08d57)
 ![Domains: expoapp · webapp](https://img.shields.io/badge/Domains-expoapp_·_webapp-b08d57)
 
-> **Early experiment.** A domain-focused fork of [Xenodot Forge](https://github.com/arthur0n/xenodot-forge). Names, layouts, and APIs will change; nothing here is stable yet.
+> **Early, but real.** A domain-focused fork of [Xenodot Forge](https://github.com/arthur0n/xenodot-forge). Names and APIs still move; everything described below runs today.
 
 ## What this is
 
-Xenomoon is a Claude Code framework that drives a deliberate, human-gated pipeline — **triage → solution → implement → verify → you** — instead of a chat box. It's **domain-neutral**: you install it per project, lock it to a domain, and it runs that pipeline for whatever you're building.
+Xenomoon gives **one developer a full AI team**. An orchestrator and specialized subagents drive a deliberate, human-gated pipeline — **triage → solution → implement → verify → you** — through a web UI, so you don't live in the terminal.
 
-Godot stays the exclusive upstream product we forked from — it is **not** a domain here. We pull only its (curated) domain-agnostic improvements, so the engine payload never lands.
+It is built on the Claude Code SDK and it is **domain-neutral**: you install it beside a project, pick a domain pack, and it runs that pipeline for whatever you're building — and it **learns that project** as it goes.
 
-## Layout — one map
+Godot stays the exclusive product of the upstream we forked from — it is **not** a domain here. We pull only curated, domain-agnostic improvements, so the engine payload never lands.
+
+## How it's put together
+
+- **This repo is the trunk.** It is never bound to a project directly.
+- **One install per project** (`xm-<name>` convention). An install is a full framework checkout **bound** to an external project via a gitignored `.xenomoon.json`.
+- **Domains are install-time pickers only.** Installing copies the chosen pack's agents/skills/commands into `plugin/` and bakes the descriptor into `.xenomoon.json`. Nothing under `domains/` is read at runtime.
+- **At runtime there is exactly ONE capability tree: `plugin/`.** Every session loads it.
+- **Your project stays pure.** The framework reads it in place; project-side state is confined to `<project>/.xenomoon/` plus project-owned capabilities in `<project>/.claude/`.
 
 ```
 xenomoon/                      ← the INSTALL (fork/clone; your projects bind to it)
 ├── plugin/                    ← the framework's ONE plugin tree: loaded into EVERY session
 │   ├── skills/  hooks/  agents/  commands/     (meta skills, safety gates, researchers)
 │   └── docs/process/          (updates-routing.md · repo-boundary.md · promotion.md)
-├── domains/<name>/            ← install-time PICKER packs (webapp, expo, app) — never loaded at runtime
+├── domains/<name>/            ← install-time PICKER packs (webapp, expoapp) — never loaded at runtime
 │   ├── domain.json  orchestrator.md
 │   └── plugin/                ← the pack's capabilities, COPIED into plugin/ on install
-│       ├── agents/  commands/  hooks/
-│       ├── skills/            ← capabilities the pack ships (or LEARNED via promotions)
-│       └── library/           ← learned records: findings/ verdicts/ tools/
 ├── ui/                        ← the server + web app that runs sessions
 └── docs/  scripts/            ← repo meta
 ```
 
-Naming note: `plugin/` is the framework's ONE runtime tree; `domains/<name>/plugin/` is a pack's
-capabilities that `install-project --domain X` COPIES into `plugin/` at install — nothing under
-`domains/` loads at runtime. Your project stays a separate repo and hosts none of this — see
-`plugin/docs/process/repo-boundary.md`. How learnings route between framework, domain, and
-project: `plugin/docs/process/updates-routing.md`.
+Your project stays a separate repo and hosts none of this — see `plugin/docs/process/repo-boundary.md`. How learnings route between framework, domain, and project: `plugin/docs/process/updates-routing.md`.
 
 ## Quick start — from a machine with NOTHING
 
@@ -122,23 +123,19 @@ Do not scaffold, copy, or edit anything inside the target project beyond the fra
 Stop and report if `doctor` fails or the `webapp` domain is not found.
 ```
 
-## What we're trying to do
+## What works today
 
-- **Install per project, deterministically.** `npm run install-project -- <project> --domain=<name>` installs the framework into a project — new or existing, in place — and writes a committed lock so that project is bound to its domain. The lock is read literally: no agent "what are you building?", no runtime guessing. One install per project; each is independent and **learns that project**.
-- **Domain packs from empty to head-start.** A pack ranges from empty (`app`) to a working head-start (`webapp`); either way each install **learns its specific project** and accumulates capabilities — no one-size-fits-all brain.
-- **Portable packages.** We're targeting the open [agentskills.io](https://agentskills.io) `SKILL.md` / `SOUL.md` standard — the same one OpenClaw and Hermes already speak — so a package authored once can run on Claude Code today and, later, on those runtimes.
-- **Use, don't compete.** We aim to _use_ OpenClaw and Hermes (drive them as workers, or distribute packages onto them), not build a rival runtime.
+- **A domain-neutral spine.** The framework reads everything domain-specific (project marker, orchestrator prompt, capabilities, build/verify commands) from the pack descriptor baked at install time. No hardcoded product.
+- **Deterministic per-project install** — including into existing, non-greenfield projects, never scaffolding over your code. The binding is a committed lock, read literally; a conflicting override is **refused**, not silently applied.
+- **Two shipped packs.** **`webapp`**: a React + Node head-start running an issue-driven `triage → solution → implement` pipeline (analyst / developer / reviewer / tester agents, QA and auto-commit stages). **`expoapp`**: a React Native / Expo pack (both platforms) with a `uat-runner` agent, the `/uat` command, and Android/iOS local-run + ship skills.
+- **A CLI that refuses to guess.** Every verb resolves the install from your location, prints which one it picked, and stops with a candidate list when ambiguous — it never silently drives the wrong project.
+- **Mechanical safety gates.** The orchestrator's role is enforced by hooks, not prose: mutating git is denied to the main loop (the working tree belongs to you and the pipeline), and the orchestrator dispatches agents instead of implementing.
+- **External workers, used not competed with.** Optional **Hermes** (researcher/critic) and **Codex** (reviewer) integrations with per-domain profiles and cost-basis economics — subscription workers are there to be spent.
+- **Self-improvement loops, all human-gated.** Sessions end in a debrief; learnings become project-local capabilities; a promotions flow moves the good ones upward — you approve every step. The forge itself is audited the same way (framework-audit, session harvesting, token audits), findings recorded in a ledger the human applies.
 
-## Where we are
+## What's not here yet
 
-Early, but real. Working today:
-
-- The spine is **domain-neutral**: it reads per-domain values (project marker, file inventory, capability plugin, orchestrator prompt, build/verify commands) from a **domain pack** instead of hardcoding Godot.
-- **Deterministic per-project install**, including into existing **non-greenfield** projects — never scaffolding over your code. A project-owned lock makes the binding deterministic, and a conflicting override is **refused**, not silently applied.
-- **Empty packages are valid** — a domain with no pre-baked capabilities installs and runs cleanly.
-- The shipped packs are **`webapp`** — a populated React + Node **head-start** (an issue-driven `triage → solution → implement` pipeline whose orchestrator learns the project) — **`expo`**, a populated React Native / Expo pack (a `uat-runner` agent, the `/uat` command, and Android/iOS local-run + ship skills) — and **`app`**, an empty Node learning pack. Godot is **stripped**: it stays the exclusive upstream product, never a domain here.
-
-Not yet: more domain packs beyond `webapp` / `expo` / `app`, OpenClaw/Hermes adapters, a package marketplace, and per-project knowledge isolation. The direction and the open seams are written down in [docs/fork/VISION.md](docs/fork/VISION.md) and [docs/fork/SEAMS.md](docs/fork/SEAMS.md).
+More domain packs beyond `webapp` / `expoapp`, OpenClaw/Hermes adapters, a package marketplace, and per-project knowledge isolation. We're targeting the open [agentskills.io](https://agentskills.io) `SKILL.md` / `SOUL.md` standard so a package authored once can run on Claude Code today and other runtimes later. The direction and the open seams are written down in [docs/fork/VISION.md](docs/fork/VISION.md) and [docs/fork/SEAMS.md](docs/fork/SEAMS.md).
 
 ## Tracking upstream
 

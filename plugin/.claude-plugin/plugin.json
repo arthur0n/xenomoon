@@ -1,6 +1,6 @@
 {
   "name": "xenomoon",
   "description": "Xenomoon Forge capability plugin — the framework's ONE runtime tree (the interview-first product-owner/PRD agent, meta skills, safety hooks, handoff-summarizer + the researcher learning loop; the picked domain pack's capabilities are copied in at install time).",
-  "version": "0.1.8",
+  "version": "0.3.0",
   "author": { "name": "Xenomoon Forge" }
 }

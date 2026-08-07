@@ -481,13 +481,16 @@ export function saveKimiConfig(patch) {
 // destructive-git/-shell PreToolUse hooks gate it independently of the permission layer.
 export const AUTO_ALLOW_TOOLS = ["Read", "Glob", "Grep", "Bash", "WebSearch", "WebFetch"];
 
-// The main loop is an orchestrator: pinned model (not the user's default) and a
-// routing-focused system prompt, editable in ui/orchestrator.md.
-export const MODEL = args.find((a) => a.startsWith("--model="))?.split("=")[1] ?? "claude-opus-4-8";
+// The main loop is an orchestrator: pinned to the Opus TIER, not a version — the
+// "opus" alias auto-resolves to the newest Opus at session start (the CLI resolves
+// it; the SDK init message then reports the exact resolved id, which the UI shows
+// as the "Sess" line — that label is the harness's own report, not this constant
+// echoed back). Override per launch with --model=<id|alias>.
+export const MODEL = args.find((a) => a.startsWith("--model="))?.split("=")[1] ?? "opus";
 // Reasoning effort for the orchestrator turn. The main loop routes and dispatches
 // rather than reasoning hard, so default to a modest level; each sub-agent's own
-// `effort:` frontmatter overrides this while that agent is active. The pinned
-// model (claude-opus-4-8) supports low|medium|high|xhigh|max.
+// `effort:` frontmatter overrides this while that agent is active. Current Opus
+// models support low|medium|high|xhigh|max.
 export const EFFORT = /** @type {import("@anthropic-ai/claude-agent-sdk").EffortLevel} */ (
   args.find((a) => a.startsWith("--effort="))?.split("=")[1] ?? "medium"
 );

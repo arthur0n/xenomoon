@@ -79,8 +79,31 @@ function sweepStragglers({ runningByTask, send }) {
   if (list) send({ type: "tasks", tasks: list });
 }
 
+// tool_use_id → short human-readable target (file path / notebook / command), so a later
+// permission_denied can say WHAT was denied, not just which tool — the SDK's denied
+// message carries no tool_input, but the tool_use crossed this stream first. Module-level
+// with a FIFO cap: ids are globally unique (no cross-session collision) and the bound
+// keeps a long session from leaking.
+/** @type {Map<string, string>} */
+const targetByTool = new Map();
+const TARGET_CAP = 500;
+
+/** Remember a tool_use's denial-display target (path first, else the command).
+ * @param {string} id
+ * @param {{ file_path?: string, notebook_path?: string, command?: string } | undefined} inp */
+function rememberTarget(id, inp) {
+  const target = inp?.file_path ?? inp?.notebook_path ?? inp?.command;
+  if (!target) return;
+  targetByTool.set(id, String(target).slice(0, 160));
+  if (targetByTool.size > TARGET_CAP) {
+    const oldest = targetByTool.keys().next().value;
+    if (oldest !== undefined) targetByTool.delete(oldest);
+  }
+}
+
 /** Record each tool_use → the agent that raised it (so canUseTool can label
- * concurrent approvals) and note which spawns are backgrounded.
+ * concurrent approvals), its denial-display target, and note which spawns are
+ * backgrounded.
  * @param {import("@anthropic-ai/claude-agent-sdk").SDKAssistantMessage} message
  * @param {{ agentByTool: Map<string, string>, bgSpawns: Set<string> }} deps */
 function trackToolUses(message, { agentByTool, bgSpawns }) {
@@ -88,8 +111,12 @@ function trackToolUses(message, { agentByTool, bgSpawns }) {
   for (const b of message.message?.content ?? []) {
     if (b.type === "tool_use" && b.id) {
       agentByTool.set(b.id, label);
-      const inp = /** @type {{ run_in_background?: boolean } | undefined} */ (b.input);
+      const inp =
+        /** @type {{ run_in_background?: boolean, file_path?: string, notebook_path?: string, command?: string } | undefined} */ (
+          b.input
+        );
       if (inp?.run_in_background) bgSpawns.add(b.id);
+      rememberTarget(b.id, inp);
     }
   }
 }
@@ -112,6 +139,9 @@ function surfaceDenial(message, { agentByTool, send }) {
     type: "permission_denied",
     toolName: message.tool_name,
     agent,
+    // WHAT was denied (file path / command), when its tool_use crossed this stream —
+    // a detached background worker's may not have, so the field is best-effort.
+    target: targetByTool.get(message.tool_use_id),
     reason: message.decision_reason_type,
     background,
   });

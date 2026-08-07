@@ -121,11 +121,15 @@ function foldDenied(s, msg) {
     kind: "deny",
     agent: msg.agent ?? "main",
     verb: "Denied",
-    detail: `${msg.toolName} · ${reason}`,
+    detail: `${msg.toolName}${msg.target ? ` · ${msg.target}` : ""} · ${reason}`,
   };
   const next = { ...s, activity: [...s.activity, row] };
   if (!msg.background) return next;
-  const text = `${agentLabel(msg.agent ?? "agent")} couldn't use ${msg.toolName} (background auto-deny) — run it foreground or grant a permission mode.`;
+  // "background" is the server's fallback when the denied worker ran detached and
+  // couldn't be attributed — it is a label, not an agent name.
+  const who = msg.agent === "background" ? "A background agent" : agentLabel(msg.agent ?? "agent");
+  const target = msg.target ? ` on \`${msg.target}\`` : "";
+  const text = `${who} couldn't use ${msg.toolName}${target} — auto-denied: a backgrounded (headless) agent has no approver. Grant the path in \`.xenomoon/write-grants\` and re-dispatch, or run the step foreground.`;
   return { ...next, chat: [...next.chat, { kind: "banner", text }] };
 }
 

@@ -162,7 +162,7 @@
  *   | { type: "tasks", tasks: Task[] }
  *   | { type: "running", agents: RunningAgentWire[] }
  *   | { type: "promotions", items: Promotion[] }
- *   | { type: "permission_denied", toolName: string, agent?: string, reason?: string, background?: boolean }
+ *   | { type: "permission_denied", toolName: string, agent?: string, target?: string, reason?: string, background?: boolean }
  *   | { type: "context", percentage: number, totalTokens: number, maxTokens: number }
  *   | { type: "hermes", phase: "start" | "progress" | "done", runId?: string, text: string, persona?: string }
  *   | { type: "extAgent", agentId: string, label: string, color?: string, phase: "start" | "progress" | "done", runId?: string, text: string }

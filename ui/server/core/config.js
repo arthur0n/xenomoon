@@ -491,15 +491,24 @@ export const MODEL = args.find((a) => a.startsWith("--model="))?.split("=")[1] ?
 export const EFFORT = /** @type {import("@anthropic-ai/claude-agent-sdk").EffortLevel} */ (
   args.find((a) => a.startsWith("--effort="))?.split("=")[1] ?? "medium"
 );
-// The orchestrator routing prompt lives in the single capability tree at `plugin/orchestrator.md`
-// (the domain picker installed it there). Read PER CALL (session start) — like getHermesConfig — so
-// editing it takes effect on the NEXT SESSION without a server restart. The fallback to the live
-// `domains/<name>/orchestrator.md` covers a clone installed before the picker copied it (migration).
+// The orchestrator prompt is TWO layers: the domain-agnostic spine (`ui/orchestrator-spine.md`,
+// ships with the framework — dispatch/tasks/background/asking doctrine every domain shares) plus
+// the installed domain block in the capability tree at `plugin/orchestrator.md` (the domain picker
+// installed it there; routing table + pipeline only). Keeping the spine framework-side means a
+// doctrine fix reaches every clone on `git pull` — no reinstall — and a pack can never ship
+// without the spine (the failure mode: a lean pack orchestrator drops the shared doctrine and the
+// session loses task/background/serial discipline). Read PER CALL (session start) — like
+// getHermesConfig — so edits take effect on the NEXT SESSION without a server restart. The
+// fallback to the live `domains/<name>/orchestrator.md` covers a clone installed before the
+// picker copied it (migration).
 /** @returns {string} */
 export function getOrchestratorPrompt() {
+  const spine = readFileSync(path.join(UI_DIR, "orchestrator-spine.md"), "utf8");
   const installed = path.join(FRAMEWORK_PLUGIN_DIR, "orchestrator.md");
-  if (existsSync(installed)) return readFileSync(installed, "utf8");
-  return readFileSync(path.join(FRAMEWORK_DIR, DOMAIN.orchestrator), "utf8");
+  const domain = existsSync(installed)
+    ? readFileSync(installed, "utf8")
+    : readFileSync(path.join(FRAMEWORK_DIR, DOMAIN.orchestrator), "utf8");
+  return spine + "\n\n" + domain;
 }
 /** @returns {string} */
 export function getHermesBlock() {

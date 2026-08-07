@@ -21,15 +21,15 @@ silent default**: an unbound framework has no baked descriptor to read.
 
 ## What a pack declares (`domains/<name>/domain.json`)
 
-| Field                                       | Used by                | Meaning                                                          |
-| ------------------------------------------- | ---------------------- | ---------------------------------------------------------------- |
-| `engine.name` / `engine.projectFile`        | `config.js` (`ENGINE`) | runtime name + on-disk project marker                            |
-| `inventory.scenes` / `.scripts` / `.ignore` | `project-state.js`     | file extensions the live inventory scans, plus dirs to skip      |
-| `plugin`                                    | `session.js`           | the domain's capability plugin (loaded alongside CORE `plugin/`) |
-| `orchestrator`                              | `config.js`            | the routing prompt loaded into the session                       |
-| `commands`                                  | `gen-manifest.js`      | build/verify commands written into the manifest                  |
-| `populated`                                 | `doctor.js`            | ships capabilities (hard checks) vs. learns the project          |
-| `materializeIntoProject`                    | `materialize.js`       | write framework files into the project tree (default false)      |
+| Field                                       | Used by                | Meaning                                                                                       |
+| ------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------- |
+| `engine.name` / `engine.projectFile`        | `config.js` (`ENGINE`) | runtime name + on-disk project marker                                                         |
+| `inventory.scenes` / `.scripts` / `.ignore` | `project-state.js`     | file extensions the live inventory scans, plus dirs to skip                                   |
+| `plugin`                                    | `session.js`           | the domain's capability plugin (loaded alongside CORE `plugin/`)                              |
+| `orchestrator`                              | `config.js`            | the DOMAIN block of the session prompt (appended after the shared `ui/orchestrator-spine.md`) |
+| `commands`                                  | `gen-manifest.js`      | build/verify commands written into the manifest                                               |
+| `populated`                                 | `doctor.js`            | ships capabilities (hard checks) vs. learns the project                                       |
+| `materializeIntoProject`                    | `materialize.js`       | write framework files into the project tree (default false)                                   |
 
 A pack may also ship `templates/CLAUDE.md` — a project-facts template `forge new` seeds into a
 freshly-bound project (falling back to the CORE neutral `plugin/templates/CLAUDE.md`; an existing
@@ -39,7 +39,11 @@ freshly-bound project (falling back to the CORE neutral `plugin/templates/CLAUDE
 
 Beyond what a pack declares, every session inherits the spine's shared capabilities — the
 cross-session task board, the promotions graduation path, autonomous mode, the user-ask channels, and
-the seeded convention floor. A pack's `orchestrator.md` should **use** these, not reinvent them. See
+the seeded convention floor. The domain-agnostic orchestrator doctrine (dispatch, tasks, background,
+asking, serial discipline) lives in `ui/orchestrator-spine.md` and is prepended to EVERY pack's
+`orchestrator.md` at session start — a pack's `orchestrator.md` is the domain block only (roster,
+routing table, pipeline) and must not restate the spine. A pack should **use** these, not reinvent
+them. See
 [`plugin/PATTERNS.md`](../plugin/PATTERNS.md).
 
 ## Shipped packs

@@ -36,6 +36,30 @@ agent_id="$(printf '%s' "$payload" | jq -r '.agent_id // empty' 2>/dev/null)"
 fp="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null)"
 [ -z "$fp" ] && exit 0
 
+# Case-by-case grants — the "allowlist as we go" lever. The human lists path prefixes in
+# <project>/.xenomoon/write-grants (one per line, `#` comments; relative to the project
+# root or absolute) and a background agent may then Write/Edit under them. An explicit
+# line IS the human approval, so it deliberately overrides the `.claude/` and `design/`
+# carve-outs below — that is what lets a chosen background worker (e.g. a tool-builder
+# authoring a skill) complete its task instead of dying on the async auto-deny.
+grants="$PWD/.xenomoon/write-grants"
+if [ -f "$grants" ]; then
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in "" | \#*) continue ;; esac
+    g="${line%/}"
+    case "$g" in
+      /*) abs="$g" ;;
+      *) abs="$PWD/$g" ;;
+    esac
+    case "$fp" in
+      "$g" | "$g"/* | "$abs" | "$abs"/*)
+        jq -cn '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"allow",permissionDecisionReason:"xenomoon: explicit write-grants path (background-safe grant)"}}'
+        exit 0
+        ;;
+    esac
+  done <"$grants"
+fi
+
 # Never grant config-dir edits — keep `.claude/` foreground/human-approved.
 # The project-ROOT design/ dir is likewise carved out: it belongs to the product-owner, which
 # runs FOREGROUND-ONLY by charter, so its writes get interactive approval — background

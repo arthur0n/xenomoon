@@ -37,7 +37,7 @@
     "bind-project-path": "node ui/server/cli/setup.js"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.175",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.226",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "ws": "^8.18.0"
   },

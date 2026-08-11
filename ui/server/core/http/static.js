@@ -37,6 +37,10 @@ export function serveStatic(req, res) {
     return;
   }
   const type = TYPES[path.extname(filePath)] ?? "application/octet-stream";
-  res.writeHead(200, { "content-type": type });
+  // no-cache = revalidate every load (cheap on localhost). Without it the browser
+  // heuristically caches the ES modules, and after a sync a plain refresh can mix
+  // stale and fresh modules — init half-dies in "cosmetic" ways (missing rail
+  // sections, dead filter chips) that look like code regressions.
+  res.writeHead(200, { "content-type": type, "cache-control": "no-cache" });
   res.end(readFileSync(filePath));
 }

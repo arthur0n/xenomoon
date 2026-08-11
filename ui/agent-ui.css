@@ -1597,6 +1597,12 @@ body.resizing iframe {
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-sm);
   margin-bottom: 6px;
+  /* Banners can carry unbreakable tokens (a denied file path, a long command).
+     Without a cap + anywhere-wrap, one long token widens the banner past the
+     panel and hands .chat-scroll a horizontal scrollbar (overflow-y: auto forces
+     overflow-x to compute to auto). */
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 /* Messages. The user speaks in stamped ember plates — one corner

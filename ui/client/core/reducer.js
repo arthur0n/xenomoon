@@ -128,7 +128,11 @@ function foldDenied(s, msg) {
   // "background" is the server's fallback when the denied worker ran detached and
   // couldn't be attributed — it is a label, not an agent name.
   const who = msg.agent === "background" ? "A background agent" : agentLabel(msg.agent ?? "agent");
-  const target = msg.target ? ` on \`${msg.target}\`` : "";
+  // Middle-ellipsize the target: the head names the root, the tail is the part a
+  // human needs to grant; the full value stays in the activity row.
+  const t = msg.target ?? "";
+  const short = t.length > 72 ? `${t.slice(0, 24)}…${t.slice(-44)}` : t;
+  const target = short ? ` on \`${short}\`` : "";
   const text = `${who} couldn't use ${msg.toolName}${target} — auto-denied: a backgrounded (headless) agent has no approver. Grant the path in \`.xenomoon/write-grants\` and re-dispatch, or run the step foreground.`;
   return { ...next, chat: [...next.chat, { kind: "banner", text }] };
 }

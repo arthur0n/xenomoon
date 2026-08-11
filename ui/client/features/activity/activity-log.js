@@ -27,11 +27,16 @@ function agentTag(name) {
 export { VERB_KIND, stripEnvPrefix } from "../../core/format.js";
 
 /** @typedef {(row: HTMLElement) => boolean} FilterFn */
+const FILE_KINDS = ["read", "edit", "write"];
 /** @type {Record<string, FilterFn>} */
 const FILTERS = {
   all: () => true,
-  tools: (row) => ["task", "bash", "session", "spawn"].includes(row.dataset.kind ?? ""),
-  files: (row) => ["read", "edit", "write"].includes(row.dataset.kind ?? ""),
+  // Tools = every tool/agent event that isn't prose or a file op. Exclude-list on
+  // purpose: row kinds are OPEN (external paid-agent rows carry their agentId as the
+  // kind — "hermes", "kimi", … — and denials are "deny"), so an include-list silently
+  // drops every kind it never heard of the moment a new agent shows up.
+  tools: (row) => !["say", ...FILE_KINDS].includes(row.dataset.kind ?? ""),
+  files: (row) => FILE_KINDS.includes(row.dataset.kind ?? ""),
 };
 /** @param {string | null | undefined} key @returns {FilterFn} */
 const filterFor = (key) => FILTERS[key ?? "all"] ?? FILTERS.all ?? (() => true);

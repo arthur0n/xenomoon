@@ -91,6 +91,13 @@ const GH_ISSUE_RE = /(^|&&|\|\||;|\|)\s*(rtk\s+)?gh\s+issue\b/;
 const GIT_MUTATE_RE =
   /(^|&&|\|\||;|\|)\s*(rtk\s+)?git\s+(-C\s+\S+\s+)?(add|commit|stash|rebase|merge|reset|push|pull|cherry-pick|revert|am|apply|restore|switch|checkout|rm|mv|clean|tag)\b/;
 
+// Build/test/gate commands the main loop may never run itself. Live bite (2026-08-11): a
+// developer agent died on the Bash timeout mid-gate and the Hive ran `pnpm -C worker
+// validate` itself to "produce the receipt" — the exact absorb-the-worker's-job defection
+// the spine forbids in prose. Verification belongs to the owning agent's context.
+const BUILD_GATE_RE =
+  /(^|&&|\|\||;|\|)\s*(rtk\s+)?((pnpm|npm|yarn|bun)\s+(-C\s+\S+\s+)?(run\s+)?(validate|test)\b|(npx\s+)?(vitest|jest|tsc|eslint)\b|(npx\s+)?playwright\s+test\b)/;
+
 // The domain pack's own deterministic commit gate (webapp: commit-gate.sh re-derives
 // qa/review labels at commit time and denies non-green). When the INSTALLED plugin ships
 // it, the pipeline's /commit stage is the orchestrator's sanctioned direct git write —
@@ -100,6 +107,10 @@ function hasCommitGateHook() {
   _commitGateHook ??= existsSync(join(FRAMEWORK_PLUGIN_DIR, "hooks", "commit-gate.sh"));
   return _commitGateHook;
 }
+// Hard ceiling for a Task dispatch brief; roomy enough for a real brief with a spec
+// pointer + constraints, far below the re-specify-everything failure mode.
+const MAX_DISPATCH_BRIEF_CHARS = 2500;
+
 const GIT_ADD_COMMIT_ONLY_RE =
   /^(\s*(rtk\s+)?git\s+(-C\s+\S+\s+)?(add|commit)\b[^&|;]*)(&&\s*(rtk\s+)?git\s+(-C\s+\S+\s+)?(add|commit)\b[^&|;]*)*$/;
 
@@ -123,6 +134,14 @@ function mainBashDenyMessage(input) {
       "loop (read verbs like status/log/diff stay open). Dispatch the developer agent; for " +
       "rebases/conflicts have it work in an ISOLATED git worktree so the user's uncommitted " +
       "changes are never staged, stashed, or parked. Commits land via the pipeline's commit stage."
+    );
+  if (BUILD_GATE_RE.test(cmd))
+    return (
+      "Build/test gates are denied for the main loop — verification runs in the OWNING " +
+      "agent's context and comes back as a receipt; producing the receipt yourself is " +
+      "absorbing the worker's job. A stalled or timed-out agent is re-dispatched once with " +
+      "the same brief (spine rule), never replaced by you. Known-long gates belong in the " +
+      "builder's background Bash."
     );
   return null;
 }
@@ -159,6 +178,17 @@ function orchestratorGate({ log, toolName, input, agent }) {
         `Generic agent "${type}" is denied — the installed roster owns this work ` +
           `(${pipelineRoster().join(", ")}). Dispatch the matching agent; discovery belongs ` +
           "to the owning agent, not a pre-dispatch scout.",
+      );
+    }
+    // Over-long briefs re-specify what the worker should discover, and were the likely
+    // cause of live agent stalls (2026-08-11: 400-700-word briefs repeated verbatim each
+    // round). The spine already says hand work onward by file reference.
+    const prompt = /** @type {{ prompt?: unknown }} */ (input)?.prompt;
+    if (typeof prompt === "string" && prompt.length > MAX_DISPATCH_BRIEF_CHARS) {
+      return deny(
+        `Dispatch brief is ${prompt.length} chars (max ${MAX_DISPATCH_BRIEF_CHARS}) — briefs ` +
+          "carry pointers, not payload. Pass file references (spec path, issue #, handoff " +
+          "file under .xenomoon/handoffs/) and let the owning agent do its own discovery.",
       );
     }
   }

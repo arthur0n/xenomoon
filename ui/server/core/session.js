@@ -50,6 +50,16 @@ import {
  * handlers. `autonomousLoop` is set by runSession once the check loop is built.
  * @typedef {{ policy: string, query?: { interrupt?: () => Promise<void>, stopTask?: (taskId: string) => Promise<void> }, autonomousLoop?: { arm: (fireNow?: boolean) => void, disarm: () => void }, autonomousActive?: boolean, fetchedDocs?: Set<string> }} SessionState */
 
+// Lift the CLI's built-in Bash tool timeout (default 120s, ceiling 600s): long gates
+// (full validate, native builds) legitimately exceed 600s, and an agent killed mid-gate
+// leaves uncommitted work + tempts the orchestrator to absorb the job. Default 10 min,
+// ceiling 60 min; explicit env still wins.
+const SESSION_ENV = {
+  ...process.env,
+  BASH_DEFAULT_TIMEOUT_MS: process.env.BASH_DEFAULT_TIMEOUT_MS ?? "600000",
+  BASH_MAX_TIMEOUT_MS: process.env.BASH_MAX_TIMEOUT_MS ?? "3600000",
+};
+
 /** Per-connection NDJSON logger + the `send` that mirrors every outgoing
  * message into it. @param {import("ws").WebSocket} ws */
 function createLogger(ws) {
@@ -195,6 +205,7 @@ function runSession({
             // residual and mitigate it in the orchestrator's dispatch rules (orchestrator.md →
             // "Concurrent builders share one working tree"), not with isolation here.
             cwd: PROJECT_DIR,
+            env: SESSION_ENV, // lifts the 600s Bash timeout — see SESSION_ENV above
             // The framework's agents/skills/hooks come from the plugin (single source of truth),
             // not from copies in the project — the project folder stays pure. Its slash commands
             // (`/codex:review`) expand from the user's prompt text, and its `codex:codex-rescue`

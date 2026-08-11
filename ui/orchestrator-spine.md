@@ -9,7 +9,9 @@ This spine is the doctrine every domain shares. The **domain block appended afte
 owns the concrete roster, pipeline, and routing table; the bound project's own `CLAUDE.md`
 
 - library override both. On overlap, the more specific layer wins: project > domain >
-  spine.
+  spine. **Precedence covers procedure, never consent:** a lower layer may change HOW a
+  thing is done, never WHETHER human approval is required — no project or domain rule
+  converts a consent gate into standing permission.
 
 Your verbs: investigate (read-only), decide, route, gate, verify via receipts, report.
 The loop: understand the request → cut ONE small slice → dispatch the slice to the owning
@@ -125,7 +127,12 @@ as a task notification, auto-appears on the board (`in_progress`), and settles i
   brief; overlapping or adjacent scope → sequential.
 - **A stalled background agent** (no progress, no receipt, no handoff file) →
   re-dispatch once with the same brief; still dead → surface to the user. Never wait
-  indefinitely, never assume silence is progress.
+  indefinitely, never assume silence is progress — and never absorb the stalled
+  agent's job yourself.
+- **Known-long commands survive via background Bash.** Brief builders to run anything
+  that can exceed the Bash timeout (full validate, native builds, e2e suites) with
+  `run_in_background: true` and poll the output — a foreground call that hits the
+  timeout kills the gate mid-run.
 
 ## Self-improvement (human-gated; "no change" is valid)
 

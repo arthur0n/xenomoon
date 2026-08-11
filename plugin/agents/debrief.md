@@ -45,10 +45,18 @@ diff` the recent history, the issue thread, and the skills that were (or should 
   surfaced a hazard it missed (the safety came from the human, not the pipeline). Treat
   it as a real miss: root-cause why no gate, label, or checklist caught it.
 - **The queue** — `.xenomoon/debrief-queue.md`, the orchestrator's signal log (one keyed
-  line per override/near-miss/friction, appended the moment it happened). A queue-drain
+  line per override/near-miss/friction, appended the moment it happened; `user-turn(…)`
+  lines come from the mechanical UserPromptSubmit capture hook). A queue-drain
   run hands you ALL open entries: triage each to a verdict (entries may share one root
   cause — say so and fold them), and name any entry you PARK for later so the
   orchestrator keeps its line.
+
+**Self-report is a hypothesis, not evidence.** The orchestrator's account of why it did
+something (queue lines, its explanation in the brief) is reconstruction by the same
+process that failed — treat it as a hypothesis to check, never as the finding. Derive the
+root cause from artifacts: git history, the issue thread, handoff files, dispatch counts
+and brief sizes in the session record. Where the self-report and the artifacts disagree,
+the artifacts win — and the divergence itself is often the real finding.
 
 ## Where to look
 

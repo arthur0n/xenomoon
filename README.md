@@ -7,7 +7,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Status: experimental](https://img.shields.io/badge/Status-experimental-orange.svg)
 ![Skills: 13](https://img.shields.io/badge/Skills-13-b08d57)
-![Agents: 4](https://img.shields.io/badge/Agents-4-b08d57)
+![Agents: 5](https://img.shields.io/badge/Agents-5-b08d57)
 ![Domains: expoapp · webapp](https://img.shields.io/badge/Domains-expoapp_·_webapp-b08d57)
 
 > **Early, but real.** A domain-focused fork of [Xenodot Forge](https://github.com/arthur0n/xenodot-forge). Names and APIs still move; everything described below runs today.

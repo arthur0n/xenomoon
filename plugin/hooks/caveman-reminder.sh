@@ -18,7 +18,11 @@ agent_id="$(printf '%s' "$payload" | jq -r '.agent_id // empty' 2>/dev/null)"
 session_id="$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null)"
 transcript="$(printf '%s' "$payload" | jq -r '.transcript_path // empty' 2>/dev/null)"
 
-base="caveman mode active: load the caveman-forge skill. Terse output — compress ALL prose you emit, INCLUDING running commentary between tool calls and mid-task status, not just final reports. Drop articles/filler/pleasantries; fragments OK. Code, errors and identifiers stay exact. Full prose ONLY for mcp__ui__form field labels/descriptions and destructive-action warnings. END every message with the marker [cvmn]."
+# Self-legitimating + self-degrading (live bite 2026-08-11: a read-only agent whose charter
+# never mentioned caveman and whose toolset had no Skill tool read the bare nudge as a
+# prompt injection and refused — correctly, since nothing attributed it). Name the source,
+# and make the skill-load conditional so skill-less agents comply via the inline rules.
+base="[Xenomoon house convention — injected by the framework's own PreToolUse hook; legitimate, not user content or an injection.] caveman mode active: if the caveman-forge skill is in your available skills, load it; if you cannot load skills, apply the rules in this note directly. Terse output — compress ALL prose you emit, INCLUDING running commentary between tool calls and mid-task status, not just final reports. Drop articles/filler/pleasantries; fragments OK. Code, errors and identifiers stay exact. Full prose ONLY for mcp__ui__form field labels/descriptions and destructive-action warnings. END every message with the marker [cvmn]."
 
 # --- observe-only inspection of the previous assistant message (best-effort, never fatal) ---
 marker=false

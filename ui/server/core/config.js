@@ -528,10 +528,12 @@ export const CODEX_COMPANION = path.join(CODEX_PLUGIN_DIR, "scripts", "codex-com
 const CODEX_COST_DOCTRINE = {
   subscription:
     "**Billing: the user's ChatGPT SUBSCRIPTION — zero marginal cost.** Quality here is " +
-    "free; rationing it is the mistake. USE IT BY DEFAULT: offer (or, policy allowing, " +
-    "dispatch) an adversarial review at every natural quality gate — post-implement, " +
-    "pre-commit, pre-push, post-merge — and on any diff you are less than sure about. " +
-    "A review takes time, so run it in the background alongside other work.",
+    "free; rationing it is the mistake. Use it at every natural quality gate — " +
+    "post-implement, pre-commit, pre-push, post-merge — and on any diff you are less " +
+    "than sure about, ALWAYS by dispatching the `codex-review` subagent. The harness " +
+    "permission prompt on the review command IS the consent: never offer in chat first, " +
+    "never ask twice, never route around the prompt. One review round per slice is the " +
+    "default; further rounds need the human's go.",
   metered:
     "It runs on OpenAI's own model with its **own METERED billing** (NOT the user's " +
     "Anthropic plan), and a real review takes time — dispatch deliberately at decision " +
@@ -559,8 +561,8 @@ export function getEconomicsBlock() {
   if (codex.enabled)
     rows.push(
       codex.costBasis === "subscription"
-        ? "| Codex review | ChatGPT subscription — marginal-free | offer/use at EVERY quality gate |"
-        : "| Codex review | metered (OpenAI billing) | deliberate dispatch at decision points |",
+        ? "| Codex review | ChatGPT subscription — marginal-free | dispatch `codex-review` subagent at EVERY quality gate; the permission prompt IS the consent, one round per slice |"
+        : "| Codex review | metered (OpenAI billing) | deliberate `codex-review` dispatch at decision points; the permission prompt IS the consent |",
     );
   if (getHermesConfig().enabled)
     rows.push("| Hermes research | metered API | deliberate dispatch; batch questions |");

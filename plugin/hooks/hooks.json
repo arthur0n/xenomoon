@@ -1,5 +1,5 @@
 {
-  "description": "Xenomoon Forge hooks — auto-route Bash through rtk when it's installed (rtk-rewrite: token-filtered command output, silent no-op on machines without rtk), block destructive git/shell ops before they run, grant sub-agent project/library edits so backgrounded workers aren't auto-denied, re-inject the caveman terse-output rule on every sub-agent tool call so it survives long turns, log rtk usage (observe-only — now measures what actually ran, post-rewrite), dedup byte-identical repeat Read calls (deny a same-view re-read when mtime is unchanged and still recent — token-audit read-dedup, emits policy:\"read-dedup\"), and (opt-in) refresh the project's graphify knowledge graph after edits (PostToolUse — AST-only graphify update; OFF by default, enabled per-project via graphify-out/.autoupdate or XENOMOON_GRAPHIFY_AUTOUPDATE).",
+  "description": "Xenomoon Forge hooks — auto-route Bash through rtk when it's installed (rtk-rewrite: token-filtered command output, silent no-op on machines without rtk), block destructive git/shell ops before they run, consent-gate Codex reviews (require-codex-consent: any codex-companion review surfaces ONE harness approval prompt — the prompt IS the consent), grant sub-agent project/library edits so backgrounded workers aren't auto-denied, re-inject the caveman terse-output rule on every sub-agent tool call so it survives long turns, log rtk usage (observe-only — now measures what actually ran, post-rewrite), dedup byte-identical repeat Read calls (deny a same-view re-read when mtime is unchanged and still recent — token-audit read-dedup, emits policy:\"read-dedup\"), capture correction-shaped user turns into the project's debrief queue mechanically (UserPromptSubmit — the learning loop's backstop when task momentum wins), and (opt-in) refresh the project's graphify knowledge graph after edits (PostToolUse — AST-only graphify update; OFF by default, enabled per-project via graphify-out/.autoupdate or XENOMOON_GRAPHIFY_AUTOUPDATE).",
   "hooks": {
     "PreToolUse": [
       {
@@ -16,6 +16,10 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/block-destructive-shell.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/require-codex-consent.sh\""
           },
           {
             "type": "command",
@@ -56,6 +60,16 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/caveman-reminder.sh\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/debrief-queue-capture.sh\""
           }
         ]
       }

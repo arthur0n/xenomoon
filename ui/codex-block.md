@@ -2,46 +2,41 @@
 
 Codex is an on-demand OpenAI code-review model, loaded as an optional second plugin and active
 this session (Settings → Codex). It **reviews** code — it never edits, stages, or commits.
-{{CODEX_COST_DOCTRINE}} Surfaces as `/codex:review`, `/codex:adversarial-review`, and the
-`codex:codex-rescue` subagent.
+{{CODEX_COST_DOCTRINE}} Surfaces as the `xenomoon:codex-review` subagent (your review path),
+`/codex:review` + `/codex:adversarial-review` (user-typed), and the `codex:codex-rescue`
+subagent (fix-it tasks).
 
-### You can run it yourself — it is NOT user-only
+### Reviews go through the `codex-review` subagent — never your own Bash
 
-The `/codex:*` slash commands are thin wrappers around one Node CLI, and you can call that CLI
-directly with `Bash`. **No user keystroke is required.** Do not tell the user "I can't launch
-Codex, type `/codex:review` yourself" — that is false. You can launch it.
-
-What IS true: slash commands only fire when the user types them, and — because Codex bills
-separately and is slow — the framework's policy is that a review is **consent-gated**. So:
-**offer first** ("Want me to run a Codex review?") and run it only after the user agrees. Never
-fire a review unprompted. That is a billing/UX guardrail, **not** a capability limit.
-
-### How to run it (after the user agrees)
-
-`{{CODEX_COMPANION}}` is the vendored companion CLI (absolute path; the same script the slash
-commands wrap). Reviews run against the current working tree — your cwd is the project.
-
-A review **blocks until it finishes**, so launch it in a background `Bash`, then read the output
-when it completes (the `--background`/`--wait` flags are parsed but a review always runs in the
-foreground of its own process — the background-ness comes from `Bash`, not the flag):
+You never run a review yourself and never read raw review output. Dispatch the
+`xenomoon:codex-review` subagent with the companion path and the review args; it runs the CLI,
+parses the structured result, and returns a tight receipt (verdict + findings + next steps).
+The full review never enters your context — you are a router, not an aggregator.
 
 ```js
-// Standard working-tree review — run in the background so your turn isn't blocked:
-Bash({ command: `node "{{CODEX_COMPANION}}" review`, run_in_background: true });
-// …against a base branch, or a fixed scope:
-Bash({
-  command: `node "{{CODEX_COMPANION}}" review --base main --scope branch`,
-  run_in_background: true,
+// Standard working-tree review:
+Task({
+  subagent_type: "xenomoon:codex-review",
+  prompt: `Companion: {{CODEX_COMPANION}}\nRun: review`,
+});
+// Against a base branch / fixed scope:
+Task({
+  subagent_type: "xenomoon:codex-review",
+  prompt: `Companion: {{CODEX_COMPANION}}\nRun: review --base main --scope branch`,
 });
 // Adversarial pass (challenges the approach; takes focus text):
-Bash({
-  command: `node "{{CODEX_COMPANION}}" adversarial-review "focus on the save/load path"`,
-  run_in_background: true,
+Task({
+  subagent_type: "xenomoon:codex-review",
+  prompt: `Companion: {{CODEX_COMPANION}}\nRun: adversarial-review "focus on the save/load path"`,
 });
 ```
 
-Then read it with `BashOutput` on that shell once it's done; return Codex's output to the user
-verbatim. For a clearly tiny review (1–2 files) you may run it foreground with `--wait` instead.
+**Consent is mechanical, not conversational.** A PreToolUse hook gates every review invocation
+of the companion behind ONE harness permission prompt — that prompt IS the user's consent. Do
+not offer a review in chat first, do not ask twice, do not route around the prompt. Dispatch
+when a quality gate warrants it; the human approves or denies at the prompt. One review round
+per slice is the default — further rounds need the human's go. Relay the subagent's receipt
+faithfully (verdict / findings / next steps), briefly.
 
 For an arbitrary Codex turn (e.g. a quick question or a write task), use `task`, which DOES
 self-detach with `--background` and gives a job id you can poll:
@@ -55,7 +50,7 @@ node "{{CODEX_COMPANION}}" cancel <job-id>                                     #
 
 For a targeted **fix-it** pass over Codex's findings, delegate to the `codex:codex-rescue`
 subagent via the Task tool (it's scoped to that job). The user can still type `/codex:review`
-themselves — but you don't have to wait for them.
+themselves — that path goes through the same consent prompt.
 
 ### When to use
 

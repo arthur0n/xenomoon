@@ -29,6 +29,7 @@ import {
   getHermesBlock,
   getCodexBlock,
   getEconomicsBlock,
+  getBranchModelBlock,
   getKimiBlock,
   getHermesConfig,
   getKimiConfig,
@@ -249,7 +250,10 @@ function runSession({
                 (getKimiConfig().enabled ? "\n\n" + getKimiBlock() : "") +
                 (codexOn ? "\n\n" + getCodexBlock() : "") +
                 "\n\n" +
-                getEconomicsBlock(),
+                getEconomicsBlock() +
+                // The project's branch & merge doctrine (baked at install/onboarding);
+                // empty string when the project has no branch-model file.
+                (getBranchModelBlock() ? "\n\n" + getBranchModelBlock() : ""),
             },
             canUseTool,
             abortController: abort,

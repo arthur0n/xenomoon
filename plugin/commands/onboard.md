@@ -27,6 +27,18 @@ Deterministic parts are scripted below; judgment parts hand to the **product-own
 4. **Stack commands:** read `package.json` scripts and map validate / build / test / smoke /
    e2e onto the domain's command expectations; note gaps (no test script, etc.).
 
+## Step 1b — branch model (confirm or set)
+
+Read `<project>/.xenomoon/branch-model` (first line = model; optional `prod=`/`dev=` lines
+override the main/development defaults). Report the current model — or "none set" — in the
+inventory. The model is confirmed/changed in step 2's interview (one `select` field:
+`trunk` — work lands directly on the default branch (POC/early MVP) · `pr-main` —
+branch → PR → main, branch dies at merge · `staged` — development is the default target,
+main is promotion-only and deploys · `custom` — the project has its own doctrine). On
+change: write the file (foreground, human-gated like every onboard write). `custom`
+additionally lands the doctrine text in `.claude/library/branch-doctrine.md` + one
+CLAUDE.md index pointer line.
+
 ## Step 2 — the judgment half → the product-owner
 
 Hand the inventory to the **product-owner** (foreground, form-driven). **Dispatch it CLEAN: pass

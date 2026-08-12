@@ -579,6 +579,64 @@ export function getKimiBlock() {
   return readFileSync(path.join(UI_DIR, "kimi-block.md"), "utf8");
 }
 
+/** Per-model branch doctrine lines. `%P` = prod branch, `%D` = dev branch. */
+const BRANCH_MODEL_RULES = {
+  trunk:
+    "Model **trunk** (POC/early MVP): work lands directly on `%P`. A separate branch is an " +
+    "EXCEPTION justified only by genuine parallel work — it merges back and dies at the merge.",
+  "pr-main":
+    "Model **pr-main** (risk-declared MVP): short-lived branch → PR → `%P`. Never push `%P` " +
+    "directly, never park work on it; the branch is deleted AT merge, same task, never a follow-up.",
+  staged:
+    "Model **staged** (production): `%D` is the default target — work lands there. `%P` receives " +
+    'ONLY promotion merges from `%D`; deploys trigger on `%P`, so "on %P" means IN PRODUCTION — ' +
+    "never merge to `%P` to park work. Temporary branches merge into `%D` and die at the merge.",
+  custom:
+    "Model **custom**: this project has its own branch doctrine — read " +
+    "`.claude/library/branch-doctrine.md` BEFORE any branch/merge/push decision and follow it.",
+};
+
+/** The project's branch & merge doctrine, chosen by the human at install/onboarding and
+ * baked into `<project>/.xenomoon/branch-model` (first line = model; optional `prod=`/`dev=`
+ * lines override the main/development defaults). Appended to every session prompt like the
+ * economics block; absent file → empty string (older installs unaffected). Prose by design —
+ * the owner's call is convention-first, mechanism only if sessions prove they need it.
+ * @returns {string} */
+export function getBranchModelBlock() {
+  let raw;
+  try {
+    raw = readFileSync(path.join(PROJECT_DIR, ".xenomoon", "branch-model"), "utf8");
+  } catch {
+    return "";
+  }
+  const lines = raw
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const model = lines[0] ?? "";
+  const rules = BRANCH_MODEL_RULES[/** @type {keyof BRANCH_MODEL_RULES} */ (model)];
+  if (!rules) return "";
+  // The find requires a value after the `=`, so an empty override line falls back too.
+  /** @param {string} prefix @param {string} fallback @returns {string} */
+  const branch = (prefix, fallback) =>
+    lines.find((l) => l.startsWith(prefix) && l.length > prefix.length)?.slice(prefix.length) ??
+    fallback;
+  const prod = branch("prod=", "main");
+  const dev = branch("dev=", "development");
+  return (
+    "## Branch & merge doctrine\n\n" +
+    rules.replaceAll("%P", prod).replaceAll("%D", dev) +
+    "\n\n" +
+    "- Work is not done when merged — it is done when its deploy (if one triggers) reports " +
+    "success. Check the completed workflow run's conclusion once; NEVER poll an in-flight run.\n" +
+    "- Branch-containment verdicts need CONTENT evidence (`git cherry`, two-dot per-file " +
+    "diffs — see `plugin/docs/process/branch-verify.md`); `git branch --merged` lies under " +
+    "squash-merge. Never delete a branch you cannot prove contained.\n" +
+    "- The model lives in `.xenomoon/branch-model`; the human changes it there (or re-runs " +
+    "onboarding) as the project matures — never re-derive or override it yourself."
+  );
+}
+
 // Claude Code's own transcript store for this project — every session here is
 // listed and resumable, terminal ones included.
 export const TRANSCRIPT_DIR = path.join(

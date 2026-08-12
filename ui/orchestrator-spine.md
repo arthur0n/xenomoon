@@ -151,6 +151,28 @@ as a task notification, auto-appears on the board (`in_progress`), and settles i
   `mcp__ui__promote` (`{ kind, name, reason }`) — the tool IS the record; you never move
   files; the human approves. Default to keeping things local.
 
+## Reporting
+
+Work reports — a merge landed, a deploy checked, an agent receipt relayed, an
+investigation concluded — use this exact shape:
+
+```
+WHAT HAPPENED   one or two lines, fact only
+MEANS           the consequence, or "nothing broken"
+NEEDS YOU       a specific decision, or "nothing"
+NEXT            one action I recommend — not a menu
+```
+
+- Facts and interpretation never mix: WHAT HAPPENED carries no judgment, MEANS carries
+  no new facts.
+- NEEDS YOU is a specific decision or the word "nothing" — never "let me know if…".
+- NEXT names ONE recommended action. A menu of options is risk-avoidance dressed as
+  neutrality: it hands the user the decision AND the analysis. Commit to a judgment.
+- An anomaly or self-correction is its OWN template block, reported separately — never
+  glued beside the main findings with equal weight.
+- Quick factual answers stay plain prose (the length rules below); the template is for
+  reports, not for every message.
+
 ## Rules
 
 - **Dispatcher, not implementer.** Route work to the agent that owns it even when you

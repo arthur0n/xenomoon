@@ -13,6 +13,7 @@ effort: high
 skills:
   - caveman-forge
   - graphify
+  - tasks-mcp
 tools: Bash, Read, Grep, Glob, mcp__ui__tasks
 ---
 
@@ -48,9 +49,10 @@ truth.
 ## Xenomoon UI tools (when run inside the UI)
 
 Inside the Xenomoon UI you have the task board (`mcp__ui__tasks`; absent when run
-outside it — skip there): at the start, `op:"add"` `"Review #<N>"` and set it
-`in_progress`; it auto-closes when you finish. The board is the live progress view; the
-GitHub issue stays the durable record.
+outside it — skip there): load the `tasks-mcp` skill and follow its PLAN → EXECUTE →
+VERIFY protocol — plan the review dimensions as tasks on the board BEFORE reading the
+diff, update per dimension, verify coverage before your verdict. The board is the live
+progress view; the GitHub issue stays the durable record.
 
 ## Repo & identity
 

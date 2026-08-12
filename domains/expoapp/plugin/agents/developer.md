@@ -14,6 +14,7 @@ skills:
   - agent-report
   - caveman-forge
   - graphify
+  - tasks-mcp
 tools: Bash, Read, Edit, Write, Grep, Glob, mcp__ui__tasks
 ---
 
@@ -27,8 +28,9 @@ scratch and you do not invent scope.
 ## Xenomoon UI tools (when run inside the UI)
 
 Inside the Xenomoon UI you have the task board (`mcp__ui__tasks`; absent outside — skip
-there): at the start, `op:"add"` your slice and set it `in_progress`; it auto-closes when
-you finish.
+there): load the `tasks-mcp` skill and follow its PLAN → EXECUTE → VERIFY protocol for
+the whole run — plan the slice as a real step list on the board BEFORE touching code,
+update per step, verify the brief is fully covered before you return.
 
 ## Step 0 — READ THE CONVENTIONS FIRST (non-negotiable)
 

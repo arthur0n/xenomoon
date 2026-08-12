@@ -9,7 +9,7 @@ description: >-
   the /qa command.
 model: sonnet
 effort: medium
-skills: caveman-forge
+skills: caveman-forge, tasks-mcp
 tools: Bash, Read, Grep, Glob, mcp__ui__tasks, mcp__ui__ask
 ---
 
@@ -40,10 +40,10 @@ correct it.
 Inside the Xenomoon UI you have the shared task board + ask channel (absent when run
 outside the UI — just skip them there):
 
-- **`mcp__ui__tasks`** — at the start of your run, `op:"add"` one task `"QA #<N>"`
-  and set it `in_progress`. The server auto-closes your tasks when you finish, so don't
-  chase them. The board is the live progress view; the GitHub issue stays the durable
-  record.
+- **`mcp__ui__tasks`** — load the `tasks-mcp` skill and follow its PLAN → EXECUTE →
+  VERIFY protocol: plan the acceptance checks as tasks on the board BEFORE running any,
+  update per check, verify every Acceptance line is covered before your verdict. The
+  board is the live progress view; the GitHub issue stays the durable record.
 - **`mcp__ui__ask`** — if you're blocked on something only the user can answer (a
   missing env var to run the data-path smoke, say), file it once on the board
   (`owner:"user"`); it returns immediately and the user answers inline later. **One

@@ -12,7 +12,7 @@ description: >-
   scenario, e.g. "UAT poc". Used by the /uat command.
 model: sonnet
 effort: low
-skills: caveman-forge, ios-local-run, ios-local-uat, android-local-run, android-local-uat
+skills: caveman-forge, tasks-mcp, ios-local-run, ios-local-uat, android-local-run, android-local-uat
 tools: Bash, Read, Grep, Glob, mcp__ui__tasks, mcp__ui__ask
 ---
 
@@ -48,8 +48,9 @@ Before running anything, read the project's own docs:
 Inside the Xenomoon UI you have the task board + ask channel (absent when run outside
 the UI — skip there):
 
-- **`mcp__ui__tasks`** — at the start, `op:"add"` one task `"UAT <scenario>"` and set it
-  `in_progress`; it auto-closes when you finish.
+- **`mcp__ui__tasks`** — load the `tasks-mcp` skill and follow its PLAN → EXECUTE →
+  VERIFY protocol: plan one task PER Maestro FLOW you'll run (`"UAT <scenario> · <flow>"`)
+  before starting, update per flow, verify every planned flow ran before your report.
 - **`mcp__ui__ask`** — how you confirm **preconditions** and report an **auth/session
   failure** (below). File it `owner:"user"`; it returns immediately and the user answers
   inline. **One decision, one channel.**

@@ -13,6 +13,7 @@ effort: high
 skills:
   - caveman-forge
   - graphify
+  - tasks-mcp
 tools: Bash, Read, Grep, Glob, mcp__ui__tasks, mcp__ui__form, mcp__ui__ask
 ---
 
@@ -72,9 +73,10 @@ You investigate SYMPTOMS. You do not invent INTENT.
 Inside the Xenomoon UI you have the shared task board + ask channel (absent when run
 outside the UI — just skip them there):
 
-- **`mcp__ui__tasks`** — at the start of your run, `op:"add"` one task `"Analyze #<N>"`
-  and set it `in_progress`. The server auto-closes your tasks when you finish. The board
-  is the live progress view; the GitHub issue stays the durable record.
+- **`mcp__ui__tasks`** — load the `tasks-mcp` skill and follow its PLAN → EXECUTE →
+  VERIFY protocol for the whole run: plan the real step list on the board BEFORE your
+  first read, update per step, verify the brief is fully covered before you return. The
+  board is the live progress view; the GitHub issue stays the durable record.
 - **`mcp__ui__ask`** — the guardrail-(b) intent channel, and where a `needs-info` outcome
   files its missing-info question (`owner:"user"`). **One decision, one channel** — don't
   also ask the same thing in chat.

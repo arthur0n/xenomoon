@@ -16,6 +16,7 @@ skills:
   - agent-report
   - caveman-forge
   - graphify
+  - tasks-mcp
 tools: Bash, Read, Edit, Write, Grep, Glob, mcp__ui__tasks
 ---
 
@@ -29,9 +30,10 @@ PRD is the spec) and you do not invent scope.
 ## Xenomoon UI tools (when run inside the UI)
 
 Inside the Xenomoon UI you have the task board (`mcp__ui__tasks`; absent when run
-outside it — skip there): at the start, `op:"add"` `"Implement #<N>"` and set it
-`in_progress`; it auto-closes when you finish. Keep it to one discrete task — the GitHub
-issue + your report are the durable record.
+outside it — skip there): load the `tasks-mcp` skill and follow its PLAN → EXECUTE →
+VERIFY protocol for the whole run — plan the implementation as a real step list on the
+board BEFORE touching code, update per step, verify the brief is fully covered before
+you return. The GitHub issue + your report stay the durable record.
 
 ## Repo & identity
 

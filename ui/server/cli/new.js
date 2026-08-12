@@ -96,6 +96,24 @@ if (rl) {
     process.exit(1);
   }
 }
+// Branch model — the project's branch & merge convention, decided by the human here and
+// re-confirmable at /onboard. Written to <project>/.xenomoon/branch-model (the runtime
+// source every session reads); the .xenomoon.json copy is provenance only. Presets:
+//   trunk   — POC/early MVP: work lands directly on the default branch
+//   pr-main — risk-declared MVP: short-lived branch → PR → main, branch dies at merge
+//   staged  — production: development is the default target; main = promotion-only + deploys
+const BRANCH_MODELS = ["trunk", "pr-main", "staged"];
+let branchModel = null;
+if (rl) {
+  branchModel =
+    (await rl.question(`Branch model (${BRANCH_MODELS.join(" | ")}) [empty = trunk]: `)).trim() ||
+    null;
+  if (branchModel && !BRANCH_MODELS.includes(branchModel)) {
+    console.error(`new: branch model must be one of ${BRANCH_MODELS.join(", ")}.`);
+    process.exit(1);
+  }
+}
+branchModel ??= "trunk";
 if (!domainName) {
   const avail = availableDomains(FRAMEWORK_DIR);
   console.error(
@@ -229,6 +247,20 @@ for (const [stub, content] of Object.entries(LIBRARY_STUBS)) {
   console.log(`new: seeded project library stub → ${p}`);
 }
 
+// 1d. Bake the branch model project-side — the runtime source of truth every session and
+//     capability reads. Never overwritten on re-install: an existing file IS the human's
+//     current choice (edit it, or re-run /onboard, to change the model as the project matures).
+{
+  const modelFile = path.join(target, ".xenomoon", "branch-model");
+  if (existsSync(modelFile)) {
+    console.log(`new: ${modelFile} already set — keeping the existing branch model.`);
+  } else {
+    mkdirSync(path.dirname(modelFile), { recursive: true });
+    writeFileSync(modelFile, branchModel + "\n");
+    console.log(`new: branch model "${branchModel}" → ${modelFile}`);
+  }
+}
+
 // 2. Remember the path (writes .xenomoon.json projectDir).
 node(path.join(here, "setup.js"), target);
 
@@ -247,7 +279,12 @@ if (!DOMAIN.materializeIntoProject) {
   writeFileSync(
     cfgFile,
     JSON.stringify(
-      { ...cfg, domain: domainName, ...(portAnswer ? { port: Number(portAnswer) } : {}) },
+      {
+        ...cfg,
+        domain: domainName,
+        branchModel,
+        ...(portAnswer ? { port: Number(portAnswer) } : {}),
+      },
       null,
       2,
     ) + "\n",

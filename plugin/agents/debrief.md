@@ -92,6 +92,12 @@ arrive or hand the pending run to the orchestrator in your report. If the call i
      same answer every session (a lookup, a count, a format check, a fixed transform) is a
      determinism finding — propose the script/check, not a skill that teaches the model to
      do it better.
+   - **Should an internal TOOL command own this interaction?** For EVERY issue, ask: did
+     an agent hand-roll an external interaction (gh, git branch surgery, deploy checks,
+     any third-party CLI/API) that a convention should govern? The convention belongs IN
+     the tool (precedent: issuekit — agents pass an issue/PR number, the tool carries the
+     branch/PR/merge/deploy convention), so agents never reason about the command. Propose
+     the new tool command (name + args + the convention it encodes), not a prose recipe.
    - Only when neither applies does the lesson belong in prose (skill/doc/rubric below).
 4. **Reach exactly one verdict:**
 

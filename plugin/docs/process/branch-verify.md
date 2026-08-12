@@ -47,6 +47,29 @@ rtk proxy gh run list --workflow=<deploy>.yml --branch=<prod> --status=completed
 
 Fail on any non-success conclusion. "Merged" is not a receipt; the deploy conclusion is.
 
+## A stale branch is NEVER a pipeline blocker — the tool has the command
+
+Never escalate a stale branch to the human, never ask them to `reset --hard`. The
+convention lives in `issuekit` — pass a number, don't reason about git:
+
+1. **Stale PR branch** (base moved, checks stale): `issuekit pr update <PR#>` — merges
+   the base in server-side; the push fires `synchronize`, checks re-run, nothing local
+   is touched.
+2. **Stale LOCAL branch** (remote rewritten/advanced): `issuekit branch sync <name>` —
+   safe pointer move; refuses when the branch is checked out; the old sha stays in the
+   reflog.
+3. **Real conflicts / edits needed** — only then: `git worktree add <tmp>
+origin/<branch>`, resolve there, push, remove the worktree. The user's checkout is
+   never touched.
+4. **The human's own terminal** — only when THEY want their checked-out branch moved;
+   FYI in a report, never NEEDS YOU.
+
+Same rule for the rest of the gh surface: `issuekit branch <#>` (create), `issuekit pr
+<#>` (open, "Refs #N" never Closes), `issuekit pr merge <PR#>` (merge + delete head at
+merge), `issuekit pr retarget <PR#> --base <b>` (warns that no checks fire),
+`issuekit branch contained/prune` (the containment evidence below, as a command),
+`issuekit deploy-check` (the deploy conclusion below, as a command).
+
 ## Exact output matters here
 
 `rtk` compacts git/gh output and can corrupt this analysis. Use `rtk proxy git …` /

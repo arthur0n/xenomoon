@@ -25,7 +25,8 @@
  * @typedef {{ id: string, label: string, blurb: string, docHref?: string, runbook?: string,
  *   roles: string[], defaultRoles: string[], runtimeKind: string, fields: AgentField[],
  *   install?: AgentInstall, hasSetup: boolean, hasAuth: boolean,
- *   status: { enabled: boolean, roles: string[], hasKey?: boolean, models?: string[], vendored?: boolean, [k: string]: unknown } }} AgentPublicDescriptor */
+ *   status: { enabled: boolean, roles: string[], hasKey?: boolean, models?: string[], vendored?: boolean, [k: string]: unknown },
+ *   health?: { ok: boolean, caveat?: string, error?: string, checkedAt: number } }} AgentPublicDescriptor */
 /** Verdict from probing the local Codex install (`POST /api/codex/check`). @typedef {{ ok: boolean, enabled: boolean, cli: boolean, version?: string, authOk: boolean, authMode?: string, authMethod?: "chatgpt" | "apiKey", model?: string, vendored: boolean, caveat?: string, error?: string }} CodexCheck */
 /** Browser-safe Kimi config (no secrets — auth lives in the local `kimi` CLI).
  * @typedef {{ enabled: boolean, roles: string[] }} KimiPublicConfig */

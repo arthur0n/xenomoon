@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 import { parseJSON } from "../../lib/json.js";
 import { FRAMEWORK_DIR } from "../core/config.js";
 import { getAgent } from "./registry.js";
+import { triggerHealthSweep } from "./agents-health.js";
 
 /** A setup npm script gets 5 minutes before we kill it — it may install a CLI. */
 const SETUP_TIMEOUT_MS = 300_000;
@@ -219,6 +220,7 @@ export function handleAgentApi(req, res, url) {
           respond(res, saved, true);
           return;
         }
+        triggerHealthSweep(); // config just changed — refresh the rail strip's verdict soon
         respond(res, agent.publicConfig());
       });
       return;

@@ -11,7 +11,8 @@ import { mkdirSync } from "node:fs";
 import { WebSocketServer } from "ws";
 import { parseJSON } from "../../lib/json.js";
 import { PORT, PROJECT_DIR, PROJECT_FOUND, CONFIG_FILE, LOG_DIR, ENGINE_LABEL } from "./config.js";
-import { AGENT_REGISTRY, listAgents } from "../agents/registry.js";
+import { AGENT_REGISTRY } from "../agents/registry.js";
+import { listAgentsWithHealth, startHealthSweeps } from "../agents/agents-health.js";
 import { handleAgentApi } from "../agents/agents-http.js";
 import { sweepKimiWorktrees } from "../integrations/kimi/kimi-worktree.js";
 import { maybeStartHermesGateway } from "../integrations/hermes/hermes-gateway.js";
@@ -223,7 +224,7 @@ const GET_ROUTES = {
   "/api/usage": computeUsage,
   "/api/skills": skillsConfig,
   "/api/agent-skills": listAgentSkills,
-  "/api/agents": listAgents,
+  "/api/agents": listAgentsWithHealth,
 };
 
 /** POST endpoints: url → handler. Keeps the request dispatcher under the complexity
@@ -334,6 +335,9 @@ function onListening() {
   // Bring up the Hermes gateway too when Hermes is on (opt-in, skipped if already up).
   // Non-blocking and non-fatal: the UI is fully usable whether or not this succeeds.
   void maybeStartHermesGateway();
+  // Background health sweeps for enabled paid agents — feeds the rail strip's live ⚠
+  // (e.g. Hermes up but web search backend missing) without the user clicking Test.
+  startHealthSweeps();
   if (!PROJECT_FOUND) {
     console.warn(
       [

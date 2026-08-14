@@ -3612,6 +3612,14 @@ input.cmd::placeholder {
 .paid-agent-row.on {
   color: var(--text);
 }
+/* Background health sweep found a problem (unreachable, or ok-with-caveat like a missing
+   web search backend) — live ⚠ without the user clicking Test. Tooltip carries the detail. */
+.paid-agent-row.warn .paid-agent-state {
+  color: var(--red);
+}
+.dot.warn {
+  background: var(--red);
+}
 .paid-agent-name {
   font-weight: 600;
 }

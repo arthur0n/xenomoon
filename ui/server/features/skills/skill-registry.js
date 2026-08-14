@@ -9,7 +9,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // ui/server/features/skills
-const PLUGIN = path.join(HERE, "..", "..", "..", "..", "plugin");
+const ROOT = path.join(HERE, "..", "..", "..", "..");
+const PLUGIN = path.join(ROOT, "plugin");
 export const SKILLS_DIR = path.join(PLUGIN, "skills");
 export const AGENTS_DIR = path.join(PLUGIN, "agents");
 
@@ -17,12 +18,25 @@ export const AGENTS_DIR = path.join(PLUGIN, "agents");
  * `orchestrator`; its skill set is ORCHESTRATOR_FRAMEWORK_SKILLS (in skill-catalog.js). */
 export const ORCH = "@orchestrator";
 
-/** The `builders` audience token's expansion for the CORE plugin's skill scoping. The CORE
- * (domain-agnostic) skills target the orchestrator or specific agents, NOT a "builders" cohort —
- * a domain pack scopes its OWN builders inside `domains/<name>/`. So this is empty here; a CORE
- * skill that tagged `builders` would resolve to no audience (and the validator would flag it).
+/** The `builders` audience token's expansion — the ACTIVE domain's code-writers. CORE ships no
+ * builder of its own: each pack declares its cohort as `builders` in its `domain.json`, which
+ * `forge new` bakes into `.xenomoon.json`'s `domainDescriptor`. So we read the baked descriptor
+ * here (plain `fs`, never `config.js` — importing that triggers a load-time domain/engine probe
+ * and this module must stay loadable under `npm run validate`). No install, no descriptor, or a
+ * pack that declares none → empty, and a CORE skill tagged `builders` resolves to no audience.
  * @type {string[]} */
-export const BUILDERS = [];
+export const BUILDERS = (() => {
+  try {
+    const f = path.join(ROOT, ".xenomoon.json");
+    if (!existsSync(f)) return [];
+    const raw = /** @type {unknown} */ (JSON.parse(readFileSync(f, "utf8")));
+    const cfg = /** @type {{ domainDescriptor?: { builders?: unknown } }} */ (raw);
+    const d = cfg.domainDescriptor?.builders;
+    return Array.isArray(d) ? d.filter((x) => typeof x === "string") : [];
+  } catch {
+    return []; // an unreadable / malformed descriptor must never break the gate
+  }
+})();
 
 /** The frontmatter block (between the first two `---`) and the body that follows.
  * @param {string} text @returns {{ fm: string, body: string }} */

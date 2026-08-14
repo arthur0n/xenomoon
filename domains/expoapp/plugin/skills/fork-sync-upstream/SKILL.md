@@ -1,5 +1,6 @@
 ---
 name: fork-sync-upstream
+agents: [builders]
 description: Domain-agnostic runbook for merging an upstream repo into a long-lived product fork — delta triage, install-before-commit, recurring conflict shapes (union objects, moved types + fork-only keys, size-cap trips), validate gates, and when NOT to merge. Load when syncing a fork with upstream or diagnosing a broken post-sync tree. Written platform-neutral; promotable out of this domain.
 ---
 

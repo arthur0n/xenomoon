@@ -1,7 +1,7 @@
 # pre-push: HARD BLOCK any push to a xenodot-forge repo. xenomoon is the DOWNSTREAM fork: it
 # FETCHES curated updates FROM xenodot-forge and NEVER pushes to it — neither the source
 # (arthur0n/xenodot-forge) nor our GitHub fork-of-the-source (Pexelins/xenodot-forge). Our work is
-# published to ONE place: the `xenomoon` remote (arthur0n/xenomoon). See docs/whitelabel/SYNC.md.
+# published to ONE place: the `xenomoon` remote (arthur0n/xenomoon). See docs/fork/SYNC.md.
 remote_name="$1"
 remote_url="$2"
 

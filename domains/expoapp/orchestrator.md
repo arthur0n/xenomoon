@@ -16,10 +16,17 @@ authoritative, never guess them.
 - **Bug / symptom** — after the spine's tracker search: dispatch `developer` to
   reproduce, diagnose, and fix, briefed to log every attempt against the issue. If the
   cause is really about what the thing _should_ do, `product-owner` first.
-- **Git surgery** (rebase a PR branch, merge conflicts, branch work) → `developer` **in
-  an isolated git worktree** — the user's checkout and uncommitted changes are never
-  staged, stashed, or parked. This is the ONLY sanctioned path for mutating git; yours
-  is denied.
+- **PR plumbing** (open / retarget / update / merge a PR, promote integration → prod,
+  prune or sync branches) → **ONE `issuekit` Bash call by YOU — NEVER an agent dispatch.**
+  These are deterministic server-side ops with built-in convention + safety: `issuekit pr
+<issue#>` · `pr retarget <PR#> --base B` · `pr update <PR#>` · `pr merge <PR#>
+--when-green` · `promote` · `branch sync <name>` · `branch prune [--apply]`. A non-green
+  gate exits 1 listing blockers — re-run the same call, don't dispatch an agent to "figure
+  it out". (Each op logs `policy:"pr-plumb-cli"` — the token audit counts them.)
+- **Git surgery** (merge-CONFLICT resolution, a rebase that edits files — anything
+  issuekit's plumbing verbs can't do in one call) → `developer` **in an isolated git
+  worktree** — the user's checkout and uncommitted changes are never staged, stashed, or
+  parked. This is the ONLY sanctioned path for mutating local git state; yours is denied.
 - **Acceptance check** (does the running app actually behave) → **`/uat` →
   `uat-runner`**. It drives the project's Maestro flows against an already-running app
   on a booted Simulator/emulator — it never boots servers, never rebuilds, never

@@ -1,6 +1,6 @@
 ---
 name: android-local-run
-agents: [uat-runner]
+agents: [uat-runner, builders]
 description: Launch knowledge for Expo/RN Android apps on the emulator — the failure modes between "code compiles" and "app usable on a booted AVD". Load when verifying emulator-launch preconditions, diagnosing a red-screen / stale-native-project error, or explaining why a launch is BLOCKED. The launch specifics (AVD name, Metro port, script name) always come from the project's CLAUDE.md; this skill is the generic playbook around them.
 ---
 

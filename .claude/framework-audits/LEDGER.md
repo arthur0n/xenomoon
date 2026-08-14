@@ -1,28 +1,33 @@
-<!-- GENERATED from LEDGER.json by `npm run ledger` — DO NOT EDIT; edit LEDGER.json. (No regen script exists in this fork yet — this view was hand-synced 2026-07-24; see parking.) -->
+<!-- GENERATED from LEDGER.json by `npm run ledger` — DO NOT EDIT; edit LEDGER.json. (No regen script exists in this fork yet — this view was hand-synced 2026-08-13; see parking.) -->
 
 # Framework audit ledger
 
-**open (fix-now): 2 · later: 4 · skip: 0**
+**open (fix-now): 6 · later: 4 · skip: 0**
 
-_Last audit:_ 2026-07-24 (recalibration) — D7-ledger-godot-stale + D7-suite-godot-stale APPLIED: pruned the 10 godot-world rows (their spine is absent from this fork) and re-authored the suite to the fork spine; kept the 2 rows that still apply (caveman-gate, result-contract). Earlier same day: domain-fork reality check. PRIOR: 2026-07-08 — full 9-dim fan-out pass.
+_Last audit:_ 2026-08-13 (full pass, single context, expoapp pack installed) — 14 new findings + D9-caveman-gate upgraded from hypothesis to MEASURED. Headline: `npm run validate` was RED (check:skills) and BOTH agnostic gates were blind where it matters. **11 findings applied same day** (see git): the gate is green again, the CORE spine's precedence sentence is fixed, two stale hardcoded file lists are now derived, and both contamination gates now derive the bound project's terms and scan the CORE plugin tree (which immediately caught a real leak in `ui/server/cli/start-profile.js`). PRIOR: 2026-07-24 recalibration.
 
-> Source of truth is **`LEDGER.json`** — edit that, then `npm run ledger` (pre-commit also regenerates). This file + `ledger.html` are generated views. Applied findings are DELETED (git is the fix record), never stamped.
+> Source of truth is **`LEDGER.json`** — edit that. This file is a hand-synced view. Applied findings are DELETED (git is the fix record), never stamped.
 
-## Bucket 3 — no-brainers (0) · fix-now · mechanical (framework-nobrainer-fixer)
+## Bucket 3 — no-brainers (0) · fix-now · mechanical
 
 _none_
 
-## Bucket 4 — improvements (2) · fix-now · needs judgment (/framework-audit-fix)
+## Bucket 4 — improvements (6) · fix-now · needs judgment (/framework-audit-fix)
 
-- **D8-epic-grill-layer-unproven** · `D8` · _open_ — the 2026-07-30 adaptation wave (designer→product-owner rename; grill + /grill; xeno-epic + `mcp__ui__epic` + /epic; skill-writing doctrine) is validate-green but has zero end-to-end runs: epic tool's gh path untested on a real repo, grill mode never drove a real form sequence, live clones still on old roster until /sync-framework. Next pass: pilot epic chart→decide→slice on lexflow-xm, score the new skills against skill-writing.md, sweep for dangling designer refs in derived surfaces.
-- **D7-contribute-two-tree** · `D7` · _open_ — plugin/commands/contribute.md (SHIPPED) is still built on the dead two-tree model: it stages domains/<name>/plugin/{skills,library}/ and its scope-safety rule forbids staging plugin/ (CORE) — but promote-run.js locate() lands promotions in plugin/{skills,library}/ (one tree). Needs a redesign (provenance by git history / promotions board, not path), not a path fix. Found 2026-07-24.
+- **D8-badges-count-untracked** · `D8` · _open_ — `update-badges.js` counts the FILESYSTEM plugin tree, so a local `forge new` inflates the shipped badges: the pre-commit hook rewrote README + marketplace.json to Skills 20 / Agents 7 while the trunk ships 13 / 5. No gate catches it (validate skips badges by design). Count `git ls-files plugin/{skills,agents}` instead. Accepted knowingly in the 2026-08-13 audit-fix commit.
+
+- **D10-mobile-record-core-tier** · `D10` · _open_ — the Clerk/EAS/Play launch record is Expo-mobile payload sitting in the GENERIC CORE library, untracked — ships to nobody while polluting the neutral tier. Move to `domains/expoapp/plugin/library/findings/`. (Its project-name leak is fixed; the tier is not.)
+- **D10-fork-sync-in-domain** · `D10` · _open_ — `fork-sync-upstream` is self-declared domain-agnostic yet lives in `domains/expoapp`; a webapp fork cannot reach it. Dependency-direction inversion → promote to CORE.
+- **D9-caveman-gate** · `D9` · _open_ — MEASURED: the observe+score hook is restored and wired; `logs/caveman-gate.log` = 2378 rows, `marker:true` 23 (0.97%), `verbose:true` 168 (7%). Terseness holds; the `[cvmn]` marker is never emitted. Decide: drop the marker convention or enforce it deterministically. (Rows repeat per tool call — directional, not per-message.)
+- **D8-epic-grill-layer-unproven** · `D8` · _open_ — the 2026-07-30 adaptation wave (product-owner rename; grill + /grill; xeno-epic + `mcp__ui__epic` + /epic; skill-writing doctrine) is validate-green but has zero end-to-end runs. Pilot epic chart→decide→slice on a real project, score the new skills against skill-writing.md, sweep for dangling designer refs.
+- **D7-contribute-two-tree** · `D7` · _open_ — `plugin/commands/contribute.md` (SHIPPED) still assumes the dead two-tree model; `promote-run.js` lands promotions in `plugin/{skills,library}/`. Needs a redesign (provenance by git history / promotions board, not path).
 
 ## Bucket 5 — later (4) · system / parked
 
-- **D10-fork-divergence-wiring** · `D10` · _open_ — xenomoon now diverges from xenodot beyond identity (product-owner roster, `mcp__ui__epic`, grill/xeno-epic skills, skill-writing doc) with no systematic wiring check for divergent surfaces; name them as first-class seams in docs/fork/SEAMS.md so /sync-upstream and the audit suite read the list, not the diff. FIRST LIVE BITE (2026-07-30, fixed 376c614): trunk-tracked skill-sources.md collided with the pack-install path and broke `xenomoon update`; invariant: trunk never tracks a path a domain-pack install writes.
-- **D10-skill-scope-genre-style** · `D10` · _open_ — skill-scope.js (+ check) still models the godot {genre, style} game-profile filter with godot-\* fixtures; mechanism generic, vocabulary engine payload. Re-parameterize profile axes per domain descriptor, or strip until a second domain needs it. Found 2026-07-24.
-- **D9-caveman-gate** · `D9` · _open_ — caveman enforcement is prompt-only (per-tool reminder hook deleted afa2a79, 2026-06-26) with NO compliance measurement; review iter1 claims ~0% compliance ('[cvmn]' in 0/708 blocks); decide: restore a slim observe+score hook (review P0B-2 + P0B-7 banned-pattern list) or measure first and accept prompt-only. Fork note: the shipped skill is caveman-forge (renamed over a builtin collision).
-- **D8-result-contract-unenforced** · `D8` · _open_ — agent-report/SKILL.md:31 contracts the relayed result to '<path> — gate PASS|FAIL' but nothing enforces it — no SubagentStop hook anywhere (verified 2026-07-08); review measured ~1.2k-char avg prose results vs the ~50-char contract; harden: SubagentStop regex validator + digest cap ≤6 lines (review P0B-3 merged schema).
+- **D5-token-audit-two-copies** · `D5` · _open_ — token-audit exists as two diverged copies (shipped 1715 w vs forge-local 2309 w); the shipped one lacks two sections and the whole `history.json` half, with nothing keeping them in sync.
+- **D10-fork-divergence-wiring** · `D10` · _open_ — fork-divergent surfaces (roster rename, `mcp__ui__epic`, grill/xeno-epic, skill-writing doc) have no systematic wiring check; name them as first-class seams in `docs/fork/SEAMS.md`. Invariant from the first live bite: the trunk never tracks a path a domain-pack install writes.
+- **D10-skill-scope-genre-style** · `D10` · _open_ — `skill-scope.js` still models the godot {genre, style} profile filter with godot-\* fixtures; mechanism generic, vocabulary engine payload.
+- **D8-result-contract-unenforced** · `D8` · _open_ — `agent-report/SKILL.md:31` contracts the relayed result to `<path> — gate PASS|FAIL`; nothing enforces it (no SubagentStop hook). Harden with a regex validator + digest cap.
 
 ## Bucket 6 — skip (0) · tombstones — recorded so they are not re-filed
 

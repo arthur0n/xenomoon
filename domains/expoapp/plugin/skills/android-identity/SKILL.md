@@ -1,5 +1,6 @@
 ---
 name: android-identity
+agents: [builders]
 description: How an Expo/RN app's user-visible identity (launcher label, icon, package) is actually resolved on Android, and how internal scaffolding names leak to users. Load when a wrong app name/icon ships, when renaming a product, or when auditing branding before a store release.
 ---
 

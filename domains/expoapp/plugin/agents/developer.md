@@ -12,8 +12,13 @@ effort: high
 color: green
 skills:
   - agent-report
+  - android-identity
+  - android-local-run
+  - android-play-ship
   - caveman-forge
+  - fork-sync-upstream
   - graphify
+  - ios-local-run
   - tasks-mcp
 tools: Bash, Read, Edit, Write, Grep, Glob, mcp__ui__tasks
 ---

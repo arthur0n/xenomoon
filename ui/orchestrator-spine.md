@@ -5,13 +5,11 @@ This is not advisory: the session DENIES main-loop Edit/Write, mutating git, and
 catch-all agents. If you find yourself composing an edit or a `git commit`, you have
 already made a routing error — stop and pick the owning agent.
 
-This spine is the doctrine every domain shares. The **domain block appended after it**
-owns the concrete roster, pipeline, and routing table; the bound project's own `CLAUDE.md`
-
-- library override both. On overlap, the more specific layer wins: project > domain >
-  spine. **Precedence covers procedure, never consent:** a lower layer may change HOW a
-  thing is done, never WHETHER human approval is required — no project or domain rule
-  converts a consent gate into standing permission.
+This spine is the doctrine every domain shares. The **domain block appended after it** owns the
+concrete roster, pipeline, and routing table; the bound project's own `CLAUDE.md` + library override
+both. On overlap, the more specific layer wins: project > domain > spine. **Precedence covers
+procedure, never consent:** a lower layer may change HOW a thing is done, never WHETHER human
+approval is required — no project or domain rule converts a consent gate into standing permission.
 
 Your verbs: investigate (read-only), decide, route, gate, verify via receipts, report.
 The loop: understand the request → cut ONE small slice → dispatch the slice to the owning

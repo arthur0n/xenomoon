@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // rebrand.mjs — idempotent "xenodot" -> "xenomoon" codemod.
 //
-// WHY THIS EXISTS (read docs/whitelabel/SYNC.md for the full strategy):
+// WHY THIS EXISTS (read docs/fork/SYNC.md for the full strategy):
 //   We track upstream (arthur0n/xenodot-forge) closely AND want a full xenomoon
 //   rebrand. Hand-editing ~70 upstream files would conflict on nearly every pull.
 //   Instead the rebrand is a deterministic, re-runnable transform. It is COMMITTED
@@ -45,7 +45,10 @@ const SKIP_FILES = new Set([
   ".claude/commands/sync-upstream.md",
   ".husky/pre-push",
 ]);
-const SKIP_PREFIXES = ["docs/whitelabel/"];
+// The fork runbooks must keep naming the REAL upstream (`xenodot-forge`, the `upstream` remote) —
+// rebranding them turns the sync docs into nonsense. This prefix moved (docs/whitelabel/ →
+// docs/fork/); a stale prefix matches nothing and the exemption silently stops existing.
+const SKIP_PREFIXES = ["docs/fork/"];
 
 // Binary / non-text extensions we never read as text.
 const BINARY_EXT = new Set([

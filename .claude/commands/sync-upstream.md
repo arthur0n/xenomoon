@@ -104,8 +104,10 @@ gate — faster, less safe; still runs validate). Let `REF = <remote>/<branch>`.
      `ui/docs-block.md`, the `DOCS_*`/`getDocsConfig`/`mcp__godot-docs__*` wiring, the
      `@nuskey8/godot-docs-mcp` dep) — **KEEP** `ui/server/mcp-tools/ui-server.js`.
    - **godot skills/agents/library** — `plugin/skills/godot-*`, `plugin/agents/{game-designer,
-level-designer,godot-*}.md`, and ALL of `plugin/library/` **EXCEPT** our two CORE files
-     (`README.md`, `token-audits/LEDGER.md`). KEEP the domain-agnostic wins that shipped alongside
+level-designer,godot-*}.md`, and ALL of `plugin/library/` **EXCEPT our own CORE files — derive
+     that keep-list, never recall it**: `rtk git ls-files plugin/library` on OUR pre-merge trunk
+     (a hardcoded pair went stale the moment a third CORE file landed, and a literal read of it
+     deletes the newcomer). KEEP the domain-agnostic wins that shipped alongside
      (e.g. Hermes learning-nudges in `ui/server/mcp-tools/hermes-tool.js`).
    - **grep-usage-log hook** (`plugin/hooks/grep-usage-log.sh` + its `Bash|Grep` PreToolUse entry
      in `plugin/hooks/hooks.json`) — overlaps our `rtk-usage-log.sh`. KEEP `graphify-update.sh`.

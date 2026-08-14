@@ -29,8 +29,11 @@ properties the promotion rubric (`plugin/docs/process/promotion.md`) demands.
 
 - **Agents:** `plugin/agents/*.md` — frontmatter `skills:` list + the prompt body.
 - **Skills:** `plugin/skills/*/SKILL.md` — frontmatter `name`/`description`/`agents` + body.
-- **Orchestrator:** `domains/*/orchestrator.md` (each pack's source; `forge new` copies the picked
-  one to `plugin/orchestrator.md` at install — so CORE has none until a domain is installed).
+- **Orchestrator — TWO layers, audit both:** `ui/orchestrator-spine.md` is the CORE doctrine
+  prepended to EVERY session (routing doctrine, ask/tasks/background rules, reporting template) —
+  the largest orchestrator surface and the one a domain never overrides. `domains/*/orchestrator.md`
+  is each pack's block appended after it (`forge new` copies the picked one to
+  `plugin/orchestrator.md` at install — so CORE has no domain block until a domain is installed).
 - **Commands:** `plugin/commands/*.md` and ALL forge-local self-improvement commands —
   glob `.claude/commands/*.md`, never a hardcoded list (it goes stale; token-audit.md was
   silently missed by one).
@@ -66,6 +69,23 @@ regen script was renamed or never existed), do NOT audit against the stale map �
 findings against a spine the command mis-describes. ABORT and file ONE finding (dim **D7** — this
 suite is itself a forge-local command) listing the stale refs, so the suite gets re-aimed first. Fix
 the map, then audit.
+
+**Then run the check in REVERSE — derive the surface from the LOADER, not from this map.** A stale
+ref is loud (the path fails to resolve); a MISSING one is silent — a file loaded into every session
+that "Where the data lives" simply never names is invisible by construction, and no dimension will
+ever open it. So before auditing, read the prompt-assembly code (`ui/server/core/config.js` — the
+functions that `readFileSync` the session prompt's parts) plus the session/plugin loader, and
+enumerate EVERY doc the runtime actually feeds a session. Diff that set against the paths named in
+"Where the data lives". Anything loaded-but-unnamed is an audit blind spot: ADD it to the map (and
+to the dimension that owns it) before running the pass, and file it as a **D7** finding so the gap is
+recorded, not just patched. Precedent: `ui/orchestrator-spine.md` — 202 lines of CORE doctrine loaded
+EVERY session, larger than either orchestrator, unnamed by this map, so a broken
+markdown/precedence sentence in it survived multiple full passes.
+
+**Also run `rtk npm run validate` here, in preflight — not later.** D1 reads its `check:skills`
+warnings and D8 audits the gate chain itself, so its real exit status is an INPUT to the pass, and a
+RED gate reframes everything downstream (a pass that assumed green has been wrong before). Record
+pass/fail + the actual errors before any dimension runs.
 
 ## Steps
 
@@ -139,10 +159,15 @@ contamination; give the agnostic technical rationale instead and drop the citati
      caveman-trigger lesson). The clean win to look for: a verbatim block across ≥3 agents that's
      only needed at a known step (e.g. the researchers' 6-bucket → `research-presenting`).
 
-   - **D6 — Orchestrator.** Read the domain orchestrators `domains/*/orchestrator.md` (each pack's
-     source; `plugin/orchestrator.md` once a domain is installed). Flag: directives duplicated across
-     agents that should be centralized; dense step-by-step prose that belongs in a reusable
-     skill; philosophy/tone that dilutes routing. Propose the move/trim.
+   - **D6 — Orchestrator (BOTH layers).** Read the CORE spine `ui/orchestrator-spine.md` AND the
+     domain orchestrators `domains/*/orchestrator.md` (each pack's source; `plugin/orchestrator.md`
+     once a domain is installed). Flag: directives duplicated across agents that should be
+     centralized; dense step-by-step prose that belongs in a reusable skill; philosophy/tone that
+     dilutes routing; a spine rule a domain block restates or contradicts. Propose the move/trim.
+     **Also diff installed-vs-source** (`diff domains/<installed>/orchestrator.md
+plugin/orchestrator.md`, and the pack's agents/skills too): an edit made to the INSTALLED copy
+     is a build-artifact edit — the next install clobbers it and no other project ever gets it.
+     Read one file and this is invisible; the diff is the only way it surfaces.
 
    - **D7 — The framework's own commands.** Audit `plugin/commands/*.md` AND all forge-local
      self-improvement commands (glob `.claude/commands/*.md` — never assume a fixed list) for

@@ -5,8 +5,11 @@ Nothing here loads into an agent's context automatically. These are durable **re
 past decisions. Hot knowledge (always- or trigger-loaded) lives in the orchestrator +
 `.claude/skills/`; this folder is everything worth keeping that should NOT cost tokens on every task.
 
-This is the framework's library and ships **empty**. The upstream's domain-specific research records
-are stripped (we pull only curated, domain-agnostic updates). This directory is where
+This is the framework's library. CORE ships only what is domain-agnostic — today that is this
+`README.md`, `sources/framework-sources.md`, and `token-audits/LEDGER.md`; the authoritative list is
+`git ls-files plugin/library`, never a remembered set. Everything else here arrived from a domain
+pack's install or a promotion. The upstream's domain-specific research records are stripped (we pull
+only curated, domain-agnostic updates). This directory is where
 `$XENOMOON_LIBRARY` points (`<framework>/plugin/library/` — the one capability tree); real,
 per-project research is drafted project-local under `<project>/.claude/library/` as the orchestrator
 learns the project, and broadly-useful findings promote up here alongside the capability.

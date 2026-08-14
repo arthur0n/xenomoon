@@ -1,5 +1,6 @@
 ---
 name: android-play-ship
+agents: [builders]
 description: Shipping an Expo/RN Android app to Google Play internal testing via EAS — preflight discipline for build-time secrets, the pnpm config-plugin require trap that masquerades as a login failure, service-account auto-submit, first-publish propagation, signing-key registration, and the iOS-IAP-on-Android catalog gap. Load when building/submitting an Android release or diagnosing a failed ship or a broken Play install.
 ---
 

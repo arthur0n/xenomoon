@@ -2,7 +2,7 @@
   "_source_of_truth": "EDIT THIS FILE. `LEDGER.md` and `ledger.html` are GENERATED views — never hand-edit them; run `npm run ledger` (pre-commit also regenerates). Schema + workflow: README.md in this folder.",
   "ledgerPhilosophy": "EPHEMERAL working state, not history. Applied findings are DELETED (git + the commit message are the fix record), never stamped done. Keep only open/later rows + skip-tombstones.",
   "_findingSchema": "each finding: { id, dim, bucket, verdict, status, finding } + optional `pattern` — a one-line positive exemplar (the good pattern to follow), not just the problem. The loop's own anti-negative-instruction principle: state the target behavior, not only the prohibition. Full schema: README.md.",
-  "lastAudit": "2026-07-24 (recalibration) — D7-ledger-godot-stale + D7-suite-godot-stale APPLIED: pruned the 10 godot-world rows (builders-restates-verify, engine-version, display-clobber, greybox/arena eye-harden, model-pin-retier, docs-cache-dated + 3 godot tombstones — their spine is absent from this fork) and re-authored the suite to the fork spine; kept the 2 rows that still apply (caveman-gate, result-contract). NOTE: no `npm run ledger` regen script exists in this fork — LEDGER.md hand-synced; restoring the generator is parked. SAME DAY, earlier: domain-fork reality check (caveman, ultrathink). SPINE NOW = 5 CORE agents (cli/skill/transcript-researcher + designer + handoff-summarizer) + 8 agnostic skills + domains/{app,expo,webapp} packs; NO godot builders/tools/ui-orchestrator. D1 clean (max 4 skills/agent; designer=2 — an earlier 16 was a body-bullet miscount). D2/D3/D5 on current CORE spine clean; D4/D8/D10 inapplicable (godot verify/data-driven world gone). PRIOR: 2026-07-08 — full 9-dim fan-out pass (8 gather agents, ~355k subagent tokens).",
+  "lastAudit": "2026-08-13 (full pass, single context, expoapp pack installed) — 14 new findings + D9-caveman-gate upgraded from hypothesis to MEASURED. Headline: `npm run validate` is RED (check:skills, 7 drift errors from the expoapp pack) and BOTH agnostic gates are blind where it matters (--project never passed; contamination scans only domains/*, never the CORE plugin tree) — which is how a bound project's name reached plugin/library/findings/. Also: installed-vs-pack orchestrator drift, a broken precedence sentence in ui/orchestrator-spine.md (a file this suite never named), two stale hardcoded file lists (sync-upstream's CORE-library pair; rebrand's SKIP_PREFIXES → docs/whitelabel), and a dead research-loop link on the expo pack. D1 clean (max 7 skills/agent vs cap 10). D4 inapplicable (no data-driven world spine in this fork). PRIOR: 2026-07-24 recalibration.",
   "parking": [
     "skill-content-gap dimension — a skill missing a known technique/caveat maps to no clean D1–D9",
     "D11 'seam integrity' dimension — do the framework's own gates (promote/materialize/validate) enforce the conventions its docs state? [renumbered D10→D11 when abstraction-level/domain-layering took D10]",
@@ -53,10 +53,10 @@
     {
       "id": "D9-caveman-gate",
       "dim": "D9",
-      "bucket": 5,
-      "verdict": "later",
+      "bucket": 4,
+      "verdict": "fix-now",
       "status": "open",
-      "finding": "caveman enforcement is prompt-only (per-tool reminder hook deleted afa2a79, 2026-06-26) with NO compliance measurement; review iter1 claims ~0% compliance ('[cvmn]' in 0/708 blocks); decide: restore a slim observe+score hook (review P0B-2 + P0B-7 banned-pattern list) or measure first and accept prompt-only. Fork note: the shipped skill is caveman-forge (renamed over a builtin collision)."
+      "finding": "MEASURED this pass: the observe+score hook IS restored and wired (plugin/hooks/caveman-reminder.sh, hooks.json:71) and logs/caveman-gate.log holds 2378 rows — marker:true 23 (0.97%), verbose:true 168 (7%). Sub-agent TERSENESS holds (~93% non-verbose) while the [cvmn] marker is effectively never emitted. Decide: drop the marker convention from caveman-forge + the agent prompts (it costs prompt space and a per-tool-call hook nudge for ~1% compliance), or enforce it deterministically. Caveat: rows repeat per tool call, so the ratio is directional, not per-message."
     },
     {
       "id": "D8-epic-grill-layer-unproven",
@@ -83,6 +83,39 @@
       "verdict": "later",
       "status": "open",
       "finding": "agent-report/SKILL.md:31 contracts the relayed result to '<path> — gate PASS|FAIL' but nothing enforces it — no SubagentStop hook anywhere (verified 2026-07-08); review measured ~1.2k-char avg prose results vs the ~50-char contract; harden: SubagentStop regex validator + digest cap ≤6 lines (review P0B-3 merged schema)."
+    },
+    {
+      "id": "D10-mobile-record-core-tier",
+      "dim": "D10",
+      "bucket": 4,
+      "verdict": "fix-now",
+      "status": "open",
+      "finding": "That same record (Clerk/EAS/TestFlight/Play traps) is Expo-mobile PAYLOAD sitting in the GENERIC CORE library, and it is untracked — so it ships to nobody while polluting the neutral tier. Second-domain test: a webapp install gets a Play-Console/EAS record it can never use. Fix: move it to domains/expoapp/plugin/library/findings/ with its index line, and commit it there."
+    },
+    {
+      "id": "D10-fork-sync-in-domain",
+      "dim": "D10",
+      "bucket": 4,
+      "verdict": "fix-now",
+      "status": "open",
+      "finding": "The fork-sync-upstream skill is SELF-DECLARED domain-agnostic (its description: \"Written platform-neutral; promotable out of this domain\"; expoapp/orchestrator.md:52 calls it \"a standing promotion candidate for the CORE plugin\") yet lives inside domains/expoapp — a webapp-domain fork cannot reach it. Dependency-direction inversion: the generic capability is trapped under one domain. Fix: promote to CORE plugin/skills/ (human-gated promotion)."
+    },
+    {
+      "id": "D5-token-audit-two-copies",
+      "dim": "D5",
+      "bucket": 5,
+      "verdict": "later",
+      "status": "open",
+      "finding": "token-audit exists as two diverged copies of one command: plugin/commands/token-audit.md (1715 w, $CLAUDE_PLUGIN_ROOT paths) and .claude/commands/token-audit.md (2309 w, .claude/ paths) — the shipped copy lacks the \"Domain separation\" + \"Do this\" sections and the entire history.json / `npm run token-history` half, with nothing keeping them in sync. Decide: the shipped copy declares the forge revision it was ported from, or one is generated from the other."
+    },
+    {
+      "id": "D8-badges-count-untracked",
+      "dim": "D8",
+      "bucket": 4,
+      "verdict": "fix-now",
+      "status": "open",
+      "finding": "update-badges.js counts the FILESYSTEM plugin tree, which after a local `forge new` includes the installed pack that the trunk deliberately does not track — so the pre-commit hook rewrote README.md + .claude-plugin/marketplace.json to Skills 20 / Agents 7 while the repo actually ships 13 / 5. The published numbers describe one machine s install state, and no gate catches it (validate skips badges by design). Fix: count git-TRACKED plugin files (git ls-files plugin/{skills,agents}) so install output cannot inflate what the repo advertises. Accepted knowingly in the 2026-08-13 audit-fix commit.",
+      "pattern": "a derived artifact that SHIPS is computed from what the repo tracks, never from what happens to be on disk."
     }
   ]
 }

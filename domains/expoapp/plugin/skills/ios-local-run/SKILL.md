@@ -1,6 +1,6 @@
 ---
 name: ios-local-run
-agents: [uat-runner]
+agents: [uat-runner, builders]
 description: Launch knowledge for Expo/RN iOS apps on the Simulator — the failure modes between "code compiles" and "app usable on a booted sim". Load when verifying sim-launch preconditions, diagnosing a red-screen / missing-native-module error, or explaining why a launch is BLOCKED. The launch specifics (scheme, device, script name) always come from the project's CLAUDE.md; this skill is the generic playbook around them.
 ---
 

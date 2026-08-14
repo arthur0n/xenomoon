@@ -111,7 +111,7 @@ if (argv.includes("--add")) {
     console.error(`no such profile "${name}" — saved profiles:\n${listing()}`);
     process.exit(1);
   }
-  // Caller env wins over the profile, so `PORT=4000 npm run start-project -- maggie` still overrides.
+  // Caller env wins over the profile, so `PORT=4000 npm run start-project -- <profile>` still overrides.
   const env = { ...process.env };
   if (profile.port && !process.env.PORT) env.PORT = String(profile.port);
   if (profile.domain && !process.env.XENOMOON_DOMAIN) env.XENOMOON_DOMAIN = profile.domain;

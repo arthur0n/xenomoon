@@ -13,6 +13,7 @@
     "ignore": ["node_modules", "ios/Pods", "ios/build", "android", ".expo", "dist", "coverage"]
   },
   "materializeIntoProject": false,
+  "builders": ["developer"],
   "plugin": "domains/expoapp/plugin",
   "orchestrator": "domains/expoapp/orchestrator.md",
   "commands": {

@@ -304,7 +304,10 @@ node(path.join(here, "doctor.js"), target);
 //    existing setup script runs; anything else skips cleanly; the portal can enable them later).
 if (rl) {
   for (const [id, blurb] of [
-    ["hermes", "external researcher (Nous billing)"],
+    [
+      "hermes",
+      "external researcher (Nous billing; real web search ALSO needs a search backend — a free Firecrawl key or the free ddgs package; setup walks you through it)",
+    ],
     ["codex", "adversarial code reviewer (OpenAI/ChatGPT billing)"],
     ["kimi", "external coder over ACP (Moonshot billing)"],
   ]) {

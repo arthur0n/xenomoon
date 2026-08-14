@@ -11,11 +11,12 @@ built-in Xenomoon researchers.
 
 ## Two keys, one URL (read this first)
 
-| Thing                               | What it is                                           | Where it comes from                                                                                                           |
-| ----------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Provider key** (billable)         | The LLM key that powers Hermes' brain                | You sign up (Nous Portal / OpenRouter / Anthropic) and paste it **inside Hermes** via `hermes setup`. Xenomoon never sees it. |
-| **`API_SERVER_KEY`** (not billable) | A password **you invent** to lock your local gateway | You make it up, put it in `~/.hermes/.env`, and paste the same value into Xenomoon's ⚙ Settings → "Server key".               |
-| **Server URL**                      | Your **local** gateway                               | `http://localhost:8642` — exists only while `hermes gateway` is running.                                                      |
+| Thing                                 | What it is                                                                                   | Where it comes from                                                                                                           |
+| ------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Provider key** (billable)           | The LLM key that powers Hermes' brain                                                        | You sign up (Nous Portal / OpenRouter / Anthropic) and paste it **inside Hermes** via `hermes setup`. Xenomoon never sees it. |
+| **`API_SERVER_KEY`** (not billable)   | A password **you invent** to lock your local gateway                                         | You make it up, put it in `~/.hermes/.env`, and paste the same value into Xenomoon's ⚙ Settings → "Server key".               |
+| **Server URL**                        | Your **local** gateway                                                                       | `http://localhost:8642` — exists only while `hermes gateway` is running.                                                      |
+| **Web search backend** (free tier OK) | What actually powers `web_search`/`web_extract` — the Portal sign-in does **not** include it | A Firecrawl key (free: 1,000 credits) in the profile's `.env`, or the free `ddgs` package — see "Web research backend" below. |
 
 ## Fastest path — one guided command
 
@@ -157,6 +158,43 @@ Avoid `agent.disabled_toolsets` — a known bug
 ([#33924](https://github.com/NousResearch/hermes-agent/issues/33924)) can make a bundle name
 there silently kill _all_ tools on the gateway path.
 
+## Web research backend (don't skip this — the silent failure mode)
+
+**Enabling the `web` toolset is NOT enough.** The toolset is just the tool _surface_ — actual
+search/extract goes through a **backend provider**, and the Nous Portal sign-in does **not**
+supply one (Portal covers inference + image gen only). With no backend, everything still
+_looks_ fine: the gateway answers, `/v1/toolsets` lists `web`, runs "succeed" — but there is
+**no retrieval**, so research comes back as **uncited prose from model memory**, and retries
+have been observed **fabricating URLs and quotes**. This exact failure shipped once; hence
+the loud guardrails below.
+
+Pick a backend:
+
+| Backend       | Cost                                                                  | Covers                                   | Where the credential goes                         |
+| ------------- | --------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------- |
+| **Firecrawl** | Free tier: **1,000 credits** ([firecrawl.dev](https://firecrawl.dev)) | `web_search` + `web_extract` (best fit)  | `FIRECRAWL_API_KEY=…` in the **profile's** `.env` |
+| **Exa**       | Free trial credits ([exa.ai](https://exa.ai))                         | search + contents                        | `EXA_API_KEY=…` in the profile's `.env`           |
+| **Parallel**  | Paid ([parallel.ai](https://parallel.ai))                             | search + extract                         | `PARALLEL_API_KEY=…` in the profile's `.env`      |
+| **ddgs**      | **Free, no account** (DuckDuckGo python package)                      | `web_search` only — **no `web_extract`** | `pip install ddgs` into Hermes' python; no key    |
+
+Recommended: **Firecrawl free tier** (real extract, 1k credits goes far for research runs)
+**plus** ddgs as the no-key floor. `npm run hermes:setup` now handles this: it detects a
+usable backend, or asks you to paste a Firecrawl key (`--firecrawl-key=fc-…` non-interactively),
+or installs the free ddgs fallback — and writes the key into **this domain's profile** `.env`
+(`~/.hermes/profiles/<domain>/.env`), **not** your shell env.
+
+Two rules that come from a real outage:
+
+- **The credential must live in the profile's `.env`.** A key exported only in the shell that
+  happened to launch the gateway works until the next restart from a different shell — then
+  retrieval dies silently. Files survive restarts; ambient env doesn't.
+- **Restart the gateway after adding a key** — `.env` and `config.yaml` are read at startup.
+
+`npm run hermes:check` (and ⚙ Settings → Test connection) now verifies this locally: green
+plus `✓ web research backend: firecrawl`, or a loud
+`⚠ … NO web search backend is configured …` caveat when the toolset is enabled with nothing
+behind it.
+
 ## Self-improvement: Hermes' own brain, not your code
 
 Hermes' headline feature is **self-improvement** — after a non-trivial task it writes/updates its
@@ -229,5 +267,9 @@ non-interactively. The UI gives you the copy-paste runbook (⚙ Settings → "Fi
   is wrong. Confirm `hermes gateway` is running and the port matches `API_SERVER_PORT`.
 - **"server key was rejected"** → the Xenomoon "Server key" ≠ the `API_SERVER_KEY` in `~/.hermes/.env`.
 - **Hive says "Hermes is off or not configured"** → enable it in ⚙ Settings (or `npm run bind-project-path -- --hermes`).
+- **Research has no citations / URLs look invented** → the `web` toolset has **no backend behind
+  it** — see "Web research backend" above. `npm run hermes:check` prints the ⚠ caveat; fix with
+  `npm run hermes:setup` (paste a Firecrawl key or take the ddgs fallback), then **restart the
+  gateway**.
 - **It works but research isn't better** → that's the real question this POC answers. Compare on a
   real gap task against the native researcher before widening the seam.

@@ -54,6 +54,14 @@ verify/augment lightly (spot-check a source, a license, a claim), then go straig
 verdict + the record write — don't repeat the full search. With no findings supplied,
 investigate yourself per the mode skill. You never call Hermes — only the Hive does.
 
+**Citation gate — uncited findings are INVALID input.** Findings with zero URLs, or with
+"sources" that are category descriptions instead of links, mean Hermes ran WITHOUT web
+retrieval (its search backend was down/unconfigured) and wrote prose from model memory —
+this state has produced fabricated URLs and quotes before. Do not verify, salvage, or
+summarize such findings: reject them, tell the Hive the Hermes web backend is broken
+(`npm run hermes:check` confirms; `npm run hermes:setup` fixes), and investigate yourself.
+When findings DO carry URLs, spot-check at least one before trusting any of them.
+
 ## Rules
 
 - **Shell commands**: when `rtk` is on PATH, prefix Bash commands with it (`rtk ls`,

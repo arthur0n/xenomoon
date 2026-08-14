@@ -13,12 +13,15 @@
 //      platform `api_server` and its tools execute ON THIS MACHINE, so we constrain
 //      `platform_toolsets.api_server` (the only key the bridge's path reads — not `cli`, not the
 //      top-level `toolsets:`). `config set` can't write lists, so this is a direct YAML edit,
-//   5. read the file back and print the real values (no silent state),
-//   6. strip any stale `mcp_servers.xenomoon` callback from older Xenomoon versions (the bridge no
+//   5. make sure the `web` toolset has a REAL search backend (a credentialed provider or
+//      the free ddgs package) — without one the gateway still lists the tool, runs "succeed",
+//      and the model answers from memory with uncited/fabricated prose,
+//   6. read the file back and print the real values (no silent state),
+//   7. strip any stale `mcp_servers.xenomoon` callback from older Xenomoon versions (the bridge no
 //      longer uses an MCP callback — findings are READ from the runs API; see hermes-tool.js),
-//   7. install the Xenomoon "partner" persona into ~/.hermes/SOUL.md (only if it's absent or
+//   8. install the Xenomoon "partner" persona into ~/.hermes/SOUL.md (only if it's absent or
 //      the stock template — a SOUL you've customized is never overwritten),
-//   8. wire Xenomoon's .xenomoon.json and print the remaining manual steps.
+//   9. wire Xenomoon's .xenomoon.json and print the remaining manual steps.
 //
 // This script NEVER launches an interactive Hermes command (`hermes setup`, `hermes
 // model`, `hermes tools`) — those are the wizards that trap you and won't let you
@@ -29,6 +32,7 @@
 //        npm run hermes:setup -- --yes                 assume yes (auto-install)
 //        npm run hermes:setup -- --provider=anthropic --model=anthropic/claude-opus-4.6
 //        npm run hermes:setup -- --toolsets=web,search,memory   override the allowlist
+//        npm run hermes:setup -- --firecrawl-key=fc-…   seed the web search backend key
 //        npm run hermes:setup -- --no-portal           don't print the Nous Portal note
 //        npm run hermes:setup -- --port=8642 --key=secret
 //        npm run hermes:setup -- --reset               UNDO the setup (test the flow from scratch)
@@ -54,6 +58,7 @@ import {
   ensureProfile,
   defaultGatewayPort,
 } from "./hermes-profile.js";
+import { ensureWebBackend } from "./hermes-web-backend.js";
 
 const argv = process.argv.slice(2);
 /** @param {string} n @returns {boolean} */
@@ -570,6 +575,16 @@ async function main() {
     if (hermesHome(PROFILE)) console.log(`✓ Hermes profile "${PROFILE}" → ${HERMES_DIR}`);
     const key = ensureEnv();
     configureModelAndTools();
+    await ensureWebBackend({
+      toolsets: TOOLSETS,
+      profile: PROFILE,
+      envFile: ENV_FILE,
+      flagKey: val("firecrawl-key"),
+      assumeYes: ASSUME_YES,
+      rl,
+      configSet,
+      upsertEnv,
+    });
     removeLegacyCallback();
     ensureSoul();
     printAuthGuidance();

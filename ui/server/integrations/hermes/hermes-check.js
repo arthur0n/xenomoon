@@ -13,12 +13,19 @@
 // `API_SERVER_KEY` you invented for your gateway — NOT the billable provider key,
 // which lives inside Hermes (`hermes setup`) and is never seen by Xenomoon.
 import { pathToFileURL } from "node:url";
+import { readFileSync, existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { homedir } from "node:os";
+import path from "node:path";
 import { parseJSON } from "../../../lib/json.js";
 import { getHermesConfig } from "../../core/config.js";
+import { hermesHome } from "./hermes-profile.js";
 
 /** The verdict of one probe. `reachable` = the gateway answered at all; `authOk` =
  * the bearer key was accepted; `ok` = both, with a usable model list.
  * `caps` carries the runs-API feature flags the Hermes tool depends on (poll status + stream events).
+ * `webBackend` = the locally-detected web research backend (null = none usable), and
+ * `caveat` degrades an ok verdict when the web toolset is on with no backend behind it.
  * @typedef {{
  *   ok: boolean,
  *   reachable: boolean,
@@ -27,10 +34,125 @@ import { getHermesConfig } from "../../core/config.js";
  *   models?: string[],
  *   tools?: string[],
  *   caps?: { runStatus: boolean, runEventsSse: boolean },
+ *   webBackend?: string | null,
+ *   caveat?: string,
  *   error?: string,
  * }} HermesCheck */
 
 const baseOf = (/** @type {string} */ url) => url.replace(/\/+$/, "");
+
+// --- Web research backend detection ---------------------------------------------
+// The gateway answers /v1/models and even lists the `web` toolset with NO search
+// provider configured — runs then return uncited prose from model memory (and
+// retries have been observed fabricating citations). This is the blind spot that
+// made the panel read green while research was broken, so the probe checks the
+// backend credentials LOCALLY (the gateway runs on this machine) and degrades the
+// verdict with a caveat instead of staying silent.
+
+/** Env keys that make a web backend usable, per backend (any one suffices). */
+const WEB_BACKEND_KEYS = /** @type {const} */ ([
+  ["firecrawl", ["FIRECRAWL_API_KEY", "FIRECRAWL_API_URL", "FIRECRAWL_GATEWAY_URL"]],
+  ["exa", ["EXA_API_KEY"]],
+  ["parallel", ["PARALLEL_API_KEY"]],
+]);
+
+/** Active (non-comment) KEY=value entries of a .env file, or {} when unreadable.
+ * @param {string} file @returns {Record<string, string>} */
+function readEnvFile(file) {
+  /** @type {Record<string, string>} */
+  const out = {};
+  let text;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch {
+    return out;
+  }
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (t.startsWith("#")) continue;
+    const eq = t.indexOf("=");
+    if (eq > 0) out[t.slice(0, eq)] = t.slice(eq + 1).trim();
+  }
+  return out;
+}
+
+/** Python interpreters that might be the Hermes venv (where `ddgs` would live).
+ * @returns {string[]} */
+export function hermesPythonCandidates() {
+  const cands = [path.join(homedir(), ".hermes", "hermes-agent", "venv", "bin", "python")];
+  // The `hermes` shim's shebang points at the real interpreter.
+  try {
+    const shim = spawnSync("which", ["hermes"], { encoding: "utf8" }).stdout?.trim();
+    if (shim) {
+      const first = readFileSync(shim, "utf8").split("\n")[0] ?? "";
+      const m = first.match(/^#!\s*(\S+python\S*)/);
+      if (m?.[1]) cands.push(m[1]);
+    }
+  } catch {
+    /* shim unreadable — fall through to the fixed candidate */
+  }
+  return cands.filter((p) => existsSync(p));
+}
+
+/** True when the free `ddgs` (DuckDuckGo) package is importable by Hermes' python.
+ * @returns {boolean} */
+export function ddgsAvailable() {
+  for (const py of hermesPythonCandidates()) {
+    const r = spawnSync(py, ["-c", "import ddgs"], { stdio: "ignore", timeout: 8000 });
+    if (r.status === 0) return true;
+  }
+  return false;
+}
+
+/** Which web research backend the profile can actually use right now, resolved the way
+ * Hermes does: a credentialed provider (profile .env or the process env), else the free
+ * `ddgs` package. `null` backend = research runs will have NO retrieval.
+ * @param {string} [profile]
+ * @returns {{ backend: string | null, source: string }} */
+export function detectWebBackend(profile) {
+  const home = hermesHome(profile ?? getHermesConfig().profile) ?? path.join(homedir(), ".hermes");
+  const envFile = path.join(home, ".env");
+  const fileEnv = readEnvFile(envFile);
+  for (const [backend, keys] of WEB_BACKEND_KEYS) {
+    for (const key of keys) {
+      if (fileEnv[key]) return { backend, source: `${key} in ${envFile}` };
+      if (process.env[key]) return { backend, source: `${key} in the process environment` };
+    }
+  }
+  if (ddgsAvailable()) return { backend: "ddgs", source: "free ddgs package (search only)" };
+  return { backend: null, source: "" };
+}
+
+/** Stamp `webBackend`/`caveat` onto an ok verdict: when the gateway is LOCAL and the web
+ * toolset is (or may be) enabled, detect the backend and degrade the verdict if none is
+ * usable. Remote gateways are skipped — we can only inspect this machine.
+ * @param {HermesCheck} verdict @param {string} base @param {string} [profile] */
+function applyWebVerdict(verdict, base, profile) {
+  const tools = verdict.tools;
+  const wantsWeb = !tools || tools.includes("web") || tools.includes("search");
+  if (!wantsWeb || !/^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(`${base}/`)) return;
+  const web = detectWebBackend(profile);
+  verdict.webBackend = web.backend;
+  if (!web.backend) verdict.caveat = NO_WEB_BACKEND_CAVEAT;
+}
+
+/** The caveat line for a probe whose gateway is up but whose web toolset has no usable
+ * backend — worded for the ⚙ Settings verdict line. */
+export const NO_WEB_BACKEND_CAVEAT =
+  "Gateway is up, but NO web search backend is configured — research runs will return " +
+  "uncited prose from model memory. Fix: `npm run hermes:setup` (seeds a Firecrawl key " +
+  "or the free ddgs fallback), then restart the gateway.";
+
+/** The dispatch-refusal message for the same state — worded for the Hive (hermes-tool.js
+ * returns it instead of creating a run). */
+export const NO_WEB_BACKEND_DISPATCH_MSG =
+  "Hermes has NO web search backend configured — a run would return uncited prose from " +
+  "model memory (this exact state has produced fabricated citations before). Dispatch " +
+  "REFUSED. This is a BROKEN TOOL: surface it to the human with the fix — `npm run " +
+  "hermes:setup` seeds a Firecrawl key (free tier) or the free ddgs fallback into the " +
+  "profile's .env, then the gateway must be restarted. Do NOT re-dispatch until `npm run " +
+  "hermes:check` shows a web backend; for retrieval work in the meantime, dispatch the " +
+  "matching xenomoon:*-researcher yourself.";
 
 /** Best-effort: enabled toolset names on the API path (`GET /v1/toolsets`). undefined if the
  * endpoint is missing/old. @param {string} base @param {string | null} key @param {AbortSignal} signal
@@ -75,7 +197,7 @@ async function fetchCapabilities(base, key, signal) {
 }
 
 /** Probe a Hermes gateway with `GET /v1/models`.
- * @param {{ apiUrl?: string | null, apiKey?: string | null }} cfg
+ * @param {{ apiUrl?: string | null, apiKey?: string | null, profile?: string }} cfg
  * @param {number} [timeoutMs] @returns {Promise<HermesCheck>} */
 export async function checkHermes(cfg, timeoutMs = 8000) {
   const apiUrl = cfg.apiUrl ?? null;
@@ -120,7 +242,18 @@ export async function checkHermes(cfg, timeoutMs = 8000) {
     const models = (body?.data ?? []).map((m) => m.id).filter((id) => typeof id === "string");
     const tools = await fetchEnabledTools(base, apiKey, ctrl.signal);
     const caps = await fetchCapabilities(base, apiKey, ctrl.signal);
-    return { ok: true, reachable: true, authOk: true, status: res.status, models, tools, caps };
+    /** @type {HermesCheck} */
+    const verdict = {
+      ok: true,
+      reachable: true,
+      authOk: true,
+      status: res.status,
+      models,
+      tools,
+      caps,
+    };
+    applyWebVerdict(verdict, base, cfg.profile);
+    return verdict;
   } catch (err) {
     const aborted = ctrl.signal.aborted;
     return {
@@ -164,6 +297,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       }
       const list = r.models?.length ? ` — models: ${r.models.slice(0, 5).join(", ")}` : "";
       console.log(`✓ Hermes reachable at ${cfg.apiUrl}${list}`);
+      if (r.caveat) {
+        console.log(`  ⚠ ${r.caveat}`);
+      } else if (r.webBackend) {
+        console.log(`  ✓ web research backend: ${r.webBackend}`);
+      }
       if (r.tools) {
         console.log(`  API-path tools enabled: ${r.tools.join(", ") || "(none)"}`);
         const risky = r.tools.filter((t) => MACHINE.includes(t));

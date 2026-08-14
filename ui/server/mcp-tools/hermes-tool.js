@@ -31,6 +31,10 @@ import { parseJSON } from "../../lib/json.js";
 import { getHermesConfig, PROJECT_DIR } from "../core/config.js";
 import { applyOp } from "../features/tasks/tasks-store.js";
 import { getPersona, PERSONA_IDS } from "../../lib/hermes-personas.js";
+import {
+  detectWebBackend,
+  NO_WEB_BACKEND_DISPATCH_MSG,
+} from "../integrations/hermes/hermes-check.js";
 
 /** Infra/config fault — a BROKEN TOOL (gateway down, bad request, missing model), as opposed
  * to a run that genuinely produced no result (timeout, approval stall). The two classes get
@@ -600,6 +604,18 @@ export function makeHermesTool(send, push) {
       }
       const persona = getPersona(input.persona);
       const base = baseOf(cfg.apiUrl);
+      // Retrieval guard — the root-cause fix for the "green but uncited" outage: a gateway
+      // with the web toolset but NO search backend still "succeeds", returning prose from
+      // model memory (observed fabricating citations under retry pressure). Refuse to
+      // dispatch research into that state; a local gateway is the only one we can inspect.
+      if (
+        /^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(`${base}/`) &&
+        !detectWebBackend(cfg.profile).backend
+      ) {
+        relay(send, persona.id, "done", NO_WEB_BACKEND_DISPATCH_MSG);
+        queueHermesFailure("(not dispatched)", "no web search backend");
+        return ok(NO_WEB_BACKEND_DISPATCH_MSG);
+      }
       const instructions = buildInstructions(persona, input.context);
       // Short timeout for the POST only — it returns fast; the watcher then reads the run.
       const ctrl = new AbortController();

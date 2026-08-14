@@ -103,11 +103,16 @@ export const AGENT_REGISTRY = [
         "#      API_SERVER_ENABLED=true",
         "#      API_SERVER_KEY=pick-any-secret      ← the “Server key” field (you invent it)",
         "",
-        "# 4. Run the gateway (serves http://localhost:8642)",
+        "# 4. Give web search a BACKEND — the Portal sign-in does NOT include one, and without",
+        "#    it research returns uncited prose from model memory. Either is fine:",
+        "#      FIRECRAWL_API_KEY=fc-…   in the same .env (free tier: 1,000 credits, firecrawl.dev)",
+        "#      pip install ddgs         free, no account (search only)",
+        "",
+        "# 5. Run the gateway (serves http://localhost:8642)",
         "hermes gateway",
       ].join("\n"),
       after:
-        "Then: URL http://localhost:8642, Server key = the API_SERVER_KEY you invented, and Test.",
+        "Then: URL http://localhost:8642, Server key = the API_SERVER_KEY you invented, and Test — it flags a missing web search backend with a ⚠.",
     },
     publicConfig: hermesPublicConfig,
     saveConfig: (patch) =>
@@ -118,6 +123,7 @@ export const AGENT_REGISTRY = [
       return checkHermes({
         apiUrl: typedOr(body.apiUrl, saved.apiUrl),
         apiKey: typedOr(body.apiKey, saved.apiKey),
+        profile: saved.profile,
       });
     },
     setup: {

@@ -260,6 +260,27 @@ const checks = [
           : `project agent naming: ${issues.join("; ")} (convention: docs/ROSTER.md)`,
     };
   })(),
+  // Background write-grants — without the seeded lever, a backgrounded researcher that
+  // records a project-side finding dies on the SDK's async auto-deny (no prompt exists in
+  // that context). materialize seeds it; this catches a hand-deleted or pre-seed install.
+  (() => {
+    const grants = path.join(PROJECT_DIR, ".xenomoon", "write-grants");
+    let granted = false;
+    try {
+      granted = readFileSync(grants, "utf8")
+        .split("\n")
+        .some((l) => l.trim() === ".claude/library");
+    } catch {
+      /* absent → not granted */
+    }
+    return {
+      ok: granted,
+      hard: false,
+      label: granted
+        ? "background write-grants seeded (.claude/library — researchers can record findings)"
+        : "no `.claude/library` line in .xenomoon/write-grants — background researchers CANNOT record findings (add the line back, or delete the file and re-run doctor to reseed)",
+    };
+  })(),
   {
     ok: hasGraphify(),
     hard: false,

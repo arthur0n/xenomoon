@@ -18,6 +18,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  writeFileSync,
   copyFileSync,
   chmodSync,
   statSync,
@@ -80,6 +81,36 @@ function isShebangScript(file) {
   }
 }
 
+/** Default content of a fresh `<project>/.xenomoon/write-grants` — the background-write
+ * lever allow-project-edits.sh reads. Seeded with the learning loop's ONE designated
+ * project-side record home (`.claude/library`): without it, every backgrounded researcher
+ * that tries to record a finding dies on the SDK's async auto-deny — a run-killer no
+ * status surface reports. The rest of `.claude/` stays human-gated as doctrine demands. */
+const WRITE_GRANTS_TEMPLATE = `# Xenomoon background write-grants — one path prefix per line (relative to the project
+# root, or absolute). A line here IS the human approval: a backgrounded sub-agent may
+# Write/Edit under it without an interactive prompt (plugin/hooks/allow-project-edits.sh).
+# Keep grants narrow: list the folder an agent OWNS as its output, never a tree it merely
+# explores. Delete a line to revoke.
+.claude/library
+`;
+
+/** Seed `<projectDir>/.xenomoon/write-grants` (create-only — an existing file is the
+ * human's edit and is never touched) and make sure the granted record home exists.
+ * Runs for EVERY domain: `.xenomoon/` is the framework's always-allowed project-side
+ * state dir, and the learning loop writes records regardless of materialization.
+ * @param {string} projectDir @returns {{ seeded: boolean }} */
+export function ensureWriteGrants(projectDir) {
+  // Never conjure a project out of a bad binding — only seed into a dir that exists.
+  if (!existsSync(projectDir)) return { seeded: false };
+  const stateDir = path.join(projectDir, ".xenomoon");
+  const grants = path.join(stateDir, "write-grants");
+  mkdirSync(path.join(projectDir, ".claude", "library"), { recursive: true });
+  if (existsSync(grants)) return { seeded: false };
+  mkdirSync(stateDir, { recursive: true });
+  writeFileSync(grants, WRITE_GRANTS_TEMPLATE);
+  return { seeded: true };
+}
+
 /** Ensure <projectDir>/library is a symlink to the plugin's library (the single source
  * researcher agents read and write). Idempotent: repoints a stale link, but leaves a real
  * directory in place untouched (a project that committed its own library) rather than
@@ -139,16 +170,22 @@ export function ensureAssetLibraryLink(projectDir) {
  * the external shared-asset library mounted.
  * @param {string} projectDir */
 export function prepareGame(projectDir) {
-  // Agnostic default: write NOTHING into the bound project unless the domain opts in. A
-  // binary-backed engine needs real files in the project tree; app (and any future domain) binds
-  // purely from the framework's own .xenomoon.json, so the project stays pristine. A no-op return keeps every caller
-  // (server startup, doctor, forge new, the CLI) silent and side-effect-free.
+  // Every domain gets the background-write lever: without a seeded write-grants file the
+  // learning loop's backgrounded researchers die on the async auto-deny when recording
+  // project-side findings (.claude/library). Create-only, so it is side-effect-free on
+  // every later run.
+  const grants = ensureWriteGrants(projectDir);
+  // Agnostic default: write NOTHING ELSE into the bound project unless the domain opts in.
+  // A binary-backed engine needs real files in the project tree; app (and any future domain)
+  // binds purely from the framework's own .xenomoon.json, so the project stays pristine. A
+  // no-op return keeps every caller (server startup, doctor, forge new, the CLI) silent.
   if (!DOMAIN.materializeIntoProject) {
     return {
       tools: { copied: 0, fresh: 0 },
       lib: { linked: false, reason: "domain materializes nothing into the project" },
       assets: { linked: false, reason: "domain materializes nothing into the project" },
       manifest: null,
+      grants,
     };
   }
   const tools = materializeTools(projectDir);
@@ -162,7 +199,7 @@ export function prepareGame(projectDir) {
   } catch {
     /* non-fatal — agents fall back to re-deriving facts if the manifest is absent */
   }
-  return { tools, lib, assets, manifest };
+  return { tools, lib, assets, manifest, grants };
 }
 
 // CLI: `node ui/server/cli/materialize.js [projectDir]`

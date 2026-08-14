@@ -161,13 +161,65 @@
           "id": "read-dedup",
           "estSavingTok": 200000,
           "landed": true,
-          "moved": "pending",
-          "deltaTok": null,
+          "moved": true,
+          "deltaTok": 30800,
           "deltaCost": null,
           "result": "Applied PreToolUse(Read) dedup hook plugin/hooks/read-dedup.sh: denies a byte-identical repeat read (same path+offset+limit, mtime unchanged, last real read within WINDOW=20 read-events) with a stub; emits policy:\"read-dedup\" per denial. Next audit tallies denials × ~1.4k tok. Safe-window scoped so post-compaction re-hydration passes."
         }
       ],
       "processNote": "PreToolUse Read-dedup hook: deny recent unchanged (mtime) repeat full-reads with a stub, log policy:read-dedup; per-event unit ≈1.4k tok"
+    },
+    {
+      "date": "2026-08-13",
+      "sessions": [
+        "2026-08-11T12-37-51-319Z",
+        "2026-08-07T11-45-29-143Z",
+        "2026-08-10T09-36-14-945Z",
+        "2026-08-11T08-41-27-298Z",
+        "2026-08-11T12-58-24-386Z"
+      ],
+      "covered": {
+        "input": 13586,
+        "output": 283152,
+        "cacheCreate": 2644393,
+        "cacheRead": 75971737,
+        "cost": 4846.9933,
+        "total": 78912868,
+        "turns": 182,
+        "hitRate": 97,
+        "costPerSession": 969.3987,
+        "costPerTurn": 26.6318,
+        "incompleteSessions": []
+      },
+      "global": {
+        "cost": 5190.7555,
+        "total": 96627254,
+        "hitRate": 96,
+        "sessionCount": 15,
+        "incompleteSessions": 1
+      },
+      "topOffender": "mechanical PR-plumbing Agent dispatches (merge/retarget/promote/prune) in a $4.3k orchestrator session",
+      "opportunities": [
+        {
+          "id": "pr-plumb-cli",
+          "estSavingTok": 14000000,
+          "landed": true,
+          "moved": "pending",
+          "deltaTok": null,
+          "deltaCost": null,
+          "result": "AFTER re-check 2026-08-14: 0 fires across all session logs. No PR-plumbing work has happened since the fix landed, so there is nothing to credit — absence of traffic, not absence of effect. Same measurement path that shows read-dedup at 169 hits. Note the marker is emitted by issuekit itself (an external CLI), so it only reaches a session log when an issuekit op runs inside a logged UI session — a plumbing op run from a bare terminal is invisible to this tally. Related work landed 2026-08-13/14: the orchestrator PR-plumbing routing bullet existed ONLY in the installed plugin/orchestrator.md and was ported back to its pack source domains/expoapp/orchestrator.md (framework-audit D6-orchestrator-install-drift, commit 4299d2e) — before that, no fresh expo install would have routed plumbing to issuekit at all, which is itself a reason the marker could never have fired. Re-measure after the next PR-plumbing session."
+        },
+        {
+          "id": "graphify-first",
+          "estSavingTok": 80000,
+          "landed": true,
+          "moved": "pending",
+          "deltaTok": null,
+          "deltaCost": null,
+          "result": "AFTER re-check 2026-08-14: 0 fires. NOT a failure — no qualifying traffic. Only one session ran post-fix (08-13T11-06, the applying session itself); this CLI session writes no session-*.ndjson (those come from the UI server). Hook VERIFIED WIRED by direct payload test through all 4 gates: graph-backed Grep -> deny + policy marker; same session again -> silent allow (one-shot holds); non-graph dir -> allow; non-Grep tool -> allow. Method is sound: read-dedup's marker shows 169 hits across logs by the same counting path. CAVEAT for next tally: the graph walk-up can resolve to an ANCESTOR workspace graph (searching in maggie-xm found /MRHEWBUC-LOCAL/graphify-out, not a repo-local one) — confirm the found graph actually indexes the searched repo before crediting a fire. Re-measure after the next graph-backed UI session."
+        }
+      ],
+      "processNote": "read-dedup CONFIRMED (22 denials x1.4k=31k hard). New: ~30/57 agent dispatches in 12-58 are deterministic gh/git plumbing incl. retries; graph-backed maggie repo shows 44-20 rawsearch vs 0 graphify"
     }
   ]
 }

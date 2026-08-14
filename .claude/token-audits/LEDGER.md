@@ -33,8 +33,46 @@ Entry template:
 2026-07-23T18-56-50-528Z
 2026-07-23T19-15-28-806Z
 2026-07-23T20-05-49-381Z
+2026-08-01T10-44-05-203Z
+2026-08-02T10-24-18-631Z
+2026-08-02T10-24-31-927Z
+2026-08-02T10-24-34-626Z
+2026-08-02T10-24-40-523Z
+2026-08-02T10-24-51-878Z
+2026-08-05T07-46-23-721Z
+2026-08-05T16-49-43-260Z
+2026-08-05T16-49-58-243Z
+2026-08-05T16-50-24-247Z
+2026-08-05T19-02-01-390Z
+2026-08-05T19-10-51-199Z
+2026-08-07T11-45-29-143Z
+2026-08-07T14-38-58-306Z
+2026-08-10T09-36-14-945Z
+2026-08-11T05-31-45-427Z
+2026-08-11T08-41-24-172Z
+2026-08-11T08-41-27-298Z
+2026-08-11T11-59-03-890Z
+2026-08-11T12-37-41-359Z
+2026-08-11T12-37-51-319Z
+2026-08-11T12-43-36-758Z
+2026-08-11T12-58-24-386Z
+2026-08-11T18-25-13-844Z
+2026-08-12T17-10-00-753Z
 
 ## Audits (newest first)
+
+### 2026-08-13 — sessions: 08-11T12-37-51, 08-07T11-45, 08-10T09-36, 08-11T08-41-27, 08-11T12-58 (+15 zero-turn stubs → covered, no slot; 08-13T11-06 left uncovered — in progress, no result events yet)
+
+- Offenders: **Mechanical PR-plumbing Agent dispatches.** 08-11T12-58 is a $4,297 / 130-turn orchestrator session (61.9M cache_read tok, ~476k/turn avg, top turns $72 at ~1M cache_read). Of its 57 Agent dispatches, ~30 are deterministic gh/git sequences — "Merge PR 241/242/243/244/253", "Retarget PR 241–244", "Promote development to main", "Prune branches and sync development", "Push and open PR", "Refresh PR 242 checks" — WITH visible retry pairs ("Merge PR 253" ×2, "Promote… retry", "Push PR merge retry") proving agents flub mechanical work then get re-dispatched. Each dispatch costs a subagent run PLUS orchestrator supervise turns at ~$33/turn → the mechanical share is roughly $1–2k of the session. #2: **graphify bypass** — sessions run in maggie (graph-backed: `graphify-out/graph.json` exists) yet 08-07T11-45 (solutioning, $69.75) did 44 Grep + 99 Read (456k chars ≈ 114k tok) with ZERO `graphify query|path|explain`; 08-11T08-41-27: 20 rawsearch, 0 graphify.
+- Opportunity 1: **`pr-plumb-cli`** — a deterministic CLI verb set (issuekit-style: `retarget <pr> <base>`, `merge-when-green <pr>`, `promote <from> <to>`, `prune-sync`) the orchestrator calls as ONE Bash tool call instead of an Agent dispatch; built-in retry/verify so no re-dispatch. Signal: each run logs `policy:"pr-plumb-cli"` once per operation; unit ≈ one avoided dispatch+supervise turn ≈ **470k cache-read tok** (~$33). Est ceiling ~14M cache-read tok (~$1.3k)/plumbing-heavy session. **TASK (owner:user)** [id `pr-plumb-cli`, apply via `/token-audit-fix pr-plumb-cli`] — mcp**ui**tasks unreachable from terminal; recorded here.
+- Opportunity 2: **`graphify-first`** — route codebase where/how questions to `graphify query` before raw Grep/Read fan-out in graph-backed repos (orchestrator/solutioner hint or PreToolUse nudge on Grep when graph.json exists and no graphify call happened yet this session). Signal: log `policy:"graphify-first"` once per routed question; unit ≈ the avoided fan-out delta (~5k tok each). Est ~80k tok/solutioning session. **TASK (owner:user)** [id `graphify-first`, apply via `/token-audit-fix graphify-first`] — recorded here (terminal fallback).
+- Pending re-check: **`read-dedup` CONFIRMED → landed moved:true.** Denials counted across covered sessions: 12-58 ×2, 08-41-27 ×8, 08-10 ×6, 08-07 ×6, 12-37-51 ×0 = **22 × 1.4k ≈ 31k tok hard actual**. Corroborated: read churn collapsed (worst path ×3 vs ×24 pre-hook).
+- Discarded: `gh auth switch + repo view` combo ×38 in 12-58 — avg result 140 chars, token-negligible (latency/determinism smell only). UAT/QA/solution dispatches (08-10, 08-07) are judgment-heavy — correct agent use. Read churn now minimal everywhere (hook working).
+- Process note: replaced the size-based stub rule in step 2 with a zero-result-events jq gate that also flags in-progress sessions (assistant events, no results) — size misclassified 2 snapshot files (36–48K, zero LLM turns) this run.
+- Fix note (2026-08-13, graphify-first applied): hook is ONE-SHOT per session (can't see "questions"), so the marker counts nudged sessions, not routed questions — tally fires × ~5k tok as the conservative floor; the real win (model switching a whole fan-out to graphify query) shows up as rawsearch-count drop in graph-backed-repo sessions, worth eyeballing alongside the count.
+- Fix note (2026-08-13, pr-plumb-cli applied): issuekit already carried most plumbing verbs — future opportunities should check the existing tool surface before estimating a build. Tally caveat for next audit: count `policy:"pr-plumb-cli"` × 470k ONLY as far as Agent PR-plumbing dispatches actually dropped (marker also fires on ops that were never dispatches); cross-check dispatch descriptions before flipping to a hard actual.
+- **Re-check 2026-08-14 (no new audit — AFTER pass on the two pending fixes): BOTH STAY `pending`, 0 fires each.** Not a no-move: there has been no qualifying traffic. Only one session exists post-fix (08-13T11-06, the applying session itself), and a CLI/terminal session writes no `session-*.ndjson` at all — those come from the UI server, so this loop is blind to terminal work. Counting method confirmed sound: `read-dedup` shows **169** marker hits across the same logs. `graphify-first` additionally VERIFIED WIRED by direct payload test — graph-backed Grep → deny + marker; repeat in-session → allow (one-shot holds); non-graph dir → allow; non-Grep tool → allow. So both are applied-and-live, awaiting exercise. Flip them on the next graph-backed UI session / next PR-plumbing session.
+- Method note for the next tally (found during the re-check): the `graphify-first` graph walk-up can resolve to an **ANCESTOR workspace** graph — a Grep inside `maggie-xm` (which has no graph of its own) matched `/MRHEWBUC-LOCAL/graphify-out`. Before crediting a fire, confirm the found graph actually indexes the searched repo, or the nudge points at a graph that can't answer. Same class of caveat as the pr-plumb marker firing on non-dispatch ops.
 
 ### 2026-07-24 — sessions: 07-23T20-05, 07-23T18-56 (stub 07-23T19-15 → covered, no slot; 07-23T16-13 left uncovered for next run)
 

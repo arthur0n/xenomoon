@@ -36,11 +36,19 @@ and critiques itself. You won't get it right the first time — that's expected.
    `Process note`s so you neither re-analyze a covered session nor repeat a known finding.
 
 2. **Pick scope.** List the log files. Drop any whose tag is already in `Covered sessions`,
-   and drop **stubs** — files under ~10KB are server state snapshots with zero LLM turns;
-   add their tags straight to `Covered sessions` without spending a slot on them.
-   Take the newest **2** of what remains. `$ARGUMENTS` overrides: a bare number sets the
-   count (e.g. `4`); a session-tag analyzes exactly that session. If nothing is uncovered,
-   say so and stop — don't invent work.
+   then classify what's left with a deterministic jq gate — **not file size**: snapshot
+   stubs run 10–60KB, so a size cutoff misclassifies them (confirmed 2026-08-13: two ~35–48KB
+   snapshots slipped past a ~10KB rule and ate triage time).
+   - **Stub** (zero `assistant` tool_use events AND zero `result` events — no LLM turn ever
+     ran): add its tag straight to `Covered sessions`, no slot spent.
+     `jq -sc '[.[] | select(.type=="event" and ((.message.type=="result") or (.message.type=="assistant" and (.message.message.content[]?.type=="tool_use"))))] | length==0' "$LOGS/<file>"`
+   - **In-progress** (has `assistant` tool_use events but zero `result` events — a turn
+     started, no cost data landed yet): leave it **uncovered** (don't add to `Covered
+sessions`) and say so in the entry, so a later run re-checks it once it has a result.
+   - Anything else is a real, analyzable session.
+     Take the newest **2** of what remains eligible. `$ARGUMENTS` overrides: a bare number sets
+     the count (e.g. `4`); a session-tag analyzes exactly that session. If nothing is uncovered,
+     say so and stop — don't invent work.
 
 3. **Analyze each log — don't slurp it into context.** These files reach several MB. Filter
    with `jq select(...)` directly — do NOT pipe `rtk grep` into `jq` (rtk's grep filter mangles

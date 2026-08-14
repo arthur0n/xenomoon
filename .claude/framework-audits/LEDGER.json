@@ -109,15 +109,6 @@
       "finding": "token-audit exists as two diverged copies of one command: plugin/commands/token-audit.md (1715 w, $CLAUDE_PLUGIN_ROOT paths) and .claude/commands/token-audit.md (2309 w, .claude/ paths) — the shipped copy lacks the \"Domain separation\" + \"Do this\" sections and the entire history.json / `npm run token-history` half, with nothing keeping them in sync. Decide: the shipped copy declares the forge revision it was ported from, or one is generated from the other."
     },
     {
-      "id": "D8-badges-count-untracked",
-      "dim": "D8",
-      "bucket": 4,
-      "verdict": "fix-now",
-      "status": "open",
-      "finding": "update-badges.js counts the FILESYSTEM plugin tree, which after a local `forge new` includes the installed pack that the trunk deliberately does not track — so the pre-commit hook rewrote README.md + .claude-plugin/marketplace.json to Skills 20 / Agents 7 while the repo actually ships 13 / 5. The published numbers describe one machine s install state, and no gate catches it (validate skips badges by design). Fix: count git-TRACKED plugin files (git ls-files plugin/{skills,agents}) so install output cannot inflate what the repo advertises. Accepted knowingly in the 2026-08-13 audit-fix commit.",
-      "pattern": "a derived artifact that SHIPS is computed from what the repo tracks, never from what happens to be on disk."
-    },
-    {
       "id": "D8-install-path-collision-hooks",
       "dim": "D8",
       "bucket": 4,

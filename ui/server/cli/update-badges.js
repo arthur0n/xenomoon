@@ -19,6 +19,38 @@ import { parseJSON } from "../../lib/json.js";
 const FRAMEWORK_DIR = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
 const FRAMEWORK_PLUGIN_DIR = path.join(FRAMEWORK_DIR, "plugin");
 
+/** Count what the repo SHIPS — i.e. what git tracks — never what happens to be on disk.
+ * A clone with a domain pack installed carries the pack's agents/skills in plugin/ as
+ * untracked install output; counting the filesystem published one machine's install state
+ * (Skills 20 / Agents 7 for a trunk that ships 13 / 5, twice in one day — the second time
+ * silently reverting a commit that had just corrected it).
+ *
+ * `git ls-files` is the authority. Outside a git checkout (a tarball install, a fresh
+ * `forge new` before `git init`) there is nothing to publish badges from, so fall back to
+ * the filesystem read rather than failing the pre-commit hook.
+ * @param {string} sub plugin-relative dir, e.g. "skills"
+ * @param {(name: string) => boolean} keep filter over the first path segment under `sub`
+ * @returns {number | null} */
+function countTracked(sub, keep) {
+  try {
+    const out = execFileSync("git", ["ls-files", "-z", `plugin/${sub}`], {
+      cwd: FRAMEWORK_DIR,
+      encoding: "utf8",
+    });
+    const entries = new Set(
+      out
+        .split("\0")
+        .filter(Boolean)
+        .map((f) => f.slice(`plugin/${sub}/`.length).split("/")[0] ?? "")
+        .filter((name) => name && keep(name)),
+    );
+    if (entries.size) return entries.size;
+  } catch {
+    /* not a git checkout — fall through to the filesystem read */
+  }
+  return count(path.join(FRAMEWORK_PLUGIN_DIR, sub), () => true);
+}
+
 /** @param {string} dir @param {(d: import("node:fs").Dirent) => boolean} keep @returns {number | null} */
 function count(dir, keep) {
   try {
@@ -78,11 +110,8 @@ function setDomainsBadge(text, names) {
   );
 }
 
-const skills = count(path.join(FRAMEWORK_PLUGIN_DIR, "skills"), (d) => d.isDirectory());
-const agents = count(
-  path.join(FRAMEWORK_PLUGIN_DIR, "agents"),
-  (d) => d.isFile() && d.name.endsWith(".md"),
-);
+const skills = countTracked("skills", (name) => !name.endsWith(".md")); // skill = a directory
+const agents = countTracked("agents", (name) => name.endsWith(".md"));
 if (skills === null || agents === null) {
   console.warn("update-badges: plugin/{skills,agents} not found — skipping.");
   process.exit(0);

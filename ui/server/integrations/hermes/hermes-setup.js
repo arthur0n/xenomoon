@@ -5,7 +5,7 @@
 //   2. turn the local API server on in ~/.hermes/.env (API_SERVER_ENABLED + a key it
 //      generates — the non-billable API_SERVER_KEY, see HERMES.md),
 //   3. set the provider with `hermes config set` (a scalar — that command works for those),
-//   4. restrict the toolset by editing config.yaml DIRECTLY (default: web, search, memory,
+//   4. restrict the toolset by editing config.yaml DIRECTLY (default: web, memory,
 //      skills — NO terminal/file/code_execution/browser). `memory` + `skills` are Hermes' OWN
 //      brain (its episodic memory + self-evolving skills, written to ~/.hermes/) — they let
 //      Hermes get better at researching FOR us over time without ever touching the project or our
@@ -31,7 +31,7 @@
 // Usage: npm run hermes:setup                          guided (only prompt: install y/N)
 //        npm run hermes:setup -- --yes                 assume yes (auto-install)
 //        npm run hermes:setup -- --provider=anthropic --model=anthropic/claude-opus-4.6
-//        npm run hermes:setup -- --toolsets=web,search,memory   override the allowlist
+//        npm run hermes:setup -- --toolsets=web,memory   override the allowlist
 //        npm run hermes:setup -- --firecrawl-key=fc-…   seed the web search backend key
 //        npm run hermes:setup -- --no-portal           don't print the Nous Portal note
 //        npm run hermes:setup -- --port=8642 --key=secret
@@ -98,8 +98,8 @@ const MODEL = val("model");
 // across runs. The API path runs tools ON THIS MACHINE (gateway capabilities:
 // tool_execution=server), so the things that could change the project/code —
 // terminal/file/code_execution/browser — stay OFF by default. Widen with --toolsets
-// (e.g. --toolsets=web,search,memory,skills,terminal,file) ONLY if you knowingly want that.
-const TOOLSETS = val("toolsets") ?? "web,search,memory,skills";
+// (e.g. --toolsets=web,memory,skills,terminal,file) ONLY if you knowingly want that.
+const TOOLSETS = val("toolsets") ?? "web,memory,skills";
 const USE_PORTAL = (PROVIDER === "nous" || PROVIDER === "portal") && !flag("no-portal");
 
 /** Ask a yes/no-ish question; with --yes, auto-answer "y".

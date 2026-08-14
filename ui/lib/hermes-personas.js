@@ -1,6 +1,6 @@
 // Hermes personas (the "per-call brief" design): ONE read-only gateway; personas differ only
 // by their instructions-brief + UI name/color — they all share the gateway's api_server toolset
-// [web, search, memory]. The persona `id` flows from the tool input into the activity relay; the
+// [web, memory]. The persona `id` flows from the tool input into the activity relay; the
 // server picks `brief`, and the client shows `name` and colors the pill from `color` (applied
 // inline by the activity log, so no per-persona CSS).
 //

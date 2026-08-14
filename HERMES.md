@@ -39,7 +39,7 @@ pickers are exactly what trap you. Flags:
 ```bash
 npm run hermes:setup -- --yes                              # no prompts (auto-install)
 npm run hermes:setup -- --provider=anthropic --model=anthropic/claude-opus-4.6
-npm run hermes:setup -- --toolsets=web,search,memory       # override the tool allowlist
+npm run hermes:setup -- --toolsets=web,memory       # override the tool allowlist
 npm run hermes:setup -- --no-portal                        # don't print the Nous Portal note
 npm run hermes:setup -- --reset                            # undo the setup (test the flow from scratch)
 ```
@@ -48,7 +48,7 @@ npm run hermes:setup -- --reset                            # undo the setup (tes
 and the `platform_toolsets.api_server` edit in `config.yaml`. It leaves Hermes itself, your
 model/provider and Portal auth untouched — so you can re-run setup on a clean slate.
 
-Defaults: **Nous via Portal**, toolset `web, search, memory, skills` — research plus Hermes' **own
+Defaults: **Nous via Portal**, toolset `web, memory, skills` — research plus Hermes' **own
 brain** (`memory` + `skills` self-improvement), and **no machine access** (no
 `terminal`/`file`/`code_execution`/`browser`; see "Restrict the toolset" and "Self-improvement"
 below for why that one line is the whole guardrail). Two things it leaves to you: the Nous Portal
@@ -132,13 +132,13 @@ it reads **`platform_toolsets.api_server`**, and with no entry there it defaults
 
 ```yaml
 platform_toolsets:
-  api_server: [web, search, memory, skills] # research + Hermes' OWN brain (memory + self-evolving
+  api_server: [web, memory, skills] # research + Hermes' OWN brain (memory + self-evolving
   # skills, written to ~/.hermes — NOT your code); still NO terminal/file/code on your machine
 ```
 
-`npm run hermes:setup` writes exactly this (default `web, search, memory, skills`). Widen only if
-you knowingly want machine access: `--toolsets=web,search,memory,skills,terminal,file`. Individual
-toolsets: `web, search, memory, skills, terminal, file, browser, vision, image_gen, todo, tts,
+`npm run hermes:setup` writes exactly this (default `web, memory, skills`). Widen only if
+you knowingly want machine access: `--toolsets=web,memory,skills,terminal,file`. Individual
+toolsets: `web, memory, skills, terminal, file, browser, vision, image_gen, todo, tts,
 cronjob, moa`. `memory` + `skills` are self-improvement (see below) and stay on your machine inside
 `~/.hermes`; `terminal`/`file`/`code_execution`/`browser` are the ones that could touch the game or
 this framework, so they stay off.
@@ -147,7 +147,7 @@ this framework, so they stay off.
 gateway's `GET /v1/toolsets` and prints the enabled tools, loudly flagging any machine-access ones:
 
 ```
-API-path tools enabled: web, search, memory, skills
+API-path tools enabled: web, memory, skills
 ✓ no machine-access tools (terminal/file/code) on the API path.
 ```
 

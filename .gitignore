@@ -43,3 +43,6 @@ plugin/.xenomoon/
 /plugin/library/sources/skill-sources.md
 
 .claude/token-audits/history.html
+
+# Generated view of the audit ledger (LEDGER.json is the source, LEDGER.md the committed view).
+.claude/framework-audits/ledger.html

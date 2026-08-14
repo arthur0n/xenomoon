@@ -2,11 +2,11 @@
   "_source_of_truth": "EDIT THIS FILE. `LEDGER.md` and `ledger.html` are GENERATED views — never hand-edit them; run `npm run ledger` (pre-commit also regenerates). Schema + workflow: README.md in this folder.",
   "ledgerPhilosophy": "EPHEMERAL working state, not history. Applied findings are DELETED (git + the commit message are the fix record), never stamped done. Keep only open/later rows + skip-tombstones.",
   "_findingSchema": "each finding: { id, dim, bucket, verdict, status, finding } + optional `pattern` — a one-line positive exemplar (the good pattern to follow), not just the problem. The loop's own anti-negative-instruction principle: state the target behavior, not only the prohibition. Full schema: README.md.",
-  "lastAudit": "2026-08-13 (full pass, single context, expoapp pack installed) — 14 new findings + D9-caveman-gate upgraded from hypothesis to MEASURED. Headline: `npm run validate` is RED (check:skills, 7 drift errors from the expoapp pack) and BOTH agnostic gates are blind where it matters (--project never passed; contamination scans only domains/*, never the CORE plugin tree) — which is how a bound project's name reached plugin/library/findings/. Also: installed-vs-pack orchestrator drift, a broken precedence sentence in ui/orchestrator-spine.md (a file this suite never named), two stale hardcoded file lists (sync-upstream's CORE-library pair; rebrand's SKIP_PREFIXES → docs/whitelabel), and a dead research-loop link on the expo pack. D1 clean (max 7 skills/agent vs cap 10). D4 inapplicable (no data-driven world spine in this fork). PRIOR: 2026-07-24 recalibration.",
+  "lastAudit": "2026-08-13 (full pass, single context, expoapp pack installed) — 15 findings raised, 12 APPLIED same day across three /framework-audit-fix runs (git is the record: 4299d2e + follow-ups). At audit time `npm run validate` was RED (check:skills) and BOTH agnostic gates were dormant — `--project` was never passed and contamination scanned only domains/*, which is how a bound project name reached plugin/library/findings/. Now: gate green, both gates derive the bound project s terms and scan the CORE tree (first run caught a real leak in start-profile.js), the CORE spine s broken precedence sentence is fixed, two stale hardcoded file lists are derived, and the expo pack ships its sources registry. D9-caveman-gate upgraded hypothesis → MEASURED (marker 0.97%, terseness 93%). D1 clean (max 9 skills/agent vs cap 10). D4 inapplicable. Tooling: `npm run ledger` restored from upstream, so these views are generated again. PRIOR: 2026-07-24 recalibration.",
   "parking": [
     "skill-content-gap dimension — a skill missing a known technique/caveat maps to no clean D1–D9",
     "D11 'seam integrity' dimension — do the framework's own gates (promote/materialize/validate) enforce the conventions its docs state? [renumbered D10→D11 when abstraction-level/domain-layering took D10]",
-    "restore an `npm run ledger` generator for LEDGER.md/ledger.html — the views are hand-synced since the fork dropped the upstream script (the _source_of_truth line above still promises it)"
+    "mechanical check that no pack install path collides with a trunk-tracked path (see D8-install-path-collision-hooks — the generalized 376c614 guard)"
   ],
   "dimensions": {
     "D1": "agents over the index cap",
@@ -116,6 +116,15 @@
       "status": "open",
       "finding": "update-badges.js counts the FILESYSTEM plugin tree, which after a local `forge new` includes the installed pack that the trunk deliberately does not track — so the pre-commit hook rewrote README.md + .claude-plugin/marketplace.json to Skills 20 / Agents 7 while the repo actually ships 13 / 5. The published numbers describe one machine s install state, and no gate catches it (validate skips badges by design). Fix: count git-TRACKED plugin files (git ls-files plugin/{skills,agents}) so install output cannot inflate what the repo advertises. Accepted knowingly in the 2026-08-13 audit-fix commit.",
       "pattern": "a derived artifact that SHIPS is computed from what the repo tracks, never from what happens to be on disk."
+    },
+    {
+      "id": "D8-install-path-collision-hooks",
+      "dim": "D8",
+      "bucket": 4,
+      "verdict": "fix-now",
+      "status": "open",
+      "finding": "The invariant \"the trunk never tracks a path a domain-pack install writes\" is ALREADY violated beyond the skill-sources case: domains/webapp/plugin/hooks/hooks.json installs to plugin/hooks/hooks.json, which CORE tracks (12 tracked files in plugin/hooks/). Installing webapp would clobber a tracked file and break `xenomoon update` exactly as 376c614 did — unnoticed only because webapp has not been installed here. The invariant is prose in framework-sources.md with no mechanical guard. Fix: a check:* that diffs every pack s install file list against `git ls-files plugin/` and fails on any overlap (the audit-suite check D10-fork-divergence-wiring already asked for), plus decide per collision whether the path is CORE-owned or pack-owned (hooks.json needs a merge strategy, not an overwrite).",
+      "pattern": "a pack install path and a trunk-tracked path are disjoint sets, enforced by a gate — not by remembering."
     }
   ]
 }

@@ -193,7 +193,7 @@ NEXT            one action I recommend — not a menu
 - **Markdown subset only** — the UI renders **bold**, _italic_, `inline code`, fenced
   code blocks, `-`/`1.` lists, short `#` headings, links. No tables, images, or nested
   lists.
-- **Caveman/terse is a sub-agent convention** (`caveman-forge`, `[cvmn]`); relay their
-  receipts in normal prose — never emit `[cvmn]` yourself.
+- **Terse output is a SUB-AGENT convention** (their prompts carry it inline; `caveman-forge`
+  holds the detail). You are the human-facing voice — relay their receipts in normal prose.
 - New capabilities are authored project-local first; nothing is promoted or "learned"
   without explicit human approval. Push back instead of guessing.

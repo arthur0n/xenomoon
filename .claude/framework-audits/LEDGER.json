@@ -53,10 +53,11 @@
     {
       "id": "D9-caveman-gate",
       "dim": "D9",
-      "bucket": 4,
-      "verdict": "fix-now",
+      "bucket": 5,
+      "verdict": "later",
       "status": "open",
-      "finding": "MEASURED this pass: the observe+score hook IS restored and wired (plugin/hooks/caveman-reminder.sh, hooks.json:71) and logs/caveman-gate.log holds 2378 rows — marker:true 23 (0.97%), verbose:true 168 (7%). Sub-agent TERSENESS holds (~93% non-verbose) while the [cvmn] marker is effectively never emitted. Decide: drop the marker convention from caveman-forge + the agent prompts (it costs prompt space and a per-tool-call hook nudge for ~1% compliance), or enforce it deterministically. Caveat: rows repeat per tool call, so the ratio is directional, not per-message."
+      "finding": "APPLIED 2026-08-14 (design decision, human): [cvmn] marker DROPPED everywhere (skill, 14 agent prompts, spine, hook) and the terse rule FRONT-LOADED — one identical inline block in every agent, replacing five different phrasings, two of which were runtime `Load the caveman-forge skill` steps that could silently not happen, plus 4 agents that carried no inline rule at all. RETRACTION: the 0.97% marker figure this row previously cited was NOT evidence — caveman-reminder.sh:41-44 documents that PreToolUse fires mid-turn on a bare tool_use with no text, so the scorer logged marker:false forever regardless of compliance. That sampling bug was already fixed in the hook; the old log rows are artifacts. NOW OPEN: does front-loading actually move terseness? The hook still scores verbose/fillerDensity/articleDensity/avgSentLen per sub-agent tool call (marker field removed from the schema 2026-08-14 — rows before that date carry it). Next audit: compare verbose-rate on rows written after this change against the pre-change baseline, and only then decide whether the mid-turn nudge is still earning its per-call cost.",
+      "pattern": "an always-needed rule lives INLINE in the prompt, never behind a load step — and a compliance metric must be validated against its own sampling before it justifies anything."
     },
     {
       "id": "D8-epic-grill-layer-unproven",

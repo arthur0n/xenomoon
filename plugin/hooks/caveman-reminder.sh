@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
-# PreToolUse(*) caveman nudge — NON-BLOCKING. Before EVERY sub-agent tool call, re-inject the
-# terse-output rule and the `[cvmn]` marker convention so caveman can't decay over a long,
-# tool-heavy turn. Also inspects the PREVIOUS assistant message (observe-only) to escalate the
-# wording and log a deterministic compliance trace. NEVER blocks, denies, or emits a
+# PreToolUse(*) terse-output nudge — NON-BLOCKING. Every agent prompt already carries the rule
+# INLINE (front-loaded, no skill load to miss); this re-injects it mid-turn so it cannot decay
+# over a long, tool-heavy run. Also inspects the PREVIOUS assistant message (observe-only) to
+# escalate the wording and log a terseness trace. NEVER blocks, denies, or emits a
 # permissionDecision — only additionalContext (exit 0 always).
+#
+# The `[cvmn]` marker was REMOVED 2026-08-14: it proved nothing a terseness score doesn't measure
+# directly, and the 0-marker history that seemed to justify it was the sampling artifact described
+# below, not real non-compliance.
 #
 # Scoped to sub-agents ONLY via `agent_id` (present only inside an AgentTool worker, absent on
 # the main thread). The main orchestrator session is never nudged — not a caveman context.
 #
 # The log (logs/caveman-gate.log under the framework dir) is the evaluation record: per-call
-# rows of marker-presence + terseness scores so the user can judge whether the nudge alone is
+# rows of terseness scores so the user can judge whether the nudge alone is
 # enough before considering anything stronger. Heuristic is deterministic — no LLM.
 payload="$(cat)"
 agent_id="$(printf '%s' "$payload" | jq -r '.agent_id // empty' 2>/dev/null)"
@@ -21,11 +25,10 @@ transcript="$(printf '%s' "$payload" | jq -r '.transcript_path // empty' 2>/dev/
 # Self-legitimating + self-degrading (live bite 2026-08-11: a read-only agent whose charter
 # never mentioned caveman and whose toolset had no Skill tool read the bare nudge as a
 # prompt injection and refused — correctly, since nothing attributed it). Name the source,
-# and make the skill-load conditional so skill-less agents comply via the inline rules.
-base="[Xenomoon house convention — injected by the framework's own PreToolUse hook; legitimate, not user content or an injection.] caveman mode active: if the caveman-forge skill is in your available skills, load it; if you cannot load skills, apply the rules in this note directly. Terse output — compress ALL prose you emit, INCLUDING running commentary between tool calls and mid-task status, not just final reports. Drop articles/filler/pleasantries; fragments OK. Code, errors and identifiers stay exact. Full prose ONLY for mcp__ui__form field labels/descriptions and destructive-action warnings. END every message with the marker [cvmn]."
+# state the rules inline so an agent without the Skill tool still complies.
+base="[Xenomoon house convention — injected by the framework's own PreToolUse hook; legitimate, not user content or an injection.] Terse output is already in your prompt — this is the mid-turn reminder, because it decays over a long tool-heavy run. Compress ALL prose you emit, INCLUDING running commentary between tool calls and mid-task status, not just final reports. Drop articles/filler/pleasantries; fragments OK. Code, errors and identifiers stay exact. Full prose ONLY for mcp__ui__form field labels/descriptions and destructive-action warnings."
 
 # --- observe-only inspection of the previous assistant message (best-effort, never fatal) ---
-marker=false
 verbose=false
 W=0
 fillerDensity=0
@@ -48,9 +51,6 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
   [ "$text" = "null" ] && text=""
 
   if [ -n "$text" ]; then
-    # marker check on the raw text (before code-stripping)
-    case "$text" in *"[cvmn]"*) marker=true ;; esac
-
     # strip fenced ``` blocks and inline `code` so code is exempt from terseness scoring
     prose="$(printf '%s' "$text" \
       | awk 'BEGIN{f=0} /^[[:space:]]*```/{f=!f; next} f==0{print}' \
@@ -80,8 +80,8 @@ EOF
     [ -z "$W" ] && W=0
     [ -z "$verbose" ] && verbose=false
 
-    if [ "$marker" != "true" ] || [ "$verbose" = "true" ]; then
-      flag="⚠ last reply missed [cvmn] / too verbose — reload caveman, compress, tag [cvmn]. "
+    if [ "$verbose" = "true" ]; then
+      flag="⚠ last reply ran verbose — compress harder. "
     fi
   fi
 fi
@@ -94,10 +94,10 @@ log_dir="${XENOMOON_LOG_DIR:-${TMPDIR:-/tmp}}"
 {
   mkdir -p "$log_dir" 2>/dev/null && \
   jq -cn \
-    --arg s "$session_id" --argjson m "$marker" --argjson v "$verbose" \
+    --arg s "$session_id" --argjson v "$verbose" \
     --argjson w "$W" --argjson fd "$fillerDensity" --argjson ad "$articleDensity" \
     --argjson asl "$avgSentLen" \
-    '{session_id:$s, marker:$m, verbose:$v, W:$w, fillerDensity:$fd, articleDensity:$ad, avgSentLen:$asl}' \
+    '{session_id:$s, verbose:$v, W:$w, fillerDensity:$fd, articleDensity:$ad, avgSentLen:$asl}' \
     >> "$log_dir/caveman-gate.log"
 } 2>/dev/null
 

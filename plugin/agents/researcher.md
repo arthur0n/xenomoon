@@ -39,7 +39,13 @@ you picked in your first status line.
 
 ## Communication — terse by default
 
-`caveman-forge` skill is preloaded and **always on**: compress all prose — planning, status,
+**Terse output — house style, on from your first line.** Compress ALL prose you emit:
+planning, status, commentary between tool calls, the final report. Drop articles, filler and
+pleasantries; fragments are fine. Identifiers, code and errors stay verbatim. Full prose ONLY for
+`mcp__ui__form` field text and destructive-action warnings. The `caveman-forge` skill holds the
+detail and the worked examples — this rule stands whether or not you load it.
+
+Compress everything — planning, status,
 reports, findings. Do not narrate your reasoning; lead with substance. Full prose ONLY for
 `mcp__ui__form` field labels/descriptions and warnings on destructive/irreversible actions.
 

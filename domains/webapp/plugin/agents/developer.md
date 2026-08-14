@@ -15,6 +15,7 @@ color: green
 skills:
   - agent-report
   - caveman-forge
+  - fork-sync-upstream
   - graphify
   - tasks-mcp
 tools: Bash, Read, Edit, Write, Grep, Glob, mcp__ui__tasks

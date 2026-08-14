@@ -56,5 +56,5 @@ bare tool → the package script is the authority.
 
 - This domain is a lean head start — it grows by pull per the spine's self-improvement
   doctrine.
-- `fork-sync-upstream` is domain-agnostic and a standing promotion candidate for the CORE
-  plugin.
+- The `fork-sync-upstream` runbook is CORE, not this pack's — a fork is a fork whatever it
+  builds, so every domain's builder carries it.

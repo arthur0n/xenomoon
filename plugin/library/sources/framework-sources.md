@@ -5,8 +5,11 @@ what we deliberately dropped, where to fetch the rest. One entry per source.
 
 NOT the project-stack registry: domain packs install their own
 `library/sources/skill-sources.md` (vendor-official repos the `researcher` searches in
-skill-gap mode) — this file deliberately lives at a DIFFERENT path so the trunk never
-tracks a path a domain-pack install writes (that collision breaks `xenomoon update`).
+skill-gap mode) — this file deliberately lives at a DIFFERENT path so a pack install never
+CLOBBERS a trunk-tracked file (that collision breaks `xenomoon update`). The rule is enforced
+mechanically now: `npm run check:install-paths` fails on any pack file whose install target is
+tracked, minus an explicit `SANCTIONED_MERGE` allowlist (`plugin/hooks/hooks.json`, which the
+installer merges rather than overwrites — CORE owns the file, packs contribute entries).
 
 ## General / agent-workflow
 

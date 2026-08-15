@@ -2,7 +2,7 @@
 
 # Framework audit ledger
 
-**open (fix-now): 3 · later: 5 · skip: 0**
+**open (fix-now): 2 · later: 5 · skip: 0**
 
 _Last audit:_ 2026-08-13 (full pass, single context, expoapp pack installed) — 15 findings raised, 12 APPLIED same day across three /framework-audit-fix runs (git is the record: 4299d2e + follow-ups). At audit time `npm run validate` was RED (check:skills) and BOTH agnostic gates were dormant — `--project` was never passed and contamination scanned only domains/\*, which is how a bound project name reached plugin/library/findings/. Now: gate green, both gates derive the bound project s terms and scan the CORE tree (first run caught a real leak in start-profile.js), the CORE spine s broken precedence sentence is fixed, two stale hardcoded file lists are derived, and the expo pack ships its sources registry. D9-caveman-gate upgraded hypothesis → MEASURED (marker 0.97%, terseness 93%). D1 clean (max 9 skills/agent vs cap 10). D4 inapplicable. Tooling: `npm run ledger` restored from upstream, so these views are generated again. PRIOR: 2026-07-24 recalibration.
 
@@ -12,14 +12,12 @@ _Last audit:_ 2026-08-13 (full pass, single context, expoapp pack installed) —
 
 _none_
 
-## Bucket 4 — improvements (3) · fix-now · needs judgment (/framework-audit-fix)
+## Bucket 4 — improvements (2) · fix-now · needs judgment (/framework-audit-fix)
 
 - **D7-contribute-two-tree** · `D7` · _open_ — plugin/commands/contribute.md (SHIPPED) is still built on the dead two-tree model: it stages domains/<name>/plugin/{skills,library}/ and its scope-safety rule forbids staging plugin/ (CORE) — but promote-run.js locate() lands promotions in plugin/{skills,library}/ (one tree). A path fix collapses the command's own safety rule, so it needs a redesign: distinguish contributable learnings from CORE by git history / promotions-board provenance instead of by path. Found 2026-07-24 while applying D7-suite-godot-stale.
   - _pattern:_ promote-run.js is the source of truth for where capabilities land; commands describe ITS behavior, not a remembered layout.
 - **D8-epic-grill-layer-unproven** · `D8` · _open_ — The 2026-07-30 adaptation wave (designer→product-owner rename across ~24 files; grill skill + /grill; xeno-epic skill + mcp**ui**epic tool + /epic; skill-writing doctrine doc) landed green on `npm run validate` but has ZERO end-to-end runs: the epic tool's gh path (label create, issue create/edit, body round-trip) is untested against a real repo, grill mode has never driven a real form sequence, and live clones (lexflow-xm) still run the old designer roster until /sync-framework. Next audit pass: exercise epic chart→decide→slice on a real project, score grill/xeno-epic against plugin/docs/process/skill-writing.md, and verify the rename left no dangling designer references in generated/derived surfaces.
   - _pattern:_ a new capability is DONE when a real project run proves it, not when validate passes — pilot on lexflow-xm, then close.
-- **D8-install-path-collision-hooks** · `D8` · _open_ — The invariant "the trunk never tracks a path a domain-pack install writes" is ALREADY violated beyond the skill-sources case: domains/webapp/plugin/hooks/hooks.json installs to plugin/hooks/hooks.json, which CORE tracks (12 tracked files in plugin/hooks/). Installing webapp would clobber a tracked file and break `xenomoon update` exactly as 376c614 did — unnoticed only because webapp has not been installed here. The invariant is prose in framework-sources.md with no mechanical guard. Fix: a check:\* that diffs every pack s install file list against `git ls-files plugin/` and fails on any overlap (the audit-suite check D10-fork-divergence-wiring already asked for), plus decide per collision whether the path is CORE-owned or pack-owned (hooks.json needs a merge strategy, not an overwrite).
-  - _pattern:_ a pack install path and a trunk-tracked path are disjoint sets, enforced by a gate — not by remembering.
 
 ## Bucket 5 — later (5) · system / parked
 
@@ -40,4 +38,3 @@ _none_
 
 - skill-content-gap dimension — a skill missing a known technique/caveat maps to no clean D1–D9
 - D11 'seam integrity' dimension — do the framework's own gates (promote/materialize/validate) enforce the conventions its docs state? [renumbered D10→D11 when abstraction-level/domain-layering took D10]
-- mechanical check that no pack install path collides with a trunk-tracked path (see D8-install-path-collision-hooks — the generalized 376c614 guard)

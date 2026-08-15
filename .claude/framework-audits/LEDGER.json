@@ -5,8 +5,7 @@
   "lastAudit": "2026-08-13 (full pass, single context, expoapp pack installed) — 15 findings raised, 12 APPLIED same day across three /framework-audit-fix runs (git is the record: 4299d2e + follow-ups). At audit time `npm run validate` was RED (check:skills) and BOTH agnostic gates were dormant — `--project` was never passed and contamination scanned only domains/*, which is how a bound project name reached plugin/library/findings/. Now: gate green, both gates derive the bound project s terms and scan the CORE tree (first run caught a real leak in start-profile.js), the CORE spine s broken precedence sentence is fixed, two stale hardcoded file lists are derived, and the expo pack ships its sources registry. D9-caveman-gate upgraded hypothesis → MEASURED (marker 0.97%, terseness 93%). D1 clean (max 9 skills/agent vs cap 10). D4 inapplicable. Tooling: `npm run ledger` restored from upstream, so these views are generated again. PRIOR: 2026-07-24 recalibration.",
   "parking": [
     "skill-content-gap dimension — a skill missing a known technique/caveat maps to no clean D1–D9",
-    "D11 'seam integrity' dimension — do the framework's own gates (promote/materialize/validate) enforce the conventions its docs state? [renumbered D10→D11 when abstraction-level/domain-layering took D10]",
-    "mechanical check that no pack install path collides with a trunk-tracked path (see D8-install-path-collision-hooks — the generalized 376c614 guard)"
+    "D11 'seam integrity' dimension — do the framework's own gates (promote/materialize/validate) enforce the conventions its docs state? [renumbered D10→D11 when abstraction-level/domain-layering took D10]"
   ],
   "dimensions": {
     "D1": "agents over the index cap",
@@ -92,15 +91,6 @@
       "verdict": "later",
       "status": "open",
       "finding": "token-audit exists as two diverged copies of one command: plugin/commands/token-audit.md (1715 w, $CLAUDE_PLUGIN_ROOT paths) and .claude/commands/token-audit.md (2309 w, .claude/ paths) — the shipped copy lacks the \"Domain separation\" + \"Do this\" sections and the entire history.json / `npm run token-history` half, with nothing keeping them in sync. Decide: the shipped copy declares the forge revision it was ported from, or one is generated from the other."
-    },
-    {
-      "id": "D8-install-path-collision-hooks",
-      "dim": "D8",
-      "bucket": 4,
-      "verdict": "fix-now",
-      "status": "open",
-      "finding": "The invariant \"the trunk never tracks a path a domain-pack install writes\" is ALREADY violated beyond the skill-sources case: domains/webapp/plugin/hooks/hooks.json installs to plugin/hooks/hooks.json, which CORE tracks (12 tracked files in plugin/hooks/). Installing webapp would clobber a tracked file and break `xenomoon update` exactly as 376c614 did — unnoticed only because webapp has not been installed here. The invariant is prose in framework-sources.md with no mechanical guard. Fix: a check:* that diffs every pack s install file list against `git ls-files plugin/` and fails on any overlap (the audit-suite check D10-fork-divergence-wiring already asked for), plus decide per collision whether the path is CORE-owned or pack-owned (hooks.json needs a merge strategy, not an overwrite).",
-      "pattern": "a pack install path and a trunk-tracked path are disjoint sets, enforced by a gate — not by remembering."
     }
   ]
 }

@@ -27,3 +27,9 @@ learns the project, and broadly-useful findings promote up here alongside the ca
 A record is OUR verdict (an output); a source list points OUT to the world (an input) — separate
 shelves. The `researcher` agent (modes: skill-gap, tooling, transcript) writes
 their findings here on demand; they never load it automatically.
+
+Promoted records arrive via the promotions board (kind `library`) from a bound project's
+`.claude/library/<kind>/<slug>.md` draft — see `plugin/docs/process/updates-routing.md` (the
+DOMAIN path) and the `library-record-writing` skill (the format contract). **This README is
+CORE-owned:** a domain pack must not ship its own `library/README.md`, because the installer
+copies `library/` wholesale and would overwrite this file.

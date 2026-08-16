@@ -10,6 +10,8 @@ authoritative, never guess them.
 
 ## Domain routing
 
+- **Bigger than one slice or one session** → chart a **xeno-epic FIRST** per the spine's
+  epic rule (`/epic`); its slices then enter the routing below one at a time.
 - **Implementation with agreed small scope** (a PRD slice, a spec, a settled trivial
   change) → **`developer`** — the pack's one Edit/Write builder. Brief it whole
   ("implement <slice>: <spec path>"); discovery belongs to it.

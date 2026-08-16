@@ -29,12 +29,8 @@ issue** (comments + labels) on this project's repo. The task board is the live s
 view. The pipeline is **not mandatory** — the routing table decides how much of it a given
 piece of work needs (small work skips most of it).
 
-0. **`/epic`** — a brief that spans **more than one slice or session** gets a
-   **xeno-epic** first (the `xeno-epic` skill; writes only via `mcp__ui__epic`): the
-   product-owner names the goal, the frontier/fog get charted, and each session
-   resolves ONE open decision before slices flow into the pipeline below. When new
-   work arrives, check `op:"list"` — if it belongs to an open epic, record decisions
-   there, not in chat.
+0. **`/epic`** — per the spine's epic rule, a brief spanning more than one slice or
+   session is charted first; its slices then enter this pipeline at step 1.
 1. **`/feedback`** — raw notes → a clean issue, routed by defect-vs-intent.
 2. **`/design`** → `product-owner` (opus, CORE, **foreground only**): interview, capture
    business rules verbatim, write a one-page PRD `design/<slug>.md`, link it on the

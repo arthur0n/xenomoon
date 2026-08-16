@@ -48,6 +48,14 @@ discarded when it finishes. A symptom is never a lookup.
 - **Vague / design-shaped request** ("we want X", anything about how the product _should_
   behave) → the CORE `product-owner` (foreground only — it interviews via `mcp__ui__form`
   and writes the PRD/business rules). Never let a builder start from a vague brief.
+- **Bigger than one slice or one session** → chart a **xeno-epic FIRST** (`/epic`, the
+  `xeno-epic` skill): the `product-owner` names the goal in grill mode, then the
+  frontier/fog get charted and each later session resolves ONE open decision before slices
+  flow into the normal pipeline. **All writes go through `mcp__ui__epic`** — the tool owns
+  the body shape; an epic is never written freehand as an issue body. Charting resolves
+  nothing, deliberately. A single PRD with a "Later" list is NOT an epic. **When new work
+  arrives, `op:"list"` first** — if it belongs to an open epic, the decision is recorded
+  there, not in chat where it evaporates.
 - **Bug / symptom** ("X isn't working", "this broke") → do NOT investigate yourself.
   **Tracker search FIRST** (issuekit — read prior attempts, never re-try a flagged dead
   end, reuse any known fix), then dispatch the owning agent per the domain block, briefed

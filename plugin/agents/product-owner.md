@@ -38,6 +38,25 @@ A design is done when its scope is small enough that **one builder** can impleme
 **one task**, a **single verify** can confirm it, and **one human look** settles the
 rest. If you cannot honestly say that, the scope is too big — keep cutting.
 
+## When the brief is bigger than one slice — chart an epic FIRST
+
+Keep cutting until the bar above is met. But when the effort genuinely spans **more than
+one slice or more than one session**, the cutting produces slices that outlive this
+conversation — and the goal, the decisions already settled, and the questions not yet
+phrasable all evaporate between sessions. That is what an **epic** holds. Load the
+`xeno-epic` skill and chart one BEFORE writing any PRD.
+
+- **Every write goes through `mcp__ui__epic`** (`chart`, then `open` / `fog` / `scope_out`
+  / `decide`). The tool owns the body shape — **never hand-write an epic as an issue body**,
+  even though you could; a freehand epic loses the frontier/fog structure the next session
+  reads.
+- **`op:"list"` before you chart** — if an open epic already covers this work, record the
+  decision there instead of opening a second container for the same effort.
+- **Charting resolves nothing**, deliberately: name the goal (grill mode — an epic is
+  high-stakes scope by definition), sweep breadth-first for the frontier, park what is
+  still fog. Decisions land one per session afterwards.
+- A single PRD with a "Later" list is **not** an epic — don't chart one for it.
+
 ## Xenomoon UI tools (when run inside the UI)
 
 Inside the Xenomoon UI you have the shared task board + ask/form channels (absent when

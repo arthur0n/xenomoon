@@ -46,8 +46,20 @@ function parseList(out) {
   }
 }
 
-/** One read-only command. Never throws — a failed check degrades to null, never a dead beat.
- * @param {string} bin @param {string[]} args @param {string} cwd @returns {Promise<string | null>} */
+/** Failures this beat, newest last. Reset per runChecks() — a check that could not RUN is
+ * recorded here so a blind sweep can never be reported as a clean one. @type {string[]} */
+let failures = [];
+
+/** One read-only command. Never throws.
+ *
+ * Returns a DISCRIMINATED result, not a bare string-or-null: the original version collapsed
+ * "ran, found nothing" and "could not run at all" into the same `null`, so every caller read a
+ * missing binary as "nothing to report" and a totally blind sweep rendered as a calm flat beat.
+ * That shipped, and it silently blinded Pulse for five beats — `gh` lives in /opt/homebrew/bin and
+ * a server started outside the user's shell has no such PATH. A safety net that cannot tell
+ * "clean" from "broken" is worse than no net, because it reports success either way.
+ * @param {string} bin @param {string[]} args @param {string} cwd
+ * @returns {Promise<{ ok: true, out: string } | { ok: false, why: string }>} */
 async function sh(bin, args, cwd) {
   try {
     const { stdout } = await run(bin, args, {
@@ -56,16 +68,43 @@ async function sh(bin, args, cwd) {
       timeout: TIMEOUT_MS,
       maxBuffer: MAX_BUFFER,
     });
-    return stdout;
-  } catch {
-    return null;
+    return { ok: true, out: stdout };
+  } catch (err) {
+    const e = /** @type {{ code?: string, killed?: boolean }} */ (err);
+    // ENOENT = the binary isn't on this process's PATH (the live failure). killed = our timeout.
+    const why =
+      e.code === "ENOENT"
+        ? `${bin} not found on PATH`
+        : e.killed
+          ? `${bin} ${args[0] ?? ""} timed out after ${TIMEOUT_MS / 1000}s`
+          : `${bin} ${args[0] ?? ""} failed (${e.code ?? "non-zero exit"})`;
+    return { ok: false, why };
   }
 }
 
+/** Run a command, recording a REAL failure (missing binary / timeout / crash) so it surfaces.
+ * Returns null only when the command genuinely could not run. @param {string} bin
+ * @param {string[]} args @param {string} cwd @returns {Promise<string | null>} */
+async function shLoud(bin, args, cwd) {
+  const r = await sh(bin, args, cwd);
+  if (r.ok) return r.out;
+  failures.push(r.why);
+  return null;
+}
+
+/** Run a command whose failure is EXPECTED and meaningful (a probe: "is there an origin?",
+ * "is gh authenticated?"). Silent — a false answer here is information, not a fault.
+ * @param {string} bin @param {string[]} args @param {string} cwd @returns {Promise<string | null>} */
+async function shProbe(bin, args, cwd) {
+  const r = await sh(bin, args, cwd);
+  return r.ok ? r.out : null;
+}
+
 /** @param {string} cwd @returns {Promise<boolean>} */
-const hasOrigin = async (cwd) => (await sh("git", ["remote", "get-url", "origin"], cwd)) !== null;
+const hasOrigin = async (cwd) =>
+  (await shProbe("git", ["remote", "get-url", "origin"], cwd)) !== null;
 /** @param {string} cwd @returns {Promise<boolean>} */
-const ghReady = async (cwd) => (await sh("gh", ["auth", "status"], cwd)) !== null;
+const ghReady = async (cwd) => (await shProbe("gh", ["auth", "status"], cwd)) !== null;
 
 /** Confirm a branch is REALLY ahead of the remote, not just ahead of a stale tracking ref.
  *
@@ -81,13 +120,15 @@ const ghReady = async (cwd) => (await sh("gh", ["auth", "status"], cwd)) !== nul
  * @param {string} cwd @param {string} branch @param {string} aheadGuess
  * @returns {Promise<{ ahead: string, verified: boolean } | null>} null = not actually ahead */
 async function confirmAhead(cwd, branch, aheadGuess) {
-  const ls = await sh("git", ["ls-remote", "--heads", "origin", branch], cwd);
+  const ls = await shLoud("git", ["ls-remote", "--heads", "origin", branch], cwd);
   if (ls === null) return { ahead: aheadGuess, verified: false }; // offline — report, flagged
   const remoteSha = ls.split(/\s+/)[0];
   if (!remoteSha) return { ahead: aheadGuess, verified: false }; // genuinely absent upstream
-  const localSha = (await sh("git", ["rev-parse", branch], cwd))?.trim();
+  const localSha = (await shLoud("git", ["rev-parse", branch], cwd))?.trim();
   if (remoteSha === localSha) return null; // stale tracking ref — already published
-  const count = (await sh("git", ["rev-list", "--count", `${remoteSha}..${branch}`], cwd))?.trim();
+  const count = (
+    await shLoud("git", ["rev-list", "--count", `${remoteSha}..${branch}`], cwd)
+  )?.trim();
   if (count === "0") return null;
   return count ? { ahead: count, verified: true } : { ahead: aheadGuess, verified: false };
 }
@@ -96,7 +137,7 @@ async function confirmAhead(cwd, branch, aheadGuess) {
  * One porcelain call lists them; only the suspicious ones cost a network round trip.
  * @param {string} cwd @param {string} scopeTag @returns {Promise<PulseItem[]>} */
 async function unpushedBranches(cwd, scopeTag) {
-  const out = await sh(
+  const out = await shLoud(
     "git",
     [
       "for-each-ref",
@@ -149,7 +190,7 @@ async function branchItem(cwd, line, scopeTag) {
 /** Worktrees other than the main checkout — where "finished" work hides most effectively.
  * @param {string} cwd @param {string} scopeTag @returns {Promise<PulseItem[]>} */
 async function strayWorktrees(cwd, scopeTag) {
-  const out = await sh("git", ["worktree", "list", "--porcelain"], cwd);
+  const out = await shLoud("git", ["worktree", "list", "--porcelain"], cwd);
   if (out === null) return [];
   /** @type {PulseItem[]} */
   const items = [];
@@ -172,7 +213,7 @@ async function strayWorktrees(cwd, scopeTag) {
 /** Open PRs: mergeable+green ones are landable now; failing/conflicted ones are stuck. Both are
  * "not landed", with different actions. @param {string} cwd @returns {Promise<PulseItem[]>} */
 async function openPRs(cwd) {
-  const out = await sh(
+  const out = await shLoud(
     "gh",
     [
       "pr",
@@ -215,7 +256,7 @@ async function openPRs(cwd) {
 /** Open issues whose fix is already merged — the "shipped but the tracker doesn't know" case, and
  * open issues explicitly waiting on the human. @param {string} cwd @returns {Promise<PulseItem[]>} */
 async function stalledIssues(cwd) {
-  const out = await sh(
+  const out = await shLoud(
     "gh",
     ["issue", "list", "--state", "open", "--limit", "40", "--json", "number,title,labels"],
     cwd,
@@ -244,11 +285,11 @@ async function stalledIssues(cwd) {
 /** Run every check for the configured scope. Returns items plus a soft error string — a degraded
  * environment (no gh/auth/origin) is reported ONCE via `note`, not as a failure.
  * @param {"project" | "forge" | "both"} scope
- * @returns {Promise<{ items: PulseItem[], error: string | null }>} */
+ * @returns {Promise<{ items: PulseItem[], error: string | null, degraded: boolean }>} */
 export async function runChecks(scope) {
   /** @type {PulseItem[]} */
   const items = [];
-  const error = null;
+  failures = []; // per-sweep; a stale failure must never be reported against a later beat
 
   if (scope === "project" || scope === "both") {
     const cwd = PROJECT_DIR;
@@ -272,5 +313,10 @@ export async function runChecks(scope) {
       items.push(...(await unpushedBranches(FRAMEWORK_DIR, "forge:")));
   }
 
-  return { items, error };
+  // The error channel this function always promised and never populated: without it a sweep where
+  // EVERY command failed returned `{ items: [], error: null }` — byte-identical to a clean repo.
+  // Dedupe so one missing binary across seven checks reads as one problem, not seven.
+  const unique = [...new Set(failures)];
+  const error = unique.length ? unique.join(" · ") : null;
+  return { items, error, degraded: unique.length > 0 };
 }

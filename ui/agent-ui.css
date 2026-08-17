@@ -477,6 +477,17 @@ body.resizing iframe {
   background: #e8b96a;
 }
 
+.auto-pill.pulse-pill.degraded {
+  color: #e88a8a;
+  background: color-mix(in oklab, #e88a8a 14%, transparent);
+  border-color: color-mix(in oklab, #e88a8a 50%, transparent);
+}
+
+.auto-pill.pulse-pill.degraded .auto-dot {
+  background: #e88a8a;
+  animation: none;
+}
+
 .auto-pill.pulse-pill.sleeping {
   opacity: 0.55;
 }

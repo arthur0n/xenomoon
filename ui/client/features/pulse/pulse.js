@@ -26,10 +26,22 @@ function renderLed(p) {
   const dot = $("pulse-dot");
   if (!btn || !label || !dot) return;
 
-  const state = !p.active ? "off" : p.sleeping ? "sleeping" : p.found > 0 ? "found" : "armed";
-  btn.classList.toggle("on", p.active && !p.sleeping);
+  // `degraded` outranks everything except off: a sweep whose checks could not RUN must never
+  // render as calm. Reporting "armed, nothing found" while blind is the failure this state exists
+  // to make impossible.
+  const state = !p.active
+    ? "off"
+    : p.lastError
+      ? "degraded"
+      : p.sleeping
+        ? "sleeping"
+        : p.found > 0
+          ? "found"
+          : "armed";
+  btn.classList.toggle("on", p.active && !p.sleeping && state !== "degraded");
   btn.classList.toggle("found", state === "found");
   btn.classList.toggle("sleeping", state === "sleeping");
+  btn.classList.toggle("degraded", state === "degraded");
   dot.classList.toggle("beating", state === "armed" || state === "found");
   label.textContent = `Pulse: ${state}`;
 
@@ -38,13 +50,16 @@ function renderLed(p) {
   btn.title = !p.active
     ? "Pulse is off — nothing is watching for work that hasn't landed. Click to arm."
     : [
+        // Lead with the failure when degraded — "armed, nothing found" must never be the first
+        // thing you read off a sweep that never ran.
+        p.lastError ? `⚠ DEGRADED — a check could not run: ${p.lastError}` : "",
+        p.lastError ? "findings below are INCOMPLETE, not a clean bill of health" : "",
         `Pulse ${state} · ${p.beats} beat(s)`,
         `last beat ${ago(p.lastBeatAt)}${p.found ? ` — ${p.found} new` : ""}`,
         p.suppressed ? `${p.suppressed} unchanged (suppressed)` : "nothing suppressed",
         p.sleeping
           ? "sleeping after quiet beats — any message wakes it"
           : `next beat ${p.nextBeatAt ? ago(p.nextBeatAt).replace(" ago", " from now") : "—"}`,
-        p.lastError ? `last error: ${p.lastError}` : "",
       ]
         .filter(Boolean)
         .join("\n");

@@ -85,19 +85,23 @@ async function beat() {
   beating = true;
   try {
     const now = new Date().toISOString();
-    const { items, error } = await runChecks(state.scope);
+    const { items, error, degraded } = await runChecks(state.scope);
     // Delta: fire on a new id, or on an id whose action-deciding fingerprint changed.
     const fired = items.filter((i) => state.seen[i.id] !== i.fp);
     const suppressed = items.length - fired.length;
 
-    pruneSeen(items.map((i) => i.id));
-    const next = recordBeat({ fired, suppressed, now, error });
+    // A DEGRADED sweep (a check could not run) must never be folded into the delta memory or the
+    // sleep counter. Pruning on a blind sweep would wipe `seen` and re-report everything once the
+    // eye returns, and counting it as flat would nap on a broken sensor — the failure that shipped:
+    // five "clean" beats that had checked nothing at all.
+    if (!degraded) pruneSeen(items.map((i) => i.id));
+    const next = recordBeat({ fired, suppressed, now, error, flat: !degraded });
 
     if (fired.length) {
       const live = target(); // re-resolve: the async checks may have outlived the old target
       if (live && !live.isBusy()) live.push(beatTurn(next.beats, fired));
     }
-    broadcast(next.flatBeats >= FLAT_BEATS_TO_SLEEP ? sleepPulse(now) : next);
+    broadcast(!degraded && next.flatBeats >= FLAT_BEATS_TO_SLEEP ? sleepPulse(now) : next);
   } catch (err) {
     const state2 = recordBeat({
       fired: [],

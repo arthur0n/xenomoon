@@ -73,7 +73,33 @@ check(
 recordBeat({ fired: [item("pr:10:idle", "a")], suppressed: 0, now: iso() });
 check(readPulse().flatBeats === 0, "a found beat resets the flat-beat counter");
 
-// --- 3. hygiene ------------------------------------------------------------------------------
+// --- 3. a BLIND sweep must never look like a clean one ---------------------------------------
+// The bug this exists to prevent: sh() collapsed "ran, found nothing" and "could not run" into
+// null, so a sweep whose checks all failed recorded found:0 / error:null — identical to a healthy
+// repo — and Pulse reported five calm beats while checking nothing.
+const beforeFlat = readPulse().flatBeats;
+recordBeat({ fired: [], suppressed: 0, now: iso(), error: "git not found on PATH", flat: false });
+const degraded = readPulse();
+check(degraded.lastError !== null, "degraded: a failed check surfaces in lastError");
+check(
+  degraded.flatBeats === beforeFlat,
+  "degraded: a blind beat does NOT count toward sleep (never nap on a broken sensor)",
+);
+
+// And the real gatherer must report WHY, not just an empty list. PATH is emptied so every binary
+// resolution fails — the exact live failure mode.
+const realPath = process.env.PATH;
+process.env.PATH = "/nonexistent";
+const { runChecks } = await import("./pulse-checks.js");
+const blind = await runChecks("project");
+process.env.PATH = realPath;
+check(blind.degraded === true, "runChecks reports degraded when a binary cannot be resolved");
+check(
+  typeof blind.error === "string" && blind.error.length > 0,
+  `runChecks populates the error channel (got: ${blind.error ?? "null"})`,
+);
+
+// --- 4. hygiene ------------------------------------------------------------------------------
 pruneSeen(["pr:10:idle"]);
 check(
   Object.keys(readPulse().seen).every((id) => id === "pr:10:idle"),

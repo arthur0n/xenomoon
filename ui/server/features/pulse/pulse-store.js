@@ -121,13 +121,17 @@ export function wakePulse(now) {
 }
 
 /** Record one beat's outcome and fold the fired items into the delta memory.
- * @param {{ fired: PulseItem[], suppressed: number, now: string, error?: string | null }} r
+ *
+ * `flat: false` marks a DEGRADED beat — one where a check could not run. Such a beat must not
+ * count toward sleep (Pulse would nap on a blind sweep) and its empty result must not be trusted
+ * as "clean". Default true keeps ordinary beats behaving normally.
+ * @param {{ fired: PulseItem[], suppressed: number, now: string, error?: string | null, flat?: boolean }} r
  * @returns {Pulse} */
-export function recordBeat({ fired, suppressed, now, error = null }) {
+export function recordBeat({ fired, suppressed, now, error = null, flat: countable = true }) {
   const prev = readPulse();
   const seen = { ...prev.seen };
   for (const item of fired) seen[item.id] = item.fp;
-  const flat = fired.length === 0 ? prev.flatBeats + 1 : 0;
+  const flat = !countable ? prev.flatBeats : fired.length === 0 ? prev.flatBeats + 1 : 0;
   return write({
     ...prev,
     seen,

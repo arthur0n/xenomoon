@@ -99,6 +99,28 @@ check(
   `runChecks populates the error channel (got: ${blind.error ?? "null"})`,
 );
 
+// --- 3b. Codex review follow-ups -------------------------------------------------------------
+// A broken `gh` (missing binary) must DEGRADE, not become a quiet note — otherwise Pulse sleeps
+// with its GitHub eyes shut, which is the original bug with one note in front of it.
+process.env.PATH = "/nonexistent";
+const blindGh = await runChecks("project");
+process.env.PATH = realPath;
+check(
+  blindGh.degraded && /not found on PATH/.test(blindGh.error ?? ""),
+  "a missing binary degrades the sweep rather than emitting a suppressible note",
+);
+check(
+  !blindGh.items.some((i) => i.id === "env:gh-unauthenticated"),
+  "broken gh does NOT masquerade as merely unauthenticated",
+);
+
+// runChecks is exported and non-re-entrant internally; it must serialize itself.
+const [a, b] = await Promise.all([runChecks("project"), runChecks("project")]);
+check(
+  typeof a.degraded === "boolean" && typeof b.degraded === "boolean",
+  "concurrent runChecks calls serialize instead of corrupting each other's failure list",
+);
+
 // --- 4. hygiene ------------------------------------------------------------------------------
 pruneSeen(["pr:10:idle"]);
 check(

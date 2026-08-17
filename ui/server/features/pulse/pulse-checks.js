@@ -34,21 +34,27 @@ const TIMEOUT_MS = 10_000; // a check that can't answer in 10s is not worth a be
 const MAX_BUFFER = 1 << 20; // 1 MB — a repo with thousands of refs must not blow the heap
 const MAX_ITEMS_PER_CHECK = 20; // cap the noise a pathological repo can produce
 
-/** Parse a `gh --json` array. A non-array or malformed payload degrades to "found nothing" —
- * a check must never break the beat. The caller re-types the rows it asked `gh` for.
- * @param {string} out @returns {unknown[]} */
-function parseList(out) {
+/** Parse a `gh --json` array. A malformed or non-array payload is a FAULT, not an empty repo:
+ * "the command succeeded but its output contract broke" is exactly the kind of silent success
+ * this whole file exists to stop. Degrades the sweep instead of reporting zero PRs.
+ * @param {string} out @param {string} what @returns {unknown[]} */
+function parseList(out, what) {
   try {
     const raw = /** @type {unknown} */ (JSON.parse(out));
-    return Array.isArray(raw) ? /** @type {unknown[]} */ (raw) : [];
+    if (Array.isArray(raw)) return /** @type {unknown[]} */ (raw);
+    failures.push(`${what} returned JSON that is not an array`);
+    return [];
   } catch {
+    failures.push(`${what} returned unparseable JSON`);
     return [];
   }
 }
 
-/** Failures this beat, newest last. Reset per runChecks() — a check that could not RUN is
- * recorded here so a blind sweep can never be reported as a clean one. @type {string[]} */
+/** Failures this beat, newest last. Reset per sweep — a check that could not RUN is recorded
+ * here so a blind sweep can never be reported as a clean one. @type {string[]} */
 let failures = [];
+/** Serialization queue: runChecks() chains onto this so two sweeps never share `failures`. */
+let inFlight = /** @type {Promise<void>} */ (Promise.resolve());
 
 /** One read-only command. Never throws.
  *
@@ -100,11 +106,27 @@ async function shProbe(bin, args, cwd) {
   return r.ok ? r.out : null;
 }
 
-/** @param {string} cwd @returns {Promise<boolean>} */
+/** No origin is a legitimate ANSWER (a local-only repo), so this stays a silent probe.
+ * @param {string} cwd @returns {Promise<boolean>} */
 const hasOrigin = async (cwd) =>
   (await shProbe("git", ["remote", "get-url", "origin"], cwd)) !== null;
-/** @param {string} cwd @returns {Promise<boolean>} */
-const ghReady = async (cwd) => (await shProbe("gh", ["auth", "status"], cwd)) !== null;
+
+/** Is `gh` usable? Distinguishes the two cases the first fix wrongly merged:
+ *   "unauthenticated"  → an ANSWER. gh works, you are logged out; a note, not a fault.
+ *   "not found"/timeout → a FAULT. PR + issue checks are blind, and if that is not degraded
+ *                         Pulse sleeps confident while half its eyes are shut — the original
+ *                         bug with one note in front of it (Codex's top finding).
+ * @param {string} cwd @returns {Promise<"ready" | "unauthenticated" | "broken">} */
+async function ghState(cwd) {
+  const r = await sh("gh", ["auth", "status"], cwd);
+  if (r.ok) return "ready";
+  // A non-zero exit from a gh that RAN is the logged-out answer; anything else is a fault.
+  if (/not found on PATH|timed out/.test(r.why)) {
+    failures.push(r.why);
+    return "broken";
+  }
+  return "unauthenticated";
+}
 
 /** Confirm a branch is REALLY ahead of the remote, not just ahead of a stale tracking ref.
  *
@@ -181,7 +203,10 @@ async function branchItem(cwd, line, scopeTag) {
   const { ahead, verified } = confirmed;
   return {
     id: `${scopeTag}branch:${branch}:unpushed`,
-    fp: `ahead-${ahead}`,
+    // Verification state belongs IN the fingerprint. Without it, a branch reported offline as
+    // "ahead-2 (unconfirmed)" and later confirmed as "ahead-2" carries the same fp, so the
+    // upgrade from guess to fact is silently suppressed and you never learn it was real.
+    fp: `ahead-${ahead}${verified ? "" : "/unverified"}`,
     action: "act",
     title: `${branch} — ${ahead} commit(s) unpushed${verified ? "" : " (unconfirmed — remote unreachable)"}`,
   };
@@ -230,7 +255,7 @@ async function openPRs(cwd) {
   if (out === null) return [];
   const prs =
     /** @type {Array<{number:number,title:string,mergeable:string,isDraft:boolean,statusCheckRollup?:Array<{conclusion?:string}>}>} */ (
-      parseList(out)
+      parseList(out, "gh pr list")
     );
   /** @type {PulseItem[]} */
   const items = [];
@@ -263,7 +288,7 @@ async function stalledIssues(cwd) {
   );
   if (out === null) return [];
   const issues = /** @type {Array<{number:number,title:string,labels?:Array<{name:string}>}>} */ (
-    parseList(out)
+    parseList(out, "gh issue list")
   );
   /** @type {PulseItem[]} */
   const items = [];
@@ -287,6 +312,22 @@ async function stalledIssues(cwd) {
  * @param {"project" | "forge" | "both"} scope
  * @returns {Promise<{ items: PulseItem[], error: string | null, degraded: boolean }>} */
 export async function runChecks(scope) {
+  // `failures` is module-level (every check pushes into it without threading an accumulator
+  // through eight signatures), which makes this function NON-RE-ENTRANT: two overlapping sweeps
+  // would reset each other's list and report the wrong faults. beat() already serializes the
+  // timer/tool/arm paths with its own guard, but runChecks is EXPORTED — so it serializes itself
+  // here rather than trusting every future caller to know that.
+  const mine = inFlight.then(() => sweep(scope));
+  inFlight = mine.then(
+    () => undefined,
+    () => undefined,
+  );
+  return mine;
+}
+
+/** One sweep. Only ever entered via runChecks()'s queue. @param {"project" | "forge" | "both"} scope
+ * @returns {Promise<{ items: PulseItem[], error: string | null, degraded: boolean }>} */
+async function sweep(scope) {
   /** @type {PulseItem[]} */
   const items = [];
   failures = []; // per-sweep; a stale failure must never be reported against a later beat
@@ -295,14 +336,20 @@ export async function runChecks(scope) {
     const cwd = PROJECT_DIR;
     items.push(...(await unpushedBranches(cwd, "")), ...(await strayWorktrees(cwd, "")));
     if (await hasOrigin(cwd)) {
-      if (await ghReady(cwd)) items.push(...(await openPRs(cwd)), ...(await stalledIssues(cwd)));
-      else
+      const gh = await ghState(cwd);
+      if (gh === "ready") items.push(...(await openPRs(cwd)), ...(await stalledIssues(cwd)));
+      else if (gh === "unauthenticated")
+        // An ANSWER, not a fault: gh works, you are logged out. A note, suppressed after the
+        // first beat — and NOT degraded, so Pulse may still sleep on a clean local repo.
         items.push({
           id: "env:gh-unauthenticated",
           fp: "no-auth",
           action: "note",
           title: "gh not authenticated — PR/issue checks are off (`gh auth login`)",
         });
+      // gh === "broken" already pushed a failure in ghState(), so the sweep is degraded and the
+      // LED says so. It must NOT also emit a note: the note would be suppressed as unchanged
+      // after beat 1, and Pulse would go quiet with half its eyes shut.
     }
   }
 

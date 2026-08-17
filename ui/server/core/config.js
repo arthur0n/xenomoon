@@ -230,7 +230,11 @@ export const KIMI_TOOL = "mcp__ui__kimi";
  * model is chosen inside Hermes itself (`hermes config set model.default …` → `~/.hermes/config.yaml`).
  * Nous also recommends an agentic model to *drive* the agent, so treat these as a record of
  * which Hermes model you pointed Hermes at, not a control. */
-export const HERMES_DEFAULT_MODEL = "nousresearch/hermes-4-70b";
+// A model the Nous picker actually OFFERS. Never default to a `hermes-*` model: upstream's
+// own picker filters those out as "not reliable for agentic tool-calling" (their
+// hermes_cli/auth.py fetch_nous_models), and hand-setting one bypasses that guard — raw
+// unexecuted tool calls leak into answers (issue #3).
+export const HERMES_DEFAULT_MODEL = "openai/gpt-5.6-terra";
 export const HERMES_MODELS = [
   "z-ai/glm-5.2",
   "nousresearch/hermes-4-405b",

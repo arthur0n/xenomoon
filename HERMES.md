@@ -48,6 +48,12 @@ npm run hermes:setup -- --reset                            # undo the setup (tes
 and the `platform_toolsets.api_server` edit in `config.yaml`. It leaves Hermes itself, your
 model/provider and Portal auth untouched — so you can re-run setup on a clean slate.
 
+When no `--model` is given, setup lists the **Nous picker's own recommended models** (read
+from the picker's disk cache — same list `hermes model` shows) and lets you choose; Enter
+keeps your current model. It warns if a `hermes-*` model is configured: the picker
+deliberately does not offer those ("not reliable for agentic tool-calling") and hand-setting
+one produces raw unexecuted tool calls in answers.
+
 Defaults: **Nous via Portal**, toolset `web, memory, skills` — research plus Hermes' **own
 brain** (`memory` + `skills` self-improvement), and **no machine access** (no
 `terminal`/`file`/`code_execution`/`browser`; see "Restrict the toolset" and "Self-improvement"

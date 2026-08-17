@@ -278,27 +278,100 @@ function ensureEnv() {
   return key;
 }
 
+/** Upstream's own model picker EXCLUDES `hermes-*` models as "not reliable for agentic
+ * tool-calling" — hand-setting one bypasses that guard, and the result is raw unexecuted
+ * tool calls printed as answers (issue #3). Warn whenever one is about to be (or stays)
+ * configured. @param {string} model */
+function warnIfHermesModel(model) {
+  if (!/(^|\/)hermes-/i.test(model)) return;
+  console.log(
+    `  ⚠ "${model}" is a Hermes model — the Nous picker deliberately does NOT offer these` +
+      ` ("not reliable for agentic tool-calling"). Expect broken web research; pick a` +
+      ` listed model instead.`,
+  );
+}
+
+/** The Nous picker's recommended models, read from the cache `hermes model` maintains on
+ * disk (profile cache first, then the root home). Empty when never fetched — the chooser
+ * then falls back to the seed default. No network, no credentials.
+ * @returns {Array<{ id: string, price: string }>} */
+function pickerRecommendedModels() {
+  for (const dir of [HERMES_DIR, path.join(homedir(), ".hermes")]) {
+    try {
+      const raw =
+        /** @type {Record<string, { data?: Record<string, Array<{ modelName?: unknown, tokenPrice?: unknown }>> } | undefined>} */ (
+          parseJSON(readFileSync(path.join(dir, "cache", "nous_recommended_cache.json"), "utf8"))
+        );
+      /** @type {Map<string, string>} */
+      const seen = new Map();
+      for (const blob of Object.values(raw)) {
+        for (const section of Object.values(blob?.data ?? {})) {
+          if (!Array.isArray(section)) continue;
+          for (const m of section) {
+            const id = typeof m.modelName === "string" ? m.modelName : null;
+            if (id && !seen.has(id))
+              seen.set(id, typeof m.tokenPrice === "string" ? m.tokenPrice : "");
+          }
+        }
+      }
+      if (seen.size) return [...seen].map(([id, price]) => ({ id, price }));
+    } catch {
+      /* cache absent/unreadable in this home — try the next */
+    }
+  }
+  return [];
+}
+
+/** Offer the picker's recommended Nous models and return the user's choice (or the kept /
+ * seeded value). Non-interactive paths stay non-interactive: --yes (and a missing cache)
+ * keep the current model, seeding HERMES_DEFAULT_MODEL only when nothing is set — a model
+ * the user picked is never overwritten silently.
+ * @param {import("node:readline/promises").Interface} rl
+ * @param {string} current @returns {Promise<string | null>} null = leave as-is */
+async function chooseNousModel(rl, current) {
+  const models = pickerRecommendedModels();
+  const hasCurrent = current !== "(unset)" && current !== "";
+  if (models.length) {
+    console.log(`  Nous picker models (same list as \`hermes model\`):`);
+    models.forEach((m, i) => {
+      console.log(`    ${i + 1}. ${m.id}${m.price ? `  [${m.price}]` : ""}`);
+    });
+  }
+  const keep = hasCurrent ? current : HERMES_DEFAULT_MODEL;
+  if (ASSUME_YES || !models.length) return hasCurrent ? null : HERMES_DEFAULT_MODEL;
+  const a = (await rl.question(`  Model [1-${models.length}, Enter = ${keep}]: `)).trim();
+  const picked = models[Number.parseInt(a, 10) - 1];
+  if (picked) return picked.id;
+  return hasCurrent ? null : HERMES_DEFAULT_MODEL;
+}
+
 /** Set provider (scalar, via config set) + the restricted toolset (a real YAML list, via a
  * direct config.yaml edit — `config set` can only store scalars, so it would write the list
  * as a broken string). We set BOTH the top-level `toolsets:` (the default the runs/API path
  * falls back to — there is no `api` platform key) AND `platform_toolsets.cli`. Prints the
- * resulting values by reading the file back, so nothing is silent. */
-function configureModelAndTools() {
-  console.log(`\nProvider + tools (non-interactive, no wizard):`);
+ * resulting values by reading the file back, so nothing is silent.
+ * @param {import("node:readline/promises").Interface} rl */
+async function configureModelAndTools(rl) {
+  console.log(`\nProvider + tools (no Hermes wizard — choices happen HERE):`);
   configSet("model.provider", PROVIDER);
   if (MODEL) {
+    warnIfHermesModel(MODEL);
     configSet("model.default", MODEL);
   } else if (PROVIDER === "nous") {
     // A fresh (per-domain) profile ships with NO model.default, and the runs API 400s
-    // without a model. Seed the Nous default ONLY when unset — a model the user picked
-    // (hermes model) is never overwritten.
+    // without a model. Offer the picker's own list (every user gets the choice, not a
+    // baked-in pick); Enter keeps the current model, and the seed default lands only
+    // when nothing is set.
     const cfg0 = configPath();
     const cur = cfg0
       ? scalarUnder(readFileSync(cfg0, "utf8").split("\n"), "model", "default")
       : "(unset)";
-    if (cur === "(unset)" || cur === "") {
-      configSet("model.default", HERMES_DEFAULT_MODEL);
-      console.log("    (seeded — pick a different Nous model anytime with `hermes model`)");
+    const chosen = await chooseNousModel(rl, cur);
+    if (chosen) {
+      configSet("model.default", chosen);
+      console.log("    (change anytime — re-run setup or `hermes model`)");
+    } else {
+      warnIfHermesModel(cur);
     }
   }
 
@@ -574,7 +647,7 @@ async function main() {
     }
     if (hermesHome(PROFILE)) console.log(`✓ Hermes profile "${PROFILE}" → ${HERMES_DIR}`);
     const key = ensureEnv();
-    configureModelAndTools();
+    await configureModelAndTools(rl);
     await ensureWebBackend({
       toolsets: TOOLSETS,
       profile: PROFILE,

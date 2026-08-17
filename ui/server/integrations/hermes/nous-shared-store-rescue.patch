@@ -1,0 +1,29 @@
+diff --git a/hermes_cli/auth.py b/hermes_cli/auth.py
+index 4271ec204..9f7c7bf17 100644
+--- a/hermes_cli/auth.py
++++ b/hermes_cli/auth.py
+@@ -5567,8 +5567,22 @@ def resolve_nous_runtime_credentials(
+             refresh_token = state.get("refresh_token")
+ 
+             if not isinstance(access_token, str) or not access_token:
+-                raise AuthError("No access token found for Nous Portal login.",
+-                                provider="nous", relogin_required=True)
++                # A quarantined ("empty shell") profile state — providers.nous
++                # present but token-less after a terminal refresh failure —
++                # shadows the global-root fallback in _load_provider_state, so a
++                # re-login in another profile can never reach us via auth.json.
++                # The shared store is the designed cross-profile rescue path:
++                # consult it BEFORE giving up, exactly as
++                # resolve_nous_access_token does (merge-then-check order).
++                with _nous_shared_store_lock(timeout_seconds=max(timeout_seconds + 5.0, AUTH_LOCK_TIMEOUT_SECONDS)):
++                    if _merge_shared_nous_oauth_state(state):
++                        state.pop("last_auth_error", None)
++                        access_token = state.get("access_token")
++                        refresh_token = state.get("refresh_token")
++                        _persist_state("post_shared_merge_no_access_token")
++                if not isinstance(access_token, str) or not access_token:
++                    raise AuthError("No access token found for Nous Portal login.",
++                                    provider="nous", relogin_required=True)
+ 
+             invoke_jwt_status = _nous_invoke_jwt_status(
+                 access_token,

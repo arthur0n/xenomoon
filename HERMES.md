@@ -261,10 +261,41 @@ non-interactively. The UI gives you the copy-paste runbook (⚙ Settings → "Fi
 > `config.yaml` (`hermes config set model.default …`, or `npm run hermes:setup`). Changing the
 > dropdown alone does nothing on the Hermes side.
 
+## Vendored hermes-agent fix (profile auth brick — upstream #60035)
+
+Upstream hermes-agent has a known, unfixed bug ([NousResearch/hermes-agent#60035](https://github.com/NousResearch/hermes-agent/issues/60035),
+its fix PRs closed unmerged): when a profile's `auth.json` is left with a **token-less
+`providers.nous` shell** (a terminal refresh failure quarantines the tokens — easy to hit,
+since Nous refresh tokens are single-use and any second copy of a credential eventually dies
+with `invalid_grant`), the gateway's credential path raises _"No access token found for Nous
+Portal login"_ **before** consulting the shared cross-profile store `~/.hermes/shared/nous_auth.json`.
+The shell also shadows the root-fallback read, so **no re-login can ever rescue the profile**:
+the UI fails every dispatch while the same commands work in a plain terminal, and `hermes` status
+prints the contradiction `Auth: not logged in` / `Model: ✓ using Nous`.
+
+We carry the one-function fix as a vendored diff:
+`ui/server/integrations/hermes/nous-shared-store-rescue.patch` (consult the shared store before
+raising — the same merge-then-check order the non-runtime resolver already uses). Apply it to the
+local checkout:
+
+```bash
+git -C ~/.hermes/hermes-agent apply <xenomoon>/ui/server/integrations/hermes/nous-shared-store-rescue.patch
+# then restart the gateway
+```
+
+**A Hermes update reverts it silently.** Both `npm run hermes:check` and the gateway starter
+look for the patch's sentinel in the installed source and print a ⚠ with the re-apply command
+when it is gone. Never "fix" this by copying `auth.json` between homes — single-use refresh
+tokens make every copy a delayed `invalid_grant`; the shared store is the sanctioned mechanism.
+
 ## Troubleshooting
 
 - **"No response within 8s — is `hermes gateway` running?"** → the gateway isn't up, or the URL/port
   is wrong. Confirm `hermes gateway` is running and the port matches `API_SERVER_PORT`.
+- **UI dispatches fail with "No access token found" but the terminal works** → the profile auth
+  brick — see "Vendored hermes-agent fix" above. If the ⚠ says the patch is missing, re-apply it;
+  if the profile is already bricked, the patched code self-heals it on the next dispatch (after a
+  fresh `hermes portal` login has populated the shared store).
 - **"server key was rejected"** → the Xenomoon "Server key" ≠ the `API_SERVER_KEY` in `~/.hermes/.env`.
 - **Hive says "Hermes is off or not configured"** → enable it in ⚙ Settings (or `npm run bind-project-path -- --hermes`).
 - **Research has no citations / URLs look invented** → the `web` toolset has **no backend behind

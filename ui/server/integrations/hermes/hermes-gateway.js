@@ -10,7 +10,7 @@ import { spawn } from "node:child_process";
 import { openSync, closeSync } from "node:fs";
 import path from "node:path";
 import { getHermesConfig, LOG_DIR } from "../../core/config.js";
-import { checkHermes } from "./hermes-check.js";
+import { checkHermes, checkNousRescuePatch, NOUS_RESCUE_CAVEAT } from "./hermes-check.js";
 import { hermesEnv } from "./hermes-profile.js";
 
 /** Kill a child gateway once, ignoring if it's already gone.
@@ -42,6 +42,9 @@ function killOnExit(child) {
 export async function maybeStartHermesGateway() {
   const cfg = getHermesConfig();
   if (!cfg.enabled) return null;
+  // A hermes-agent update silently reverts our vendored auth fix — server start is the
+  // first moment after an update, so alert HERE, loudly, before any dispatch can brick.
+  if (checkNousRescuePatch().applied === false) console.warn(`Hermes: ⚠ ${NOUS_RESCUE_CAVEAT}`);
   // Already running (hand-run terminal, or a previous start)? Leave it alone.
   const probe = await checkHermes(cfg, 2500);
   if (probe.reachable) {

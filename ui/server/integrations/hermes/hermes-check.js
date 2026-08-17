@@ -13,7 +13,7 @@
 // `API_SERVER_KEY` you invented for your gateway — NOT the billable provider key,
 // which lives inside Hermes (`hermes setup`) and is never seen by Xenomoon.
 import { pathToFileURL } from "node:url";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -121,6 +121,79 @@ export function detectWebBackend(profile) {
   }
   if (ddgsAvailable()) return { backend: "ddgs", source: "free ddgs package (search only)" };
   return { backend: null, source: "" };
+}
+
+// --- Local hermes-agent patch detection ------------------------------------------
+// Upstream hermes-agent bug (NousResearch/hermes-agent#60035): a profile whose
+// auth.json holds a token-less `providers.nous` shell (left behind by a terminal
+// refresh failure) dead-ends the gateway's credential path BEFORE it consults the
+// shared cross-profile store — the profile is bricked and no re-login can rescue it.
+// We carry the one-function fix as a vendored diff (nous-shared-store-rescue.patch,
+// applied to the local hermes-agent checkout). A hermes update silently reverts it,
+// so the probe checks the installed source for the patch's sentinel string and
+// degrades the verdict when it is gone.
+
+/** Persist-reason string the patch introduces — its presence in the installed
+ * `hermes_cli/auth.py` proves the patch (or an equivalent upstream fix) is applied. */
+export const NOUS_RESCUE_SENTINEL = "post_shared_merge_no_access_token";
+
+/** Vendored diff, kept next to this file. */
+export const NOUS_RESCUE_PATCH = path.join(
+  path.dirname(new URL(import.meta.url).pathname),
+  "nous-shared-store-rescue.patch",
+);
+
+/** Locate the installed `hermes_cli/auth.py` next to a Hermes venv python.
+ * Covers the editable checkout (repo root above the venv) and wheel installs
+ * (site-packages inside the venv). @returns {string | null} */
+export function hermesAuthPyPath() {
+  for (const py of hermesPythonCandidates()) {
+    const venvRoot = path.dirname(path.dirname(py)); // …/venv
+    const repoRoot = path.dirname(venvRoot); // editable: the checkout
+    const cands = [path.join(repoRoot, "hermes_cli", "auth.py")];
+    const libDir = path.join(venvRoot, "lib");
+    try {
+      for (const entry of readdirSync(libDir)) {
+        cands.push(path.join(libDir, entry, "site-packages", "hermes_cli", "auth.py"));
+      }
+    } catch {
+      /* no lib dir — editable candidate only */
+    }
+    for (const cand of cands) if (existsSync(cand)) return cand;
+  }
+  return null;
+}
+
+/** Whether the local hermes-agent still carries the Nous shared-store rescue fix.
+ * `applied: null` = Hermes source not found on this machine (nothing to verify).
+ * @returns {{ applied: boolean | null, authPy: string | null }} */
+export function checkNousRescuePatch() {
+  const authPy = hermesAuthPyPath();
+  if (!authPy) return { applied: null, authPy: null };
+  try {
+    return { applied: readFileSync(authPy, "utf8").includes(NOUS_RESCUE_SENTINEL), authPy };
+  } catch {
+    return { applied: null, authPy };
+  }
+}
+
+/** The caveat line for a gateway running unpatched hermes-agent source. */
+export const NOUS_RESCUE_CAVEAT =
+  "Local hermes-agent is MISSING the Nous shared-store rescue fix (upstream bug #60035) — " +
+  "a Hermes update likely reverted it. Profiles can brick on token refresh (UI dispatches " +
+  "fail with 'No access token found' while the terminal works). Re-apply: " +
+  `\`git -C ~/.hermes/hermes-agent apply ${NOUS_RESCUE_PATCH}\`, then restart the gateway.`;
+
+/** Stamp `caveat` when the LOCAL gateway runs unpatched hermes source. Remote gateways
+ * are skipped — we can only inspect this machine. Never overrides an existing caveat
+ * (the web-backend one is the more actionable of the two); appends instead.
+ * @param {HermesCheck} verdict @param {string} base */
+function applyPatchVerdict(verdict, base) {
+  if (!/^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(`${base}/`)) return;
+  if (checkNousRescuePatch().applied !== false) return;
+  verdict.caveat = verdict.caveat
+    ? `${verdict.caveat} ALSO: ${NOUS_RESCUE_CAVEAT}`
+    : NOUS_RESCUE_CAVEAT;
 }
 
 /** Stamp `webBackend`/`caveat` onto an ok verdict: when the gateway is LOCAL and the web
@@ -253,6 +326,7 @@ export async function checkHermes(cfg, timeoutMs = 8000) {
       caps,
     };
     applyWebVerdict(verdict, base, cfg.profile);
+    applyPatchVerdict(verdict, base);
     return verdict;
   } catch (err) {
     const aborted = ctrl.signal.aborted;

@@ -2,7 +2,7 @@
   "_source_of_truth": "EDIT THIS FILE. `LEDGER.md` and `ledger.html` are GENERATED views — never hand-edit them; run `npm run ledger` (pre-commit also regenerates). Schema + workflow: README.md in this folder.",
   "ledgerPhilosophy": "EPHEMERAL working state, not history. Applied findings are DELETED (git + the commit message are the fix record), never stamped done. Keep only open/later rows + skip-tombstones.",
   "_findingSchema": "each finding: { id, dim, bucket, verdict, status, finding } + optional `pattern` — a one-line positive exemplar (the good pattern to follow), not just the problem. The loop's own anti-negative-instruction principle: state the target behavior, not only the prohibition. Full schema: README.md.",
-  "lastAudit": "2026-08-13 (full pass, single context, expoapp pack installed) — 15 findings raised, 12 APPLIED same day across three /framework-audit-fix runs (git is the record: 4299d2e + follow-ups). At audit time `npm run validate` was RED (check:skills) and BOTH agnostic gates were dormant — `--project` was never passed and contamination scanned only domains/*, which is how a bound project name reached plugin/library/findings/. Now: gate green, both gates derive the bound project s terms and scan the CORE tree (first run caught a real leak in start-profile.js), the CORE spine s broken precedence sentence is fixed, two stale hardcoded file lists are derived, and the expo pack ships its sources registry. D9-caveman-gate upgraded hypothesis → MEASURED (marker 0.97%, terseness 93%). D1 clean (max 9 skills/agent vs cap 10). D4 inapplicable. Tooling: `npm run ledger` restored from upstream, so these views are generated again. PRIOR: 2026-07-24 recalibration. | 2026-08-17: owner PARKED the two remaining fix-now rows (contribute — contributions closed; epic pilot — deferred after its wiring fix landed), so 0 fix-now here means PARKED, not resolved.",
+  "lastAudit": "2026-08-17 (targeted re-verify: D5-token-audit-two-copies + D9-session-dies-on-disconnect). Both CONFIRMED against current files. D5 widened and upgraded to fix-now — the shipped token-audit copy writes project findings into the CORE-tracked shipped library, so it is harmful, not merely stale; recommend deleting it. D9 unchanged in substance, now with a measured 286-LOC port size. Preflight (validate green, 8 checks) raised two NEW D7 rows against this suite's own map: it still claims `npm run ledger` does not exist (restored 8152d0c), and it never names ui/{hermes,codex,kimi}-block.md though the loader feeds them to every session. PRIOR: 2026-08-13 full pass; 2026-08-17 owner parked contribute + epic-pilot.",
   "parking": [
     "skill-content-gap dimension — a skill missing a known technique/caveat maps to no clean D1–D9",
     "D11 'seam integrity' dimension — do the framework's own gates (promote/materialize/validate) enforce the conventions its docs state? [renumbered D10→D11 when abstraction-level/domain-layering took D10]"
@@ -87,10 +87,11 @@
     {
       "id": "D5-token-audit-two-copies",
       "dim": "D5",
-      "bucket": 5,
-      "verdict": "later",
+      "bucket": 4,
+      "verdict": "fix-now",
       "status": "open",
-      "finding": "token-audit exists as two diverged copies of one command: plugin/commands/token-audit.md (1715 w, $CLAUDE_PLUGIN_ROOT paths) and .claude/commands/token-audit.md (2309 w, .claude/ paths) — the shipped copy lacks the \"Domain separation\" + \"Do this\" sections and the entire history.json / `npm run token-history` half, with nothing keeping them in sync. Decide: the shipped copy declares the forge revision it was ported from, or one is generated from the other."
+      "finding": "RE-VERIFIED 2026-08-17: confirmed and WIDENING. Shipped plugin/commands/token-audit.md 1715w vs forge-local .claude/commands/token-audit.md 2309w; shipped still carries an old `## Never` while the forge-local gained `## Domain separation` + `## Do this`, and forge-local advanced again in f727444 (the jq stub gate) while shipped last moved in 51b9adf. The drift is STRUCTURAL, not accidental: the forge-local copy is the one that actually runs during an audit, so it gets improved; the shipped copy is only ever touched incidentally. DECISIVE EVIDENCE the row previously missed — the shipped copy is not merely stale, it is HARMFUL: it points the agent at `$CLAUDE_PLUGIN_ROOT/library/token-audits/LEDGER.md` (line 30), a CORE-TRACKED file that ships to every install, so a bound project running /token-audit appends ITS session findings into the framework's shipped library (D2 contamination by construction). It also lacks the entire `npm run token-history` / history.json half, which is forge-local anyway — so a project can only half-run the loop. RECOMMEND: delete the shipped copy; the token audit is a forge-local practice with a forge-local CLI and store. Alternative if it must ship: repoint its ledger at a PROJECT-local path and generate it from the forge-local source.",
+      "pattern": "a command SHIPS only if its whole loop ships — a port that loses its CLI and writes into the shipped library is worse than not shipping it."
     },
     {
       "id": "D9-session-dies-on-disconnect",
@@ -98,8 +99,26 @@
       "bucket": 5,
       "verdict": "later",
       "status": "open",
-      "finding": "The fork never pulled upstream 4a8b815 (`fix: keep subagents alive across browser disconnects`) or the 01e72a6 session refactor — `git log --all` shows ui/server/core/{registry,connection}.js have NO history here. So handleClose (session.js:306-312) calls inbox.close() + abort.abort(): a backgrounded tab, a laptop sleep or a network blip ABORTS the session and kills every in-flight sub-agent, and the reconnect builds a fresh inbox that cannot drain the old queue. Upstream instead DETACHES — swappable socket, outgoing messages buffered for replay (MAX_DETACHED_BUFFER), teardown only after 75s of IDLE and never while a turn or sub-agent runs (connection.js:53-63,154,195). Surfaced 2026-08-14 while hunting the Hermes no-ack bug; it was NOT that bug's cause (that was a degraded 21h-old process) but it is a real standing defect. Decide: port registry.js + connection.js + the onSessionId/onBusyChange hooks, or accept losing in-flight work on every blip.",
+      "finding": "The fork never pulled upstream 4a8b815 (`fix: keep subagents alive across browser disconnects`) or the 01e72a6 session refactor — `git log --all` shows ui/server/core/{registry,connection}.js have NO history here. So handleClose (session.js:306-312) calls inbox.close() + abort.abort(): a backgrounded tab, a laptop sleep or a network blip ABORTS the session and kills every in-flight sub-agent, and the reconnect builds a fresh inbox that cannot drain the old queue. Upstream instead DETACHES — swappable socket, outgoing messages buffered for replay (MAX_DETACHED_BUFFER), teardown only after 75s of IDLE and never while a turn or sub-agent runs (connection.js:53-63,154,195). Surfaced 2026-08-14 while hunting the Hermes no-ack bug; it was NOT that bug's cause (that was a degraded 21h-old process) but it is a real standing defect. Decide: port registry.js + connection.js + the onSessionId/onBusyChange hooks, or accept losing in-flight work on every blip. RE-VERIFIED 2026-08-17: all premises hold — `git log --all` returns ZERO commits for ui/server/core/{registry,connection}.js and both files are absent; handleClose still carries both inbox.close() and abort.abort(); upstream 4a8b815 is present there. PORT SIZE now measured: registry.js + connection.js = 286 LOC upstream, plus the onSessionId/onBusyChange hooks in stream.js (our copy has neither parameter). Measurement note: count via `rtk proxy`, not `rtk … | wc -l` — the wrapper's own status line inflated this by one on the first pass.",
       "pattern": "an upstream FIX we never pulled is a silent regression — the sync surface should track upstream fixes, not only conflicts."
+    },
+    {
+      "id": "D7-suite-ledger-stale",
+      "dim": "D7",
+      "bucket": 3,
+      "verdict": "fix-now",
+      "status": "open",
+      "finding": "This suite states TWICE — in `Where the data lives` and again in step 5 — that `LEDGER.md` must be hand-synced because `there is no npm run ledger regen script`. That script EXISTS (restored from upstream in 8152d0c; package.json `ledger` resolves). Following the suite as written means hand-editing a GENERATED file, which is how the view drifted from the JSON before (it was hand-synced three times in one session prior to the restore). Fix: both sentences become `run npm run ledger` — and the ledger's own `_source_of_truth` line already says so, so the suite is the only stale copy left.",
+      "pattern": "a command that describes its own tooling must be re-resolved against package.json each pass — preflight exists for exactly this, and caught it."
+    },
+    {
+      "id": "D7-map-missing-blocks",
+      "dim": "D7",
+      "bucket": 3,
+      "verdict": "fix-now",
+      "status": "open",
+      "finding": "Reverse-check (derive the surface from the LOADER) found session-loaded docs this suite's map still never names: config.js readFileSync's ui/orchestrator-spine.md (named, added last pass), ui/hermes-block.md (named ONLY inside D11, not in the map), ui/codex-block.md:546 and ui/kimi-block.md:579 (named NOWHERE). Same blind-spot class that hid the broken precedence sentence in orchestrator-spine.md for multiple passes: a doc fed to every session that no dimension will ever open. Fix: add the ui/*-block.md family to `Where the data lives` under the orchestrator entry, and give D6 the integration blocks explicitly. (getEconomicsBlock/getBranchModelBlock are inline strings, not files — nothing to add for those.)",
+      "pattern": "the audit surface is whatever the LOADER reads, never whatever the map remembers."
     }
   ]
 }

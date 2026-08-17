@@ -40,15 +40,29 @@ const CHECK_ONLY = process.argv.includes("--check");
 //  would corrupt the running command. `.husky/pre-push` HARD-BLOCKS pushes to the literal
 //  `xenodot-forge` repos — its `case` pattern MUST stay `xenodot-forge` (the real repo name)
 //  or the guard silently stops working.
+// The bulk rename is DONE (2026-08-17 audit): every remaining "xenodot" in the trunk is a
+// DELIBERATE reference to the real upstream — the fork relationship, the sync runbooks, the
+// pre-push guard's literal repo name, provenance notes. This codemod's remaining job is the
+// POST-MERGE pass: rebranding "xenodot" that arrives inside freshly-synced UPSTREAM files.
+// So the exemption list is not a growing pile of one-offs — it is "the files WE authored that
+// describe the fork", and `--check` is only meaningful once they are all exempt (it sat red for
+// weeks otherwise, training everyone to ignore it).
 const SKIP_FILES = new Set([
   "scripts/rebrand.mjs",
-  ".claude/commands/sync-upstream.md",
-  ".husky/pre-push",
+  ".husky/pre-push", // the guard's `case` MUST stay the literal `xenodot-forge` or it silently stops blocking
+  "docs/FRAMEWORK.md", // states what this fork IS ("a fork of arthur0n/xenodot-forge")
+  "ui/server/cli/bootstrap.js", // startup banner names the upstream: "(fork of Xenodot Forge)"
+  "plugin/agents/debrief.md", // roster-justification records the agent's xenodot provenance
+  "domains/webapp/plugin/library/sources/skill-sources.md", // cites the upstream prompter source
 ]);
-// The fork runbooks must keep naming the REAL upstream (`xenodot-forge`, the `upstream` remote) —
-// rebranding them turns the sync docs into nonsense. This prefix moved (docs/whitelabel/ →
-// docs/fork/); a stale prefix matches nothing and the exemption silently stops existing.
-const SKIP_PREFIXES = ["docs/fork/"];
+// Whole trees that legitimately discuss the upstream by name.
+//   docs/fork/    — the sync runbooks (SEAMS/SYNC/DOWNSTREAM/VISION); rebranding them is nonsense.
+//   .claude/      — forge-local state: the audit + token ledgers record findings ABOUT the fork,
+//                   and sync-upstream.md both documents the rename AND re-runs this codemod, so
+//                   rewriting it would corrupt the running command.
+// A stale prefix matches nothing and the exemption silently stops existing (docs/whitelabel/ →
+// docs/fork/ did exactly that), so these are verified by `--check` staying green.
+const SKIP_PREFIXES = ["docs/fork/", ".claude/"];
 
 // Binary / non-text extensions we never read as text.
 const BINARY_EXT = new Set([

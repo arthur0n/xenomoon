@@ -135,10 +135,19 @@ export function projectState() {
     scripts: walk(dir, DOMAIN.inventory.scripts, [], dir, ignore),
     // Capabilities come from the xenomoon plugin (the framework source); a project may also
     // carry its own unpromoted agents/skills in .claude/. Show both, plugin first.
-    agents: collectAgents([
-      path.join(FRAMEWORK_PLUGIN_DIR, "agents"),
-      path.join(dir, ".claude", "agents"),
-    ]),
+    agents: [
+      ...collectAgents([
+        path.join(FRAMEWORK_PLUGIN_DIR, "agents"),
+        path.join(dir, ".claude", "agents"),
+      ]),
+      // Hermes is an external worker behind an mcp tool, not an SDK agent .md — so the
+      // file scan above never finds it, unlike Codex (codex-review.md). Surface it in the
+      // roster whenever it is enabled, same as any team member; the client's DISPLAY map
+      // already labels the id ("hermes" → "Hermes: Researcher") and colors it.
+      ...(hermesPublicConfig().enabled
+        ? [{ name: "hermes", model: hermesPublicConfig().model }]
+        : []),
+    ],
     skills: collectSkills([
       path.join(FRAMEWORK_PLUGIN_DIR, "skills"),
       path.join(dir, ".claude", "skills"),

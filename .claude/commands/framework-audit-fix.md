@@ -21,8 +21,8 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
 ## Where the data lives (repo-relative; cwd = forge root)
 
 - **Ledger:** `.claude/framework-audits/LEDGER.json` — the SOURCE OF TRUTH (a `findings[]` array) for
-  ids, fixes, status. `LEDGER.md` is a VIEW — hand-sync it after any write (no `npm run ledger`
-  regen script exists in this fork). Schema: `.claude/framework-audits/README.md`.
+  ids, fixes, status. `LEDGER.md` is a GENERATED VIEW — after any write run `npm run ledger`
+  (never hand-edit it; the pre-commit hook regenerates too). Schema: `.claude/framework-audits/README.md`.
 - **Targets:** `plugin/skills/*/SKILL.md`, `plugin/agents/*.md`, `domains/*/orchestrator.md` (the
   pack source; `plugin/orchestrator.md` once installed), `plugin/commands/*.md`, the forge-local
   `.claude/commands/*.md` (the self-improvement commands — when a D7 finding targets an audit command
@@ -134,7 +134,7 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
    was fixed" record, so the ledger stays lean — no `done` findings accumulate as distraction). If it
    clears the LAST `open`/`fix-now` finding anywhere in the ledger (the whole backlog is resolved),
    set `lastAudit` to a fresh one-line summary. Leave `later`/`skip` and un-applied findings untouched.
-   Then hand-sync the `LEDGER.md` view (no `npm run ledger` regen script exists in this fork).
+   Then run `npm run ledger` to regenerate the `LEDGER.md` + `ledger.html` views.
 6. **Self-critique (in a subagent).** This is self-improvement — improve the loop, not just the fix.
    Dispatch this critique to a throwaway subagent so its reasoning never becomes main-window context
    debt: hand it the run's notes and have it flag anything that tripped the apply (a dimension

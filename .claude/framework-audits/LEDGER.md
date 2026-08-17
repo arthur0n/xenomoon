@@ -2,18 +2,15 @@
 
 # Framework audit ledger
 
-**open (fix-now): 3 · later: 7 · skip: 0**
+**open (fix-now): 1 · later: 7 · skip: 0**
 
 _Last audit:_ 2026-08-17 (targeted re-verify: D5-token-audit-two-copies + D9-session-dies-on-disconnect). Both CONFIRMED against current files. D5 widened and upgraded to fix-now — the shipped token-audit copy writes project findings into the CORE-tracked shipped library, so it is harmful, not merely stale; recommend deleting it. D9 unchanged in substance, now with a measured 286-LOC port size. Preflight (validate green, 8 checks) raised two NEW D7 rows against this suite's own map: it still claims `npm run ledger` does not exist (restored 8152d0c), and it never names ui/{hermes,codex,kimi}-block.md though the loader feeds them to every session. PRIOR: 2026-08-13 full pass; 2026-08-17 owner parked contribute + epic-pilot.
 
 > Source of truth is **`LEDGER.json`** — edit that, then `npm run ledger` (pre-commit also regenerates). This file + `ledger.html` are generated views. Applied findings are DELETED (git is the fix record), never stamped.
 
-## Bucket 3 — no-brainers (2) · fix-now · mechanical (framework-nobrainer-fixer)
+## Bucket 3 — no-brainers (0) · fix-now · mechanical (framework-nobrainer-fixer)
 
-- **D7-suite-ledger-stale** · `D7` · _open_ — This suite states TWICE — in `Where the data lives` and again in step 5 — that `LEDGER.md` must be hand-synced because `there is no npm run ledger regen script`. That script EXISTS (restored from upstream in 8152d0c; package.json `ledger` resolves). Following the suite as written means hand-editing a GENERATED file, which is how the view drifted from the JSON before (it was hand-synced three times in one session prior to the restore). Fix: both sentences become `run npm run ledger` — and the ledger's own `_source_of_truth` line already says so, so the suite is the only stale copy left.
-  - _pattern:_ a command that describes its own tooling must be re-resolved against package.json each pass — preflight exists for exactly this, and caught it.
-- **D7-map-missing-blocks** · `D7` · _open_ — Reverse-check (derive the surface from the LOADER) found session-loaded docs this suite's map still never names: config.js readFileSync's ui/orchestrator-spine.md (named, added last pass), ui/hermes-block.md (named ONLY inside D11, not in the map), ui/codex-block.md:546 and ui/kimi-block.md:579 (named NOWHERE). Same blind-spot class that hid the broken precedence sentence in orchestrator-spine.md for multiple passes: a doc fed to every session that no dimension will ever open. Fix: add the ui/\*-block.md family to `Where the data lives` under the orchestrator entry, and give D6 the integration blocks explicitly. (getEconomicsBlock/getBranchModelBlock are inline strings, not files — nothing to add for those.)
-  - _pattern:_ the audit surface is whatever the LOADER reads, never whatever the map remembers.
+_none_
 
 ## Bucket 4 — improvements (1) · fix-now · needs judgment (/framework-audit-fix)
 

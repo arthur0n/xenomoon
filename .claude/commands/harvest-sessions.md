@@ -42,7 +42,7 @@ is applied by the SAME `/framework-audit-fix`.
   - **`type=="ask"`** — an agent stopped to ask the human. A storm of asks in one domain = ambiguity
     in a skill/rule worth tightening.
 - **Ledger (write findings here):** `.claude/framework-audits/LEDGER.json` — the SOURCE OF TRUTH
-  (a `findings[]` array); read FIRST (dedup), append AFTER (push objects, then hand-sync `LEDGER.md` — no `npm run ledger` script exists).
+  (a `findings[]` array); read FIRST (dedup), append AFTER (push objects, then run `npm run ledger` to regenerate the views).
   `LEDGER.md` / `ledger.html` are GENERATED VIEWS — never hand-edit. Its meta defines the
   **dimensions D1–D10**, **buckets** (3/4/5/6), **verdict** and **status**. Reuse them exactly —
   `/framework-audit-fix` resolves by id. Schema: `.claude/framework-audits/README.md`.
@@ -123,7 +123,7 @@ lines, which `rtk grep`/`jq` handle.)
    assign **bucket**/`verdict`/**id** `<Dn>-<slug>` (reuse an existing id for the same issue). Push
    ONE `open` object per finding to `LEDGER.json`'s `findings[]` — `{ id, dim, bucket, verdict,
 status: "open", finding }` (`dim` = the id's `D`-prefix), plus an optional `pattern` (one line — the
-   good pattern to follow, a positive exemplar, not just the problem) — then hand-sync `LEDGER.md`. Don’t
+   good pattern to follow, a positive exemplar, not just the problem) — then run `npm run ledger`. Don’t
    duplicate an id already in `findings[]`. Keep each `finding` one line.
 
 8. **Record coverage.** Append every scanned tag to `harvested-sessions.txt` (even ones that yielded

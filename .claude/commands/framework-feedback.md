@@ -30,7 +30,7 @@ applied by the SAME `/framework-audit-fix`.
 ## Where the data lives (repo-relative; cwd = forge root)
 
 - **Ledger (write here):** `.claude/framework-audits/LEDGER.json` — the SOURCE OF TRUTH (a `findings[]`
-  array); read FIRST (dedup), append AFTER (push objects, then hand-sync `LEDGER.md` — no `npm run ledger` script exists). `LEDGER.md` /
+  array); read FIRST (dedup), append AFTER (push objects, then run `npm run ledger` to regenerate the views). `LEDGER.md` /
   `ledger.html` are GENERATED VIEWS — never hand-edit. Its meta defines the **dimensions D1–D10**, the
   **buckets** (3 no-brainer · 4 improvement · 5 system/later · 6 skip), the **verdict** (`fix-now` 3/4 ·
   `later` 5 · `skip` 6) and **status** (`open` · `skip` — applied findings are REMOVED, never stamped
@@ -76,7 +76,7 @@ applied by the SAME `/framework-audit-fix`.
 5. **Append to the ledger — brief, dedup.** Push ONE object per finding to `LEDGER.json`'s `findings[]`
    — `{ id, dim, bucket, verdict, status: "open", finding }` (`dim` = the id's `D`-prefix), plus an
    optional `pattern` (one line — the good pattern to follow, a positive exemplar, not just the
-   problem) — then hand-sync `LEDGER.md`. Don’t duplicate an id already `open`. Keep each `finding`
+   problem) — then run `npm run ledger`. Don’t duplicate an id already `open`. Keep each `finding`
    one line, no essays.
    The ledger is ephemeral working state; the fix lives in files+git once applied.
 

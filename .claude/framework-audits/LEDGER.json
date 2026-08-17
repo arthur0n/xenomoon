@@ -101,24 +101,6 @@
       "status": "open",
       "finding": "The fork never pulled upstream 4a8b815 (`fix: keep subagents alive across browser disconnects`) or the 01e72a6 session refactor — `git log --all` shows ui/server/core/{registry,connection}.js have NO history here. So handleClose (session.js:306-312) calls inbox.close() + abort.abort(): a backgrounded tab, a laptop sleep or a network blip ABORTS the session and kills every in-flight sub-agent, and the reconnect builds a fresh inbox that cannot drain the old queue. Upstream instead DETACHES — swappable socket, outgoing messages buffered for replay (MAX_DETACHED_BUFFER), teardown only after 75s of IDLE and never while a turn or sub-agent runs (connection.js:53-63,154,195). Surfaced 2026-08-14 while hunting the Hermes no-ack bug; it was NOT that bug's cause (that was a degraded 21h-old process) but it is a real standing defect. Decide: port registry.js + connection.js + the onSessionId/onBusyChange hooks, or accept losing in-flight work on every blip. RE-VERIFIED 2026-08-17: all premises hold — `git log --all` returns ZERO commits for ui/server/core/{registry,connection}.js and both files are absent; handleClose still carries both inbox.close() and abort.abort(); upstream 4a8b815 is present there. PORT SIZE now measured: registry.js + connection.js = 286 LOC upstream, plus the onSessionId/onBusyChange hooks in stream.js (our copy has neither parameter). Measurement note: count via `rtk proxy`, not `rtk … | wc -l` — the wrapper's own status line inflated this by one on the first pass.",
       "pattern": "an upstream FIX we never pulled is a silent regression — the sync surface should track upstream fixes, not only conflicts."
-    },
-    {
-      "id": "D7-suite-ledger-stale",
-      "dim": "D7",
-      "bucket": 3,
-      "verdict": "fix-now",
-      "status": "open",
-      "finding": "This suite states TWICE — in `Where the data lives` and again in step 5 — that `LEDGER.md` must be hand-synced because `there is no npm run ledger regen script`. That script EXISTS (restored from upstream in 8152d0c; package.json `ledger` resolves). Following the suite as written means hand-editing a GENERATED file, which is how the view drifted from the JSON before (it was hand-synced three times in one session prior to the restore). Fix: both sentences become `run npm run ledger` — and the ledger's own `_source_of_truth` line already says so, so the suite is the only stale copy left.",
-      "pattern": "a command that describes its own tooling must be re-resolved against package.json each pass — preflight exists for exactly this, and caught it."
-    },
-    {
-      "id": "D7-map-missing-blocks",
-      "dim": "D7",
-      "bucket": 3,
-      "verdict": "fix-now",
-      "status": "open",
-      "finding": "Reverse-check (derive the surface from the LOADER) found session-loaded docs this suite's map still never names: config.js readFileSync's ui/orchestrator-spine.md (named, added last pass), ui/hermes-block.md (named ONLY inside D11, not in the map), ui/codex-block.md:546 and ui/kimi-block.md:579 (named NOWHERE). Same blind-spot class that hid the broken precedence sentence in orchestrator-spine.md for multiple passes: a doc fed to every session that no dimension will ever open. Fix: add the ui/*-block.md family to `Where the data lives` under the orchestrator entry, and give D6 the integration blocks explicitly. (getEconomicsBlock/getBranchModelBlock are inline strings, not files — nothing to add for those.)",
-      "pattern": "the audit surface is whatever the LOADER reads, never whatever the map remembers."
     }
   ]
 }

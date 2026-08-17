@@ -34,6 +34,12 @@ properties the promotion rubric (`plugin/docs/process/promotion.md`) demands.
   the largest orchestrator surface and the one a domain never overrides. `domains/*/orchestrator.md`
   is each pack's block appended after it (`forge new` copies the picked one to
   `plugin/orchestrator.md` at install — so CORE has no domain block until a domain is installed).
+- **Integration blocks — also loaded into EVERY session:** `ui/hermes-block.md`,
+  `ui/codex-block.md`, `ui/kimi-block.md` (`config.js` `readFileSync`s each — see
+  `getHermesBlock`/`getCodexBlock`/`getKimiBlock`, appended when that integration is enabled).
+  They carry real routing + consent rules, so they are orchestrator surface and D6/D11 own them.
+  Derive this list from `config.js`, not from memory: `getEconomicsBlock`/`getBranchModelBlock`
+  are inline strings today, but a future block becomes a file and silently escapes the map.
 - **Commands:** `plugin/commands/*.md` and ALL forge-local self-improvement commands —
   glob `.claude/commands/*.md`, never a hardcoded list (it goes stale; token-audit.md was
   silently missed by one).
@@ -42,7 +48,7 @@ properties the promotion rubric (`plugin/docs/process/promotion.md`) demands.
   A project's specific FACTS live PROJECT-LOCAL (the bound project repo), never here.
 - **Ledger:** `.claude/framework-audits/LEDGER.json` — the SOURCE OF TRUTH (a `findings[]` array);
   read FIRST, append findings AFTER (push objects to `findings[]`, dedup by `id`). `LEDGER.md` is a
-  committed readable view — keep it in sync by hand (there is no `npm run ledger` regen script). Full
+  committed readable view — regenerate it with `npm run ledger` after any write, never by hand. Full
   schema: `.claude/framework-audits/README.md`.
 
 **Search with the Grep TOOL or `/opt/homebrew/bin/rg` (full path) — NOT bash `grep`.** A hook routes
@@ -159,9 +165,13 @@ contamination; give the agnostic technical rationale instead and drop the citati
      caveman-trigger lesson). The clean win to look for: a verbatim block across ≥3 agents that's
      only needed at a known step (e.g. the researchers' 6-bucket → `research-presenting`).
 
-   - **D6 — Orchestrator (BOTH layers).** Read the CORE spine `ui/orchestrator-spine.md` AND the
+   - **D6 — Orchestrator (ALL layers).** Read the CORE spine `ui/orchestrator-spine.md`, the
      domain orchestrators `domains/*/orchestrator.md` (each pack's source; `plugin/orchestrator.md`
-     once a domain is installed). Flag: directives duplicated across agents that should be
+     once a domain is installed), AND the integration blocks appended to the same prompt
+     (`ui/{hermes,codex,kimi}-block.md` — enumerate them from `config.js`, not from this list).
+     A block is orchestrator surface: it routes work and gates consent, so the same lenses apply —
+     a rule the spine already states, prose that drifted from the tool it describes, an agent name
+     it references that no longer exists. Flag: directives duplicated across agents that should be
      centralized; dense step-by-step prose that belongs in a reusable skill; philosophy/tone that
      dilutes routing; a spine rule a domain block restates or contradicts. Propose the move/trim.
      **Also diff installed-vs-source** (`diff domains/<installed>/orchestrator.md
@@ -255,7 +265,7 @@ plugin/orchestrator.md`, and the pack's agents/skills too): an edit made to the 
    `LEDGER.json`'s `findings[]` (dedup by `id`): `{ id, dim, bucket, verdict, status, finding }`
    plus an optional `pattern` (one line — the good pattern to follow, a positive exemplar, not just
    the problem). `finding` is one line (problem + proposed fix), `dim` is the id's `D`-prefix. Update `lastAudit`,
-   then keep the readable `LEDGER.md` view in sync by hand (there is no `npm run ledger` regen script). The
+   then run `npm run ledger` to regenerate the readable `LEDGER.md` + `ledger.html` views. The
    ledger is EPHEMERAL working state, not a history log: carry only findings still `open`/`later`.
    **Once a pass fully resolves (nothing left `open`), PRUNE `findings[]` empty and set `lastAudit`
    to a one-line summary of what the pass did** — the fixes live in the files + git, not here. Don't

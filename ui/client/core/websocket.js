@@ -127,6 +127,7 @@ function handleMessage(ev) {
     case "hermes":
     case "extAgent":
     case "session":
+    case "pulse": // store-only: the LED is a subscriber, nothing imperative to do here
     case "autonomousMode":
     case "idle":
       break; // fully handled by the store

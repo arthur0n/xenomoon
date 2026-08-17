@@ -14,6 +14,7 @@ import { emitRunning, runWithRetry } from "./stream.js";
 import { readPromotions } from "../features/promotions/promotions-store.js";
 import { readAutonomous } from "../features/autonomous/autonomous-store.js";
 import { makeCheckLoop } from "../features/autonomous/autonomous-control.js";
+import { registerSession, unregisterSession } from "../features/pulse/pulse-control.js";
 import { readTasks } from "../features/tasks/tasks-store.js";
 import { resolveSessionSkills } from "../features/skills/skills.js";
 import { trackMessage, settleAllBackground } from "./session-stream-tracker.js";
@@ -49,7 +50,7 @@ import {
 /** @typedef {Map<number, { type: string, resolve: (value: Reply) => void }>} Pending */
 /** Per-connection mutable session state, shared between runSession and the client-message
  * handlers. `autonomousLoop` is set by runSession once the check loop is built.
- * @typedef {{ policy: string, query?: { interrupt?: () => Promise<void>, stopTask?: (taskId: string) => Promise<void> }, autonomousLoop?: { arm: (fireNow?: boolean) => void, disarm: () => void }, autonomousActive?: boolean, fetchedDocs?: Set<string> }} SessionState */
+ * @typedef {{ policy: string, query?: { interrupt?: () => Promise<void>, stopTask?: (taskId: string) => Promise<void> }, autonomousLoop?: { arm: (fireNow?: boolean) => void, disarm: () => void }, autonomousActive?: boolean, pulseId?: number, fetchedDocs?: Set<string> }} SessionState */
 
 // Lift the CLI's built-in Bash tool timeout (default 120s, ceiling 600s): long gates
 // (full validate, native builds) legitimately exceed 600s, and an agent killed mid-gate
@@ -166,6 +167,9 @@ function runSession({
   const busy = { value: false };
   const checkLoop = makeCheckLoop({ push: inbox.push, send, isBusy: () => busy.value });
   session.autonomousLoop = checkLoop;
+  // Pulse is a PROCESS singleton (one timer for all connections), so a session only registers
+  // itself as a possible delivery target — see features/pulse/pulse-control.js for why.
+  session.pulseId = registerSession({ push: inbox.push, send, isBusy: () => busy.value });
   void (async () => {
     try {
       send({ type: "policy", value: policy });
@@ -359,6 +363,9 @@ export function handleConnection(ws, req) {
   ws.on("close", () => {
     // Stop the check loop so it never pushes into a closed inbox or writes for a dead session.
     session.autonomousLoop?.disarm();
+    // Drop this session as a Pulse delivery target; the singleton timer stops itself when the
+    // last connection goes (syncTimer), so a closed browser never leaves a beat looking for a home.
+    if (session.pulseId != null) unregisterSession(session.pulseId);
     handleClose({ inbox, pending, abort, endLog: end });
   });
 }

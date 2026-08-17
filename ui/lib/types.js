@@ -144,6 +144,35 @@
  * @property {string | null} report  - final report once the goal is judged met
  */
 
+// ---------- Pulse ----------
+/** One thing Pulse found that has not landed. `id` is STABLE across beats (so the same
+ * condition is recognisably the same thing) and `fp` fingerprints only the fields that decide
+ * the action — a beat fires for a NEW id or a CHANGED fp, never for state that merely still
+ * exists. `act`/`ask`/`note` is decided in code, not by the model.
+ * @typedef {object} PulseItem
+ * @property {string} id    - stable, e.g. "pr:271:idle" / "branch:fix/x:unpushed"
+ * @property {string} fp    - fingerprint of the action-deciding fields
+ * @property {"act" | "ask" | "note"} action
+ * @property {string} title - one line, human-facing
+ */
+/** Pulse — the ambient landing sweep. Persisted in .xenomoon/pulse.json. The broadcast view
+ * omits `seen` (the delta map); see publicPulse() in pulse-store.js.
+ * @typedef {object} Pulse
+ * @property {boolean} active            - armed (the LED's on/off)
+ * @property {boolean} sleeping          - slept after `flatBeats` flat beats; a human turn re-arms
+ * @property {number} intervalMs         - beat cadence (default 10 min)
+ * @property {"project" | "forge" | "both"} scope
+ * @property {string | null} startedAt   - ISO when armed
+ * @property {string | null} lastBeatAt  - ISO of the last beat
+ * @property {string | null} nextBeatAt  - ISO the next beat is due (LED tooltip)
+ * @property {number} beats              - beats since armed
+ * @property {number} flatBeats          - CONSECUTIVE beats that found nothing new
+ * @property {number} found              - items injected on the last beat
+ * @property {number} suppressed         - items seen but unchanged on the last beat
+ * @property {string | null} lastError   - last check failure, surfaced not swallowed
+ * @property {Record<string, string>} seen - id -> fingerprint; the delta memory
+ */
+
 // ---------- WebSocket messages ----------
 /** @typedef {{ role: "user" | "assistant", text: string }} HistoryItem */
 /** One in-flight sub-agent in the authoritative running-strip snapshot. The server
@@ -169,6 +198,7 @@
  *   | { type: "extAgent", agentId: string, label: string, color?: string, phase: "start" | "progress" | "done", runId?: string, text: string }
  *   | { type: "session", id: string | null }
  *   | { type: "autonomousMode", payload: Autonomous }
+ *   | { type: "pulse", payload: Pulse }
  *   | { type: "idle" }
  * )} ServerMsg */
 
@@ -193,6 +223,7 @@
  *   | { type: "stop_task", taskId: string }
  *   | { type: "compact" }
  *   | { type: "autonomous_mode", action: "start" | "stop", goal?: string }
+ *   | { type: "pulse_mode", action: "start" | "stop" | "now" }
  * )} ClientMsg */
 /** Pauses the session, sends the prompt, resolves when the browser replies.
  * @typedef {(type: string, payload: Record<string, unknown>) => Promise<Reply>} WaitFor */

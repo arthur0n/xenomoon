@@ -460,6 +460,31 @@ body.resizing iframe {
   animation: auto-pulse 1.8s ease-out infinite;
 }
 
+/* Pulse LED. Three states the eye can tell apart at a glance without reading the label:
+   armed = a slow steady beat, found = amber until the items are dealt with, sleeping = dimmed
+   but still visibly present (sleep is not off — a message wakes it). */
+.auto-pill.pulse-pill.on .auto-dot {
+  animation: auto-pulse 3.2s ease-out infinite; /* slower than Autonomous — ambient, not driving */
+}
+
+.auto-pill.pulse-pill.found {
+  color: var(--warn-text, #e8b96a);
+  background: color-mix(in oklab, #e8b96a 14%, transparent);
+  border-color: color-mix(in oklab, #e8b96a 45%, transparent);
+}
+
+.auto-pill.pulse-pill.found .auto-dot {
+  background: #e8b96a;
+}
+
+.auto-pill.pulse-pill.sleeping {
+  opacity: 0.55;
+}
+
+.auto-pill.pulse-pill.sleeping .auto-dot {
+  animation: none;
+}
+
 @keyframes auto-pulse {
   0% {
     box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 60%, transparent);

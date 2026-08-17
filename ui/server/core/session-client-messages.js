@@ -8,6 +8,8 @@ import { userInputTurn } from "./user-input.js";
 import { readPromotions, decide, markPromoted } from "../features/promotions/promotions-store.js";
 import { promoteOne } from "../features/promotions/promote-run.js";
 import { handleAutonomousControl } from "../features/autonomous/autonomous-control.js";
+import { armPulse, disarmPulse } from "../features/pulse/pulse-store.js";
+import { beatNow, publish, noteHumanActivity } from "../features/pulse/pulse-control.js";
 import { applyOp, pruneDoneTasks } from "../features/tasks/tasks-store.js";
 import { POLICIES, PROJECT_DIR } from "./config.js";
 
@@ -133,6 +135,23 @@ function handleControlMessage(msg, { send, inbox, session }) {
     // background workers keep running. The SDK emits a task_notification:stopped.
     void session.query?.stopTask?.(msg.taskId);
     send({ type: "status", text: `stopping background agent ${msg.taskId}…` });
+  } else if (msg.type === "pulse_mode") {
+    // Pulse toggle. Zero-config by design — no goal to author, unlike Autonomous — so this is
+    // just on/off/beat-now. It must NEVER touch session.autonomousActive: that flag auto-allows
+    // every tool, and Pulse is a nudge, not a permission escalation.
+    const now = new Date().toISOString();
+    if (msg.action === "start") {
+      armPulse(now);
+      send({ type: "status", text: "Pulse armed — watching for work that hasn't landed." });
+      publish();
+      void beatNow(); // sweep immediately, don't wait a full interval
+    } else if (msg.action === "stop") {
+      disarmPulse(now);
+      send({ type: "status", text: "Pulse off." });
+      publish();
+    } else {
+      void beatNow();
+    }
   } else if (session.autonomousLoop) {
     // Toggle the standing Main Goal (start/stop) — persists, broadcasts the flag, pushes
     // the kickoff turn, and arms/disarms the 5-minute check loop. No-op for any other msg.
@@ -161,6 +180,9 @@ export function handleClientMessage(raw, { log, send, inbox, pending, session })
     if (pruned) send({ type: "tasks", tasks: pruned });
     // Pasted images ride along as base64 image blocks ahead of the text.
     inbox.push(userInputTurn(msg));
+    // Any human turn makes THIS session the Pulse delivery target and silently wakes a sleeping
+    // Pulse — sleep is not off, so nobody has to remember to switch it back on.
+    if (session.pulseId != null) noteHumanActivity(session.pulseId);
   } else if (msg.type === "reply") {
     const entry = pending.get(msg.id);
     if (entry) {

@@ -17,6 +17,7 @@ import { initTranscript } from "../features/sessions/transcript.js";
 import { initSettings } from "../features/settings/settings.js";
 import { initPaidAgents } from "../features/agents-portal/paid-agents.js";
 import { initAutonomous } from "../features/autonomous/autonomous.js";
+import { initPulse } from "../features/pulse/pulse.js";
 import { send } from "./websocket.js";
 import { $, $input } from "./dom.js";
 
@@ -38,6 +39,7 @@ initTranscript();
 initPaidAgents();
 initSettings();
 initAutonomous();
+initPulse();
 
 $input("mode-select").onchange = () => {
   send({ type: "policy", value: $input("mode-select").value });

@@ -48,12 +48,12 @@ palette. Never reintroduce upstream's green alien identity.
 - `ui/server/` — Node server + CLI, by area: `core/` (+`core/http/`; `session.js` loads
   the one plugin, `config.js` reads the BAKED descriptor from `.xenomoon.json`),
   `integrations/{hermes,codex}/` (external LLM workers), `features/{tasks,promotions,
-transcripts,skills,autonomous}/`, `mcp-tools/` (in-process `makeXTool` SDK tools),
+transcripts,skills,autonomous,pulse}/`, `mcp-tools/` (in-process `makeXTool` SDK tools),
   `cli/` (`setup`, `new`, `doctor`, `materialize`, `install-capabilities`, release
   scripts). `domain-resolver.js` is install-only.
 - `ui/client/` — browser modules: `core/` (state, transport, render, `main.js`) and
   `features/{chat,activity,tasks,approvals,agents,settings,sessions,promotions,project,
-autonomous}/`. `ui/lib/` — shared JSDoc typedefs.
+autonomous,pulse}/`. `ui/lib/` — shared JSDoc typedefs.
 - `docs/` and `.claude/` — **forge-local only** (never referenced from `plugin/` or
   `ui/server`). `docs/fork/` holds VISION, SEAMS, SYNC, ORCHESTRATOR, DOWNSTREAM;
   `docs/ROSTER.md` the agent roster doctrine.
@@ -72,6 +72,19 @@ autonomous}/`. `ui/lib/` — shared JSDoc typedefs.
   search first (issuekit; never re-try `DO-NOT-RETRY` attempts); research → Hermes
   worker first when enabled; every defect enters the pipeline.
 - Persistent task board via `mcp__ui__tasks` → `<project>/.xenomoon/tasks.json`.
+- **Pulse** (`ui/server/features/pulse/`) — the ambient landing sweep, and the answer to a
+  structural gap: the session loop is _request-shaped_, so work that finished but never LANDED
+  (unpushed branches, idle PRs, issues waiting on a human) stays invisible until the human finds
+  it. One timer per server process runs deterministic read-only checks and injects a
+  `[pulse · beat N]` turn **only for state that CHANGED** — unchanged findings are suppressed, so
+  it informs without nagging. Off by default, armed from the header LED, sleeps after ~1h of flat
+  beats and re-arms on the next human message.
+  **It is not Autonomous Mode, and the distinction is the point:** Autonomous is goal-driven,
+  self-dispatching, and escalates permissions (`session.autonomousActive` auto-allows every tool).
+  Pulse has no goal, writes no code, dispatches nothing, never touches that flag, and stands down
+  while Autonomous runs. New checks are human-approved — the Hive can propose one
+  (`mcp__ui__pulse op:"propose_check"`), never add one at runtime, which is what stops it drifting
+  into a second Autonomous.
 - External workers when configured in `.xenomoon.json`: **Hermes** (researcher/critic
   roles) and **Codex** (reviewer); they are used as workers, not competed with.
 

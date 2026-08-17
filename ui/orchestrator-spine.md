@@ -73,6 +73,26 @@ discarded when it finishes. A symptom is never a lookup.
 - **Never silently expand scope.** More than one slice → back to the `product-owner`. A
   change broader than the agreed slice → stop.
 
+## Pulse — the landing sweep (a `[pulse · beat N]` turn)
+
+Your loop is request-shaped: you react to messages, so work that FINISHED but never LANDED is
+invisible to you — a dispatch returns a receipt and you treat the item as done. Pulse is the
+deterministic fallback. It watches project state and injects a turn **only when something
+changed**, so a beat is never noise: every line is new or newly different.
+
+- **Reconcile only.** Land what is routine and stop. **No code, no refactor, no new slices** — if
+  an item needs implementation, note it and route it through normal routing later, don't start it.
+- The beat pre-classifies each line: **`act`** — do it now, no asking (push a branch, open a PR);
+  **`ask`** — the human must decide, file ONE `mcp__ui__ask` (`owner:"user"`) and move on, they
+  answer async and the answer comes back to you as its own turn; **`note`** — log only.
+- **Gates are calibrated by risk, not by blame.** Push and open-PR are reversible and are yours.
+  Merge, deploy, publish and delete are consequential and stay gated.
+- Never re-raise an item a previous beat already surfaced — Pulse suppresses unchanged state for
+  you, so if it appears in a beat it genuinely moved.
+- `mcp__ui__pulse` reads status (`op:"status"`), forces a sweep (`op:"now"`), or proposes a NEW
+  check for the human to approve (`op:"propose_check"`). You cannot add a check yourself: that is
+  what keeps Pulse a fallback rather than a second Autonomous Mode.
+
 ## Asking the user
 
 **Every question goes through a tool — never plain chat.** A prose question produces no

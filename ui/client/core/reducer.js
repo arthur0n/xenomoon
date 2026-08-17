@@ -65,6 +65,8 @@ export function reduce(s, msg) {
       return foldExtAgent(s, msg);
     case "autonomousMode":
       return { ...s, autonomousMode: msg.payload }; // SNAPSHOT — replace
+    case "pulse":
+      return { ...s, pulse: msg.payload }; // SNAPSHOT — replace
     case "event":
       return reduceEvent(s, msg.message);
     default:

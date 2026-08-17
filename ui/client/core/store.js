@@ -58,6 +58,7 @@ import { reduce } from "./reducer.js";
  * @property {Record<string, { pct?: number, status?: string, resetsAt?: number }>} rateLimit - claude.ai plan utilization, keyed by window (five_hour | seven_day | …)
  * @property {boolean} busy                - hive MAIN turn in flight (drives the composer button)
  * @property {import("../../lib/types.js").Autonomous} autonomousMode - the standing Main Goal + ON/OFF flag (header badge)
+ * @property {Omit<import("../../lib/types.js").Pulse, "seen">} pulse - ambient landing sweep; the LED reads this (server owns it, `seen` stays server-side)
  */
 
 /** @returns {State} */
@@ -86,6 +87,20 @@ export function initialState() {
       checks: 0,
       status: null,
       report: null,
+    },
+    pulse: {
+      active: false,
+      sleeping: false,
+      intervalMs: 600000,
+      scope: "both",
+      startedAt: null,
+      lastBeatAt: null,
+      nextBeatAt: null,
+      beats: 0,
+      flatBeats: 0,
+      found: 0,
+      suppressed: 0,
+      lastError: null,
     },
   };
 }

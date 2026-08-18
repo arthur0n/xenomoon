@@ -29,7 +29,8 @@ let nextIdx = 0;
 // Agents outside this map still draw from the rotating PALETTE.
 /** @type {Record<string, string>} */
 const ROLE_COLOR = {
-  analyst: "oklch(0.74 0.13 300)", // violet — investigation + solution design (ex triage/senior)
+  "junior-analyst": "oklch(0.74 0.13 300)", // violet — triage: proves the root cause
+  "senior-analyst": "oklch(0.70 0.14 320)", // deeper violet — solution: designs the fix
   "product-owner": "oklch(0.78 0.11 200)", // cyan — the interviewer, PRD author
   developer: "oklch(0.79 0.12 60)", // amber — hot iron, the implementer
   researcher: "oklch(0.81 0.12 90)", // moon gold — the library (one research role, mode skills)
@@ -59,7 +60,8 @@ function stripNs(name) {
 /** @type {Record<string, string>} */
 const DISPLAY = {
   main: "Hive",
-  analyst: "Analyst",
+  "junior-analyst": "Junior Analyst",
+  "senior-analyst": "Senior Analyst",
   "product-owner": "Product Owner",
   developer: "Developer",
   researcher: "Researcher",

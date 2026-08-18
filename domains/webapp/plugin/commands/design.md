@@ -51,15 +51,15 @@ let it interview.
 5. **Report** the PRD path, the ordered slice(s) with the domain each touches, any open
    questions the product-owner left, and the issue number/URL it linked or opened. Then EXECUTE
    the next stage yourself — an agreed small slice → dispatch the developer (`/implement`
-   flow); a genuine defect surfaced instead → dispatch the analyst (`/analyze` flow).
+   flow); a genuine defect surfaced instead → route it to `/triage`.
    Never hand a slash command back to the user.
 
 ## Notes
 
-- **Intent goes here, not to `/analyze`.** A vague brief or a "how it should behave"
-  statement is a design question — never let a builder or the analyst start from it. The
-  analyst investigates SYMPTOMS; the product-owner captures INTENT.
+- **Intent goes here, not to `/triage`.** A vague brief or a "how it should behave"
+  statement is a design question — never let a builder or an analyst start from it. The
+  analysts investigate SYMPTOMS; the product-owner captures INTENT.
 - The product-owner never names a builder agent — it names the **domain** each slice touches;
   routing each slice to its owner is the orchestrator's call.
-- Pipeline: `/feedback` → `/design`? → `/analyze` → `/implement` → `/qa` → `/audit` →
+- Pipeline: `/feedback` → `/design`? → `/triage` → `/solution` → `/implement` → `/qa` → `/audit` →
   `/commit` → `/build`.

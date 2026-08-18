@@ -149,7 +149,7 @@ library}` → optional PR) · PROJECT (project fact → project CLAUDE.md/.claud
    remotes/credential pin (this checkout has none — verify); salvage nothing.
 2. Bind lexflow from this checkout via W4 flow — its existing CLAUDE.md/.claude exercises the
    onboarder (day-zero harvest of its skills/rules).
-3. One real issue end-to-end (product-owner → analyst → … → commit).
+3. One real issue end-to-end (product-owner → triage → solution → … → commit).
 4. `/learn` on it — expect ≥1 webapp library `findings/` record from the Explicação/propagate saga
    - the jsdom lockfile incident.
 5. Approve on board → verify landing in `domains/webapp/plugin/` → `/contribute` self-PR

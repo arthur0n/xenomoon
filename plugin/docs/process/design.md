@@ -4,7 +4,7 @@ Each file here is one small, agreed slice of work — a one-page PRD — produce
 
 Workflow: idea → **product-owner** (interviews the user, captures business rules verbatim, cuts scope, writes the doc) → builder (implements) → verify (checks) → human look. The orchestrator routes; it does not author the doc — the product-owner does.
 
-The product-owner also **captures durable business rules**: standing product facts surfaced in the interview ("we don't use Y, do Z") are proposed — human-gated — into the project's `.claude/library/business-rules.md` (with a one-line pointer in the `CLAUDE.md` index), so they outlive one session and the downstream agents (analyst, developer, tester) treat them as authoritative intent. The PRD holds the slice's rules; the library doc holds the project's — `CLAUDE.md` itself stays an index, never the content sink.
+The product-owner also **captures durable business rules**: standing product facts surfaced in the interview ("we don't use Y, do Z") are proposed — human-gated — into the project's `.claude/library/business-rules.md` (with a one-line pointer in the `CLAUDE.md` index), so they outlive one session and the downstream agents (junior-analyst, senior-analyst, developer, tester) treat them as authoritative intent. The PRD holds the slice's rules; the library doc holds the project's — `CLAUDE.md` itself stays an index, never the content sink.
 
 No code is designed or written here beyond the agreed slice — parked ideas live in each doc's "Later" section.
 

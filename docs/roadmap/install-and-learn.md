@@ -101,7 +101,7 @@ leaves the project or enters a PR. Only generic, reusable technique does.
 ## 5 · Case study — how we prove it
 
 1. Retire xm-probius (section 3 cleanup); bind lexflow from this checkout.
-2. Run one real issue end-to-end here (product-owner → analyst → … → commit).
+2. Run one real issue end-to-end here (product-owner → triage → solution → … → commit).
 3. Run `/learn` on it — expect at least one webapp skill or library record drafted from
    the Explicação/propagate saga + the jsdom lockfile incident.
 4. Approve on the board → verify it lands in `domains/webapp/plugin/`.

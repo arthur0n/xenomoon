@@ -1,6 +1,6 @@
 ---
 name: code-investigation
-agents: [junior-analyst]
+agents: [junior-analyst, senior-analyst]
 domain: universal
 description: The shared discipline for any read-only investigation of a defect — falsify a cause before accepting it, cite only path:line you actually opened, use git archaeology when a symptom smells like a regression, and rate confidence honestly. Load whenever you must state WHY something broke — triage, fix design, or review.
 ---

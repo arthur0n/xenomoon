@@ -1,6 +1,6 @@
 ---
-description: Turn raw feedback into a GitHub issue — route defects to /analyze, product intent to /design
-argument-hint: "<freeform notes> [--analyze]"
+description: Turn raw feedback into a GitHub issue — route defects to /triage, product intent to /design
+argument-hint: "<freeform notes> [--triage]"
 allowed-tools: Bash, Agent, Read, Grep, Glob
 ---
 
@@ -15,13 +15,13 @@ Feedback splits two ways, and they go to different places. Read the notes and de
 
 - **DEFECT** — something is **broken** against how it already works: a crash, an error, a
   wrong result, data blank/leaked, a regression. → files a `bug` issue, investigated by
-  **`/analyze`**.
+  **`/triage`**.
 - **INTENT / product change** — a statement about how the product **should** behave: a new
   feature, a vague ask ("we want X"), or a "we don't use Y, do Z" that expresses a business
   rule or a change of direction. This is **not a bug** — there's no defect to trace, there's
   a decision to capture. → goes to **`/design`** (the product-owner interviews, captures the rule
-  verbatim, writes a PRD). **Never file intent as a bug and send it to `/analyze`** — the
-  analyst would manufacture a code hypothesis for a thing that was never broken (the exact
+  verbatim, writes a PRD). **Never file intent as a bug and send it to `/triage`** — the
+  triage stage would manufacture a code hypothesis for a thing that was never broken (the exact
   failure this pipeline exists to stop).
 
 If a note mixes both (a real bug AND a "and also it should…"), split it: a `bug` issue for
@@ -62,19 +62,19 @@ the defect, and route the intent to `/design`.
    Echo each new issue's number and URL.
 
 4. **Route by the Step 0 verdict:**
-   - **Intent** → suggest (or, if `--analyze` was NOT given and it's clearly a product
+   - **Intent** → suggest (or, if `--triage` was NOT given and it's clearly a product
      decision, hand off to) **`/design`** — the product-owner captures the rule and writes the
-     PRD. Do not send intent to `/analyze`.
-   - **Defect** → if `--analyze` is present in the args, immediately spawn the `analyst`
-     agent (Agent tool, `subagent_type: "analyst"`) for each newly created bug issue, then
-     summarize its findings. Otherwise suggest I run `/analyze <#>` when I want it
+     PRD. Do not send intent to `/triage`.
+   - **Defect** → if `--triage` is present in the args, immediately spawn the
+     `junior-analyst` agent (Agent tool, `subagent_type: "junior-analyst"`) for each newly created bug issue, then
+     summarize its findings. Otherwise suggest I run `/triage <#>` when I want it
      investigated.
 
 ## Notes
 
 - Keep titles/bodies faithful to the reporter — this is clean-up and structuring, not
   embellishment.
-- This command files issues + routes; it never investigates code (that's `/analyze`) and
+- This command files issues + routes; it never investigates code (that's `/triage`) and
   never designs (that's `/design`).
-- Pipeline: `/feedback` → `/design`? → `/analyze` → `/implement` → `/qa` → `/audit` →
+- Pipeline: `/feedback` → `/design`? → `/triage` → `/solution` → `/implement` → `/qa` → `/audit` →
   `/commit` → `/build`.

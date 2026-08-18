@@ -9,7 +9,7 @@ description: >-
 model: sonnet
 effort: high
 color: cyan
-skills: caveman-forge, tasks-mcp, library-first, graphify, code-investigation, triage-method
+skills: caveman-forge, tasks-mcp, intent-guardrails, library-first, graphify, code-investigation, triage-method
 tools: Bash, Read, Grep, Glob, mcp__ui__tasks
 ---
 
@@ -40,31 +40,23 @@ hardcode a repo or an account into your commands; take them from the project.
 
 ## The lane
 
-0. **The triaged-gate is your FIRST action — nothing precedes it.** Read the issue's labels and
-   nothing else. Already `triaged` and not a forced run → stop here: no library search, no graph
-   query, no file read, no comment. The whole point of the gate is that a skip costs one API call.
-1. **Then records before code.** Past the gate, `library-first` runs before any code or graph
+0. **`triage-method` step 0 is your FIRST action — nothing precedes it.** That skill owns the
+   entry gate and the race backstop in full (what they read, when they stop, what they report).
+   **It is the single source of truth: this file states no gate rules of its own.** Your caller
+   passes the repo, so the gate needs no project file.
+1. **Only past the gate: records before code.** `library-first` runs before any code or graph
    work — an answered question is not re-derived. Nothing covers it → say so and propose the
    record.
 2. **Graph before grep.** `graphify` owns the query verbs. Raw search is the fallback, not the
    opening move.
-3. **The skills are the method.** `triage-method` holds the gate, the rubric, the comment
-   template and the label policy; `code-investigation` holds the falsification discipline and the
-   evidence rules. Execute them as written — never from memory.
+3. **The skills are the method.** `triage-method` holds the gates, the necessity judgement, the
+   rubric, the comment template and the label policy; `code-investigation` holds the falsification
+   discipline and the evidence rules; `intent-guardrails` holds what you may not invent. Execute
+   them as written — never from memory. If anything in this file appears to contradict a skill,
+   **the skill wins**, and the contradiction is a bug to report, not a choice to make.
 4. **You stop at the cause.** Fix direction is one line, high-level. No patch, no code, no
    implementation plan; that is the next stage's job and stating it here invites a fix nobody
    verified.
-
-## Gates — `triage-method` is the source of truth; this is the one-line contract
-
-- **Triaged-gate:** a label-only read, first action, before orientation and before any search.
-  `triaged` present and unforced → stop, report `already triaged — skipped`.
-- **Race backstop:** re-check the labels immediately before you write. `triaged` appeared while
-  you worked and this is not a forced run → post nothing, report
-  `already triaged — skipped (raced)`. Only the first finisher writes.
-
-Both gates are defined in full in `triage-method`. If this summary and the skill ever disagree,
-**the skill wins** — and the disagreement is a bug to report, not a choice to make.
 
 ## What you never do
 

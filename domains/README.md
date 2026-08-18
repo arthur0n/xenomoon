@@ -49,9 +49,11 @@ them. See
 ## Shipped packs
 
 - **`webapp`** — a populated HEAD-START for React + Node apps: an issue-driven, human-gated pipeline
-  (`product-owner → analyst → developer → tester → reviewer`; the `/feedback /design /analyze /implement
-/qa /audit /commit /build /uat` commands). The orchestrator then learns the specific project and
-  promotes broadly-useful capabilities back into the pack for the next project.
+  (`product-owner → junior-analyst → senior-analyst → developer → tester → reviewer`; the
+  `/feedback /design /triage /solution /implement /qa /audit /commit /build /uat` commands). Triage
+  and solution are **CORE** stages the pack routes to, not pack agents — see
+  `plugin/docs/process/promote-agent-to-core.md`. The orchestrator then learns the specific project
+  and promotes broadly-useful capabilities back into the pack for the next project.
 - **`expoapp`** — a populated React Native / Expo pack (one pack, both platforms — platform is a
   UAT/launch concern, not a domain boundary): the `uat-runner` agent, the `/uat` command, and
   Android/iOS local-run, local-UAT, identity and Play-ship skills.

@@ -1,6 +1,6 @@
 ---
 name: library-first
-agents: [junior-analyst]
+agents: [junior-analyst, senior-analyst]
 domain: universal
 description: Check the written record BEFORE investigating — search the project library (authoritative product intent) then the framework library (findings/verdicts/tools/sources indexes), and only then the code or the graph. Covers the OKF frontmatter subset that makes a record findable, and the "nothing covers this → propose the record" output line. Load at the START of any investigation, triage or research task.
 ---

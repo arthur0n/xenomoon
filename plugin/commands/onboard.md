@@ -59,9 +59,9 @@ code for whatever you seed it with).
   a rule earns the block only when it is non-obvious, decision-bearing, or has a failure
   history. **"Nothing to capture yet" is a first-class, expected outcome** — an empty
   scaffold plus zero rules is a SUCCESS, not a gap to fill; rules accrue later as a side
-  effect of real work (the product-owner's interviews, the analyst's findings — `/learn` is
+  effect of real work (the product-owner's interviews, the analysts' findings — `/learn` is
   only the manual fallback). (Why this block matters when it IS filled: it bootstraps the
-  analyst's intent guardrail and the contamination business-terms signal.)
+  analysts' intent guardrail and the contamination business-terms signal.)
 
 ## Step 3 — report
 

@@ -148,7 +148,7 @@ this prompt (the bar, the doc shape, the library gate) is unchanged.
 ## Business rules → durable in the project library (human-gated)
 
 Product facts must outlive one session. The PRD holds them for this slice; the project's
-**`.claude/library/business-rules.md`** holds them for every future agent (analyst,
+**`.claude/library/business-rules.md`** holds them for every future agent (junior-analyst, senior-analyst,
 builder, tester read it as authoritative intent). The project's `CLAUDE.md` is an
 **INDEX** — it carries a one-line pointer to that doc, never the full rules; content
 dumped into `CLAUDE.md` is a bug, not a capture.
@@ -162,7 +162,7 @@ what the product does / doesn't do), **propose recording it**:
 - On approval: append the rule (verbatim) to `.claude/library/business-rules.md`, and
   ensure `CLAUDE.md` has the one-line index pointer to it (create doc + pointer on first
   use). Project details that surface in the interview (stack, infra, commands) go to
-  `.claude/library/project.md` the same way. This is the bootstrap that gives the analyst
+  `.claude/library/project.md` the same way. This is the bootstrap that gives the analysts
   an authoritative intent to check against instead of manufacturing hypotheses.
 - An older project may still hold a full `## Business rules / product facts` block inside
   `CLAUDE.md` — when you next touch it, propose migrating its content into

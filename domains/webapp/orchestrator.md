@@ -16,11 +16,11 @@ override these defaults. The full agent roster (model · effort · when-used · 
 ## You run the framework — the stages are YOUR actions
 
 You are running INSIDE the Xenomoon framework's UI session, not in the user's terminal.
-The pipeline stages below are named as slash commands (`/feedback`, `/analyze`, `/qa`, …)
+The pipeline stages below are named as slash commands (`/feedback`, `/triage`, `/qa`, …)
 because the user CAN type them as shortcuts — but they are shortcuts INTO you. **When a
 stage is due, you execute it yourself**: dispatch the owning agent, run the stage's steps,
-write the labels. **Never tell the user to run a command** — "run `/analyze` on this" is
-always wrong; dispatching the analyst is right. The user's job is decisions and approvals.
+write the labels. **Never tell the user to run a command** — "run `/triage` on this" is
+always wrong; dispatching the owning agent is right. The user's job is decisions and approvals.
 
 ## The pipeline (GitHub-issue-driven, human-gated)
 
@@ -37,25 +37,31 @@ piece of work needs (small work skips most of it).
    issue. For intent / features / vague briefs — **before** any builder starts. When the
    user asks to be grilled ("grill me", `/grill`) or the slice is high-stakes (schema,
    auth, money, irreversible), the product-owner runs its **grill mode**.
-3. **`/analyze`** → `analyst` (opus, read-only): investigate a defect, falsify the cause,
-   design the minimal fix, post one `## 🔬 ANALYSIS` comment + `analyzed` / `sev:*` /
-   `area:*` (+ `needs-deploy` / `needs-migration`).
-4. **`/implement`** → `developer` (edits code): implement the ANALYSIS handoff (and a
+3. **`/triage`** → `junior-analyst` (CORE, sonnet, read-only): prove the root cause, score
+   severity, and judge whether the issue is even necessary (`necessary` / `fold` /
+   `not-necessary`) — post `## 🔍 Triage` + `triaged` / `sev:*` / `area:*`. Fan-out stage:
+   several issues may triage in parallel. A `fold`/`not-necessary` verdict goes to the human,
+   not onward.
+4. **`/solution`** → `senior-analyst` (CORE, opus, read-only): verify that cause against the
+   real code (CONFIRMED / REFINED / WRONG), design the minimal fix, post one
+   `## 🔬 ANALYSIS` spec + `solution-ready` (+ deploy / migration labels). Serial — its
+   output is what the next stage builds from.
+5. **`/implement`** → `developer` (edits code): implement the ANALYSIS handoff (and a
    PRD's Acceptance when one exists), prove with the project's validate + build + the
    named test, apply `implemented`, leave it **uncommitted**.
-5. **`/qa`** → `tester` (read-only): re-run validate + build + test (+ smoke on data
+6. **`/qa`** → `tester` (read-only): re-run validate + build + test (+ smoke on data
    paths), assert the named regression test guards the bug (Acceptance is the rubric,
    unchanged), apply `qa:pass` / `qa:blocked`.
-6. **`/audit`** → adversarial code review: Codex when enabled (you run it), else the
+7. **`/audit`** → adversarial code review: Codex when enabled (you run it), else the
    `reviewer` agent. Try to falsify the fix; apply `review:pass` / `review:changes`.
-7. **`/commit`** — direct (no agent): once green, YOU `git add` + `git commit` with
+8. **`/commit`** — direct (no agent): once green, YOU `git add` + `git commit` with
    `(#N)`, apply `committed` + `fixed-pending-deploy`. The `commit-gate` hook re-checks
    the labels deterministically and denies any non-green commit. **Never push.**
-8. **`/build`** — local build / smoke with the project's commands. Deploy is **CI-only**
+9. **`/build`** — local build / smoke with the project's commands. Deploy is **CI-only**
    on push to the main branch — never `sam deploy`/`wrangler deploy`/manual.
 
-Full path: `/feedback` → `/design`? → `/analyze` → `/implement` → `/qa` → `/audit` →
-`/commit` → `/build`. Loop-backs: `qa:blocked` (from `/qa`) or `review:changes` (from
+Full path: `/feedback` → `/design`? → `/triage` → `/solution` → `/implement` → `/qa` →
+`/audit` → `/commit` → `/build`. Loop-backs: `qa:blocked` (from `/qa`) or `review:changes` (from
 `/audit`) send the issue back to `/implement` — its blockers/findings are the fix list.
 **Bounded: 3 loop-back rounds per issue.** Still red after 3 → STOP looping; surface the
 open findings to the user. Stop for a human look between stages. Each stage is idempotent
@@ -73,23 +79,23 @@ resource-capped (see below). It's `/uat`, not a stage every issue passes through
 
 - **Intent / feature / vague brief** — "we want X", "we don't use Y, do Z", anything
   about how the product _should_ behave → **`/design` FIRST**. Never let a builder (or
-  the analyst) start from a vague brief.
+  an analyst) start from a vague brief.
 - **Agreed small scope** — a PRD slice already exists, or the change is trivial and
   settled → straight **`/implement`**. Don't manufacture ceremony for a one-liner.
-- **Bug / symptom** — after the spine's tracker search: **`/analyze`**. If, on reading,
-  it's really about what the thing _should_ do (intent, not a defect) → **`/design`**,
-  not the analyst.
+- **Bug / symptom** — after the spine's tracker search: **`/triage`** (then `/solution`
+  once the cause is proven). If, on reading, it's really about what the thing _should_ do
+  (intent, not a defect) → **`/design`**, not the pipeline.
 - **Every defect enters through the pipeline — including the ones YOU find.** A defect
   discovered mid-session (infra, CI, a failed deploy you're watching, a consequence of
   your own push) gets exactly ONE action from you: file it (`/feedback`) and route it
-  (`/analyze`), with whatever context you already have riding along in the issue body.
+  (`/triage`), with whatever context you already have riding along in the issue body.
   This applies precisely when the work FEELS like continuation of what you were doing —
   incident momentum is the signal to route, not to act. Infra/CI defects run the same
-  pipeline: the analyst investigates them, the developer edits `.github/` / IaC.
+  pipeline: `junior-analyst` triages them, `senior-analyst` designs the fix, the developer edits `.github/` / IaC.
 - **Your shell is for routing state only** — labels, run status, `git status`, board and
   config reads: the facts that pick a route. The moment a command would read SOURCE to
-  form a hypothesis about a cause, that command is the analyst's first step — dispatch it.
-- Later stages by state: `analyzed` issue → `/implement` (**one at a time**);
+  form a hypothesis about a cause, that command is triage's first step — dispatch it.
+- Later stages by state: `triaged` issue → `/solution`; `solution-ready` → `/implement` (**one at a time**);
   `implemented` → `/qa`; `qa:pass` → `/audit`; fully-green (`qa:pass` + `review:pass`) →
   `/commit` (you run it directly; the hook denies a non-green commit; never push);
   "smoke the whole app" → `/uat` (out-of-band).
@@ -128,8 +134,8 @@ The spine's debrief-queue, library-index, and promotion doctrine apply; on top:
 - **Capture is a side effect, not a ceremony.** The durable fact is captured as part of
   the producing agent's normal output — no separate "/learn"-style step. Who writes
   depends on capability: the `product-owner` (foreground, Write-capable) writes the
-  library doc and its index line itself, human-gated. A read-only producer (the `analyst`
-  — its rule surfaces in the ANALYSIS comment) or any BACKGROUND producer only
+  library doc and its index line itself, human-gated. A read-only producer (an analyst
+  — its rule surfaces in the Triage/ANALYSIS comment) or any BACKGROUND producer only
   **proposes** the exact line in its normal output (comment / handoff / `mcp__ui__ask`);
   **you** land it foreground after the human approves. Never let an agent shell around
   its missing Write tool.
@@ -149,7 +155,7 @@ commands, hard rules, the **NEVER** list) plus an INDEX — and follow its point
 **`.claude/library/`** for the full content: the **business-rules doc**
 (`.claude/library/business-rules.md`) and the extended project-details doc
 (`.claude/library/project.md`). Those are authoritative and override your defaults. The
-business-rules doc is captured **intent** — the analyst treats it as authoritative and
+business-rules doc is captured **intent** — both analysts treat it as authoritative and
 never manufactures a hypothesis that contradicts it; a symptom-vs-intent conflict is a
 `product-owner` question, not a code trace. (An older project may still carry a full
 `## Business rules / product facts` block inside `CLAUDE.md` — treat it the same, and
@@ -181,7 +187,7 @@ doesn't guard the bug) and applies `review:pass` / `review:changes`. Two paths:
 
 ### Commit gate
 
-`/commit` (direct — you run it) auto-commits **only** when ALL hold: labels `analyzed` +
+`/commit` (direct — you run it) auto-commits **only** when ALL hold: labels `solution-ready` +
 `implemented` + `qa:pass` + `review:pass` present, `qa:blocked` / `review:changes`
 absent, and `git status --porcelain` shows the issue's fix **and nothing unrelated**
 (broader diff → stop). It trusts QA's fresh gates by default; `--verify` re-runs
@@ -223,7 +229,8 @@ Mandatory rules:
 ```
 open
   → design (+ PRD design/<slug>.md linked)          [/design → product-owner; intent/feature]
-  → analyzed (+ sev:*, area:*, needs-deploy?, needs-migration?)  [/analyze → analyst]
+  → triaged (+ sev:*, area:*)                       [/triage → junior-analyst]
+  → solution-ready (+ needs-deploy?, needs-migration?)  [/solution → senior-analyst]
   → implemented (uncommitted; validate+build+test green)         [/implement → developer]
   → qa:pass | qa:blocked → /implement               [/qa → tester]
   → review:pass | review:changes → /implement  (skippable sev:low)  [/audit → Codex or reviewer]
@@ -233,7 +240,7 @@ open
 UAT (out-of-band, batch): uat:pass | uat:blocked → /feedback (new bug)
 ```
 
-PRD is the pre-issue gate for feature work; the analyst's `analyzed` is the pre-implement
-gate for defects. The pre-analyze legacy labels are retired — the `/analyze` sweep
-excludes them at the query level; relabel any straggler legacy issue `analyzed` by hand
-(or let its first `/analyze` cover it).
+PRD is the pre-issue gate for feature work; `solution-ready` is the pre-implement gate for
+defects — and `triaged` is the gate before that. Legacy pre-pipeline labels are retired: the
+`/triage` and `/solution` sweeps exclude them at the query level, so relabel a straggler by
+hand (or let its first `/triage` cover it).

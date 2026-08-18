@@ -3,7 +3,7 @@ name: reviewer
 description: >-
   Native adversarial code reviewer for an implemented, QA-passed GitHub issue —
   the fallback when Codex isn't enabled. Reads the project's convention floor +
-  the analyst ANALYSIS + the `git diff` of the uncommitted change and tries to
+  the senior-analyst ANALYSIS + the `git diff` of the uncommitted change and tries to
   FALSIFY the fix (scoping/auth leaks, enum/label drift, swallowed errors, a test
   that doesn't guard the bug). Posts a pass/changes verdict + review:* labels.
   Read-only on code (no edits, no commits). Invoke with an issue number, e.g.
@@ -17,8 +17,8 @@ skills:
 tools: Bash, Read, Grep, Glob, mcp__ui__tasks
 ---
 
-<!-- roster-justification: opus alongside analyst (also opus). Justified by adversarial
-independence — the analyst GENERATES the diagnosis + fix design; this reviewer JUDGES the
+<!-- roster-justification: opus alongside senior-analyst (also opus). Justified by adversarial
+independence — the senior-analyst GENERATES the diagnosis + fix design; this reviewer JUDGES the
 implemented diff. Generator ≠ judge is the specialization; a single opus doing both loses
 the independent second read at the review boundary. Not consolidatable. -->
 
@@ -88,7 +88,7 @@ gh issue view <N> -R {{REPO}} --json comments -q '.comments[].body' | grep -oE '
 
 ## What to review
 
-1. **Read the issue + the analyst ANALYSIS + the QA verdict** (compact text render):
+1. **Read the issue + the senior-analyst ANALYSIS + the QA verdict** (compact text render):
 
    ```bash
    gh issue view <N> -R {{REPO}} --json number,title,state,labels,body,author,comments | jq -r '

@@ -30,11 +30,22 @@ palette. Never reintroduce upstream's green alien identity.
 --domain X` COPIES the pack's agents/skills/commands into `plugin/` and bakes the
   descriptor into `.xenomoon.json`. **Nothing under `domains/` is read at runtime.**
 - **At runtime there is exactly ONE capability tree: `plugin/`.** Every session loads it
-  (namespaced `xenomoon:<name>`). Trunk `plugin/` ships the core (product-owner, researcher,
-  debrief, handoff-summarizer agents; meta skills like `quick`, `caveman-forge`,
-  `tasks-mcp`, `agent-report`, `autonomous-main-goal`; safety hooks). The installed
-  domain pack adds the rest (e.g. webapp adds analyst/developer/reviewer/tester,
-  `orchestrator.md`, pipeline commands).
+  (namespaced `xenomoon:<name>`).
+- **CORE owns the PIPELINE; a pack ships SKILLS.** The pipeline is what the framework IS
+  (see the goal above), so it cannot be an optional pack feature: trunk `plugin/` ships the
+  pipeline roster and its stage commands (`junior-analyst` → `/triage`, `senior-analyst` →
+  `/solution`, and the stages still being promoted), the cross-cutting agents
+  (product-owner, researcher, debrief, handoff-summarizer), the shared method skills
+  (`code-investigation`, `library-first`, `intent-guardrails`, the `*-method` skills), the
+  meta skills (`quick`, `caveman-forge`, `tasks-mcp`, `agent-report`,
+  `autonomous-main-goal`) and the safety hooks. **A domain pack adds only what is genuinely
+  domain-specific — skills** (expoapp: simulator/emulator lanes; webapp: browser lanes) —
+  plus its `orchestrator.md` routing and any domain-only command. One role, one definition,
+  every domain. Promoting a stage into CORE is a defined process:
+  `plugin/docs/process/promote-agent-to-core.md`.
+  _(History: the pack used to ship its own analyst/developer/reviewer/tester, which put the
+  framework's own purpose behind a pack choice and drifted into one role per tree. That is
+  what the promotion process is unwinding, one stage at a time.)_
 - **The bound project stays pure.** The framework reads it in place. Project-side state
   is confined to `<project>/.xenomoon/` (task board `tasks.json`, `promotions.json`,
   `autonomous.json`, handoffs) and project-owned capabilities in `<project>/.claude/`

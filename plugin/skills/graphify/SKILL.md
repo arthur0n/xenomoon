@@ -1,6 +1,6 @@
 ---
 name: graphify
-agents: [orchestrator, builders]
+agents: [orchestrator, builders, junior-analyst]
 description: Query the project's knowledge graph for codebase / architecture / file-relationship questions — when graphify-out/graph.json exists, treat the question as a graphify query FIRST. Thin wrapper over the installed graphify CLI (query / path / explain / update); the graph lives in the project's graphify-out/. Tagged [orchestrator] for the CORE scope gate; domain-pack investigation agents (analyst, reviewer, developer) opt in via their own frontmatter skills, which the CORE gate deliberately does not validate.
 ---
 
@@ -22,7 +22,12 @@ If `graphify-out/graph.json` exists, treat the question as a query FIRST — do 
 graphify query "<natural-language question>"   # BFS/DFS traversal, scoped answer
 graphify path "NODE_A" "NODE_B"                 # how two things relate
 graphify explain "NODE"                         # plain-language node summary
+graphify affected "<file>"                      # reverse deps — what a change here breaks
 ```
+
+`affected` is the blast-radius verb: before proposing a change to a file, ask what depends on it.
+It answers in one query what a grep fan-out only approximates, and it is how a "small fix" that
+would break three callers gets caught at triage instead of at review.
 
 For broad navigation read `graphify-out/wiki/index.md` or `GRAPH_REPORT.md` instead of
 browsing source.

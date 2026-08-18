@@ -84,6 +84,11 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
      statement, KEEPING the fleet-standard intro + `## What you never do` scaffold (cut only the THIRD+
      echo, or the fleet's ~20 agents go inconsistent), and point the other mentions at the canonical
      one. "State each constraint once" means collapse the redundant echoes, not delete the scaffold.
+     A THIRD shape: a duplicated COMMAND FILE across the shipped/forge-local boundary (e.g. a
+     `plugin/commands/*.md` shadowing a `.claude/commands/*.md`) — delete the shipped copy (the
+     practice is forge-local only) and sweep refs with `rg`; also check each copy's data source
+     (e.g. a ledger path) BEFORE deleting — if the copies point at DIFFERENT files, deleting one
+     copy can orphan the other's CORE-tracked resource, so redirect or fold it in first.
    - **D6 (orchestrator):** apply the recorded edit to the domain orchestrator
      `domains/*/orchestrator.md` (`plugin/orchestrator.md` once installed) — centralize a duplicated
      directive, move dense prose into a skill, or trim.
@@ -96,7 +101,10 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
      gate) or correct the skill's claim, or replace a re-taught passage with a pointer to the owning
      skill, or REMOVE a redundant/superseded check whose job a live gate already does (an orphan check
      no gate composes and no skill documents) — delete it and confirm `rg` shows zero remaining refs.
-     A new gate check graduates as a `check:*` script wired into `npm run validate`.
+     A new gate check graduates as a `check:*` script wired into `npm run validate`. Before concluding
+     a claimed enforcement doesn't exist, ALSO check the SDK permission layer (`ui-control.js`
+     `orchestratorGate`/`canUseTool`, wired via `session-permissions.js` `preToolGate`) — a deny can
+     live there instead of in `plugin/hooks/` or a `check:*` script; a hooks-only sweep will false-flag it.
    - **D9 (harness simplification):** **strip** — apply the agreed removal/down-tier (edit the
      agent's `model:` / skill list, trim the scaffold, drop the dead gate step), then confirm the
      sample task + full verify still pass (a strip must not regress the gate). Deleting a WHOLE agent
@@ -123,7 +131,11 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
      refs to NEUTRAL content that MOVED to the base; leave valid domain-named refs intact.
 4. **Verify.** If any framework file changed: `rtk npm run validate` (tsc + eslint, zero
    warnings — this also runs the skill-scope check, catching D1/D3/D5 wiring mistakes) and
-   `rtk npx prettier --write` on the touched files. Report the result honestly; if validate
+   `rtk npx prettier --write` on the touched files. If the fix touches a bash hook
+   (`plugin/hooks/*.sh`) with no test harness, write ONE throwaway scratchpad script that
+   exercises every branch in a single run before executing it — a PreToolUse security hook can
+   block re-running a script file from the scratchpad, so don't plan on iterative re-runs.
+   Report the result honestly; if validate
    fails, first confirm the failure is YOURS before acting — attribute red to your id only after
    checking it against the pre-edit state (`git stash`, re-run, or scope the failing files to what
    the finding touched). A pre-existing red from unrelated uncommitted WIP (a doc-only fix can't

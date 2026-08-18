@@ -4,10 +4,19 @@
 # this hook re-derives the gate from the issue's labels at the moment `git commit` runs:
 #
 #   commit references (#N)  → gh labels MUST show qa:pass + review:pass and NO qa:blocked /
-#                             review:changes → explicit ALLOW (no prompt; the pipeline earned it).
-#                             Any gate miss → DENY naming the exact failing condition.
+#                             review:changes, AND the SHA each verdict recorded must be the
+#                             PARENT of this commit (current HEAD) → explicit ALLOW (no prompt;
+#                             the pipeline earned it). Any gate miss → DENY naming the exact
+#                             failing condition.
 #   no (#N) in the message  → ASK (a non-pipeline commit is the human's call, not blocked).
 #   gh unreachable / error  → ASK (fail-closed to the human, never fail-open).
+#
+# The SHA binding is the point: a label is a STICKER anyone can move, so a label-only gate
+# passes the second, third and fourth commit citing the same issue without re-verifying any of
+# them — the guarantee decays with every commit. The tester/reviewer therefore stamp
+# `qa-verified: <sha>` / `review-verified: <sha>` in their verdict comment, and a commit is
+# allowed only on the code those verdicts actually saw. Pre-binding issues carry no marker at
+# all; those ASK rather than deny, so an old green still commits with one human approval.
 #
 # Loads only in bound-project sessions (this domain plugin), for ALL callers — orchestrator and
 # sub-agents alike. Reads the PreToolUse payload on stdin; emits a decision only when it matches.
@@ -25,11 +34,24 @@ if [ -z "$n" ]; then
   exit 0
 fi
 
-labels="$(gh issue view "$n" --json labels -q '.labels[].name' 2>/dev/null)"
+issue="$(gh issue view "$n" --json labels,comments 2>/dev/null)"
+labels="$(printf '%s' "$issue" | jq -r '.labels[]?.name' 2>/dev/null)"
 if [ -z "$labels" ]; then
   decision ask "Commit cites (#$n) but the issue's labels could not be read (gh failed or no such issue). Fail-closed: human approval required."
   exit 0
 fi
+
+# The code this commit will actually record: its parent is the current HEAD.
+head_sha="$(git rev-parse HEAD 2>/dev/null)"
+if [ -z "$head_sha" ]; then
+  decision ask "Commit cites (#$n) but HEAD could not be resolved (unborn branch or not a git repo), so the recorded QA/review SHAs cannot be checked. Fail-closed: human approval required."
+  exit 0
+fi
+
+# Newest marker each verdict stamped. Comments come back chronologically, so tail -1 wins.
+qa_sha="$(printf '%s' "$issue" | jq -r '.comments[]?.body' 2>/dev/null | grep -oE 'qa-verified: [0-9a-f]{7,40}' | tail -1 | awk '{print $2}')"
+review_sha="$(printf '%s' "$issue" | jq -r '.comments[]?.body' 2>/dev/null | grep -oE 'review-verified: [0-9a-f]{7,40}' | tail -1 | awk '{print $2}')"
+short() { printf '%s' "${1:0:7}"; }
 
 has() { printf '%s\n' "$labels" | grep -qxF "$1"; }
 if has "qa:blocked"; then
@@ -40,7 +62,13 @@ elif ! has "qa:pass"; then
   decision deny "Gate: issue #$n lacks qa:pass — run /qa $n first. Commit is earned, not asserted."
 elif ! has "review:pass"; then
   decision deny "Gate: issue #$n lacks review:pass — run /audit $n first."
+elif [ -z "$qa_sha" ] || [ -z "$review_sha" ]; then
+  decision ask "Issue #$n is label-green but its verdicts predate SHA binding (no $([ -z "$qa_sha" ] && printf 'qa-verified')$([ -z "$qa_sha" ] && [ -z "$review_sha" ] && printf ' / ')$([ -z "$review_sha" ] && printf 'review-verified') marker), so the pass cannot be tied to the code being committed. Approve only if you know this green covers HEAD $(short "$head_sha"); otherwise re-run /qa $n and /audit $n."
+elif [ "$qa_sha" != "$head_sha" ]; then
+  decision deny "Gate: QA verified #$n at $(short "$qa_sha") — committing on $(short "$head_sha"). The pass belongs to code that is no longer HEAD; re-run /qa $n (a label is a sticker, the SHA is the artifact)."
+elif [ "$review_sha" != "$head_sha" ]; then
+  decision deny "Gate: review verified #$n at $(short "$review_sha") — committing on $(short "$head_sha"). The pass belongs to code that is no longer HEAD; re-run /audit $n."
 else
-  decision allow "Gate green for #$n: qa:pass + review:pass present, no blocks. Deterministic auto-commit permitted (push stays the human gate)."
+  decision allow "Gate green for #$n: qa:pass + review:pass, no blocks, both verdicts verified at HEAD $(short "$head_sha"). Deterministic auto-commit permitted (push stays the human gate)."
 fi
 exit 0

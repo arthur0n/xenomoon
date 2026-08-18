@@ -111,6 +111,9 @@ no commit. A UAT failure files a new `/feedback` bug.
   and the **absence** of `qa:blocked` / `review:changes`. Fail the deploy if any referenced issue
   misses the gate or if the labels can't be read (fail-closed — a missing signal blocks, never ships).
   This makes the pipeline's commit gate enforceable at the deploy boundary, not just advisory.
+  **Check the SHA, not just the sticker:** each verdict comment ends with `qa-verified: <sha>` /
+  `review-verified: <sha>`, so require those to match the commit being deployed — a label alone
+  says an issue passed once, never that THIS code passed.
 - **Environments / env vars:** {{where env/secrets live per environment — dashboard, .env, secrets manager}}
 - **gh account:** {{the specific gh account to use, if this project needs one — otherwise "use the active account"}}
 

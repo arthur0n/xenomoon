@@ -65,11 +65,22 @@ outside the UI — just skip them there):
   accounts. If a `gh` call 404s on the repo, stop and report it rather than guessing
   an account.
 
-## Idempotency
+## Idempotency — keyed on the SHA, never on the label
 
-If the issue already has `qa:pass` or `qa:blocked` and you were NOT told to force,
-post nothing and report "already QA'd — skipped". The caller (via `--force`) tells you
-if this is a forced re-run.
+A pass belongs to the CODE it was earned on, so `qa:pass` alone never means "done".
+Capture `git rev-parse HEAD` first, then:
+
+- Issue carries `qa:pass` **and** its newest `qa-verified: <sha>` marker equals that
+  HEAD → post nothing, report "already QA'd at `<short sha>` — skipped".
+- The marker's SHA **differs**, or there is no marker → **QA it now**, unforced. The
+  code moved under the pass; a pass on other code is not a pass on this one.
+- `qa:blocked` → don't re-run unforced; report it and route back to `/implement <N>`.
+
+`--force` re-runs regardless. Read the newest marker with:
+
+```bash
+gh issue view <N> -R {{REPO}} --json comments -q '.comments[].body' | grep -oE 'qa-verified: [0-9a-f]{7,40}' | tail -1
+```
 
 ## What to check
 
@@ -150,7 +161,13 @@ Format:
 
 ---
 *QA gate · tester · sonnet · <output of: git rev-parse --short HEAD>*
+qa-verified: <output of: git rev-parse HEAD>
 ```
+
+The `qa-verified:` line is **machine-read by the commit gate** — it binds this pass to the
+exact code you tested, so a later commit on different code is denied instead of riding
+your green. Capture the SHA BEFORE running the gates, emit it verbatim (full 40 chars, no
+backticks, last line of the comment), and post it on a BLOCKED verdict too.
 
 **2) Apply labels.** Add exactly one of `qa:pass` / `qa:blocked`, and remove the twin
 if present:

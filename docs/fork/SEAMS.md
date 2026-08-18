@@ -86,7 +86,9 @@ re-drop them (the merge brings them back because lineage is preserved — that's
   every color/identity hunk as OURS. Keep our settings glyph `⚙` (drop upstream's `🎛️`).
 - **Godot skills / agents / library (e.g. `dba53ce`) — NOT carried.** Re-drop on every merge:
   `plugin/skills/godot-*`, `plugin/agents/{game-designer,level-designer,godot-*}.md`, and ALL of
-  `plugin/library/` EXCEPT our two CORE files (`README.md`, `token-audits/LEDGER.md`). KEEP the
+  `plugin/library/` EXCEPT our CORE files (`README.md`, `sources/framework-sources.md` — the
+  `token-audits/LEDGER.md` ledger was deleted with the shipped `/token-audit`, which is a
+  forge-local practice: its ledger lives at `.claude/token-audits/LEDGER.md`). KEEP the
   domain-agnostic wins separately (e.g. the Hermes learning-nudges in `ui/server/mcp-tools/hermes-tool.js`).
 - **grep-usage-log hook — NOT carried.** Overlaps our `rtk-usage-log.sh`; drop
   `plugin/hooks/grep-usage-log.sh` + its `Bash|Grep` PreToolUse entry in `plugin/hooks/hooks.json`.

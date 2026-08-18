@@ -23,6 +23,10 @@ Arguments: `$ARGUMENTS`
    - Empty → **sweep** issues that are implemented but not yet QA'd:
      `gh issue list -R {{REPO}} --state open --search "label:implemented -label:qa:pass -label:qa:blocked" --json number,title --limit 50`
    - `--force` (anywhere in args) → re-QA even if already `qa:pass`/`qa:blocked`.
+   - **You rarely need `--force` for moved code:** the tester keys idempotency on the
+     `qa-verified: <sha>` marker, so a targeted `/qa <N>` re-verifies by itself once HEAD
+     differs from the SHA the pass was earned on. `--force` is for re-QA at the SAME SHA.
+     The empty-arg sweep still skips anything labelled — name the issue to re-verify it.
 
 3. **Spawn the agent.** For each target issue, use the Agent tool with
    `subagent_type: "tester"`. Prompt with the issue number and force flag, e.g.

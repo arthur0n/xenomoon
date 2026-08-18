@@ -190,9 +190,15 @@ references, never `Closes #N`** — apply `committed` + `fixed-pending-deploy`, 
 the sha.
 
 **The gate is DETERMINISTIC, not prompt discipline:** the `commit-gate` hook re-derives
-it from the issue's labels (`qa:*` / `review:*`) at commit time — a `(#N)` commit is
-machine-allowed only when fully green and denied otherwise. On a gate miss, name the
-failing condition and the next move — never force.
+it at commit time from the issue's labels (`qa:*` / `review:*`) **and from the SHA each
+verdict recorded** — a `(#N)` commit is machine-allowed only when fully green AND the
+`qa-verified:` / `review-verified:` SHAs equal the commit's parent (current HEAD).
+**A pass belongs to the code it was earned on, not to the issue:** commit again on top of
+a green and the gate denies with "verified at `<a>`, committing on `<b>`" — re-run `/qa`
+(and `/audit`), which now re-verify automatically because their idempotency keys on the
+SHA, not on the label's existence. A verdict predating SHA binding carries no marker and
+surfaces as a human ASK. On a gate miss, name the failing condition and the next move —
+never force.
 
 ### Acceptance (UAT) is POC-first
 

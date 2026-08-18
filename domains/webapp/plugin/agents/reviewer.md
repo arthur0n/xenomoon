@@ -69,11 +69,22 @@ progress view; the GitHub issue stays the durable record.
   documented in the project's `CLAUDE.md` — follow that; otherwise don't switch
   accounts. If a `gh` call 404s on the repo, stop and report it rather than guessing.
 
-## Idempotency
+## Idempotency — keyed on the SHA, never on the label
 
-If the issue already has `review:pass` or `review:changes` and you were NOT told to
-force, post nothing and report "already reviewed — skipped". The caller tells you if
-this is a forced re-review.
+A pass belongs to the CODE it was earned on, so `review:pass` alone never means "done".
+Capture `git rev-parse HEAD` first, then:
+
+- Issue carries `review:pass` **and** its newest `review-verified: <sha>` marker equals
+  that HEAD → post nothing, report "already reviewed at `<short sha>` — skipped".
+- The marker's SHA **differs**, or there is no marker → **review it now**, unforced. The
+  code moved under the verdict; a pass on other code is not a pass on this one.
+- `review:changes` → don't re-run unforced; report it and route back to `/implement <N>`.
+
+The caller (`--force`) re-runs regardless. Read the newest marker with:
+
+```bash
+gh issue view <N> -R {{REPO}} --json comments -q '.comments[].body' | grep -oE 'review-verified: [0-9a-f]{7,40}' | tail -1
+```
 
 ## What to review
 
@@ -153,7 +164,13 @@ Format:
 
 ---
 *adversarial review · reviewer · opus · <output of: git rev-parse --short HEAD>*
+review-verified: <output of: git rev-parse HEAD>
 ```
+
+The `review-verified:` line is **machine-read by the commit gate** — it binds this verdict
+to the exact code you reviewed, so a later commit on different code is denied instead of
+riding your pass. Capture the SHA before you review, emit it verbatim (full 40 chars, no
+backticks, last line of the comment), and post it on a `changes` verdict too.
 
 Then apply labels — exactly one of `review:pass` / `review:changes`, removing the twin
 if present:

@@ -8,8 +8,8 @@ Direct command — **no agent**. Once an issue is fully green YOU record the fix
 `git add` + `git commit` with the project's message convention, then label
 `committed` + `fixed-pending-deploy` and comment the sha. **Never push** (push is the human
 gate). The gate below is also enforced **deterministically by the `commit-gate` hook** — a
-`git commit` citing `(#N)` is machine-checked against the issue's labels at commit time and
-denied on any miss, so a slipped step cannot land.
+`git commit` citing `(#N)` is machine-checked at commit time against the issue's labels AND
+against the SHA each verdict recorded, and denied on any miss, so a slipped step cannot land.
 
 Arguments: `$ARGUMENTS`
 
@@ -25,9 +25,17 @@ Arguments: `$ARGUMENTS`
 
 3. **Check the gate yourself first** (the hook re-checks, but fail early with a better
    message): labels present `analyzed` + `implemented` + `qa:pass` + `review:pass`;
-   labels absent `qa:blocked`, `review:changes` (a stale block outranks a pass). Then
-   `git status --porcelain` — the tree must hold the issue's fix **and nothing unrelated**
-   (broader diff → stop and tell me).
+   labels absent `qa:blocked`, `review:changes` (a stale block outranks a pass). Then the
+   **SHA binding** — the newest `qa-verified:` / `review-verified:` markers in the issue's
+   comments must both equal `git rev-parse HEAD`:
+
+   ```bash
+   gh issue view <N> -R {{REPO}} --json comments -q '.comments[].body' | grep -oE '(qa|review)-verified: [0-9a-f]{7,40}' | tail -2
+   ```
+
+   A marker on a different SHA means the code moved since that verdict → re-run `/qa <N>`
+   (and `/audit <N>`); they re-verify automatically now. Then `git status --porcelain` — the
+   tree must hold the issue's fix **and nothing unrelated** (broader diff → stop and tell me).
 
 4. **`--verify` (opt-in):** re-run the project's **validate** command as a final check.
    Default trusts the fresh QA + review gates — no re-run.

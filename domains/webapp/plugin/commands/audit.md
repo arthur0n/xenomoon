@@ -26,6 +26,10 @@ Arguments: `$ARGUMENTS`
    - Empty → **sweep** issues QA'd but not yet reviewed:
      `gh issue list -R {{REPO}} --state open --search "label:qa:pass -label:review:pass -label:review:changes" --json number,title --limit 50`
    - `--force` (anywhere in args) → re-review even if already `review:pass`/`review:changes`.
+   - **You rarely need `--force` for moved code:** the reviewer keys idempotency on the
+     `review-verified: <sha>` marker, so a targeted `/audit <N>` re-reviews by itself once
+     HEAD differs from the SHA the verdict was earned on. `--force` is for re-review at the
+     SAME SHA. The empty-arg sweep still skips anything labelled — name the issue.
 
 3. **Route by whether Codex is enabled** (check YOUR OWN system prompt):
    - **Codex enabled** — your system prompt contains the Codex block (the "Codex · Code
@@ -40,7 +44,10 @@ Arguments: `$ARGUMENTS`
      Run it `run_in_background: true` (a review blocks until it finishes), then read the
      output when it completes and **post it as the `## 🔎 REVIEW` verdict** on the issue
      (map Codex's outcome to `pass`/`changes`), and apply the matching `review:pass` /
-     `review:changes` label (remove the twin). **Running `/audit` on a Codex-enabled
+     `review:changes` label (remove the twin). **End the comment with
+     `review-verified: <output of: git rev-parse HEAD>`** — same contract as the `reviewer`
+     agent: the commit gate reads that marker to bind the verdict to the reviewed code, and
+     without it a green issue stops at a human ASK instead of auto-committing. **Running `/audit` on a Codex-enabled
      project IS your consent to the review** — Codex bills on OpenAI's account (the
      user's own account, NOT the Anthropic plan) and takes time. State that you're
      launching a billed Codex review when you start it.

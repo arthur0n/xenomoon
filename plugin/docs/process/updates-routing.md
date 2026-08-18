@@ -40,8 +40,8 @@ the backstop, the human gate the guarantee.
 | "Agents keep re-solving X in every webapp project"           | DOMAIN           | draft → promotions board → domain pack               | board approval      |
 | A hard-won verdict/footgun worth remembering across projects | DOMAIN (library) | `.claude/library/` draft → board → `library/<kind>/` | board approval      |
 | "In this project, column X is unused / flow Y is intended"   | PROJECT          | `.claude/library/business-rules.md` + index line     | human edit approval |
-| A token-audit find that's really a missing domain tool       | DOMAIN           | via the audit's learn arm → board                    | board approval      |
-| A token-audit find in the spine's own machinery              | FRAMEWORK        | audit ledger                                         | framework owner     |
+| An efficiency find that's really a missing domain tool       | DOMAIN           | draft → promotions board → domain pack               | board approval      |
+| An efficiency find in the spine's own machinery              | FRAMEWORK        | audit ledger                                         | framework owner     |
 
 ## Fork users
 

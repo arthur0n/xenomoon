@@ -88,8 +88,23 @@ function pipelineRoster() {
 const GH_ISSUE_RE = /(^|&&|\|\||;|\|)\s*(rtk\s+)?gh\s+issue\b/;
 // State-mutating git subcommands. Read verbs (status/log/diff/show/fetch/branch-list/
 // worktree-list/rev-parse/ls-files) stay allowed — the orchestrator routes on them.
-const GIT_MUTATE_RE =
-  /(^|&&|\|\||;|\|)\s*(rtk\s+)?git\s+(-C\s+\S+\s+)?(add|commit|stash|rebase|merge|reset|push|pull|cherry-pick|revert|am|apply|restore|switch|checkout|rm|mv|clean|tag)\b/;
+// Three shapes, because the mutating word is not always the subcommand:
+//   1. subcommands that always mutate;
+//   2. worktree/remote/submodule — the mutating VERB is the NEXT word, so their list/status
+//      forms stay open (`git worktree list` is how the orchestrator checks isolation);
+//   3. `git branch` — a READ by default (`-a`, `-v`, `--list`), mutating only behind a
+//      delete/move/copy/force flag, so `branch -D` no longer slips through as a "read verb".
+const GIT_MUTATE_SUB =
+  "(add|commit|stash|rebase|merge|reset|push|pull|cherry-pick|revert|am|apply|restore|switch|checkout|rm|mv|clean|tag)\\b";
+const GIT_MUTATE_NESTED =
+  "worktree\\s+(add|remove|move|prune|repair|lock|unlock)\\b" +
+  "|remote\\s+(add|remove|rm|rename|set-url|set-head|set-branches|prune)\\b" +
+  "|submodule\\s+(add|update|init|deinit|sync|set-url|set-branch|absorbgitdirs)\\b";
+const GIT_MUTATE_BRANCH_FLAG =
+  "branch\\s+([^&|;]*\\s)?(-[DdMmCcf]|--(delete|move|copy|force|set-upstream-to|unset-upstream))\\b";
+const GIT_MUTATE_RE = new RegExp(
+  `(^|&&|\\|\\||;|\\|)\\s*(rtk\\s+)?git\\s+(-C\\s+\\S+\\s+)?(${GIT_MUTATE_SUB}|${GIT_MUTATE_NESTED}|${GIT_MUTATE_BRANCH_FLAG})`,
+);
 
 // Build/test/gate commands the main loop may never run itself. Live bite (2026-08-11): a
 // developer agent died on the Bash timeout mid-gate and the Hive ran `pnpm -C worker

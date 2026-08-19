@@ -53,8 +53,19 @@ test("slash commands in the codex: namespace are not labels", () => {
 });
 
 test("pack-owned families are left alone", () => {
-  assert.deepEqual(scanText("report `uat:pass` / `uat:blocked` / `uat:fail`", "a.md", BASE), []);
+  // `uat:*` used to live here. It is CORE now — the stage was promoted, so the gate enforces its
+  // three values like any other lane. Ship labels stay each pack's own.
   assert.deepEqual(scanText("apply needs-deploy and needs-migration", "a.md", BASE), []);
+});
+
+test("uat labels are checked now that the stage is CORE", () => {
+  const withUat = rules(
+    ["uat:pass", "uat:fail", "uat:blocked"],
+    [["analyzed", "the fused stage was split"]],
+  );
+  assert.deepEqual(scanText("report `uat:pass` / `uat:fail` / `uat:blocked`", "a.md", withUat), []);
+  // the binary vocabulary one pack used to ship is not canonical
+  assert.equal(scanText("report `uat:passed`", "a.md", withUat).length, 1);
 });
 
 test("the same violation on many lines is reported per line", () => {

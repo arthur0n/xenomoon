@@ -122,6 +122,19 @@ anything else strands finished work:
 Bounded: **3 loop-backs per issue.** Still red after three → stop looping and surface the open
 findings to the human. A fourth attempt at the same wall is not persistence.
 
+## 4b. UAT is dispatched, but it is not a stage
+
+`uat-runner` takes a **scenario**, not an issue — default `poc`, the minimal proof. It runs on its
+own cadence against whatever is deployed or running, so it has no queue, no place in the chain, and
+no verdict that advances anything.
+
+**It gates nothing.** A `uat:fail` files a NEW issue through intake and enters the pipeline like any
+other bug; it does not reopen a closed issue and does not turn a green commit red. A `uat:blocked`
+files nothing at all — it is a setup problem, and the report says which precondition failed.
+
+Brief it with the scenario and the target (base URL, device — ask rather than assume). The lane
+skill comes from the installed pack.
+
 ## 5. Reviewers: choosing, and reconciling
 
 This is the part no agent can do, because it is about how many opinions to buy and what to do when

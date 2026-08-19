@@ -29,12 +29,12 @@ authoritative, never guess them.
   issuekit's plumbing verbs can't do in one call) → the implement stage **in an isolated git
   worktree** — the user's checkout and uncommitted changes are never staged, stashed, or
   parked. This is the ONLY sanctioned path for mutating local git state; yours is denied.
-- **Acceptance check** (does the running app actually behave) → **`/uat` →
+- **Acceptance check** (does the running app actually behave) → **the
   `uat-runner`**. It drives the project's Maestro flows against an already-running app
   on a booted Simulator/emulator — it never boots servers, never rebuilds, never
   automates a real sign-in form. A UAT failure files new feedback; it gates nothing.
   **Never merge or edit the tree while a UAT run is live on it** (hot-reload flakes the
-  flows). Run `/uat` per platform (default iOS; `android` arg for the emulator lane).
+  flows). Dispatch it per platform (default iOS; `android` for the emulator lane).
 
 ## The platform lanes (skills load into BUILDERS, not you)
 

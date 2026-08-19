@@ -28,14 +28,15 @@ forbids below.
 
 ## Webapp domain (`domains/webapp/plugin/agents/`)
 
-| agent      | model  | effort | when used                                            | cost expectation   |
-| ---------- | ------ | ------ | ---------------------------------------------------- | ------------------ |
-| uat-runner | sonnet | low    | `/uat` acceptance against a running app, out-of-band | Low, batch cadence |
+| agent      | model  | effort | when used                                                                                                                                                                          | cost expectation   |
+| ---------- | ------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| uat-runner | sonnet | high   | Acceptance against a running app, dispatched by SCENARIO not issue — out-of-band, gates nothing. PASS / FAIL / BLOCKED; the lane (browser or device) comes from the installed pack | Low, batch cadence |
 
-`uat-runner` is the last stage awaiting promotion into CORE (it exists in three near-identical
-copies). Its webapp lane is unsettled: the capped-Playwright design was never actually used, and
-the owner's direction is to drive the browser through Claude's own Chrome capability instead — so
-nothing is built for it until that is proven in a live run.
+`uat-runner` is CORE as of this pass — one agent holding the contract (never boot, never write,
+never type credentials, refuse to exceed the project's caps) while the LANE comes from the installed
+pack: expoapp ships the simulator/emulator lanes, webapp ships `webapp-uat`. Its verdict vocabulary
+is three-valued — PASS / FAIL / BLOCKED — because a product defect and a setup problem need
+different answers. **No lane installed is a BLOCKED verdict**, not a generic run.
 
 **Retired — do not reintroduce:** `committer` (2026-07-21 → direct hook-gated `/commit`); the
 webapp-pack agent that fused triage with fix-design behind a single `/analyze` command and label

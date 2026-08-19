@@ -7,7 +7,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Status: experimental](https://img.shields.io/badge/Status-experimental-orange.svg)
 ![Skills: 30](https://img.shields.io/badge/Skills-30-b08d57)
-![Agents: 9](https://img.shields.io/badge/Agents-9-b08d57)
+![Agents: 10](https://img.shields.io/badge/Agents-10-b08d57)
 ![Domains: expoapp · webapp](https://img.shields.io/badge/Domains-expoapp_·_webapp-b08d57)
 
 > **Early, but real.** A domain-focused fork of [Xenodot Forge](https://github.com/arthur0n/xenodot-forge). Names and APIs still move; everything described below runs today.
@@ -127,7 +127,7 @@ Stop and report if `doctor` fails or the `webapp` domain is not found.
 
 - **A domain-neutral spine.** The framework reads everything domain-specific (project marker, orchestrator prompt, capabilities, build/verify commands) from the pack descriptor baked at install time. No hardcoded product.
 - **Deterministic per-project install** — including into existing, non-greenfield projects, never scaffolding over your code. The binding is a committed lock, read literally; a conflicting override is **refused**, not silently applied.
-- **Two shipped packs.** **`webapp`**: a React + Node head-start running an issue-driven `triage → solution → implement` pipeline (analyst / developer / reviewer / tester agents, QA and auto-commit stages). **`expoapp`**: a React Native / Expo pack (both platforms) with a `uat-runner` agent, the `/uat` command, and Android/iOS local-run + ship skills.
+- **Two shipped packs.** **`webapp`**: a React + Node head-start running an issue-driven `triage → solution → implement` pipeline (analyst / developer / reviewer / tester agents, QA and auto-commit stages). **`expoapp`**: a React Native / Expo pack (both platforms) with the simulator/emulator acceptance lanes for the CORE `uat-runner`, plus Android/iOS local-run + ship skills.
 - **A CLI that refuses to guess.** Every verb resolves the install from your location, prints which one it picked, and stops with a candidate list when ambiguous — it never silently drives the wrong project.
 - **Mechanical safety gates.** The orchestrator's role is enforced at the tool boundary, not by prose: mutating git is denied to the main loop (the working tree belongs to you and the pipeline), merge/promote surfaces as a human approval, and the orchestrator dispatches agents instead of implementing. Two layers, because a prohibition you have to _recall_ loses to an affordance that is _present_: the web UI enforces it in the session's permission gate, and a hook enforces the same class in terminal sessions, which never load that gate. Sub-agents and read-only git stay untouched — investigation is genuinely the orchestrator's job. A third hook layer guards destructive git/shell for **every** caller, sub-agents included.
 - **External workers, used not competed with.** Optional **Hermes** (researcher/critic) and **Codex** (reviewer) integrations with per-domain profiles and cost-basis economics — subscription workers are there to be spent.

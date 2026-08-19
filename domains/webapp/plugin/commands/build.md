@@ -28,7 +28,7 @@ Arguments: `$ARGUMENTS`
   `npm run smoke --if-present`). End-to-end check of the data API against the real DB
   (throwaway/self-cleaning where the project supports it). Use after a backend/DB change
   to confirm the live data path works. Acceptance UAT is separate — the project's **`e2e`**
-  key (`npm run e2e --if-present`) is the capped Playwright suite, run via `/uat`, not
+  key (`npm run e2e --if-present`) is the capped Playwright suite, run by the acceptance stage, not
   here.
 
 - **`deploy`** → **do NOT deploy from here.** Confirm with me first, then:

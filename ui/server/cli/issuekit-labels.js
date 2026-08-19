@@ -57,6 +57,20 @@ export const PIPELINE_LABELS = [
   { name: "sev:high", color: "D93F0B", description: "Core flow broken with no workaround" },
   { name: "sev:medium", color: "FBCA04", description: "Broken with a workaround, or a subset" },
   { name: "sev:low", color: "C5DEF5", description: "Cosmetic, minor, or a rare edge case" },
+  // Acceptance runs OUT of band: these three never gate a commit, and the stage writes no qa:/
+  // review: label. Three values, not two — a FAIL is a product defect, a BLOCKED is a setup
+  // problem, and collapsing them files bugs that do not exist or buries ones that do.
+  {
+    name: "uat:pass",
+    color: "0E8A16",
+    description: "Acceptance run passed against the running app",
+  },
+  { name: "uat:fail", color: "D93F0B", description: "Acceptance run: the product behaved wrongly" },
+  {
+    name: "uat:blocked",
+    color: "FBCA04",
+    description: "Acceptance could not run — precondition or environment",
+  },
 ];
 
 /** issuekit's own attempt-log labels — its bookkeeping, not the pipeline's. @type {LabelSpec[]} */

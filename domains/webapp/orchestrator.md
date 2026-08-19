@@ -77,7 +77,8 @@ turns yours into a human confirmation. A human approves the push, CI deploys, an
 `fixed-pending-deploy` issue closes.
 
 **Acceptance (UAT)** runs **out-of-band** of the per-issue chain — batch, POC-first,
-resource-capped (see below). It's `/uat`, not a stage every issue passes through.
+resource-capped (see below). It is dispatched on a scenario, not on an issue, and is not a
+stage every issue passes through.
 
 ## Domain routing
 
@@ -103,7 +104,7 @@ resource-capped (see below). It's `/uat`, not a stage every issue passes through
 - Later stages by state: `triaged` issue → `/solution`; `solution-ready` → `/implement` (**one at a time**);
   `implemented` → `/sweep`, then `/qa`; `qa:pass` → `/audit`; fully-green (`qa:pass` +
   `review:pass`) → `/pre-pr`, then `/commit` (you run it directly; the hook denies a non-green
-  commit; never push); "smoke the whole app" → `/uat` (out-of-band). `/sweep` and `/pre-pr` set no
+  commit; never push); "smoke the whole app" → the `uat-runner` (out-of-band). `/sweep` and `/pre-pr` set no
   labels, so the state alone will not tell you they ran — the issue thread will.
 
 ## Gate-depth conventions (the pipeline is not mandatory)
@@ -121,7 +122,7 @@ Right-size the gate to the work:
   skippable. `commit-label` (PostToolUse) stamps `committed` + `fixed-pending-deploy` and
   drops `needs-deploy` the instant a `(#N)` commit lands, so the deploy-close workflow
   can never orphan a merged fix on a slipped label.
-- **UAT stays out-of-band** (batch POC, `/uat`) — never a per-issue gate.
+- **UAT stays out-of-band** (batch POC, dispatched by scenario) — never a per-issue gate.
 
 ## Background — domain specifics
 
@@ -212,9 +213,10 @@ never force.
 
 ### Acceptance (UAT) is POC-first
 
-`/uat` (the `uat-runner`) is capped Playwright acceptance, **out-of-band** of the
-per-issue chain — it never applies `qa:*` / `review:*` and never gates a commit.
-Mandatory rules:
+The `uat-runner` (CORE) is capped browser acceptance here, **out-of-band** of the
+per-issue chain — it never applies `qa:*` / `review:*` and never gates a commit. The
+contract lives in the agent; the browser lane lives in the `webapp-uat` skill. Mandatory
+rules:
 
 - **POC-first.** The default `poc` scenario is the minimal proof — load the app with the
   saved session, assert a known post-login element, confirm one user-scoped read path
@@ -225,8 +227,10 @@ Mandatory rules:
 - **Clerk via saved `storageState`** — a one-time manual human sign-in saves a gitignored
   `.auth/clerk-user.json`; the runner reuses it and never automates the Clerk form. Auth
   failure → "storageState stale — re-run the manual sign-in".
-- **A `uat:blocked` files a new `/feedback` bug** — it does not loop an existing issue
-  back.
+- **Three verdicts, and the distinction is the point.** A `uat:fail` is a PRODUCT defect
+  and files a new bug through intake; a `uat:blocked` is a SETUP problem (stale session,
+  app not up) and files nothing — it names the precondition and its one-line fix. Neither
+  loops an existing issue back.
 
 ### Label state machine
 
@@ -243,7 +247,7 @@ open
   → committed + fixed-pending-deploy                [/commit direct; hook-gated; NEVER pushes]
   → (human pushes → CI deploys → issue closes)
 
-UAT (out-of-band, batch): uat:pass | uat:blocked → /feedback (new bug)
+UAT (out-of-band, batch): uat:pass | uat:fail → new bug | uat:blocked → nothing (setup)
 ```
 
 PRD is the pre-issue gate for feature work; `solution-ready` is the pre-implement gate for

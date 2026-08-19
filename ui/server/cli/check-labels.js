@@ -13,8 +13,9 @@
 //
 // It deliberately does NOT police everything that looks like a label:
 //   - `codex:review`, `codex:setup` … are slash commands, not labels
-//   - `uat:*` is pack-owned and currently differs by pack on purpose (expo distinguishes FAIL from
-//     BLOCKED; webapp is binary) — that is a real question, settled when the UAT stage goes CORE
+//   - `uat:*` WAS pack-owned and inconsistent (one pack distinguished FAIL from BLOCKED, the other
+//     was binary). The UAT stage is CORE now, so the three-value vocabulary is canonical and this
+//     gate enforces it — that is the promise this comment used to make
 //   - `needs-deploy` / `needs-build` / `needs-migration` are ship labels each pack owns
 import { readdirSync, readFileSync, statSync, realpathSync } from "node:fs";
 import path from "node:path";
@@ -30,7 +31,7 @@ const SKIP_DIRS = new Set(["node_modules", ".git", "logs", "vendor"]);
 const TEXT = /\.(md|sh|json|js)$/;
 
 /** Families CORE owns end-to-end: if the framework writes one of these, it must be canonical. */
-const CORE_FAMILIES = ["qa", "review", "sev"];
+const CORE_FAMILIES = ["qa", "review", "sev", "uat"];
 const canonical = new Set([...PIPELINE_LABELS, ...ISSUEKIT_LABELS].map((l) => l.name));
 const retired = new Map(RETIRED_LABELS.map((r) => [r.name, r.why]));
 

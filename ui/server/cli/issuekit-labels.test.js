@@ -57,8 +57,16 @@ const NO_REVIEW_STAGE = repo([
 test("a repo missing half the pipeline gets exactly those labels created", () => {
   const { missing, present } = diffLabels(NO_REVIEW_STAGE, PIPELINE_LABELS);
   const names = missing.map((s) => s.name);
-  // this project never ran a review or commit stage, so those labels do not exist there
-  assert.deepEqual(names, ["implemented", "review:pass", "review:changes", "committed"]);
+  // this project never ran a review, commit or acceptance stage, so those labels do not exist there
+  assert.deepEqual(names, [
+    "implemented",
+    "review:pass",
+    "review:changes",
+    "committed",
+    "uat:pass",
+    "uat:fail",
+    "uat:blocked",
+  ]);
   assert.ok(
     present.includes("qa:pass"),
     "labels it already has are reported present, not recreated",

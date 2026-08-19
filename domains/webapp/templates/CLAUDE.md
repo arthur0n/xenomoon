@@ -35,7 +35,7 @@
 - **Validate:** {{type-check + lint + unit tests, e.g. pnpm validate}}
 - **Test:** {{unit runner, e.g. pnpm test (vitest)}}
 - **Smoke / integration:** {{e.g. pnpm smoke — real-DB end-to-end check; the domain `smoke` key}}
-- **E2E / UAT:** {{e.g. pnpm e2e — capped Playwright acceptance; the domain `e2e` key. Run via /uat,
+- **E2E / UAT:** {{e.g. pnpm e2e — capped Playwright acceptance; the domain `e2e` key. Run by the acceptance stage,
   never an ad-hoc unbounded playwright test. Assumes the app is already running.}}
 - **Clerk auth setup (one-time, manual):** {{e.g. pnpm auth:setup — a human signs in once through the
   real Clerk form and saves the session to a gitignored .auth/clerk-user.json for the e2e suite to
@@ -75,7 +75,7 @@ gets ONE line here. Never dump full rules or specs into this file.
 
 ## Acceptance testing (UAT)
 
-Capped Playwright acceptance, run via `/uat` against an **already-running** app (the runner never
+Capped Playwright acceptance, run by the `uat-runner` against an **already-running** app (it never
 boots servers — give it the base URL). **POC-first:** the default `poc` scenario loads the app with
 the saved session, asserts a known post-login element, and confirms one user-scoped read path renders
 non-empty. Nothing larger until that proves stable.

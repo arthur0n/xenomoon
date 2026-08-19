@@ -25,7 +25,7 @@
   is unreliable here and the script uses raw xcodebuild instead; never re-derive the invocation ad hoc.}}
 - **Validate:** {{type-check + lint + unit tests, e.g. pnpm validate}}
 - **Test:** {{unit runner, e.g. pnpm test (vitest)}}
-- **E2E / UAT:** {{the Maestro script — the domain `e2e` key, e.g. pnpm verify:sim. Run via /uat against
+- **E2E / UAT:** {{the Maestro script — the domain `e2e` key, e.g. pnpm verify:sim. Run via the acceptance stage against
   an already-running app on a booted simulator; never an ad-hoc `maestro test`.}}
 - **Session setup (one-time, manual):** {{how a human signs in once on the simulator so the session
   persists for UAT — e.g. launch the app, complete Sign in with Apple, session persists in keychain.
@@ -61,7 +61,7 @@ Project-specific hard rules every change must respect (the agents obey these ove
 
 ## Acceptance testing (UAT)
 
-Maestro flows, run via `/uat` against an **already-running** app on a **booted simulator** (the runner
+Maestro flows, run by the `uat-runner` against an **already-running** app on a **booted simulator** (the runner
 never boots servers and never rebuilds the app). **POC-first:** the default `poc` scenario launches the
 app with the persisted session, asserts a known post-login element, and confirms one user-scoped read
 path renders non-empty. Nothing larger until that proves stable.

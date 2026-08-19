@@ -18,7 +18,13 @@ import {
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseJSON } from "../../lib/json.js";
-import { loadDomain } from "../core/domain-resolver.js";
+import {
+  loadDomain,
+  resolvePackDir,
+  readProjectLock,
+  writeProjectLock,
+  PROJECT_LOCK_FILE,
+} from "../core/domain-resolver.js";
 import { writeInstallOutput } from "../core/install-output.js";
 import { ensureDomainLibrary } from "../features/promotions/ensure-library.js";
 
@@ -210,9 +216,35 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (!domainName) {
     console.log("install-capabilities: no baked domain in .xenomoon.json — nothing to overlay.");
   } else {
-    const { copied } = installCapabilities(frameworkDir, domainName);
+    // A clone bound to a RENAMED pack heals here: resolvePackDir maps the baked (old) name onto the
+    // pack that claims it via `formerNames`. Without this the clone cannot even update to receive
+    // the fix — loadDomain throws first (observed: `expo` → `expoapp` bricked `xenomoon update`).
+    const current = resolvePackDir(domainName, frameworkDir);
+
+    // INSTALL FIRST, then persist the new name. The overlay is what makes the rename true; writing
+    // the bindings before it succeeds would claim a migration that did not happen — and on a
+    // malformed pack the retry would start from the new name, erasing the evidence that the clone
+    // is mid-migration. Install throws → nothing is rewritten and the old binding still describes
+    // what is actually on disk.
+    const { copied } = installCapabilities(frameworkDir, current);
     console.log(
-      `install-capabilities: re-applied the "${domainName}" pack overlay (${copied.join(", ") || "nothing to copy"}).`,
+      `install-capabilities: re-applied the "${current}" pack overlay (${copied.join(", ") || "nothing to copy"}).`,
     );
+
+    if (current !== domainName) {
+      const cfgFile = path.join(frameworkDir, ".xenomoon.json");
+      // Re-read: installCapabilities just re-baked domainDescriptor into this file.
+      const cfg = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(cfgFile, "utf8")));
+      writeFileSync(cfgFile, JSON.stringify({ ...cfg, domain: current }, null, 2) + "\n");
+      // The project's OWN lock is the authoritative binding, so migrate it too — healing only the
+      // framework config would leave the two disagreeing by name while meaning the same pack.
+      const projectDir = typeof cfg.projectDir === "string" ? cfg.projectDir : null;
+      const lockMigrated = projectDir && readProjectLock(projectDir) === domainName;
+      if (lockMigrated) writeProjectLock(projectDir, current);
+      console.log(
+        `install-capabilities: pack "${domainName}" was renamed to "${current}" — binding updated` +
+          (lockMigrated ? ` (framework config + the project's ${PROJECT_LOCK_FILE}).` : "."),
+      );
+    }
   }
 }

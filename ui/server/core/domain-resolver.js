@@ -52,7 +52,7 @@ const SELF_FRAMEWORK_DIR = path.join(SELF_DIR, "..", "..", "..");
  */
 
 /** Raw parsed domain.json — every leaf is `unknown` until validated. */
-/** @typedef {{ name?: unknown, label?: unknown, populated?: unknown, engine?: { name?: unknown, projectFile?: unknown }, inventory?: { scenes?: unknown, scripts?: unknown, ignore?: unknown }, materializeIntoProject?: unknown, starter?: unknown, plugin?: unknown, builders?: unknown, orchestrator?: unknown, commands?: unknown }} RawDomain */
+/** @typedef {{ name?: unknown, label?: unknown, populated?: unknown, engine?: { name?: unknown, projectFile?: unknown }, inventory?: { scenes?: unknown, scripts?: unknown, ignore?: unknown }, materializeIntoProject?: unknown, formerNames?: unknown, starter?: unknown, plugin?: unknown, builders?: unknown, orchestrator?: unknown, commands?: unknown }} RawDomain */
 
 /** @param {unknown} v @returns {boolean} */
 const isNonEmptyString = (v) => typeof v === "string" && v.length > 0;
@@ -172,6 +172,67 @@ export function availableDomains(frameworkDir = SELF_FRAMEWORK_DIR) {
     : [];
 }
 
+/** Map a possibly-OLD pack name onto the pack that now carries it.
+ *
+ * A bound clone bakes the pack NAME into `.xenomoon.json`. Rename the pack directory and every one
+ * of those clones breaks: `loadDomain` throws before anything else runs, so `xenomoon update` dies
+ * and the clone cannot even pull the fix. That happened for real — `expo` → `expoapp` left this
+ * install unable to update, repaired only by hand-editing the config.
+ *
+ * So a renamed pack carries its own history: `"formerNames": ["expo"]` in its `domain.json`. The
+ * pack states the fact (it is the only thing that knows), and any clone bound to the old name
+ * resolves on its next run. Unknown name and no claimant → the original error, which now says how
+ * to record a rename.
+ * @param {string} name @param {string} frameworkDir @returns {string} the current pack directory */
+export function resolvePackDir(name, frameworkDir = SELF_FRAMEWORK_DIR) {
+  const domainsDir = path.join(frameworkDir, "domains");
+  const live = new Set(
+    availableDomains(frameworkDir).filter((d) =>
+      existsSync(path.join(domainsDir, d, "domain.json")),
+    ),
+  );
+
+  // Index every claim first, so the result never depends on readdir order and conflicts are
+  // reported instead of silently picked. Both conflicts below are AUTHORING bugs: they must fail
+  // loudly, because the alternative is a clone quietly bound to the wrong pack — and then the
+  // healed binding is written back, making the mistake permanent.
+  /** @type {Map<string, string[]>} */
+  const claims = new Map();
+  for (const dir of live) {
+    /** @type {unknown[]} */
+    let former;
+    try {
+      const raw = /** @type {{ formerNames?: unknown }} */ (
+        parseJSON(readFileSync(path.join(domainsDir, dir, "domain.json"), "utf8"))
+      );
+      former = Array.isArray(raw.formerNames) ? raw.formerNames : [];
+    } catch {
+      continue; // a malformed pack is loadDomain's error to raise, not this function's
+    }
+    for (const old of former)
+      if (typeof old === "string" && old) claims.set(old, [...(claims.get(old) ?? []), dir]);
+  }
+
+  for (const [old, dirs] of claims) {
+    if (dirs.length > 1)
+      throw new Error(
+        `domain packs ${dirs.map((d) => `"${d}"`).join(" and ")} both claim the former name ` +
+          `"${old}" — a clone bound to it cannot be migrated unambiguously. Exactly one pack may ` +
+          "claim a former name.",
+      );
+    if (live.has(old))
+      throw new Error(
+        `domain pack "${dirs[0]}" claims the former name "${old}", but domains/${old}/ still ` +
+          "exists. While both are present a bound clone keeps loading the OLD pack and never " +
+          "migrates — then it silently switches the day the old directory is deleted. Remove the " +
+          "old pack before claiming its name.",
+      );
+  }
+
+  if (live.has(name)) return name;
+  return claims.get(name)?.[0] ?? name;
+}
+
 /** Resolve the active domain NAME for a project. The project's lock is AUTHORITATIVE; an explicit
  *  override that disagrees is REFUSED (no silent override). There is NO default: with neither a lock
  *  nor an override, resolution THROWS — a project is never silently driven as some fallback domain.
@@ -179,7 +240,14 @@ export function availableDomains(frameworkDir = SELF_FRAMEWORK_DIR) {
 export function resolveDomainName(projectDir, frameworkDir = SELF_FRAMEWORK_DIR) {
   const locked = readProjectLock(projectDir);
   const requested = readRequestedDomain(frameworkDir);
-  if (locked && requested && locked !== requested) {
+  // Compare CANONICAL names. The two sides can legitimately disagree by rename alone — the update
+  // path heals the framework config while the project's lock still holds the old name — and a
+  // string compare would then refuse to start a project that is bound to exactly the same pack.
+  const same =
+    locked &&
+    requested &&
+    resolvePackDir(locked, frameworkDir) === resolvePackDir(requested, frameworkDir);
+  if (locked && requested && !same) {
     throw new Error(
       `domain mismatch: this project is locked to "${locked}" but "${requested}" was requested ` +
         `(via env XENOMOON_DOMAIN or .xenomoon.json). The project lock wins — drop the override, or ` +
@@ -203,14 +271,18 @@ export function resolveDomainName(projectDir, frameworkDir = SELF_FRAMEWORK_DIR)
  *  loudly at startup, never silently fall back to another domain.
  *  @param {string} name @param {string} [frameworkDir] @returns {DomainDescriptor} */
 export function loadDomain(name, frameworkDir = SELF_FRAMEWORK_DIR) {
-  const file = path.join(frameworkDir, "domains", name, "domain.json");
+  const resolved = resolvePackDir(name, frameworkDir);
+  const file = path.join(frameworkDir, "domains", resolved, "domain.json");
   if (!existsSync(file)) {
     const available = availableDomains(frameworkDir);
     throw new Error(
       `domain "${name}": no descriptor at ${path.relative(frameworkDir, file)}` +
-        (available.length ? ` (available: ${available.join(", ")})` : ""),
+        (available.length ? ` (available: ${available.join(", ")})` : "") +
+        ". If this pack was RENAMED, add the old name to the new pack's `formerNames` in its " +
+        "domain.json — every clone bound to the old name then migrates on its next update.",
     );
   }
+  name = resolved;
   let raw;
   try {
     raw = /** @type {RawDomain} */ (parseJSON(readFileSync(file, "utf8")));

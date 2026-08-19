@@ -31,6 +31,7 @@ import {
   readProjectLock,
   writeProjectLock,
   resolveProjectTemplate,
+  resolvePackDir,
   PROJECT_LOCK_FILE,
   availableDomains,
 } from "../core/domain-resolver.js";
@@ -124,6 +125,13 @@ if (!domainName) {
   process.exit(1);
 }
 const DOMAIN = loadDomain(domainName, FRAMEWORK_DIR);
+// CANONICALIZE ONCE, here. `--domain <old-name>` still resolves (the pack claims it via
+// `formerNames`), but everything persisted or looked up afterwards must use the pack's CURRENT
+// name: the project lock, the framework binding, the env for child steps, and the template lookup
+// (`resolveProjectTemplate` reads domains/<name>/templates, so an old name would silently skip the
+// pack's CLAUDE.md seed). Installing under an alias must not leave a clone bound to a name the
+// pack no longer has.
+domainName = resolvePackDir(domainName, FRAMEWORK_DIR);
 // Propagate to the spawned child steps so they resolve the same domain (they also read the lock).
 process.env.XENOMOON_DOMAIN = domainName;
 

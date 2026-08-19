@@ -16,7 +16,7 @@
 //
 // Bare-node, no deps; wired into `npm run validate`. Mirrors gen-skill-scope.js.
 //   node ui/server/cli/check-install-paths.js
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -68,6 +68,64 @@ const tracked = new Set(
     .split("\n")
     .filter(Boolean),
 );
+
+// A RENAMED pack must claim its old name. A bound clone bakes the pack NAME into .xenomoon.json,
+// so renaming the directory leaves every such clone dying at loadDomain — before it can update to
+// a fix. `formerNames` is the migration; git already knows the rename happened, so this makes
+// forgetting it a gate failure rather than a silent trap discovered months later (it was: the
+// expo→expoapp rename in 85bc04b bricked `xenomoon update` in this install until 2026-08-19).
+/** @type {string[]} */
+const unclaimedRenames = [];
+{
+  const log = execFileSync(
+    "git",
+    [
+      "log",
+      "--diff-filter=R",
+      "--find-renames",
+      "--name-status",
+      "--format=",
+      "--",
+      "domains/*/domain.json",
+    ],
+    { cwd: FRAMEWORK_DIR, encoding: "utf8" },
+  );
+  const packOf = (/** @type {string} */ p) => p.split("/")[1] ?? "";
+  for (const line of log.split("\n")) {
+    const [status, from, to] = line.split("\t");
+    if (!status?.startsWith("R") || !from || !to) continue;
+    const [oldName, newName] = [packOf(from), packOf(to)];
+    // Only the CURRENT pack matters: an old name re-created as its own pack, or a pack since
+    // deleted, is not a migration this gate can or should speak for.
+    if (!oldName || !newName || oldName === newName) continue;
+    const file = path.join(DOMAINS_DIR, newName, "domain.json");
+    if (!existsSync(file) || existsSync(path.join(DOMAINS_DIR, oldName, "domain.json"))) continue;
+    /** @type {unknown} */
+    let parsed;
+    try {
+      parsed = JSON.parse(readFileSync(file, "utf8"));
+    } catch {
+      continue; // malformed pack — loadDomain reports that
+    }
+    const former = /** @type {{ formerNames?: unknown }} */ (parsed)?.formerNames;
+    if (!Array.isArray(former) || !former.includes(oldName))
+      unclaimedRenames.push(`    "${oldName}" → "${newName}"`);
+  }
+}
+
+if (unclaimedRenames.length) {
+  console.error(
+    `✗ install-paths: ${unclaimedRenames.length} pack rename(s) with no migration declared:`,
+  );
+  for (const r of unclaimedRenames) console.error(r);
+  console.error(
+    "  Every clone installed under the OLD name bakes it into .xenomoon.json and now dies at\n" +
+      "  loadDomain — it cannot even update to receive a fix. Add the old name to the new pack's\n" +
+      '  `formerNames` in its domain.json (e.g. "formerNames": ["<old>"]) so those clones migrate\n' +
+      "  themselves on the next update.",
+  );
+  process.exit(1);
+}
 
 /** @type {string[]} */
 const collisions = [];

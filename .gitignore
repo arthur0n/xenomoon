@@ -33,6 +33,10 @@ graphify-out/
 # Sub-agent handoff documents written under the plugin at runtime — machine-local, not shipped.
 plugin/.xenomoon/
 
+# Session state this clone writes for ITSELF (debrief queue, handoffs) when it drives a project —
+# the same shape as <project>/.xenomoon/, machine-local, never framework content.
+/.xenomoon/
+
 # Personal untracked hook extensions (sourced by .husky/post-commit when present).
 .husky/post-commit.local
 

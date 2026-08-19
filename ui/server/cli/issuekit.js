@@ -26,6 +26,12 @@ import {
   indent,
 } from "./issuekit-lib.js";
 import { cmdBranch, cmdPr, cmdPromote, cmdDeployCheck } from "./issuekit-plumb.js";
+import {
+  PIPELINE_LABELS,
+  ISSUEKIT_LABELS,
+  syncLabels,
+  printLabelReport,
+} from "./issuekit-labels.js";
 
 /** @typedef {import("./issuekit-lib.js").Flags} Flags */
 /** @typedef {import("./issuekit-lib.js").GhNode} GhNode */
@@ -159,14 +165,6 @@ function addLabels(repo, num, labels) {
 }
 
 // ── commands ─────────────────────────────────────────────────────────────────
-/** @type {[string, string, string][]} */
-const LABELS = [
-  ["issuekit:in-progress", "fbca04", "Agent actively working this issue"],
-  ["issuekit:attempted", "c5def5", "Has one or more logged issuekit attempts"],
-  ["issuekit:blocked", "d93f0b", "Agent blocked — needs input / next hypothesis left"],
-  ["issuekit:resolved", "0e8a16", "Verified fix logged via issuekit"],
-];
-
 const ISSUE_TEMPLATE_YML = `name: Bug (issuekit)
 description: Structured bug report — agents log attempts below via issuekit
 labels: ["bug"]
@@ -196,16 +194,18 @@ function cmdInit(flags) {
   maybeSwitchUser(flags);
   const repo = resolveRepo(flags);
   console.log(`init: ${repo}`);
-  for (const [name, color, desc] of LABELS) {
-    gh(["label", "create", name, "-R", repo, "--color", color, "--description", desc, "--force"], {
-      allowFail: true,
-    });
-    console.log(`  label ✓ ${name}`);
-  }
+  const ok = printLabelReport(syncLabels(repo, [...PIPELINE_LABELS, ...ISSUEKIT_LABELS]));
+  // Do not bind the project to a repo whose label vocabulary the gates cannot use: a written
+  // .issuekit.json says "this is set up", and the next stage would believe it.
+  if (!ok)
+    throw new Error(
+      "label setup is incomplete (see BLOCKING above) — .issuekit.json NOT written; fix the labels and re-run `issuekit init`",
+    );
   const cfgPath = join(process.cwd(), ".issuekit.json");
   /** @type {Record<string, string>} */
   const cfg = { repo };
-  if (flags.user) cfg.ghUser = String(flags.user);
+  const user = str(flags.user);
+  if (user) cfg.ghUser = user;
   writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + "\n");
   console.log(`  config ✓ ${cfgPath}`);
   if (flags.template) {
@@ -411,12 +411,9 @@ function cmdNew(pos, flags) {
 function cmdLabelsInit(flags) {
   maybeSwitchUser(flags);
   const repo = resolveRepo(flags);
-  for (const [name, color, desc] of LABELS) {
-    gh(["label", "create", name, "-R", repo, "--color", color, "--description", desc, "--force"], {
-      allowFail: true,
-    });
-    console.log(`label ✓ ${name}`);
-  }
+  console.log(`labels: ${repo}`);
+  if (!printLabelReport(syncLabels(repo, [...PIPELINE_LABELS, ...ISSUEKIT_LABELS])))
+    throw new Error("label setup is incomplete (see BLOCKING above)");
 }
 
 // patch <#>: issue edits (title/body/labels) through the tool, not raw gh.

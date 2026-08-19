@@ -32,6 +32,10 @@ const CAP_SUBDIRS = ["agents", "skills", "commands", "library"];
 // content survives an install.
 const SANCTIONED_MERGE = new Set(["plugin/hooks/hooks.json"]);
 
+/** Mirrors install-capabilities.js UNSAFE_NAME — names that cannot be declared as install output
+ * without changing what the manifest matches. */
+const UNSAFE_NAME = /[\n\r\0*?[\]!#\\]|^\s|\s$/;
+
 /** Every file under `dir`, relative to it. @param {string} dir @returns {string[]} */
 function filesUnder(dir) {
   /** @type {string[]} */
@@ -67,12 +71,30 @@ const tracked = new Set(
 
 /** @type {string[]} */
 const collisions = [];
+/** A pack shipping ignore semantics — see the check below. @type {string[]} */
+const ignoreFiles = [];
 if (existsSync(DOMAINS_DIR))
   for (const d of readdirSync(DOMAINS_DIR, { withFileTypes: true })) {
     if (!d.isDirectory()) continue;
     const packPlugin = path.join(DOMAINS_DIR, d.name, "plugin");
     if (!existsSync(packPlugin)) continue;
     for (const rel of installTargets(packPlugin)) {
+      // A pack may not ship a `.gitignore`. Copied into `plugin/`, it becomes LIVE git config for
+      // that subtree, able to hide framework files that are not install output at all — the exact
+      // inverse of the install manifest's purpose. The installer throws on this; catching it here
+      // tells the pack AUTHOR at `npm run validate` time instead of at someone's install.
+      if (path.basename(rel) === ".gitignore") {
+        ignoreFiles.push(`    domains/${d.name}/plugin/${rel}  (ships ignore semantics)`);
+        continue;
+      }
+      // A path segment carrying gitignore syntax would become an extra RULE in the generated
+      // install manifest (a newline splits an entry, `*` matches siblings, `!` re-includes), so
+      // install output could hide framework files it never wrote. The installer preflights the
+      // same condition; this tells the pack author first.
+      if (rel.split("/").some((seg) => UNSAFE_NAME.test(seg))) {
+        ignoreFiles.push(`    domains/${d.name}/plugin/${rel}  (unsafe name)`);
+        continue;
+      }
       const target = `plugin/${rel}`;
       if (!tracked.has(target) || SANCTIONED_MERGE.has(target)) continue;
       collisions.push(
@@ -80,6 +102,19 @@ if (existsSync(DOMAINS_DIR))
       );
     }
   }
+
+if (ignoreFiles.length) {
+  console.error(`✗ install-paths: ${ignoreFiles.length} pack file(s) cannot be safely installed:`);
+  for (const f of ignoreFiles) console.error(f);
+  console.error(
+    "  A pack must not carry a .gitignore (installed into plugin/ it is live git config for that\n" +
+      "  subtree), nor a filename containing gitignore syntax or control characters (it would become\n" +
+      "  an extra rule in the generated manifest). Both let install output hide framework files it\n" +
+      "  never wrote. Ignore rules for that tree belong to the framework — the generated\n" +
+      "  plugin/.gitignore manifest is the only one.",
+  );
+  process.exit(1);
+}
 
 if (collisions.length) {
   console.error(`✗ install-paths: ${collisions.length} pack file(s) would clobber tracked CORE:`);

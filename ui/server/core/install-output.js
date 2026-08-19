@@ -29,9 +29,26 @@ const HEADER = (/** @type {string} */ domainName) => [
   MANIFEST,
 ];
 
-/** @param {string} pluginDir @param {string[]} absPaths @returns {string[]} plugin-relative, POSIX */
+// A manifest line is a PATTERN, not a literal path, so a filename carrying gitignore syntax could
+// widen a rule to files the install never wrote — a newline splits one entry into two, `*` matches
+// siblings, `!` re-includes. Install output must only ever hide itself, so every entry is anchored
+// to the plugin root (leading `/`) and any metacharacter is escaped. Names that cannot be expressed
+// safely at all (control characters) are rejected outright — `preflightPack` in the installer and
+// `check:install-paths` reject them earlier, before a single file is written; this is the last line.
+const UNSAFE_CHARS = /[\n\r\0]/;
+
+/** One safe, exactly-matching manifest entry for a plugin-relative path. @param {string} rel */
+function toEntry(rel) {
+  if (UNSAFE_CHARS.test(rel))
+    throw new Error(
+      `install output path contains a control character and cannot be safely declared: ${JSON.stringify(rel)}`,
+    );
+  return "/" + rel.replace(/[[\]*?!#\\]/g, (c) => "\\" + c);
+}
+
+/** @param {string} pluginDir @param {string[]} absPaths @returns {string[]} anchored, escaped entries */
 function toRelative(pluginDir, absPaths) {
-  return absPaths.map((f) => path.relative(pluginDir, f).split(path.sep).join("/"));
+  return absPaths.map((f) => toEntry(path.relative(pluginDir, f).split(path.sep).join("/")));
 }
 
 /** Write the manifest fresh — the installer's call. Replaces any previous list, so the file always

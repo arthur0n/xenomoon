@@ -102,8 +102,10 @@ export function parseArgs(argv) {
   const flags = {};
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i] ?? "";
-    if (t.startsWith("--")) {
-      const name = t.slice(2);
+    // Short flags too (`-m "msg"`), not just `--long`. A bare "-" is a VALUE — it means stdin for
+    // the `*-file` flags — so it is never read as a flag name.
+    if (t.startsWith("-") && t !== "-") {
+      const name = t.replace(/^--?/, "");
       if (BOOL.has(name)) flags[name] = true;
       else if (i + 1 < argv.length && !(argv[i + 1] ?? "").startsWith("--"))
         flags[name] = argv[++i];

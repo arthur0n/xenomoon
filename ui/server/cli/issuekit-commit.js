@@ -58,6 +58,41 @@ function askGate(command) {
 }
 
 /**
+ * An ASK is a question for a human. Proceeding anyway is allowed ONLY when someone decided to, and
+ * only with a reason recorded on the issue first — an override that leaves no trace is
+ * indistinguishable from a gate that never ran, and an interrupted run must leave the
+ * justification rather than a silent commit.
+ * @param {string} repo @param {string} num @param {Flags} flags @param {string} decision @param {string} reason
+ */
+function recordOverrideOrRefuse(repo, num, flags, decision, reason) {
+  const why = str(flags.reason);
+  if (!flags.force || !why)
+    throw new Error(
+      `the commit gate did not clear this commit (${decision}):\n  ${reason}\n` +
+        "A human decides this one. Re-run the stage that is missing, or — if they have decided to\n" +
+        'proceed anyway — record why: --force --reason "<who decided, and on what basis>".',
+    );
+  const noted = gh(
+    [
+      "issue",
+      "comment",
+      String(num),
+      "-R",
+      repo,
+      "--body",
+      `## ⚠️ COMMIT GATE OVERRIDDEN\n\n**Gate said:** ${decision} — ${reason}\n**Reason given:** ${why}\n\n*issuekit commit --force*`,
+    ],
+    { allowFail: true },
+  );
+  if (noted.status !== 0)
+    throw new Error(
+      `could not record the override on #${num} (${noted.err || "gh failed"}) — refusing to commit.\n` +
+        "An override nobody can find later is worse than the gate it skipped.",
+    );
+  console.log(`override recorded on #${num}: ${why}`);
+}
+
+/**
  * `issuekit commit <#N> -m "<message>"` — commit the staged fix for an issue, then reconcile its
  * deploy-gate labels. Never pushes: push stays the human's checkpoint.
  * @param {string} num @param {Flags} flags
@@ -72,18 +107,28 @@ export function cmdCommit(num, flags) {
   if (!message) throw new Error('commit needs a message: `issuekit commit 42 -m "fix: … (#42)"`');
   // The reference is the pipeline's thread between a commit and its issue — and it is what the gate
   // and the label reconciliation both key on. Add it rather than failing on a message that forgot.
-  const full = message.includes(`(#${num})`) ? message : `${message} (#${num})`;
+  //
+  // But a message citing a DIFFERENT issue splits the stage in two: the gate would judge the issue
+  // in the message while the labels — and any override record — landed on the one in the argument.
+  // The evidence has to sit on the issue whose gate was actually judged, so a mismatch is refused
+  // before anything is asked, posted or committed.
+  const cited = [...message.matchAll(/\(#(\d+)\)/g)].map((m) => m[1]);
+  const wrong = cited.filter((c) => c !== num);
+  if (wrong.length)
+    throw new Error(
+      `the message cites (#${wrong.join("), (#")}) but you asked to commit #${num}. ` +
+        "The gate would judge one issue while the labels landed on another — commit the issue the " +
+        "message is about, or fix the message.",
+    );
+  const full = cited.length ? message : `${message} (#${num})`;
 
   if (!git(["diff", "--cached", "--name-only"]))
     throw new Error("nothing staged — stage the fix first (the commit stage records what QA saw)");
 
   const { decision, reason } = askGate(`git commit -m ${JSON.stringify(full)}`);
+  // A DENY is final: no flag overrides a blocking verdict.
   if (decision === "deny") throw new Error(`the commit gate refused this commit:\n  ${reason}`);
-  if (decision !== "allow" && !flags.force)
-    throw new Error(
-      `the commit gate did not clear this commit (${decision}):\n  ${reason}\n` +
-        "A human decides this one — approve it yourself, or re-run the stage that is missing.",
-    );
+  if (decision !== "allow") recordOverrideOrRefuse(repo, num, flags, decision, reason);
 
   const r = run("git", ["commit", "-m", full], { allowFail: true });
   if (r.status !== 0) throw new Error(`git commit failed:\n${r.err || r.out}`);

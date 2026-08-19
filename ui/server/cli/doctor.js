@@ -395,7 +395,7 @@ if (requested || approvedEntries.length) {
       (appliable.length ? " — run `npm run promote -- --pending` to apply" : "") +
       (dead
         ? `; ${dead} approved but UN-APPLIABLE (source gone or target already core) — ` +
-          "reject them on the board with a reason, or re-route the content via /learn"
+          "reject them on the board with a reason, or re-route the content via the learn-routing skill"
         : "") +
       ".",
   );

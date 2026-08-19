@@ -6,7 +6,7 @@
 // It scans BOTH capability trees, because contamination reaches each by a different route:
 //   • domains/<pack>/plugin/{skills,library} — authored direct-to-pack, bypassing promote
 //   • plugin/{skills,library}                — the INSTALLED tree, where a pack install, a
-//     promotion, or a /learn write lands. Leaving it unscanned is not covered by "review + the
+//     promotion, or a learn-routing draft lands. Leaving it unscanned is not covered by "review + the
 //     agnostic gate": that gate reads git-TRACKED files only, so a freshly written record is
 //     invisible to it — which is exactly how a bound project's name reached plugin/library/.
 // The per-project proper-noun floor (denylistFor) + verbatim business-rule lines

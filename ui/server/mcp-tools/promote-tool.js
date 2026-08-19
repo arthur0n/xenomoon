@@ -31,13 +31,13 @@ function unappliable(kind, name) {
       `promote REJECTED: ${kind}/${name} already exists in the plugin (${dst}). Promote only ` +
       `ADDS new capabilities — a refinement to an EXISTING one is a domain/framework UPDATE: ` +
       `put the draft content (the exact change you propose) in your report for the human to ` +
-      `apply via /learn. See plugin/docs/process/updates-routing.md.`
+      `apply via the learn-routing skill. See plugin/docs/process/updates-routing.md.`
     );
   if (!existsSync(src))
     return (
       `promote REJECTED: nothing exists project-local at ${src} — promotions move REAL ` +
       `project-local capabilities. If this is a suggestion or refinement (no file yet), it is ` +
-      `not promotable: put the draft content in your report for /learn instead.`
+      `not promotable: put the draft content in your report and land it via learn-routing.`
     );
   return null;
 }

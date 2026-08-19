@@ -40,7 +40,7 @@ Arguments: `$ARGUMENTS`
 4. **`--verify` (opt-in):** re-run the project's **validate** command as a final check.
    Default trusts the fresh QA + review gates — no re-run.
 
-5. **Commit** (serialize — never alongside a running `developer` on the same tree):
+5. **Commit** (serialize — never alongside a running implement stage on the same tree):
    `git add -A` then `git commit` with the project's message style (read `CLAUDE.md`):
    `<type>: <imperative summary> (#N)` — **`(#N)`, never `Closes #N`** — plus a 1–2 line
    body (root cause + fix) and a `Verified: validate+build+test green · regression test

@@ -49,7 +49,7 @@ them. See
 ## Shipped packs
 
 - **`webapp`** — a populated HEAD-START for React + Node apps: an issue-driven, human-gated pipeline
-  (`product-owner` → the CORE triage + solution stages → `developer` → `tester` → `reviewer`; the
+  (`product-owner` → the CORE triage / solution / implement stages → `tester` → `reviewer`; the
   `/feedback /design /triage /solution /implement /qa /audit /commit /build /uat` commands). Triage
   and solution are **CORE** stages the pack routes to, not pack agents — see
   `plugin/docs/process/promote-agent-to-core.md`. The orchestrator then learns the specific project

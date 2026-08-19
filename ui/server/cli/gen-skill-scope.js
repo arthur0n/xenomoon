@@ -15,7 +15,9 @@
 //   builders     → the active domain's general builder + its specialists (the code-writers)
 //   orchestrator → the main session only (cross-checked against ORCHESTRATOR_FRAMEWORK_SKILLS)
 import { orchestratorFrameworkSkills } from "../features/skills/skill-catalog.js";
-import { ORCH, loadRegistry } from "../features/skills/skill-registry.js";
+import { ORCH, loadRegistry, SKILLS_DIR } from "../features/skills/skill-registry.js";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
+import path from "node:path";
 
 const { skills, agents, agentNames, expected, errors } = loadRegistry();
 const onDisk = new Set(skills.keys());
@@ -41,6 +43,69 @@ const actual = new Map();
 actual.set(ORCH, new Set(orchestratorFrameworkSkills()));
 for (const n of agentNames) actual.set(n, new Set(agents.get(n)?.skills));
 
+// Skills a PACK installed, read from the generated install manifest. A CORE agent cannot enumerate
+// them — which pack is installed is a per-clone choice, and naming one would put a domain's name
+// inside a CORE file. So they are exempt from the projection below: the pack targets the agent
+// (`agents: [builders]` / an agent name), the agent stays domain-neutral, and the skill is loaded
+// on demand rather than preloaded. Everything CORE-owned stays strictly projected.
+const installed = (() => {
+  /** @type {Set<string>} */
+  const out = new Set();
+  try {
+    for (const line of readFileSync(path.join(SKILLS_DIR, "..", ".gitignore"), "utf8").split(
+      "\n",
+    )) {
+      const m = line.trim().match(/^\/?skills\/([^/]+)\/SKILL\.md$/);
+      if (m?.[1]) out.add(m[1]);
+    }
+  } catch {
+    /* no manifest — an unbound trunk installs nothing, so nothing is exempt */
+  }
+  return out;
+})();
+
+// Which AGENTS the install wrote. The exemptions below apply only to CORE-owned agents: a CORE
+// agent genuinely cannot enumerate per-clone pack content. A PACK-owned agent has no such excuse —
+// the pack ships the agent AND its skills, so the two must agree exactly, or a pack could quietly
+// ship a lane whose skills never preload while this gate reported "in sync".
+const installedAgents = (() => {
+  /** @type {Set<string>} */
+  const out = new Set();
+  try {
+    for (const line of readFileSync(path.join(SKILLS_DIR, "..", ".gitignore"), "utf8").split(
+      "\n",
+    )) {
+      const m = line.trim().match(/^\/?agents\/([^/]+)\.md$/);
+      if (m?.[1]) out.add(m[1]);
+    }
+  } catch {
+    /* no manifest — nothing installed, so every agent is CORE-owned */
+  }
+  return out;
+})();
+const isCoreAgent = (/** @type {string} */ id) => id !== ORCH && !installedAgents.has(id);
+
+// Every skill name ANY pack ships. In an unbound trunk none are on disk, so a CORE agent naming one
+// in prose ("load the `domain-conventions` skill your pack ships") would otherwise read as a
+// dangling reference. It is not — it resolves the moment a pack is installed.
+const packSlots = (() => {
+  /** @type {Set<string>} */
+  const out = new Set();
+  const domainsDir = path.join(SKILLS_DIR, "..", "..", "domains");
+  try {
+    for (const pack of readdirSync(domainsDir, { withFileTypes: true })) {
+      if (!pack.isDirectory()) continue;
+      const dir = path.join(domainsDir, pack.name, "plugin", "skills");
+      if (!existsSync(dir)) continue;
+      for (const s of readdirSync(dir, { withFileTypes: true }))
+        if (s.isDirectory()) out.add(s.name);
+    }
+  } catch {
+    /* no domains/ — nothing ships slots */
+  }
+  return out;
+})();
+
 for (const [id, want] of expected) {
   /** @type {Set<string>} */
   const have = actual.get(id) ?? new Set();
@@ -51,11 +116,13 @@ for (const [id, want] of expected) {
   // D1: every listed skill exists on disk.
   for (const s of have)
     if (!onDisk.has(s)) errors.push(`${label} lists \`${s}\`, which is not a skill on disk`);
-  // D2: the projection (skill tags) and the frontmatter must match exactly, both directions.
+  // D2: the projection (skill tags) and the frontmatter must match exactly, both directions —
+  //     except for pack-installed skills, which CORE is not allowed to know about (see above).
   for (const s of minus(want, have))
-    errors.push(
-      `${label} is missing \`${s}\` (a skill tags this audience but the frontmatter omits it)`,
-    );
+    if (!(installed.has(s) && isCoreAgent(id)))
+      errors.push(
+        `${label} is missing \`${s}\` (a skill tags this audience but the frontmatter omits it)`,
+      );
   for (const s of minus(have, want))
     errors.push(
       `${label} lists \`${s}\`, but \`${s}\`'s \`agents:\` tag does not include this audience`,
@@ -102,16 +169,24 @@ for (const [name, a] of agents) {
   const listed = new Set(a.skills);
   for (const ref of bodySkillRefs(a.body)) {
     if (onDisk.has(ref)) {
-      if (!listed.has(ref))
+      // A PACK-installed skill is the one thing a CORE agent may name in prose without listing:
+      // it cannot list it (the name resolves to different content per pack, and an unbound trunk
+      // has none on disk), so it says "load X" and loads it on demand. Same rule as the projection
+      // exemption above — CORE never enumerates what a pack installs.
+      if (!listed.has(ref) && !(installed.has(ref) && isCoreAgent(name)))
         errors.push(
           `agent \`${name}\` body references the \`${ref}\` skill but its frontmatter skills: omits it ` +
             `(add it to skills:, or reword the prose as a cross-reference if the skill belongs to another agent)`,
         );
+    } else if (packSlots.has(ref) && isCoreAgent(name)) {
+      // A PACK SLOT: no pack is installed here (an unbound trunk), but some pack ships this exact
+      // name, so the reference resolves the moment one is. Expected, not drift — say nothing.
     } else if (/-/.test(ref)) {
       warnings.push(
         `agent \`${name}\` body references \`${ref}\` as a skill, but it is not a FRAMEWORK skill ` +
-          `(may be a project-local skill in the project's .claude/skills/ — a framework agent shouldn't ` +
-          `hard-depend on a project-specific skill; and per-agent frontmatter scoping can hide it)`,
+          `and no domain pack ships it either (may be a project-local skill in the project's ` +
+          `.claude/skills/ — a framework agent shouldn't hard-depend on a project-specific skill; ` +
+          `and per-agent frontmatter scoping can hide it)`,
       );
     }
   }

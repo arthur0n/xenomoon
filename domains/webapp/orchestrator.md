@@ -43,9 +43,9 @@ piece of work needs (small work skips most of it).
 4. **`/solution`** — **CORE stage; the spine defines it and owns its agent.** Ends in the
    `## 🔬 ANALYSIS` spec + `solution-ready`, which is what step 5 builds from. Webapp delta:
    the ship labels are this project's deploy/migration ones.
-5. **`/implement`** → `developer` (edits code): implement the ANALYSIS handoff (and a
-   PRD's Acceptance when one exists), prove with the project's validate + build + the
-   named test, apply `implemented`, leave it **uncommitted**.
+5. **`/implement`** — **CORE stage; the spine defines it and owns its agent.** Builds the
+   `## 🔬 ANALYSIS` spec (and a PRD Acceptance when one exists), proves it with THIS project's
+   validate + build + the named test, ends in `implemented` with the change **uncommitted**.
 6. **`/qa`** → `tester` (read-only): re-run validate + build + test (+ smoke on data
    paths), assert the named regression test guards the bug (Acceptance is the rubric,
    unchanged), apply `qa:pass` / `qa:blocked`.
@@ -80,7 +80,7 @@ resource-capped (see below). It's `/uat`, not a stage every issue passes through
 - **Agreed small scope** — a PRD slice already exists, or the change is trivial and
   settled → straight **`/implement`**. Don't manufacture ceremony for a one-liner.
 - **Bug / symptom** — the spine owns this route (`/triage` → `/solution` → builder). The only
-  webapp delta: the builder is **`developer`**, and if it's really about what the thing _should_
+  webapp delta: if it's really about what the thing _should_
   do (intent, not a defect) → **`/design`**, not the pipeline.
 - **Every defect enters through the pipeline — including the ones YOU find.** A defect
   discovered mid-session (infra, CI, a failed deploy you're watching, a consequence of
@@ -88,8 +88,8 @@ resource-capped (see below). It's `/uat`, not a stage every issue passes through
   (`/triage`), with whatever context you already have riding along in the issue body.
   This applies precisely when the work FEELS like continuation of what you were doing —
   incident momentum is the signal to route, not to act. Infra/CI defects run the same
-  pipeline: they are triaged and designed by the CORE stages, then the developer edits
-  `.github/` / IaC.
+  pipeline: the CORE stages triage, design and implement them — `.github/` and IaC are in the
+  implement stage's ownership like any other code.
 - **Your shell is for routing state only** — labels, run status, `git status`, board and
   config reads: the facts that pick a route. The moment a command would read SOURCE to
   form a hypothesis about a cause, that command is triage's first step — dispatch it.
@@ -116,14 +116,14 @@ Right-size the gate to the work:
 
 ## Background — domain specifics
 
-- A backgrounded `developer` writes its full report to `.xenomoon/handoffs/<slug>.md`
+- A backgrounded implementer writes its full report to `.xenomoon/handoffs/<slug>.md`
   (agent-report protocol) and the haiku `handoff-summarizer` distills it — you never load
   the raw report.
 - A **Codex `/audit`** runs as a **background Bash** (a review blocks until it finishes);
   read its output when it completes and post the verdict.
 - **`/design` is foreground only** (the product-owner round-trips `mcp__ui__form`).
 - **Commit is a serialized single step.** `/commit` writes the shared tree's history —
-  never run it alongside a `developer` on the same tree.
+  never run it alongside the implement stage on the same tree.
 
 ## Self-improvement — domain specifics
 
@@ -229,7 +229,7 @@ open
   → design (+ PRD design/<slug>.md linked)          [/design → product-owner; intent/feature]
   → triaged (+ sev:*, area:*)                          [/triage — CORE stage]
   → solution-ready (+ needs-deploy?, needs-migration?)  [/solution — CORE stage]
-  → implemented (uncommitted; validate+build+test green)         [/implement → developer]
+  → implemented (uncommitted; validate+build+test green)         [/implement — CORE stage]
   → qa:pass | qa:blocked → /implement               [/qa → tester]
   → review:pass | review:changes → /implement  (skippable sev:low)  [/audit → Codex or reviewer]
   → committed + fixed-pending-deploy                [/commit direct; hook-gated; NEVER pushes]

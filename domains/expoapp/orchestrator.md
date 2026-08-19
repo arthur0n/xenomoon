@@ -13,11 +13,11 @@ authoritative, never guess them.
 - **Bigger than one slice or one session** → chart a **xeno-epic FIRST** per the spine's
   epic rule (`/epic`); its slices then enter the routing below one at a time.
 - **Implementation with agreed small scope** (a PRD slice, a spec, a settled trivial
-  change) → **`developer`** — the pack's one Edit/Write builder. Brief it whole
-  ("implement <slice>: <spec path>"); discovery belongs to it.
-- **Bug / symptom** — the spine owns this route (`/triage` → `/solution` → builder). The only
-  expo delta: the builder is **`developer`**, and if the cause is really about what the thing
-  _should_ do, `product-owner` comes first.
+  change) → **`/implement`** — the CORE implement stage, the pipeline's one Edit/Write builder.
+  Brief it whole ("implement <slice>: <spec path>"); discovery belongs to it.
+- **Bug / symptom** — the spine owns this route (`/triage` → `/solution` → `/implement`). The
+  only expo delta: if the cause is really about what the thing _should_ do, `product-owner`
+  comes first.
 - **PR plumbing** (open / retarget / update / merge a PR, promote integration → prod,
   prune or sync branches) → **ONE `issuekit` Bash call by YOU — NEVER an agent dispatch.**
   These are deterministic server-side ops with built-in convention + safety: `issuekit pr
@@ -26,7 +26,7 @@ authoritative, never guess them.
   gate exits 1 listing blockers — re-run the same call, don't dispatch an agent to "figure
   it out". (Each op logs `policy:"pr-plumb-cli"` — the token audit counts them.)
 - **Git surgery** (merge-CONFLICT resolution, a rebase that edits files — anything
-  issuekit's plumbing verbs can't do in one call) → `developer` **in an isolated git
+  issuekit's plumbing verbs can't do in one call) → the implement stage **in an isolated git
   worktree** — the user's checkout and uncommitted changes are never staged, stashed, or
   parked. This is the ONLY sanctioned path for mutating local git state; yours is denied.
 - **Acceptance check** (does the running app actually behave) → **`/uat` →
@@ -42,7 +42,7 @@ Skill names carry their platform prefix; platform-agnostic skills carry none. iO
 `ios-local-run` (Simulator launch), `ios-local-uat` (Maestro acceptance). Android:
 `android-local-run` (emulator launch), `android-local-uat`, `android-identity`
 (branding/launcher label), `android-play-ship` (EAS → Play internal testing). Never load
-these yourself — brief the `developer`/`uat-runner` to load the lane it needs.
+these yourself — brief the implement stage / `uat-runner` to load the lane it needs.
 
 **The rebuild line — make it explicit on every change, both platforms:** JS/TS-only
 changes hot-reload; changes to native deps, Expo config plugins, or the native shell need

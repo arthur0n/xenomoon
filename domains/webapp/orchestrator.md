@@ -60,8 +60,19 @@ piece of work needs (small work skips most of it).
 10. **`/commit`** — direct (no agent): once green, YOU `git add` + `git commit` with
     `(#N)`, apply `committed` + `fixed-pending-deploy`. The `commit-gate` hook re-checks
     the labels deterministically and denies any non-green commit. **Never push.**
-11. **`/build`** — local build / smoke with the project's commands. Deploy is **CI-only**
-    on push to the main branch — never `sam deploy`/`wrangler deploy`/manual.
+11. **Build / smoke** — run the project's own commands, and know which is which:
+    - **build** (default) — the production build, plus validate if it has not been green
+      this session. This is how you verify a change builds clean. For quick iteration the
+      dev servers are enough; no rebuild needed.
+    - **smoke** — the project's `smoke` command: the data API against the real DB, after a
+      backend or schema change. Acceptance is NOT this — that is the `e2e` key, run by the
+      `uat-runner`.
+    - **deploy — never from here.** Deploy happens by PUSHING the main branch; CI does the
+      cloud work, and a manual `sam deploy` / `wrangler deploy` is forbidden (shared cloud
+      account, OIDC role). Confirm with the human, and after their push watch it:
+      `gh run list -R <repo> --branch <main> --limit 5` then `gh run watch -R <repo> <id>`.
+      Report each workflow's result — and if one failed, WHICH step: a run that died before
+      the credentials step made no cloud change at all.
 
 Full path: `/feedback` → `/design`? → `/triage` → `/solution` → `/implement` → `/sweep` → `/qa` →
 `/audit` → `/pre-pr` → `/commit` → `/build`. Loop-backs: `qa:blocked` (from `/qa`), `review:changes`

@@ -400,8 +400,13 @@ function cmdNew(pos, flags) {
     for (const d of dup) console.log(`  #${d.number} ${d.title}\n    ${d.url}`);
     process.exit(2);
   }
+  // `--body-file` supplies the WHOLE body; `--symptom-file` supplies just the symptom and gets
+  // issuekit's attempt-log template around it. Callers that own their own issue shape — intake,
+  // which files feedback in the project's own format — need the former, or they would have to
+  // create and then immediately patch the body they meant to write.
+  const wholeBody = readMaybeFile(flags["body-file"]);
   const symptom = readMaybeFile(flags["symptom-file"]) ?? "";
-  const p = tmpFile("new", renderIssueBody(symptom));
+  const p = tmpFile("new", wholeBody ?? renderIssueBody(symptom));
   const args = ["issue", "create", "-R", repo, "--title", title, "--body-file", p];
   if (flags.label) for (const l of String(flags.label).split(",")) args.push("--label", l.trim());
   const r = gh(args);
@@ -469,7 +474,7 @@ const HELP = `issuekit — searchable, deterministic GitHub-issue attempt log (s
       needs-deploy). Never pushes. --force overrides a gate ASK only, never a DENY.
 
   issuekit resolve <#> --cause "…" [--fix "…"] [--close] [--label fixed-pending-deploy] [--repo R]
-  issuekit new --title "…" [--symptom-file f|-] [--label a,b] [--force] [--repo R]
+  issuekit new --title "…" [--body-file f|-] [--symptom-file f|-] [--label a,b] [--force] [--repo R]
   issuekit show <#> [--repo R]
   issuekit patch <#> [--title ..] [--body-file f|-] [--add-label a,b] [--remove-label a,b]
   issuekit close <#> [--comment "…"]

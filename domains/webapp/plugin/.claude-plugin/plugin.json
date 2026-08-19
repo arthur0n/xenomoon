@@ -1,6 +1,6 @@
 {
   "name": "xenomoon-webapp",
-  "description": "Web app domain package for React + Node.js. Ships an issue-driven, human-gated pipeline — product-owner (PRD) → the CORE triage / solution / implement / sweep / audit / QA / pre-PR stages — with /feedback /design /triage /solution /implement /qa /audit /commit /build /uat commands. Generic head start; learns each project's conventions on top.",
+  "description": "Web app domain package for React + Node.js. Ships an issue-driven, human-gated pipeline — product-owner (PRD) → the CORE triage / solution / implement / sweep / audit / QA / pre-PR stages. Generic head start; learns each project's conventions on top.",
   "version": "0.1.0",
   "author": { "name": "Xenomoon Forge" }
 }

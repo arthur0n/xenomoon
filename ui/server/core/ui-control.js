@@ -86,7 +86,16 @@ function pipelineRoster() {
   return _roster;
 }
 
-const GH_ISSUE_RE = /(^|&&|\|\||;|\|)\s*(rtk\s+)?gh\s+issue\b/;
+// Raw `gh issue` WRITES are denied — the tracker is issuekit's, and a write that skips it skips the
+// conventions and the attempt log with it. READS are not: the spine sends the orchestrator to look
+// at labels and state to pick a route, and the pipeline's own sweeps (which issues are unreviewed,
+// what a verdict comment says) are reads. Denying those made the router unable to do the job the
+// spine assigns it, which is how a gate stops protecting anything and just gets worked around.
+//
+// `new` is here because it is gh's own ALIAS for `create` — the only mutating alias gh defines
+// (`ls` aliases `list`, which is a read). A denylist that misses an alias denies nothing.
+const GH_ISSUE_WRITE_RE =
+  /(^|&&|\|\||;|\|)\s*(rtk\s+)?gh\s+issue\s+(create|new|edit|comment|close|reopen|delete|lock|unlock|pin|unpin|transfer|develop)\b/;
 // State-mutating git subcommands. Read verbs (status/log/diff/show/fetch/branch-list/
 // worktree-list/rev-parse/ls-files) stay allowed — the orchestrator routes on them.
 // Three shapes, because the mutating word is not always the subcommand:
@@ -145,9 +154,9 @@ function mainBashDenyMessage(input) {
   if (typeof cmd !== "string") return null;
   if (hasCommitGateHook() && GIT_ADD_COMMIT_ONLY_RE.test(cmd.trim()) && HAS_GIT_COMMIT_RE.test(cmd))
     return null;
-  if (GH_ISSUE_RE.test(cmd))
+  if (GH_ISSUE_WRITE_RE.test(cmd))
     return (
-      "Raw `gh issue` is denied for the orchestrator — the issue tracker is owned by " +
+      "Raw `gh issue` WRITES are denied for the orchestrator — the issue tracker is owned by " +
       "issuekit, which SHIPS with the framework. Call it by its shipped path: " +
       `\`node ${ISSUEKIT} search|new|attempt|resolve\`. ` +
       "A bare `issuekit` on PATH is NOT necessarily this one — an older copy shadows it on a " +

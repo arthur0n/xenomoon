@@ -9,7 +9,7 @@
 //
 // It models the REAL install surface, not a naive file walk — the two disagree, and the naive
 // version reports phantom collisions:
-//   - CAP_SUBDIRS (agents/skills/commands/library) are copied WHOLESALE  -> collision if tracked
+//   - CAP_SUBDIRS (agents/skills/library) are copied WHOLESALE          -> collision if tracked
 //   - hooks/*.sh are copied file-by-file                                 -> collision if tracked
 //   - hooks.json is MERGED, never copied (mergeHooks)                    -> sanctioned, see below
 //   - .claude-plugin/, templates/ are NOT installed at all               -> never a collision
@@ -25,7 +25,12 @@ const FRAMEWORK_DIR = path.resolve(fileURLToPath(new URL(".", import.meta.url)),
 const DOMAINS_DIR = path.join(FRAMEWORK_DIR, "domains");
 
 // Must mirror install-capabilities.js CAP_SUBDIRS.
-const CAP_SUBDIRS = ["agents", "skills", "commands", "library"];
+const CAP_SUBDIRS = ["agents", "skills", "library"];
+
+// Commands are not an install surface any more, and a pack that still ships them must FAIL rather
+// than have them quietly dropped: the files would look installed to their author, the slash surface
+// would silently not exist, and nothing would say why. Refusing is the only honest answer.
+const FORBIDDEN_SUBDIRS = ["commands"];
 
 // Paths a pack may legitimately write even though CORE tracks them, because the installer MERGES
 // rather than overwrites. Keep this list tiny and justified — each entry is a file whose CORE
@@ -129,6 +134,8 @@ if (unclaimedRenames.length) {
 
 /** @type {string[]} */
 const collisions = [];
+/** Packs shipping a capability class that is no longer installable. @type {string[]} */
+const forbiddenDirs = [];
 /** A pack shipping ignore semantics — see the check below. @type {string[]} */
 const ignoreFiles = [];
 if (existsSync(DOMAINS_DIR))
@@ -136,6 +143,13 @@ if (existsSync(DOMAINS_DIR))
     if (!d.isDirectory()) continue;
     const packPlugin = path.join(DOMAINS_DIR, d.name, "plugin");
     if (!existsSync(packPlugin)) continue;
+    // A pack shipping a forbidden capability class is REFUSED, not silently dropped. `commands/`
+    // stopped being an install surface when the framework's own were re-homed into skills — but a
+    // pack that still ships them would look installed to its author while the files went nowhere,
+    // with nothing anywhere saying why.
+    for (const forbidden of FORBIDDEN_SUBDIRS)
+      if (existsSync(path.join(packPlugin, forbidden)))
+        forbiddenDirs.push(`    domains/${d.name}/plugin/${forbidden}/`);
     for (const rel of installTargets(packPlugin)) {
       // A pack may not ship a `.gitignore`. Copied into `plugin/`, it becomes LIVE git config for
       // that subtree, able to hide framework files that are not install output at all — the exact
@@ -170,6 +184,19 @@ if (ignoreFiles.length) {
       "  an extra rule in the generated manifest). Both let install output hide framework files it\n" +
       "  never wrote. Ignore rules for that tree belong to the framework — the generated\n" +
       "  plugin/.gitignore manifest is the only one.",
+  );
+  process.exit(1);
+}
+
+if (forbiddenDirs.length) {
+  console.error(
+    `✗ install-paths: ${forbiddenDirs.length} pack(s) ship a directory that is not installable:`,
+  );
+  for (const f of forbiddenDirs) console.error(f);
+  console.error(
+    "  `commands/` is not an install surface: a stage's method lives in its skill, its routing in\n" +
+      "  the spine, and its dispatch in an orchestrator skill. Move the content there and delete the\n" +
+      "  directory — leaving it would ship files that silently go nowhere.",
   );
   process.exit(1);
 }

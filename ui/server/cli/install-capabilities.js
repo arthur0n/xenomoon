@@ -1,5 +1,5 @@
 // install-capabilities — the DOMAIN PICKER's one job. A domain is an install-time selector: it
-// chooses which agents/skills/commands/hooks/orchestrator get installed into the framework's single
+// chooses which agents/skills/hooks/orchestrator get installed into the framework's single
 // capability tree (`plugin/`). This copies the picked pack's capabilities INTO `plugin/` and bakes the
 // pack's runtime settings into the framework config, after which there is no "domain" at runtime — it
 // is just the framework, one tree. Nothing under `domains/` is read once the framework is running.
@@ -32,7 +32,11 @@ import { ensureDomainLibrary } from "../features/promotions/ensure-library.js";
  * (the pack's own manifest) is deliberately NOT copied — the base `plugin/.claude-plugin/plugin.json`
  * stays the single manifest. `hooks/` is handled separately (scripts copied + hooks.json merged).
  * @type {string[]} */
-const CAP_SUBDIRS = ["agents", "skills", "commands", "library"];
+// Commands are NOT here. The framework ships none: a stage's method lives in its skill, its routing
+// in the spine, and the dispatch layer in an orchestrator skill — one source each, instead of a
+// command file and a skill drifting apart. A pack that ships a commands/ directory is shipping a
+// second copy of something, so it is not installed.
+const CAP_SUBDIRS = ["agents", "skills", "library"];
 
 /** Filenames that cannot be declared as install output without changing what the manifest matches:
  * gitignore metacharacters, control characters, or leading/trailing whitespace. */
@@ -142,7 +146,7 @@ export function installCapabilities(frameworkDir, domainName) {
   /** Every file this run writes into `plugin/` — the input to `plugin/.gitignore`. @type {string[]} */
   const written = [];
 
-  // 1. Capabilities: agents / skills / commands / library → the single plugin tree.
+  // 1. Capabilities: agents / skills / library → the single plugin tree.
   for (const sub of CAP_SUBDIRS) {
     const src = path.join(packDir, sub);
     if (!existsSync(src)) continue;

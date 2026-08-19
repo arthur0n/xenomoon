@@ -198,7 +198,6 @@ prepareGame(PROJECT_DIR);
 
 const pluginAgents = countFiles(path.join(FRAMEWORK_PLUGIN_DIR, "agents"), ".md");
 const pluginSkills = countDirs(path.join(FRAMEWORK_PLUGIN_DIR, "skills"));
-const pluginCommands = countFiles(path.join(FRAMEWORK_PLUGIN_DIR, "commands"), ".md");
 
 // Learning scaffolds: heal-on-doctor — creates <plugin>/{skills,library}/ + kind indexes when
 // absent (any domain), so XENOMOON_LIBRARY always resolves and promotions have a destination.
@@ -219,12 +218,12 @@ const checks = [
       : "learning scaffolds present (skills/ + library/)",
   },
   {
-    // A populated domain must ship SOME capability (agents / skills / commands); an empty domain
+    // A populated domain must ship SOME capability (agents / skills); an empty domain
     // starts with none and learns them per project — so this is HARD only when populated.
-    ok: DOMAIN.populated ? pluginAgents > 0 || pluginSkills > 0 || pluginCommands > 0 : true,
+    ok: DOMAIN.populated ? pluginAgents > 0 || pluginSkills > 0 : true,
     hard: DOMAIN.populated,
     label: DOMAIN.populated
-      ? `plugin capabilities (${pluginAgents} agents, ${pluginSkills} skills, ${pluginCommands} commands)`
+      ? `plugin capabilities (${pluginAgents} agents, ${pluginSkills} skills)`
       : `${DOMAIN.label} domain starts empty (0 agents, 0 skills) — learns the project`,
   },
   {

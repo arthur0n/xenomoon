@@ -84,7 +84,7 @@ gh issue view <N> -R {{REPO}} --json comments -q '.comments[].body' | grep -oE '
 
 ## What to check
 
-1. **Read the issue + the developer's report + the senior-analyst ANALYSIS** (compact text
+1. **Read the issue + the developer's report + the `🔬 ANALYSIS` spec** (compact text
    render — full content, minus the raw-JSON overhead):
 
    ```bash

@@ -66,8 +66,8 @@ the defect, and route the intent to `/design`.
      decision, hand off to) **`/design`** — the product-owner captures the rule and writes the
      PRD. Do not send intent to `/triage`.
    - **Defect** → if `--triage` is present in the args, immediately spawn the
-     `junior-analyst` agent (Agent tool, `subagent_type: "junior-analyst"`) for each newly created bug issue, then
-     summarize its findings. Otherwise suggest I run `/triage <#>` when I want it
+     `/triage` stage for each newly created bug issue (the spine owns that stage and its
+     agent — you run it, you do not pick the agent here), then summarize its findings. Otherwise suggest I run `/triage <#>` when I want it
      investigated.
 
 ## Notes

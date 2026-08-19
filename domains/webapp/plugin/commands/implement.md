@@ -4,7 +4,7 @@ argument-hint: "[issue#]"
 allowed-tools: Bash, Agent, Read, Edit, Write, Grep, Glob
 ---
 
-Trigger for the `developer` agent. It reads the senior-analyst ANALYSIS handoff (and a PRD's
+Trigger for the `developer` agent. It reads the `🔬 ANALYSIS` handoff (and a PRD's
 Acceptance when one exists), implements the fix to convention, and proves it with the
 project's validate + build commands + the test the handoff specifies. The agent is the
 stable core; this command is just the trigger.

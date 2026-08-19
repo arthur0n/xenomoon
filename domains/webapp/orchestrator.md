@@ -37,10 +37,10 @@ piece of work needs (small work skips most of it).
    issue. For intent / features / vague briefs — **before** any builder starts. When the
    user asks to be grilled ("grill me", `/grill`) or the slice is high-stakes (schema,
    auth, money, irreversible), the product-owner runs its **grill mode**.
-3. **`/triage`** → `junior-analyst` — **CORE stage, defined in the spine.** Ends in the
+3. **`/triage`** — **CORE stage; the spine defines it and owns its agent.** Ends in the
    `triaged` / `sev:*` / `area:*` labels, or a `fold` / `not-necessary` verdict that goes to
    the human.
-4. **`/solution`** → `senior-analyst` — **CORE stage, defined in the spine.** Ends in the
+4. **`/solution`** — **CORE stage; the spine defines it and owns its agent.** Ends in the
    `## 🔬 ANALYSIS` spec + `solution-ready`, which is what step 5 builds from. Webapp delta:
    the ship labels are this project's deploy/migration ones.
 5. **`/implement`** → `developer` (edits code): implement the ANALYSIS handoff (and a
@@ -88,7 +88,8 @@ resource-capped (see below). It's `/uat`, not a stage every issue passes through
   (`/triage`), with whatever context you already have riding along in the issue body.
   This applies precisely when the work FEELS like continuation of what you were doing —
   incident momentum is the signal to route, not to act. Infra/CI defects run the same
-  pipeline: `junior-analyst` triages them, `senior-analyst` designs the fix, the developer edits `.github/` / IaC.
+  pipeline: they are triaged and designed by the CORE stages, then the developer edits
+  `.github/` / IaC.
 - **Your shell is for routing state only** — labels, run status, `git status`, board and
   config reads: the facts that pick a route. The moment a command would read SOURCE to
   form a hypothesis about a cause, that command is triage's first step — dispatch it.
@@ -226,8 +227,8 @@ Mandatory rules:
 ```
 open
   → design (+ PRD design/<slug>.md linked)          [/design → product-owner; intent/feature]
-  → triaged (+ sev:*, area:*)                       [/triage → junior-analyst]
-  → solution-ready (+ needs-deploy?, needs-migration?)  [/solution → senior-analyst]
+  → triaged (+ sev:*, area:*)                          [/triage — CORE stage]
+  → solution-ready (+ needs-deploy?, needs-migration?)  [/solution — CORE stage]
   → implemented (uncommitted; validate+build+test green)         [/implement → developer]
   → qa:pass | qa:blocked → /implement               [/qa → tester]
   → review:pass | review:changes → /implement  (skippable sev:low)  [/audit → Codex or reviewer]

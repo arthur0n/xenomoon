@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse(Bash) — DETERMINISTIC commit gate. CORE: every project gets it, because "commit only
-# when green" is the pipeline's promise and a promise enforced by memory is not enforced. The pipeline's promise
-# ("commit is automatic ONLY when fully green") must not depend on any model remembering it, so
-# this hook re-derives the gate from the issue's labels at the moment `git commit` runs:
+# when green" is the pipeline's promise, and a promise enforced by memory is not enforced. This
+# hook re-derives the verdict from the issue itself at the moment `git commit` runs:
 #
 #   commit references (#N)  → gh labels MUST show qa:pass + review:pass and NO qa:blocked /
 #                             review:changes, AND the SHA each verdict recorded must be the
@@ -28,53 +27,54 @@
 # emits a decision only when it matches.
 cmd="$(jq -r '.tool_input.command // empty' 2>/dev/null)"
 
-# The detector must recognise EVERY command shape the carve-outs let through, or the carve-out
-# grants an exception for a commit this gate never sees. `git -C <path> commit` and `git -c k=v
-# commit` are both allowed there, so both are matched here.
-commit_token='(^|[^[:alnum:]_])git([[:space:]]+-[cC][[:space:]]+[^[:space:]]+)*[[:space:]]+commit([[:space:]]|$)'
-printf '%s' "$cmd" | grep -Eq "$commit_token" || exit 0
-
 decision() { # $1 = allow|deny|ask, $2 = reason
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"%s","permissionDecisionReason":%s}}' \
     "$1" "$(printf '%s' "$2" | jq -Rs .)"
 }
 
+# Command parsing is SHARED with the label stamp — see commit-parse.sh for why one parser.
+#
+# `decision` is defined ABOVE this on purpose. A missing or unreadable parser used to leave
+# `is_commit` undefined; `is_commit "$cmd" || exit 0` then exited 0 with no JSON at all, and a
+# packaging or permissions error silently removed the gate from every commit.
+parser="$(dirname "$0")/commit-parse.sh"
+# shellcheck source=./commit-parse.sh
+if [ ! -r "$parser" ] || ! . "$parser" || ! command -v is_commit >/dev/null 2>&1; then
+  # Speak up ONLY for something that looks like a commit. Prompting on every git command would turn
+  # `git status` and `git log` into approval requests in a broken install — and a human trained to
+  # approve reflexively is worse than no gate at all, because the real warnings lose their signal.
+  if printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]_])git[^&|;]*[[:space:]]commit([[:space:]]|$)'; then
+    decision ask "The commit gate could not load its command parser ($parser). It cannot judge this command, and it will not stay silent about a git command it cannot judge. Reinstall the plugin, or approve only if you know this commit is green."
+  fi
+  exit 0
+fi
+is_commit "$cmd" || exit 0
+
 # ONE commit per command. The gate evaluates the issue state once, before the line runs, so a
 # second commit in the same line would be judged by the first one's verdict — on a HEAD that has
 # already moved, possibly citing a different issue. The SHA binding is only a binding if every
 # commit is checked against the code it actually records.
-# `grep -c` counts LINES, and a chained command is one line — count the matches themselves.
-if [ "$(printf '%s' "$cmd" | grep -Eo "$commit_token" | wc -l | tr -d ' ')" -gt 1 ]; then
+if [ "$(commit_count "$cmd")" -gt 1 ]; then
   decision deny "This command runs more than one \`git commit\`. The gate judges the issue state ONCE, before the line runs, so every commit after the first would ride on a verdict recorded for different code. Split them into separate commands — each one gets its own check."
   exit 0
 fi
 
-# The issue must come from the COMMIT, not from anywhere in the line. Reading the first `(#N)` in
-# the whole command let an earlier reference — `echo "(#123)" && git commit -m "fix (#456)"` — pick
-# the gate's target, so a green issue could authorise a commit that records a blocked one. Only the
-# text from the commit token onward is the commit's own (multi-commit lines were denied above, so
-# the greedy match lands on the single commit this line runs).
-#
-# It also stops at the next command. Slicing to end-of-line let text AFTER the commit supply the
-# reference — `git commit -m chore && echo "(#456)"` would have gated an issue-less commit against
-# #456. If a message legitimately contains `&&`, the reference is lost and the gate falls to its
-# "no (#N)" ASK: a human decides, which is the safe direction.
-commit_args="$(printf '%s' "$cmd" | sed -E "s/^.*${commit_token}//" | sed -E 's/[[:space:]]*(&&|\|\||;|\|).*$//')"
-
-# And the reference must come from the MESSAGE, not from any argument that happens to contain one.
-# `git commit -m chore --author='A (#456) <a@b>'` would otherwise gate an issue-less commit against
-# #456. Only `-m` / `--message` values are read; a `(#N)` sitting elsewhere in the arguments is
-# ignored, so such a commit falls to the "no (#N)" ASK rather than borrowing someone else's verdict.
-msg="$(printf '%s' "$commit_args" | sed -nE "s/.*(-m|--message)[[:space:]=]+'([^']*)'.*/\\2/p")"
-[ -n "$msg" ] || msg="$(printf '%s' "$commit_args" | sed -nE 's/.*(-m|--message)[[:space:]=]+"([^"]*)".*/\2/p')"
-[ -n "$msg" ] || msg="$(printf '%s' "$commit_args" | sed -nE 's/.*(-m|--message)[[:space:]=]+([^[:space:]]+).*/\2/p')"
-n="$(printf '%s' "$msg" | grep -oE '\(#[0-9]+\)' | head -1 | tr -dc '0-9')"
+# The issue must come from the COMMIT's own message — commit-parse.sh explains the narrowings.
+n="$(commit_issue "$cmd")"
 if [ -z "$n" ]; then
   decision ask "No (#N) issue reference — an issue-less commit bypasses the whole pipeline gate. Approve ONLY a true chore/docs commit. A code/CI/infra change belongs to an issue: deny this, file it (/feedback), and let the pipeline commit it with (#N)."
   exit 0
 fi
 
-issue="$(gh issue view "$n" --json labels,comments 2>/dev/null)"
+# Everything below is about ONE repo: the one this commit runs in. `git -C ../sib commit` records
+# there, so its issue lives there too — reading the issue here while comparing SHAs against ../sib
+# would judge one repo's commit by another repo's pipeline state, and issue numbers collide freely
+# across repos.
+cdir="$(commit_dir "$cmd")"
+issue="$(
+  [ -n "$cdir" ] && cd "$cdir" 2>/dev/null
+  gh issue view "$n" --json labels,comments 2>/dev/null
+)"
 # "Could not READ the issue" and "the issue has no labels" are different facts. Conflating them —
 # by testing the label list for emptiness — meant an issue whose labels were removed, or whose
 # label write failed after a BLOCKING verdict was posted, never reached the deny branches at all:
@@ -85,8 +85,12 @@ if [ -z "$issue" ] || ! printf '%s' "$issue" | jq -e 'has("comments")' >/dev/nul
 fi
 labels="$(printf '%s' "$issue" | jq -r '.labels[]?.name' 2>/dev/null)"
 
-# The code this commit will actually record: its parent is the current HEAD.
-head_sha="$(git rev-parse HEAD 2>/dev/null)"
+# The code this commit will actually record: its parent is HEAD — of that same repo.
+if [ -n "$cdir" ]; then
+  head_sha="$(git -C "$cdir" rev-parse HEAD 2>/dev/null)"
+else
+  head_sha="$(git rev-parse HEAD 2>/dev/null)"
+fi
 if [ -z "$head_sha" ]; then
   decision ask "Commit cites (#$n) but HEAD could not be resolved (unborn branch or not a git repo), so the recorded QA/review SHAs cannot be checked. Fail-closed: human approval required."
   exit 0
@@ -115,9 +119,11 @@ latest_verdict() { # $1 = lane regex, $2 = pass regex, $3 = marker key → "BLOC
 }
 # The EMOJI IS DECORATION, but the HEADING is STRUCTURE. Both patterns anchor to the start of a
 # line (`(^|\n)## `), so a comment QUOTING a verdict ("> ## QA — PASS") or mentioning one inline
-# cannot supersede a real blocking one — the rule the PRE-PR parser already used. Real issues carry `## QA — PASS` without it (6 of 10 sampled on a live
-# project), and a verdict this gate cannot see is a verdict that silently does not count — the
-# label-only path then decides, which is the failure the SHA binding exists to prevent.
+# cannot supersede a real blocking one — the rule the PRE-PR parser already used.
+#
+# The EMOJI, though, is decoration: a live project wrote `## QA — PASS` without it in 6 of 10
+# sampled issues. A verdict this gate cannot see is a verdict that silently does not count, and the
+# label-only path then decides — the exact failure the SHA binding exists to prevent.
 qa_verdict="$(latest_verdict '(^|\n)## (🧪 )?QA —' '(^|\n)## (🧪 )?QA — PASS' 'qa-verified')"
 review_verdict="$(latest_verdict '(^|\n)## (🔎 )?REVIEW —' '(^|\n)## (🔎 )?REVIEW — pass' 'review-verified')"
 

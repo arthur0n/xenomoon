@@ -26,6 +26,7 @@ import {
   indent,
 } from "./issuekit-lib.js";
 import { cmdBranch, cmdPr, cmdPromote, cmdDeployCheck } from "./issuekit-plumb.js";
+import { cmdCommit } from "./issuekit-commit.js";
 import {
   PIPELINE_LABELS,
   ISSUEKIT_LABELS,
@@ -462,6 +463,11 @@ const HELP = `issuekit — searchable, deterministic GitHub-issue attempt log (s
       [--conclusion ..] [--from-file json|-] [--repo R]
       Log ONE attempt as a templated comment (auto-numbered, provenance footer).
 
+  issuekit commit <#> -m "<message>"
+      Commit the STAGED fix for an issue: asks the same commit gate the hook uses, commits
+      with the (#N) reference, then stamps committed + fixed-pending-deploy (dropping
+      needs-deploy). Never pushes. --force overrides a gate ASK only, never a DENY.
+
   issuekit resolve <#> --cause "…" [--fix "…"] [--close] [--label fixed-pending-deploy] [--repo R]
   issuekit new --title "…" [--symptom-file f|-] [--label a,b] [--force] [--repo R]
   issuekit show <#> [--repo R]
@@ -505,6 +511,9 @@ const SWITCHES_USER = new Set(["patch", "close", "promote", "deploy-check"]);
 const COMMANDS = {
   init: (_pos, flags) => {
     cmdInit(flags);
+  },
+  commit: (pos, flags) => {
+    cmdCommit(pos[0] ?? "", flags);
   },
   search: (pos, flags) => {
     cmdSearch(pos, flags);

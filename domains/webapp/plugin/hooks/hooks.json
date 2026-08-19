@@ -1,5 +1,5 @@
 {
-  "description": "Webapp domain hooks \u2014 the pipeline's invariants enforced deterministically, independent of any model's prompt discipline: the COMMIT LABEL (PostToolUse \u2014 once that gated commit lands, stamp committed + fixed-pending-deploy and drop needs-deploy on #N so close-deployed-issues.yml can never orphan a merged fix), and the PUSH GATE (sub-agents can never push; the main session's push always asks the human \u2014 push is the pipeline's one hard human checkpoint before CI deploys).",
+  "description": "Webapp domain hooks \u2014 the pipeline's invariants enforced deterministically, independent of any model's prompt discipline: the PUSH GATE (sub-agents can never push; the main session's push always asks the human \u2014 push is the pipeline's one hard human checkpoint before CI deploys).",
   "hooks": {
     "PreToolUse": [
       {
@@ -12,17 +12,6 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dependency-gate.sh\""
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/commit-label.sh\""
           }
         ]
       }

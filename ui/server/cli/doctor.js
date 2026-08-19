@@ -6,7 +6,7 @@
 // Usage: npm run doctor                  (the configured project, see config.js)
 //        npm run doctor -- /path/to/project
 //        node ui/server/cli/doctor.js /path/to/project
-import { existsSync, readdirSync, lstatSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import {
@@ -17,6 +17,7 @@ import {
   ENGINE_LABEL,
   DOMAIN,
   RES_ASSET_MOUNT,
+  ISSUEKIT,
 } from "../core/config.js";
 import { parseJSON } from "../../lib/json.js";
 import { prepareGame } from "./materialize.js";
@@ -137,6 +138,30 @@ function hasRtk() {
     return true;
   } catch {
     return false;
+  }
+}
+
+/** Nearest `<name>` walking up from `dir` (the project may sit inside a monorepo).
+ * @param {string} dir @param {string} name @returns {string | null} */
+function findUp(dir, name) {
+  let cur = dir;
+  for (;;) {
+    const p = path.join(cur, name);
+    if (existsSync(p)) return p;
+    const parent = path.dirname(cur);
+    if (parent === cur) return null;
+    cur = parent;
+  }
+}
+
+/** What a bare command name resolves to on PATH, fully dereferenced — or null.
+ * @param {string} name @returns {string | null} */
+function resolveCommand(name) {
+  try {
+    const found = execFileSync("command", ["-v", name], { encoding: "utf8", shell: true }).trim();
+    return found ? realpathSync(found) : null;
+  } catch {
+    return null;
   }
 }
 
@@ -279,6 +304,31 @@ const checks = [
       label: granted
         ? "background write-grants seeded (.claude/library — researchers can record findings)"
         : "no `.claude/library` line in .xenomoon/write-grants — background researchers CANNOT record findings (add the line back, or delete the file and re-run doctor to reseed)",
+    };
+  })(),
+  // issuekit ships IN this tree and the orchestrator's gate points at it for every issue
+  // operation, so a missing binary or an unbound project turns that instruction into a dead end.
+  (() => {
+    const shipped = existsSync(ISSUEKIT);
+    const config = findUp(PROJECT_DIR, ".issuekit.json");
+    // A global `issuekit` that resolves ELSEWHERE is the dangerous case, not the missing one:
+    // the spine tells agents to run `issuekit …`, so a stale bin means they silently run a
+    // DIFFERENT tool than the one this framework ships and gates.
+    const resolved = resolveCommand("issuekit");
+    // Resolve OURS only when it exists — realpathSync on a missing path throws, which would take
+    // the whole doctor report down instead of printing the "issuekit MISSING" row below.
+    const shippedReal = shipped ? realpathSync(ISSUEKIT) : null;
+    const stale = Boolean(resolved && shippedReal && resolved !== shippedReal);
+    return {
+      ok: shipped && Boolean(config) && !stale,
+      hard: false,
+      label: !shipped
+        ? `issuekit MISSING at ${ISSUEKIT} — the orchestrator is told to use it for every issue operation; reinstall the framework`
+        : stale
+          ? `issuekit on PATH resolves to ${resolved}, NOT this framework's ${ISSUEKIT} — agents told to run \`issuekit …\` would use the other copy; run \`npm link\` in the framework to re-point it`
+          : config
+            ? `issuekit ready (${path.relative(PROJECT_DIR, config)} bound${resolved ? "" : ", not on PATH — agents call it by absolute path"})`
+            : "issuekit shipped but the project has no .issuekit.json — run `issuekit init` in the project once, or issue verbs fall back to the cwd remote",
     };
   })(),
   {

@@ -526,6 +526,14 @@ export function getHermesBlock() {
  * placeholder) so the orchestrator can launch reviews/tasks ITSELF via Bash, not just tell the
  * user to type a slash command. The launch path is consent-gated by policy, not by capability. */
 export const CODEX_COMPANION = path.join(CODEX_PLUGIN_DIR, "scripts", "codex-companion.mjs");
+
+/**
+ * issuekit — the framework's OWN issue/branch/PR tool, shipped in this tree (not vendored: it is
+ * ours). Resolved by absolute path so a session never depends on a global bin existing: the
+ * orchestrator's gate denies raw `gh issue` and points here, and that instruction has to be true
+ * in a fresh install, on any machine.
+ */
+export const ISSUEKIT = path.join(FRAMEWORK_DIR, "ui", "server", "cli", "issuekit.js");
 /** Cost doctrine injected into the Codex block per the detected auth economics: a
  * subscription login has ZERO marginal cost, so quality is free and the default flips
  * from "dispatch deliberately" to "offer and use at every natural gate". */

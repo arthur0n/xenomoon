@@ -13,6 +13,7 @@ import {
   EDIT_TOOLS,
   GENERIC_SUBAGENT_TYPES,
   FRAMEWORK_PLUGIN_DIR,
+  ISSUEKIT,
 } from "./config.js";
 
 // These get the calling agent stamped as `_by` so the server can attribute the record
@@ -140,8 +141,11 @@ function mainBashDenyMessage(input) {
   if (GH_ISSUE_RE.test(cmd))
     return (
       "Raw `gh issue` is denied for the orchestrator — the issue tracker is owned by " +
-      "issuekit (the /issue skill): `issuekit search|new|attempt|resolve`. " +
-      "If the repo lacks .issuekit.json, run `issuekit init` once first."
+      "issuekit, which SHIPS with the framework. Call it by its shipped path: " +
+      `\`node ${ISSUEKIT} search|new|attempt|resolve\`. ` +
+      "A bare `issuekit` on PATH is NOT necessarily this one — an older copy shadows it on a " +
+      "machine that installed it separately, and `npm run doctor` reports when it does. " +
+      "If the repo lacks .issuekit.json, run the same path with `init` once first."
     );
   if (GIT_MUTATE_RE.test(cmd))
     return (

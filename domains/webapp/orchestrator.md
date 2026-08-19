@@ -37,15 +37,12 @@ piece of work needs (small work skips most of it).
    issue. For intent / features / vague briefs — **before** any builder starts. When the
    user asks to be grilled ("grill me", `/grill`) or the slice is high-stakes (schema,
    auth, money, irreversible), the product-owner runs its **grill mode**.
-3. **`/triage`** → `junior-analyst` (CORE, sonnet, read-only): prove the root cause, score
-   severity, and judge whether the issue is even necessary (`necessary` / `fold` /
-   `not-necessary`) — post `## 🔍 Triage` + `triaged` / `sev:*` / `area:*`. Fan-out stage:
-   several issues may triage in parallel. A `fold`/`not-necessary` verdict goes to the human,
-   not onward.
-4. **`/solution`** → `senior-analyst` (CORE, opus, read-only): verify that cause against the
-   real code (CONFIRMED / REFINED / WRONG), design the minimal fix, post one
-   `## 🔬 ANALYSIS` spec + `solution-ready` (+ deploy / migration labels). Serial — its
-   output is what the next stage builds from.
+3. **`/triage`** → `junior-analyst` — **CORE stage, defined in the spine.** Ends in the
+   `triaged` / `sev:*` / `area:*` labels, or a `fold` / `not-necessary` verdict that goes to
+   the human.
+4. **`/solution`** → `senior-analyst` — **CORE stage, defined in the spine.** Ends in the
+   `## 🔬 ANALYSIS` spec + `solution-ready`, which is what step 5 builds from. Webapp delta:
+   the ship labels are this project's deploy/migration ones.
 5. **`/implement`** → `developer` (edits code): implement the ANALYSIS handoff (and a
    PRD's Acceptance when one exists), prove with the project's validate + build + the
    named test, apply `implemented`, leave it **uncommitted**.
@@ -82,9 +79,9 @@ resource-capped (see below). It's `/uat`, not a stage every issue passes through
   an analyst) start from a vague brief.
 - **Agreed small scope** — a PRD slice already exists, or the change is trivial and
   settled → straight **`/implement`**. Don't manufacture ceremony for a one-liner.
-- **Bug / symptom** — after the spine's tracker search: **`/triage`** (then `/solution`
-  once the cause is proven). If, on reading, it's really about what the thing _should_ do
-  (intent, not a defect) → **`/design`**, not the pipeline.
+- **Bug / symptom** — the spine owns this route (`/triage` → `/solution` → builder). The only
+  webapp delta: the builder is **`developer`**, and if it's really about what the thing _should_
+  do (intent, not a defect) → **`/design`**, not the pipeline.
 - **Every defect enters through the pipeline — including the ones YOU find.** A defect
   discovered mid-session (infra, CI, a failed deploy you're watching, a consequence of
   your own push) gets exactly ONE action from you: file it (`/feedback`) and route it

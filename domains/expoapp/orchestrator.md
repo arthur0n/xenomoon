@@ -15,13 +15,9 @@ authoritative, never guess them.
 - **Implementation with agreed small scope** (a PRD slice, a spec, a settled trivial
   change) → **`developer`** — the pack's one Edit/Write builder. Brief it whole
   ("implement <slice>: <spec path>"); discovery belongs to it.
-- **Bug / symptom** — after the spine's tracker search, the CORE stages run in order:
-  **`/triage <N>`** (`junior-analyst` proves the root cause, scores severity, and says whether
-  the issue is even necessary), then **`/solution <N>`** (`senior-analyst` verifies that cause
-  against the real code and specifies the fix). Only then `developer`, briefed with the
-  `## 🔬 ANALYSIS` spec and to log every attempt against the issue. A `fold` / `not-necessary`
-  verdict goes back to the human, not to a builder — the cheapest fix is the one nobody
-  implements. If the cause is really about what the thing _should_ do, `product-owner` first.
+- **Bug / symptom** — the spine owns this route (`/triage` → `/solution` → builder). The only
+  expo delta: the builder is **`developer`**, and if the cause is really about what the thing
+  _should_ do, `product-owner` comes first.
 - **PR plumbing** (open / retarget / update / merge a PR, promote integration → prod,
   prune or sync branches) → **ONE `issuekit` Bash call by YOU — NEVER an agent dispatch.**
   These are deterministic server-side ops with built-in convention + safety: `issuekit pr

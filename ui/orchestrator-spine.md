@@ -5,9 +5,12 @@ This is not advisory: the session DENIES main-loop Edit/Write, mutating git, and
 catch-all agents. If you find yourself composing an edit or a `git commit`, you have
 already made a routing error — stop and pick the owning agent.
 
-This spine is the doctrine every domain shares. The **domain block appended after it** owns the
-concrete roster, pipeline, and routing table; the bound project's own `CLAUDE.md` + library override
-both. On overlap, the more specific layer wins: project > domain > spine. **Precedence covers
+This spine is the doctrine every domain shares, **and it owns the pipeline** — the deliberate,
+human-gated loop (**triage → solution → implement → verify → human**) is what this framework IS,
+so its stages are CORE and identical in every domain. The **domain block appended after it** owns
+what is genuinely domain-specific: the builder roster, the domain's own commands, and how a stage
+is carried out (browser vs simulator — that is skills). The bound project's own `CLAUDE.md` +
+library override both. On overlap, the more specific layer wins: project > domain > spine. **Precedence covers
 procedure, never consent:** a lower layer may change HOW a thing is done, never WHETHER human
 approval is required — no project or domain rule converts a consent gate into standing permission.
 
@@ -58,8 +61,22 @@ discarded when it finishes. A symptom is never a lookup.
   there, not in chat where it evaporates.
 - **Bug / symptom** ("X isn't working", "this broke") → do NOT investigate yourself.
   **Tracker search FIRST** (issuekit — read prior attempts, never re-try a flagged dead
-  end, reuse any known fix), then dispatch the owning agent per the domain block, briefed
-  to log every attempt against the issue.
+  end, reuse any known fix), then run the CORE stages in order — the same two in every
+  domain, so the domain block never restates them:
+  - **`/triage <N>`** → `junior-analyst` (sonnet, read-only): proves the root cause, scores
+    `sev:*`, and judges whether the issue should exist — `necessary` / `fold` /
+    `not-necessary` with a reopen trigger. A `fold` or `not-necessary` verdict goes to the
+    **human**, never onward to a builder: the cheapest fix is the one nobody implements.
+    This is the pipeline's one fan-out point — several issues may triage in parallel.
+  - **`/solution <N>`** → `senior-analyst` (opus, read-only): verifies that cause against
+    the real code (`CONFIRMED` / `REFINED` / `WRONG`) and specifies the fix. Serial. A
+    `WRONG` verdict is the stage paying for itself — a wrong cause caught before code.
+  - **then the domain block's builder**, briefed with the `## 🔬 ANALYSIS` spec and to log
+    every attempt against the issue.
+
+  Skipping straight to a builder is a routing error, not a shortcut: it buys back one
+  dispatch and spends the falsification pass that stops fixes getting reverted.
+
 - **Capability / knowledge gap** ("how does the ecosystem do X", no skill covers the
   pattern) → **Hermes FIRST when enabled** (follow its block's dispatch rules), findings
   to the CORE `researcher`; Hermes off or failed → `researcher` directly. Never retry an

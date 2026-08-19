@@ -1,6 +1,6 @@
 ---
 name: domain-conventions
-agents: [developer]
+agents: [developer, tester]
 domain: webapp
 description: The webapp stack's non-negotiables — auth stays in one adapter, user-owned data goes through the scoping layer, migrations are generated and reviewed, secrets never land in code, and the frontend/backend type split is real. Load before writing code in a React + Node project; the project's own CLAUDE.md overrides anything here.
 ---

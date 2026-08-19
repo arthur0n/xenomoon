@@ -48,13 +48,41 @@ if [ -z "$head_sha" ]; then
   exit 0
 fi
 
-# Newest marker each verdict stamped. Comments come back chronologically, so tail -1 wins.
-qa_sha="$(printf '%s' "$issue" | jq -r '.comments[]?.body' 2>/dev/null | grep -oE 'qa-verified: [0-9a-f]{7,40}' | tail -1 | awk '{print $2}')"
-review_sha="$(printf '%s' "$issue" | jq -r '.comments[]?.body' 2>/dev/null | grep -oE 'review-verified: [0-9a-f]{7,40}' | tail -1 | awk '{print $2}')"
+# Newest marker each verdict stamped, read ONLY from a comment that actually declares a PASS.
+#
+# The marker alone is not enough: a blocking verdict also records which SHA it judged, and reading
+# markers across all comments would let one partial failure ship a rejected fix — the blocking
+# comment posts, its label edit then fails leaving a stale pass label, and the gate would see a
+# pass label plus a matching marker at HEAD. So each comment is checked as a UNIT: the verdict
+# header and the marker must live in the same comment. (The agents also emit distinct markers for
+# blocking verdicts — `qa-blocked-at:` / `review-changes-at:` — so this is belt and braces.)
+#
+# And it reads the LATEST verdict in each lane, not the latest PASS. Filtering to passes first
+# would let an older pass outlive a newer block at the SAME sha: the blocking comment posts, its
+# label edit fails, and the gate would still find a matching pass marker behind it. The newest
+# verdict is the verdict.
+latest_verdict() { # $1 = lane regex, $2 = pass regex, $3 = marker key → "BLOCKED" | "<key>: <sha>" | ""
+  printf '%s' "$issue" |
+    jq -r --arg lane "$1" --arg pass "$2" --arg key "$3" '
+      ([ .comments[]?.body // "" | select(test($lane)) ] | last) as $c
+      | if   $c == null        then ""
+        elif ($c | test($pass)) then ([ $c | scan($key + ": [0-9a-f]{7,40}") ] | last // "")
+        else "BLOCKED" end' 2>/dev/null
+}
+qa_verdict="$(latest_verdict '🧪 QA —' '🧪 QA — PASS' 'qa-verified')"
+review_verdict="$(latest_verdict '🔎 REVIEW —' '🔎 REVIEW — pass' 'review-verified')"
+qa_sha="$(printf '%s' "$qa_verdict" | grep -v BLOCKED | awk '{print $2}')"
+review_sha="$(printf '%s' "$review_verdict" | grep -v BLOCKED | awk '{print $2}')"
 short() { printf '%s' "${1:0:7}"; }
 
 has() { printf '%s\n' "$labels" | grep -qxF "$1"; }
-if has "qa:blocked"; then
+if [ "$qa_verdict" = "BLOCKED" ]; then
+  # The newest QA verdict blocks, whatever the labels say. A stale `qa:pass` next to a newer block
+  # is precisely the partial-failure this ordering exists to catch — the comment is the verdict.
+  decision deny "Gate: the NEWEST QA verdict on #$n is BLOCKED (the labels may still say qa:pass — a label edit that failed does not unblock a fix). Route back to /implement, then re-run /qa $n."
+elif [ "$review_verdict" = "BLOCKED" ]; then
+  decision deny "Gate: the NEWEST review verdict on #$n demanded changes (whatever the labels say). Route back to /implement, then re-run /audit $n."
+elif has "qa:blocked"; then
   decision deny "Gate: issue #$n carries qa:blocked — QA blocked this fix. Route back to /implement; a stale block outranks a pass."
 elif has "review:changes"; then
   decision deny "Gate: issue #$n carries review:changes — review demanded changes. Route back to /implement."
@@ -63,7 +91,7 @@ elif ! has "qa:pass"; then
 elif ! has "review:pass"; then
   decision deny "Gate: issue #$n lacks review:pass — run /audit $n first."
 elif [ -z "$qa_sha" ] || [ -z "$review_sha" ]; then
-  decision ask "Issue #$n is label-green but its verdicts predate SHA binding (no $([ -z "$qa_sha" ] && printf 'qa-verified')$([ -z "$qa_sha" ] && [ -z "$review_sha" ] && printf ' / ')$([ -z "$review_sha" ] && printf 'review-verified') marker), so the pass cannot be tied to the code being committed. Approve only if you know this green covers HEAD $(short "$head_sha"); otherwise re-run /qa $n and /audit $n."
+  decision ask "Issue #$n is label-green but carries no PASS-verdict SHA marker — either its verdicts predate SHA binding, or the newest verdict was a BLOCK/changes whose marker carries no authority (no $([ -z "$qa_sha" ] && printf 'qa-verified')$([ -z "$qa_sha" ] && [ -z "$review_sha" ] && printf ' / ')$([ -z "$review_sha" ] && printf 'review-verified') marker), so the pass cannot be tied to the code being committed. Approve only if you know this green covers HEAD $(short "$head_sha"); otherwise re-run /qa $n and /audit $n."
 elif [ "$qa_sha" != "$head_sha" ]; then
   decision deny "Gate: QA verified #$n at $(short "$qa_sha") — committing on $(short "$head_sha"). The pass belongs to code that is no longer HEAD; re-run /qa $n (a label is a sticker, the SHA is the artifact)."
 elif [ "$review_sha" != "$head_sha" ]; then

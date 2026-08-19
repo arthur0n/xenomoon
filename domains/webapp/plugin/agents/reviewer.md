@@ -69,22 +69,25 @@ progress view; the GitHub issue stays the durable record.
   documented in the project's `CLAUDE.md` — follow that; otherwise don't switch
   accounts. If a `gh` call 404s on the repo, stop and report it rather than guessing.
 
-## Idempotency — keyed on the SHA, never on the label
+## Idempotency — the NEWEST verdict decides, and it is a comment, not a label
 
-A pass belongs to the CODE it was earned on, so `review:pass` alone never means "done".
-Capture `git rev-parse HEAD` first, then:
-
-- Issue carries `review:pass` **and** its newest `review-verified: <sha>` marker equals
-  that HEAD → post nothing, report "already reviewed at `<short sha>` — skipped".
-- The marker's SHA **differs**, or there is no marker → **review it now**, unforced. The
-  code moved under the verdict; a pass on other code is not a pass on this one.
-- `review:changes` → don't re-run unforced; report it and route back to `/implement <N>`.
-
-The caller (`--force`) re-runs regardless. Read the newest marker with:
+A pass belongs to the CODE it was earned on, so `review:pass` alone never means "done" — and the
+label can be stale, because a comment posts before its label edit and that edit can fail. Capture
+`git rev-parse HEAD`, then read the newest comment in the review lane:
 
 ```bash
-gh issue view <N> -R {{REPO}} --json comments -q '.comments[].body' | grep -oE 'review-verified: [0-9a-f]{7,40}' | tail -1
+gh issue view <N> -R {{REPO}} --json comments -q '[.comments[].body | select(test("🔎 REVIEW —"))] | last'
 ```
+
+- Newest verdict is **pass** and its `review-verified: <sha>` equals HEAD → post nothing, report
+  "already reviewed at `<short sha>` — skipped".
+- Newest verdict is **changes** → route back to `/implement <N>`, unforced, **whatever the labels
+  say**. A `review:pass` label behind a newer changes verdict means an edit failed, not that the
+  fix recovered.
+- Newest verdict is a **pass at a different SHA**, or there is none → **review it now**, unforced.
+  The code moved under the verdict; a pass on other code is not a pass on this one.
+
+The caller (`--force`) re-runs regardless.
 
 ## What to review
 
@@ -164,13 +167,20 @@ Format:
 
 ---
 *adversarial review · reviewer · opus · <output of: git rev-parse --short HEAD>*
-review-verified: <output of: git rev-parse HEAD>
+review-verified: <output of: git rev-parse HEAD>      ← PASS ONLY
 ```
 
 The `review-verified:` line is **machine-read by the commit gate** — it binds this verdict
 to the exact code you reviewed, so a later commit on different code is denied instead of
-riding your pass. Capture the SHA before you review, emit it verbatim (full 40 chars, no
-backticks, last line of the comment), and post it on a `changes` verdict too.
+riding your pass. Capture the SHA before you review and emit it verbatim (full 40 chars, no
+backticks, last line).
+
+**The marker depends on the verdict:** a `pass` ends with `review-verified: <sha>`; a `changes`
+verdict ends with `review-changes-at: <sha>` instead and **never** carries `review-verified:`.
+Otherwise one partial failure ships a rejected fix — the comment posts, the label edit then fails
+leaving a stale `review:pass`, and the gate sees a pass label plus a matching marker at HEAD for a
+review that demanded changes. **On a `changes` verdict, apply the label BEFORE posting**: the label
+is the block, the comment is only its explanation.
 
 Then apply labels — exactly one of `review:pass` / `review:changes`, removing the twin
 if present:

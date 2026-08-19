@@ -1,6 +1,6 @@
 ---
 name: domain-conventions
-agents: [developer]
+agents: [developer, tester]
 domain: expoapp
 description: The Expo / React Native non-negotiables — the project's package scripts are the only authority (a global tsc shadows the workspace pin), platform-specific APIs are cross-platform defects, and every change must declare which side of the native-rebuild line it is on. Load before writing code in an Expo/RN project; the project's own CLAUDE.md overrides anything here.
 ---

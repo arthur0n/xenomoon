@@ -46,9 +46,9 @@ piece of work needs (small work skips most of it).
 5. **`/implement`** — **CORE stage; the spine defines it and owns its agent.** Builds the
    `## 🔬 ANALYSIS` spec (and a PRD Acceptance when one exists), proves it with THIS project's
    validate + build + the named test, ends in `implemented` with the change **uncommitted**.
-6. **`/qa`** → `tester` (read-only): re-run validate + build + test (+ smoke on data
-   paths), assert the named regression test guards the bug (Acceptance is the rubric,
-   unchanged), apply `qa:pass` / `qa:blocked`.
+6. **`/qa`** — **CORE stage; the spine defines it and owns its agent.** Re-runs THIS project's
+   gates for every package the diff touches and judges the regression test (a PRD's Acceptance is
+   the rubric, unchanged). Ends in `qa:pass` / `qa:blocked` — the deploy switch.
 7. **`/audit`** → adversarial code review: Codex when enabled (you run it), else the
    `reviewer` agent. Try to falsify the fix; apply `review:pass` / `review:changes`.
 8. **`/commit`** — direct (no agent): once green, YOU `git add` + `git commit` with

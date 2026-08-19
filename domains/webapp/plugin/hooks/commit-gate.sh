@@ -71,6 +71,35 @@ latest_verdict() { # $1 = lane regex, $2 = pass regex, $3 = marker key → "BLOC
 }
 qa_verdict="$(latest_verdict '🧪 QA —' '🧪 QA — PASS' 'qa-verified')"
 review_verdict="$(latest_verdict '🔎 REVIEW —' '🔎 REVIEW — pass' 'review-verified')"
+
+# When TWO reviewers ran, NEITHER writes the lane verdict: each posts EVIDENCE under its own header
+# (`## 🔎 CODEX REVIEW`, `## 🔎 INTERNAL REVIEW`) with no marker and no label, and `/audit` folds
+# both into the single `## 🔎 REVIEW` verdict where any block wins. So evidence newer than the lane
+# verdict means the reconciliation never happened — an interrupted run — and the standing verdict
+# predates a reviewer nobody folded in. Comparing against the LANE verdict (not against "any review
+# comment") is what makes this hold in both interruption orders: die after Codex, or die after the
+# internal reviewer, and either way the newest thing on the issue is unreconciled evidence.
+evidence_unreconciled="$(printf '%s' "$issue" | jq -r '
+  ([ .comments[]?.body // "" ] | to_entries) as $all
+  | (([$all[] | select(.value | test("🔎 (CODEX|INTERNAL) REVIEW")) | .key] | last) // -1) as $ev
+  | (([$all[] | select(.value | test("🔎 REVIEW —")) | .key] | last) // -1) as $rv
+  | if $ev > $rv then "yes" else "" end' 2>/dev/null)"
+# `/pre-pr` sets NO label — deliberately: it adds judgement, not another sticker to collect, and the
+# gate-depth rules let a sev:low change skip it. So this gate does NOT require a `ready` verdict.
+# But a `not-ready` that was WRITTEN must still bite: an unanswered "this does not deliver what was
+# agreed" is not advisory, and leaving it advisory means the one stage that reads the design against
+# the finished work is the one stage anybody can ignore. Blocking-only, and asymmetric on purpose.
+#
+# Only STRUCTURALLY VALID lane reports count, both to set the block and to clear it: the header at
+# the start of a line AND the lane's own signature footer. This lane has no SHA marker to
+# cross-check, so without that, quoting a verdict in a discussion comment — or typing
+# "## 🚦 PRE-PR — ready" — would clear a real not-ready. Anchoring at line start also means a
+# markdown-quoted ("> ## 🚦 …") copy of an old verdict does not count as a new one.
+prepr_blocked="$(printf '%s' "$issue" | jq -r '
+  def lane_report: test("(^|\n)## 🚦 PRE-PR — (ready|not-ready)")
+                   and test("(^|\n)\\*pre-PR review · senior-analyst");
+  ([ .comments[]?.body // "" | select(lane_report) ] | last) as $c
+  | if ($c != null and ($c | test("(^|\n)## 🚦 PRE-PR — not-ready"))) then "yes" else "" end' 2>/dev/null)"
 qa_sha="$(printf '%s' "$qa_verdict" | grep -v BLOCKED | awk '{print $2}')"
 review_sha="$(printf '%s' "$review_verdict" | grep -v BLOCKED | awk '{print $2}')"
 short() { printf '%s' "${1:0:7}"; }
@@ -82,6 +111,10 @@ if [ "$qa_verdict" = "BLOCKED" ]; then
   decision deny "Gate: the NEWEST QA verdict on #$n is BLOCKED (the labels may still say qa:pass — a label edit that failed does not unblock a fix). Route back to /implement, then re-run /qa $n."
 elif [ "$review_verdict" = "BLOCKED" ]; then
   decision deny "Gate: the NEWEST review verdict on #$n demanded changes (whatever the labels say). Route back to /implement, then re-run /audit $n."
+elif [ -n "$prepr_blocked" ]; then
+  decision deny "Gate: the NEWEST pre-PR verdict on #$n is not-ready — the delivery does not match what was agreed (dropped scope, unasked additions, or not one coherent PR). It carries no label by design, but an unanswered not-ready still blocks. Address its findings via /implement, then re-run /pre-pr $n."
+elif [ -n "$evidence_unreconciled" ]; then
+  decision ask "A reviewer's findings on #$n (a '## 🔎 CODEX REVIEW' / '## 🔎 INTERNAL REVIEW' comment) landed AFTER the lane's own verdict, and no reconciled '## 🔎 REVIEW' followed — so the standing verdict predates a reviewer nobody folded in. Re-run /audit $n; it folds every reviewer into ONE verdict where any block wins. Approve only if you have read those findings yourself and they raise nothing."
 elif has "qa:blocked"; then
   decision deny "Gate: issue #$n carries qa:blocked — QA blocked this fix. Route back to /implement; a stale block outranks a pass."
 elif has "review:changes"; then

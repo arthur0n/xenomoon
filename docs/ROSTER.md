@@ -15,29 +15,40 @@ print the live table with `node ui/server/cli/agents-lint.js --table`).
 
 ### CORE pipeline stages (being promoted stage by stage — `plugin/docs/process/promote-agent-to-core.md`)
 
-| agent          | model  | effort | when used                                                                                                                                                                             | cost expectation                              |
-| -------------- | ------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| junior-analyst | sonnet | high   | `/triage` — prove the root cause, score severity, judge necessity (`necessary`/`fold`/`not-necessary`): `## 🔍 Triage` + `triaged` / `sev:*` / `area:*`. The pipeline's fan-out stage | Low-medium per issue; several run in parallel |
-| senior-analyst | opus   | high   | `/solution` — verify that cause against real code (CONFIRMED/REFINED/WRONG) + design the minimal fix: `## 🔬 ANALYSIS` spec + `solution-ready`. Serial                                | High per issue, the main design spend         |
+| agent          | model  | effort | when used                                                                                                                                                                                                                                                                               | cost expectation                        |
+| -------------- | ------ | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| junior-analyst | sonnet | high   | The read-only WORKER lane. `/triage` (`triage-method`) — root cause, severity, necessity → `## 🔍 Triage` + `triaged`/`sev:*`/`area:*`. `/sweep` (`gate-sweep`) — gates verbatim + diff/commit hygiene → QUICK-PASS or a FIX list, **no labels**. The pipeline's fan-out point          | Low-medium per run; several in parallel |
+| senior-analyst | opus   | high   | The read-only JUDGEMENT lane. `/solution` (`solution-method`) — verify the cause + spec the fix. `/audit` (`adversarial-review`) — try to BREAK it. `/pre-pr` (`pre-pr-review`) — after QA, delivery vs DESIGN. Each dispatch is a FRESH context, which is what keeps generator ≠ judge | High per run, the main judgement spend  |
+| developer      | opus   | high   | `/implement` — build the ANALYSIS/PRD spec, add the named regression test, leave it UNCOMMITTED. The pipeline's only Edit/Write agent                                                                                                                                                   | High per issue; one at a time           |
+| tester         | sonnet | high   | `/qa` gate — re-run the project's own commands per touched package + judge the regression test. **Its label is the deploy switch**                                                                                                                                                      | Medium, per implemented issue           |
+
+**A lane is a SKILL, never a new agent.** Both analysts carry several; adding a checklist adds a
+skill. A second same-model reader whose instructions differ by a few lines is the bloat this file
+forbids below.
 
 ## Webapp domain (`domains/webapp/plugin/agents/`)
 
-| agent      | model  | effort | when used                                                                            | cost expectation                                        |
-| ---------- | ------ | ------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------- |
-| developer  | sonnet | high   | Implement the ANALYSIS/PRD spec, add the named regression test, leave uncommitted    | Medium-high per issue (effort-justified: owner mandate) |
-| tester     | sonnet | medium | `/qa` gate: re-run gates + judge the regression test against Acceptance              | Medium, per implemented issue                           |
-| reviewer   | opus   | high   | `/audit` adversarial review of the uncommitted diff (Codex replaces it when enabled) | High — skippable for sev:low/cosmetic                   |
-| uat-runner | sonnet | low    | `/uat` capped Playwright acceptance (POC-first, out-of-band)                         | Low, batch cadence                                      |
+| agent      | model  | effort | when used                                            | cost expectation   |
+| ---------- | ------ | ------ | ---------------------------------------------------- | ------------------ |
+| uat-runner | sonnet | low    | `/uat` acceptance against a running app, out-of-band | Low, batch cadence |
 
-`developer`, `tester`, `reviewer` and `uat-runner` are the stages still awaiting promotion into
-CORE.
+`uat-runner` is the last stage awaiting promotion into CORE (it exists in three near-identical
+copies). Its webapp lane is unsettled: the capped-Playwright design was never actually used, and
+the owner's direction is to drive the browser through Claude's own Chrome capability instead — so
+nothing is built for it until that is proven in a live run.
 
-**Retired — do not reintroduce:** `committer` (2026-07-21 → direct hook-gated `/commit`), and the
+**Retired — do not reintroduce:** `committer` (2026-07-21 → direct hook-gated `/commit`); the
 webapp-pack agent that fused triage with fix-design behind a single `/analyze` command and label
-(2026-08-18). Both stages now live in CORE as `junior-analyst` (`/triage` → `triaged`) and
-`senior-analyst` (`/solution` → `solution-ready`), so a pack never re-owns them. This line exists so
-the merge is not re-attempted as a simplification: fusing them costs the independent second read,
-which is what catches a confidently wrong root cause before code is written.
+(2026-08-18); and the webapp `reviewer` (2026-08-19 → the `adversarial-review` skill on
+`senior-analyst`, since a reviewer that differs from an analyst only by checklist is a lane).
+
+Two things this note is here to prevent being "simplified" back:
+
+- **Triage and solution stay separate stages.** Fusing them costs the independent second read —
+  the pass that catches a confidently wrong root cause before any code is written.
+- **A lane never becomes an agent again.** The mechanical sweep and the adversarial review are
+  checklists on the two analysts. A `junior-reviewer` / `senior-reviewer` pair was proposed and
+  rejected: same model, same read-only contract, same tools, differing only in what they read.
 
 ## Roster discipline (the bar for adding an agent)
 

@@ -46,20 +46,27 @@ piece of work needs (small work skips most of it).
 5. **`/implement`** — **CORE stage; the spine defines it and owns its agent.** Builds the
    `## 🔬 ANALYSIS` spec (and a PRD Acceptance when one exists), proves it with THIS project's
    validate + build + the named test, ends in `implemented` with the change **uncommitted**.
-6. **`/qa`** — **CORE stage; the spine defines it and owns its agent.** Re-runs THIS project's
+6. **`/sweep`** — **CORE stage; the spine defines it and owns its agent.** The mechanical pass
+   before the gate: this project's gates verbatim per touched package, diff and commit hygiene.
+   QUICK-PASS or a numbered FIX list — **no labels**, so it never looks like a verdict.
+7. **`/qa`** — **CORE stage; the spine defines it and owns its agent.** Re-runs THIS project's
    gates for every package the diff touches and judges the regression test (a PRD's Acceptance is
    the rubric, unchanged). Ends in `qa:pass` / `qa:blocked` — the deploy switch.
-7. **`/audit`** → adversarial code review: Codex when enabled (you run it), else the
-   `reviewer` agent. Try to falsify the fix; apply `review:pass` / `review:changes`.
-8. **`/commit`** — direct (no agent): once green, YOU `git add` + `git commit` with
-   `(#N)`, apply `committed` + `fixed-pending-deploy`. The `commit-gate` hook re-checks
-   the labels deterministically and denies any non-green commit. **Never push.**
-9. **`/build`** — local build / smoke with the project's commands. Deploy is **CI-only**
-   on push to the main branch — never `sam deploy`/`wrangler deploy`/manual.
+8. **`/audit`** — **CORE stage; the spine defines it and owns its agents.** Adversarial review
+   that tries to FALSIFY the fix, **after QA**. Ends in `review:pass` / `review:changes`.
+9. **`/pre-pr`** — **CORE stage; the spine defines it and owns its agent.** The fresh look at the
+   delivery against the DESIGN before it becomes a PR. Adds **no gate label** — the commit gate's
+   contract stays `qa:pass` + `review:pass`.
+10. **`/commit`** — direct (no agent): once green, YOU `git add` + `git commit` with
+    `(#N)`, apply `committed` + `fixed-pending-deploy`. The `commit-gate` hook re-checks
+    the labels deterministically and denies any non-green commit. **Never push.**
+11. **`/build`** — local build / smoke with the project's commands. Deploy is **CI-only**
+    on push to the main branch — never `sam deploy`/`wrangler deploy`/manual.
 
-Full path: `/feedback` → `/design`? → `/triage` → `/solution` → `/implement` → `/qa` →
-`/audit` → `/commit` → `/build`. Loop-backs: `qa:blocked` (from `/qa`) or `review:changes` (from
-`/audit`) send the issue back to `/implement` — its blockers/findings are the fix list.
+Full path: `/feedback` → `/design`? → `/triage` → `/solution` → `/implement` → `/sweep` → `/qa` →
+`/audit` → `/pre-pr` → `/commit` → `/build`. Loop-backs: `qa:blocked` (from `/qa`), `review:changes`
+(from `/audit`) or `not-ready` (from `/pre-pr`) send the issue back to `/implement` — its
+blockers/findings are the fix list.
 **Bounded: 3 loop-back rounds per issue.** Still red after 3 → STOP looping; surface the
 open findings to the user. Stop for a human look between stages. Each stage is idempotent
 (skips already-done issues unless forced). One issue does not skip ahead.
@@ -94,20 +101,22 @@ resource-capped (see below). It's `/uat`, not a stage every issue passes through
   config reads: the facts that pick a route. The moment a command would read SOURCE to
   form a hypothesis about a cause, that command is triage's first step — dispatch it.
 - Later stages by state: `triaged` issue → `/solution`; `solution-ready` → `/implement` (**one at a time**);
-  `implemented` → `/qa`; `qa:pass` → `/audit`; fully-green (`qa:pass` + `review:pass`) →
-  `/commit` (you run it directly; the hook denies a non-green commit; never push);
-  "smoke the whole app" → `/uat` (out-of-band).
+  `implemented` → `/sweep`, then `/qa`; `qa:pass` → `/audit`; fully-green (`qa:pass` +
+  `review:pass`) → `/pre-pr`, then `/commit` (you run it directly; the hook denies a non-green
+  commit; never push); "smoke the whole app" → `/uat` (out-of-band). `/sweep` and `/pre-pr` set no
+  labels, so the state alone will not tell you they ran — the issue thread will.
 
 ## Gate-depth conventions (the pipeline is not mandatory)
 
 Right-size the gate to the work:
 
-- **FULL gate** (`/qa` + `/audit` + the hooks) for **significant** builds — auth, data
-  scoping, migrations, core flows, `sev:high` / `sev:critical`, and **anything with a
-  PRD**.
-- **Skip `/audit`** for `sev:low` / cosmetic / trivial glue — `/qa` still runs (the cheap
-  floor). **But NEVER skip the full gate when the change touches auth, data scoping, or
-  migrations**, regardless of severity — those force `/qa` + `/audit`.
+- **FULL gate** (`/sweep` + `/qa` + `/audit` + `/pre-pr` + the hooks) for **significant** builds —
+  auth, data scoping, migrations, core flows, `sev:high` / `sev:critical`, and **anything with a
+  PRD**. `/pre-pr` earns its place exactly on the PRD ones: a spec with Acceptance is a spec
+  something can be silently dropped from.
+- **Skip `/audit` and `/pre-pr`** for `sev:low` / cosmetic / trivial glue — `/qa` still runs (the
+  cheap floor), and `/sweep` is cheap enough to keep. **But NEVER skip the full gate when the change
+  touches auth, data scoping, or migrations**, regardless of severity — those force the whole set.
 - **Commit-gate + commit-label + push-gate hooks ALWAYS run** — deterministic, not
   skippable. `commit-label` (PostToolUse) stamps `committed` + `fixed-pending-deploy` and
   drops `needs-deploy` the instant a `(#N)` commit lands, so the deploy-close workflow
@@ -166,22 +175,19 @@ test that actually guards the bug.
 
 ## The pipeline stages (QA, review, commit, UAT)
 
-### Code review (Codex vs native)
+### Code review — the webapp deltas
 
-`/audit` is the adversarial code-review stage on a `qa:pass` issue — it tries to
-**falsify** the fix (scoping/auth leaks, enum drift, swallowed errors, a test that
-doesn't guard the bug) and applies `review:pass` / `review:changes`. Two paths:
+The review stages themselves are CORE (the spine defines `/sweep`, `/audit` and `/pre-pr`, and
+owns which agents run them). What is webapp-specific:
 
-- **Codex enabled** (your system prompt has the Codex block with the companion path) →
-  **you** run it, in a **background Bash** (`node "<CODEX_COMPANION>" adversarial-review
-"issue #N: <focus>"`), then post its output as the `## 🔎 REVIEW` verdict + label. Codex
-  bills on **OpenAI's account** (the user's own, NOT the Anthropic plan) and is slow —
-  running `/audit` on a Codex-enabled project **is** the consent; state that you're
-  launching a billed review.
-- **Codex not enabled** → spawn the `reviewer` agent (opus, read-only), which reads the
-  diff + convention floor + ANALYSIS and posts the same verdict.
+- **The dimensions that matter most on this stack** — data scoping / tenancy leaks, the auth
+  adapter boundary, and enum/label drift. Say so in the `focus` you pass to `/audit`; the audit
+  attacks everything, but naming the stack's usual suspects sharpens it.
+- **Codex bills on OpenAI's account** (the user's own, not the Anthropic plan) and is slow, so
+  state that you are launching a billed review before you start it.
 
-`review:changes` loops back to `/implement`. Only `/commit` after `review:pass`.
+`review:changes` loops back to `/implement`. Only `/commit` after `review:pass` — and on a full-gate
+change, after `/pre-pr` says `ready`.
 
 ### Commit gate
 
@@ -230,8 +236,10 @@ open
   → triaged (+ sev:*, area:*)                          [/triage — CORE stage]
   → solution-ready (+ needs-deploy?, needs-migration?)  [/solution — CORE stage]
   → implemented (uncommitted; validate+build+test green)         [/implement — CORE stage]
+  → (no label — QUICK-PASS or a FIX list back to /implement)      [/sweep — CORE stage]
   → qa:pass | qa:blocked → /implement               [/qa → tester]
-  → review:pass | review:changes → /implement  (skippable sev:low)  [/audit → Codex or reviewer]
+  → review:pass | review:changes → /implement  (skippable sev:low)  [/audit — CORE stage; Codex and/or senior-analyst]
+  → (no label — ready | not-ready back to /implement)             [/pre-pr — CORE stage]
   → committed + fixed-pending-deploy                [/commit direct; hook-gated; NEVER pushes]
   → (human pushes → CI deploys → issue closes)
 

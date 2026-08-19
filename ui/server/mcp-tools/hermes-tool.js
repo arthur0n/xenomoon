@@ -43,7 +43,7 @@ const isInfraFault = (reason) =>
   /HTTP \d|Hermes \d{3}\b|fetch failed|did not accept|ECONNREFUSED/i.test(reason);
 
 /** Deterministically log a Hermes failure to the project's debrief queue — the signal must
- * outlive the offer (a forgotten follow-up loses nothing; /debrief drains the queue).
+ * outlive the offer (a forgotten follow-up loses nothing; a debrief run drains the queue).
  * Best-effort: a failed write never breaks the failure delivery itself.
  * @param {string} runId @param {string} reason */
 function queueHermesFailure(runId, reason) {

@@ -2,7 +2,7 @@
 
 > This is the **up** direction (godot source → framework). For the **down** direction
 > (framework → the tests/projects that consume it, e.g. xm-probius) see
-> [`DOWNSTREAM.md`](DOWNSTREAM.md) + the `/sync-framework` command.
+> [`DOWNSTREAM.md`](DOWNSTREAM.md) + the `framework-sync` skill.
 
 This repo is a **fork** of the framework **`arthur0n/xenodot-forge`**. The relationship is
 **one-way**: we **only ever fetch** from the source to pull its (curated) improvements into our own

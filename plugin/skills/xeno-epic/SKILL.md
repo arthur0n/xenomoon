@@ -14,6 +14,16 @@ work is incremental, not an expedition. **All writes go through `mcp__ui__epic`*
 tool owns the body shape; an epic is never edited freehand. (Storage — project tracker
 issue labelled `epic`, or `design/epics/` fallback — is the tool's concern, not yours.)
 
+## The three ways this starts
+
+- **a brief** → CHART it: dispatch the `product-owner` (foreground, grill mode) to name the goal,
+  then run the breadth-first sweep and record everything through `mcp__ui__epic` (`chart`, then
+  `open` / `fog` / `scope_out`). Charting resolves nothing, deliberately — report the epic ref and
+  its frontier.
+- **an epic ref** (issue number or slug) → WORK it: `op:"next"`, route that ONE decision to its
+  owning agent, record with `op:"decide"`, graduate fog.
+- **nothing** → `op:"list"`, then ask which epic — or offer to chart the topic under discussion.
+
 ## When an epic is warranted (orchestrator's call)
 
 Chart one when the brief needs **more than one slice or more than one session** —

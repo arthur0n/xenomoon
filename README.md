@@ -6,7 +6,7 @@
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Status: experimental](https://img.shields.io/badge/Status-experimental-orange.svg)
-![Skills: 29](https://img.shields.io/badge/Skills-29-b08d57)
+![Skills: 30](https://img.shields.io/badge/Skills-30-b08d57)
 ![Agents: 9](https://img.shields.io/badge/Agents-9-b08d57)
 ![Domains: expoapp · webapp](https://img.shields.io/badge/Domains-expoapp_·_webapp-b08d57)
 

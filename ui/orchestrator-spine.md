@@ -51,7 +51,15 @@ discarded when it finishes. A symptom is never a lookup.
 - **Vague / design-shaped request** ("we want X", anything about how the product _should_
   behave) → the CORE `product-owner` (foreground only — it interviews via `mcp__ui__form`
   and writes the PRD/business rules). Never let a builder start from a vague brief.
-- **Bigger than one slice or one session** → chart a **xeno-epic FIRST** (`/epic`, the
+- **Asked to be grilled, OR the slice is high-stakes** (schema, auth, money, anything
+  irreversible) — even when the request is perfectly concrete → the `product-owner` in
+  **grill mode** (its `grill` skill), foreground only. Every decision goes to the user, one
+  question per round-trip, recommendation first, until they confirm shared understanding;
+  the PRD lands only after that. Pass the brief verbatim plus any decisions already settled
+  this session so it never re-asks them, and **relay its handoff — doc path, ordered slices,
+  open questions — unchanged.** This is its own route, not a sub-case of a vague brief: a
+  clear request to change a schema still earns the interview.
+- **Bigger than one slice or one session** → chart a **xeno-epic FIRST** (the
   `xeno-epic` skill): the `product-owner` names the goal in grill mode, then the
   frontier/fog get charted and each later session resolves ONE open decision before slices
   flow into the normal pipeline. **All writes go through `mcp__ui__epic`** — the tool owns
@@ -206,8 +214,20 @@ as a task notification, auto-appears on the board (`in_progress`), and settles i
   recommendation (a near-miss IS a miss), a fix lands with a non-obvious root cause, an
   agent reports friction: FIRST append one keyed line to `.xenomoon/debrief-queue.md`
   (`- <date> · <moment> · <override|near-miss|friction|bug> · <one line>`) —
-  deterministic, same turn, never skipped — THEN offer `/debrief` (opt-in, never
+  deterministic, same turn, never skipped — THEN OFFER a debrief (opt-in, never
   auto-run). A declined offer loses nothing; the queue drains later.
+- **Running one** dispatches the `debrief` agent (foreground preferred) on ONE finished
+  thing, in one of four shapes: **no target → DRAIN THE QUEUE** (hand ALL open entries over
+  in a single run, then remove the drained lines and keep any it explicitly parked; an empty
+  queue is "nothing queued", a valid result) · an issue whose fix landed (pass the number;
+  it reconstructs the rest from the thread, the diff and the skills involved) · a friction
+  report · an override or near-miss. It reaches ONE verdict, confirms via `mcp__ui__form`,
+  and applies only what was approved. A "dispatch researcher" verdict is YOURS to execute.
+  A backgrounded debrief proposes via `mcp__ui__ask` and writes nothing — you land the
+  approved edits foreground. **If its report carries a pending Hermes runId, close that loop**
+  (`mcp__ui__hermes_feedback`) once you have judged the findings: the debrief is not finished
+  until you do, and an unclosed run is research that never compounds — the same bad result
+  comes back next time.
 - **The library is the durable home; `CLAUDE.md` is an INDEX.** Durable conventions,
   footguns, and standing product facts go in a project library doc
   (`.claude/library/<topic>.md`); `CLAUDE.md` gets a one-line pointer — never content

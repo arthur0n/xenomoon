@@ -114,10 +114,11 @@ const GIT_MUTATE_RE = new RegExp(
 const BUILD_GATE_RE =
   /(^|&&|\|\||;|\|)\s*(rtk\s+)?((pnpm|npm|yarn|bun)\s+(-C\s+\S+\s+)?(run\s+)?(validate|test)\b|(npx\s+)?(vitest|jest|tsc|eslint)\b|(npx\s+)?playwright\s+test\b)/;
 
-// The domain pack's own deterministic commit gate (webapp: commit-gate.sh re-derives
-// qa/review labels at commit time and denies non-green). When the INSTALLED plugin ships
-// it, the pipeline's /commit stage is the orchestrator's sanctioned direct git write —
-// add/commit only; everything else stays denied. No hook installed → no carve-out.
+// The deterministic commit gate (commit-gate.sh re-derives the lane verdicts and their SHAs at
+// commit time and denies anything non-green). It is CORE now, so the carve-out is universal: the
+// pipeline's commit stage is the orchestrator's sanctioned direct git write — add/commit only,
+// everything else stays denied. The check remains because a trimmed or hand-edited plugin tree
+// without the hook must NOT get the carve-out: no gate, no exception.
 let _commitGateHook = /** @type {boolean | null} */ (null);
 function hasCommitGateHook() {
   _commitGateHook ??= existsSync(join(FRAMEWORK_PLUGIN_DIR, "hooks", "commit-gate.sh"));
@@ -130,6 +131,11 @@ const MAX_DISPATCH_BRIEF_CHARS = 2500;
 const GIT_ADD_COMMIT_ONLY_RE =
   /^(\s*(rtk\s+)?git\s+(-C\s+\S+\s+)?(add|commit)\b[^&|;]*)(&&\s*(rtk\s+)?git\s+(-C\s+\S+\s+)?(add|commit)\b[^&|;]*)*$/;
 
+// The carve-out exists because commit-gate.sh judges the COMMIT. A standalone `git add` reaches no
+// gate at all: nothing checks it, nothing prompts, and it stages whatever is in the user's tree for
+// someone else's later commit. So staging only ever rides along with the commit it is for.
+const HAS_GIT_COMMIT_RE = /(^|&&|\|\||;|\|)\s*(rtk\s+)?git\s+(-C\s+\S+\s+)?commit\b/;
+
 /** Deny message for a main-loop Bash command that bypasses the framework, or null.
  * Live bite (2026-08-01): the Hive hand-cranked `git commit` on the USER's working tree
  * to unblock a rebase — exactly the class the worktree-isolated developer owns.
@@ -137,7 +143,8 @@ const GIT_ADD_COMMIT_ONLY_RE =
 function mainBashDenyMessage(input) {
   const cmd = /** @type {{ command?: unknown }} */ (input)?.command;
   if (typeof cmd !== "string") return null;
-  if (hasCommitGateHook() && GIT_ADD_COMMIT_ONLY_RE.test(cmd.trim())) return null;
+  if (hasCommitGateHook() && GIT_ADD_COMMIT_ONLY_RE.test(cmd.trim()) && HAS_GIT_COMMIT_RE.test(cmd))
+    return null;
   if (GH_ISSUE_RE.test(cmd))
     return (
       "Raw `gh issue` is denied for the orchestrator — the issue tracker is owned by " +

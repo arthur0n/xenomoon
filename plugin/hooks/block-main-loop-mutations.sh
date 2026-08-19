@@ -45,10 +45,19 @@ if printf '%s' "$cmd" | grep -Eq "$consent_re"; then
   exit 0
 fi
 
-# The pipeline's /commit stage, when the pack ships its own commit gate: let add/commit through
-# to THAT hook, which re-derives qa:pass/review:pass AND their recorded SHAs.
+# The pipeline's commit stage: let add/commit through to the COMMIT GATE, which re-derives the lane
+# verdicts and their recorded SHAs.
+#
+# The line must actually CONTAIN a commit. A standalone `git add` reaches no gate at all — the
+# commit gate only judges `git commit` — so allowing it would let the main loop stage the user's
+# working tree with nothing checking it and no prompt, for someone else to commit later. Staging
+# rides along with the commit it is for, or not at all. (ui-control.js enforces the same pair for
+# web-UI sessions; this hook is the terminal's half.)
 addcommit_re='^[[:space:]]*(rtk[[:space:]]+)?git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?(add|commit)[^&|;]*(&&[[:space:]]*(rtk[[:space:]]+)?git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?(add|commit)[^&|;]*)*$'
-if [ -f "${CLAUDE_PLUGIN_ROOT:-}/hooks/commit-gate.sh" ] && printf '%s' "$cmd" | grep -Eq "$addcommit_re"; then
+commit_re='(^|&&|\|\||;|\|)[[:space:]]*(rtk[[:space:]]+)?git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?commit([[:space:]]|$)'
+if [ -f "${CLAUDE_PLUGIN_ROOT:-}/hooks/commit-gate.sh" ] &&
+  printf '%s' "$cmd" | grep -Eq "$addcommit_re" &&
+  printf '%s' "$cmd" | grep -Eq "$commit_re"; then
   exit 0
 fi
 

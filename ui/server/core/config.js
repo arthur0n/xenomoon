@@ -363,6 +363,45 @@ export function saveHermesConfig(patch) {
  * `costBasis` is auto-detected by codex-check from the login mode (ChatGPT account =
  * "subscription" → zero marginal cost, use freely; API key = "metered" → deliberate).
  * @returns {{ enabled: boolean, roles: string[], costBasis: "subscription" | "metered" }} */
+/**
+ * Consequential-action policy, per project, in `.xenomoon.json`.
+ *
+ * These three were shell hooks. They are judgement calls, not deterministic verifications — "is
+ * this dependency worth adding", "is this the moment to publish" — so they belong where the human
+ * can actually be asked, and where a project can set its own answer once instead of arguing with a
+ * hook every time.
+ *
+ * KNOWN BOUNDARY, stated rather than implied: this layer governs sessions THIS server drives. A
+ * plain `claude` session in the project does not pass through it. The framework accepted that
+ * trade deliberately — the alternative was a second copy of each rule in a hook, and two copies of
+ * a rule is how they drift.
+ *
+ * @typedef {{ push?: "ask" | "allow", dependencies?: "ask" | "allow", branchCreate?: "ask" | "allow" }} ActionPolicy
+ * @returns {Required<ActionPolicy>}
+ */
+export function getActionPolicy() {
+  /** @type {ActionPolicy} */
+  let saved = {};
+  try {
+    saved =
+      /** @type {{ policy?: ActionPolicy }} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8")))
+        .policy ?? {};
+  } catch {
+    /* absent/invalid — defaults below */
+  }
+  // ASK is the default AND the fallback for anything unrecognised. `.xenomoon.json` is hand-edited,
+  // so a typo, a stale schema value or a boolean must not read as "not ask" and silently switch the
+  // prompt off — only the exact string "allow" allows. Each of these publishes, mutates a lockfile,
+  // or forks history; failing open on a corrupted config is the one direction that cannot be undone.
+  /** @param {unknown} v @returns {"ask" | "allow"} */
+  const mode = (v) => (v === "allow" ? "allow" : "ask");
+  return {
+    push: mode(saved.push),
+    dependencies: mode(saved.dependencies),
+    branchCreate: mode(saved.branchCreate),
+  };
+}
+
 export function getCodexConfig() {
   /** @type {CodexConfig} */
   let saved = {};

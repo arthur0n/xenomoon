@@ -83,8 +83,8 @@ open findings to the user. Stop for a human look between stages. Each stage is i
 (skips already-done issues unless forced). One issue does not skip ahead.
 
 The **human gate is the push, not the commit.** Commit is automatic once QA + review
-pass; nothing in the pipeline pushes — the `push-gate` hook denies sub-agent pushes and
-turns yours into a human confirmation. A human approves the push, CI deploys, and the
+pass; nothing in the pipeline pushes — the session's permission policy denies sub-agent
+pushes outright and turns yours into a human prompt. A human approves the push, CI deploys, and the
 `fixed-pending-deploy` issue closes.
 
 **Acceptance (UAT)** runs **out-of-band** of the per-issue chain — batch, POC-first,
@@ -129,10 +129,13 @@ Right-size the gate to the work:
 - **Skip `/audit` and `/pre-pr`** for `sev:low` / cosmetic / trivial glue — `/qa` still runs (the
   cheap floor), and `/sweep` is cheap enough to keep. **But NEVER skip the full gate when the change
   touches auth, data scoping, or migrations**, regardless of severity — those force the whole set.
-- **Commit-gate + commit-label + push-gate hooks ALWAYS run** — deterministic, not
-  skippable. `commit-label` (PostToolUse) stamps `committed` + `fixed-pending-deploy` and
+- **The commit gate and its label stamp ALWAYS run** — deterministic, not skippable, and
+  CORE now. `commit-label` (PostToolUse) stamps `committed` + `fixed-pending-deploy` and
   drops `needs-deploy` the instant a `(#N)` commit lands, so the deploy-close workflow
   can never orphan a merged fix on a slipped label.
+- **Push, dependency changes and branch creation are POLICY, not hooks** — the session
+  asks the human (and refuses sub-agents outright for push and dependencies). Per-project
+  answers live in `.xenomoon.json`; the spine states the boundary.
 - **UAT stays out-of-band** (batch POC, dispatched by scenario) — never a per-issue gate.
 
 ## Background — domain specifics

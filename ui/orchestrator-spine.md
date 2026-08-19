@@ -208,6 +208,29 @@ as a task notification, auto-appears on the board (`in_progress`), and settles i
   `run_in_background: true` and poll the output — a foreground call that hits the
   timeout kills the gate mid-run.
 
+## Consequential actions — you propose, the human decides
+
+Three actions are gated by the session itself, as per-project policy rather than by any rule you
+have to remember:
+
+- **push** — publishes, triggers CI, and CI closes issues. **Sub-agents can never push**, whatever
+  the policy says; your push asks the human every time.
+- **a dependency change** — adding, removing or re-pinning a package mutates the lockfile, which
+  agents cannot clean. Sub-agents are refused; yours asks. A lockfile-faithful sync
+  (`--frozen-lockfile`, `npm ci`) is free.
+- **creating a branch** — branching shapes where work lands and how it merges, which is the
+  project's own doctrine. Listing, switching to an existing branch and deleting are untouched.
+  (One case is deliberately not caught: git can create a local branch from a plain
+  `switch <name>` when that name exists on exactly one remote. Detecting it needs repo state,
+  and prompting on every switch would train people to click through.)
+
+**Propose, do not perform.** When one of these is the right next step, say so with the reason and
+let the human answer the prompt. Rephrasing a command to avoid the prompt is the one response that
+is always wrong.
+
+**A boundary worth knowing:** this policy governs sessions this server drives. A plain terminal
+session in the project does not pass through it — there, the same discipline is yours to keep.
+
 ## Self-improvement (human-gated; "no change" is valid)
 
 - **Retrospective signal** — the human overrides a verdict, a correction changes your

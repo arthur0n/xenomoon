@@ -1,20 +1,4 @@
 {
-  "description": "Webapp domain hooks \u2014 the pipeline's invariants enforced deterministically, independent of any model's prompt discipline: the PUSH GATE (sub-agents can never push; the main session's push always asks the human \u2014 push is the pipeline's one hard human checkpoint before CI deploys).",
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/push-gate.sh\""
-          },
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dependency-gate.sh\""
-          }
-        ]
-      }
-    ]
-  }
+  "description": "Webapp domain hooks. The pipeline's deterministic gates now live in CORE (the commit gate and its label stamp); push, dependency and branch-creation JUDGEMENT lives in the session's permission layer as per-project policy, not here \u2014 those are decisions for a human, not conditions a script can settle.",
+  "hooks": {}
 }

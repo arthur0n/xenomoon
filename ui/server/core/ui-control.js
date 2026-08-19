@@ -14,6 +14,7 @@ import {
   GENERIC_SUBAGENT_TYPES,
   FRAMEWORK_PLUGIN_DIR,
   ISSUEKIT,
+  getActionPolicy,
 } from "./config.js";
 
 // These get the calling agent stamped as `_by` so the server can attribute the record
@@ -94,6 +95,106 @@ function pipelineRoster() {
 //
 // `new` is here because it is gh's own ALIAS for `create` — the only mutating alias gh defines
 // (`ls` aliases `list`, which is a read). A denylist that misses an alias denies nothing.
+// Consequential actions that are JUDGEMENT, not verification. These were three shell hooks; they
+// are policy now (see getActionPolicy), because "should we add this dependency" and "is this the
+// moment to publish" are questions for a human, not conditions a script can decide.
+//
+// Unlike orchestratorGate below, these apply to EVERY agent — a sub-agent pushing is the case the
+// push rule exists for.
+const PUSH_RE = /(^|&&|\|\||;|\|)\s*(rtk\s+)?git\s+(-C\s+\S+\s+)?push\b/;
+/** Lifecycle verbs that write package.json or the lockfile. `update`/`upgrade`/`dedupe` re-pin, and
+ * the denial message claims agents never re-pin — so the matcher has to agree with it. */
+const DEP_VERBS = new Set([
+  "add",
+  "remove",
+  "install",
+  "i",
+  "uninstall",
+  "rm",
+  "update",
+  "upgrade",
+  "up",
+  "dedupe",
+]);
+/** Package-manager options that consume the NEXT token, so the verb is not where it looks. */
+const DEP_VALUE_FLAGS = new Set([
+  "-C",
+  "--dir",
+  "--cwd",
+  "--prefix",
+  "--filter",
+  "-F",
+  "--workspace",
+  "-w",
+]);
+// A faithful sync mutates nothing — it installs exactly what the committed lockfile says.
+const DEP_FAITHFUL_RE = /--frozen-lockfile|(^|[^\w])npm\s+ci(\s|$)/;
+
+/**
+ * The lifecycle verb one package-manager invocation actually runs, or null.
+ *
+ * A regex demanding the verb right after the binary missed every workspace shape —
+ * `pnpm -C worker add x`, `pnpm --filter web update react`, `npm --workspace ui install x`,
+ * `yarn workspace app add react` — which is precisely where an unintended lockfile change is
+ * hardest to notice. So: find the manager, then walk past its options (and the values they eat) to
+ * the first real token.
+ * @param {string} seg @returns {string | null}
+ */
+function packageManagerVerb(seg) {
+  const tokens = seg.trim().split(/\s+/).filter(Boolean);
+  let i = tokens.findIndex((t) => ["pnpm", "npm", "yarn", "bun"].includes(t));
+  if (i === -1) return null;
+  i += 1;
+  while (i < tokens.length) {
+    const t = tokens[i] ?? "";
+    if (t.startsWith("-")) {
+      i += DEP_VALUE_FLAGS.has(t) ? 2 : 1;
+      continue;
+    }
+    // `yarn workspace <name> <verb>` / `pnpm workspace <name> <verb>`
+    if (t === "workspace" || t === "workspaces") {
+      i += 2;
+      continue;
+    }
+    return t;
+  }
+  return null;
+}
+
+/**
+ * Does this command line mutate dependencies ANYWHERE in it?
+ *
+ * Classified PER SEGMENT: testing the faithful-sync exemption against the whole string was
+ * launderable, because `npm ci && npm install lodash` contains a faithful sync and the whole line
+ * then read as faithful. A safe neighbour does not vouch for a risky one.
+ * @param {string} cmd
+ */
+function mutatesDependencies(cmd) {
+  return cmd.split(/&&|\|\||;|\|/).some((seg) => {
+    const verb = packageManagerVerb(seg);
+    return verb !== null && DEP_VERBS.has(verb) && !DEP_FAITHFUL_RE.test(seg);
+  });
+}
+
+// Branch CREATION only. Listing, deleting and switching to an existing branch are not this.
+const GIT_PRE = "(^|&&|\\|\\||;|\\|)\\s*(rtk\\s+)?git\\s+(-C\\s+\\S+\\s+)?";
+const BRANCH_CREATE_RE = new RegExp(
+  GIT_PRE +
+    "(checkout\\s+-[bB]|switch\\s+(-[cC]|--create)|worktree\\s+add" +
+    // `--track` / `-t` creates a LOCAL branch from a remote one — it forks history exactly like
+    // -b does, and it reads like a checkout, which is what makes it easy to miss.
+    //
+    // STATED BOUNDARY, not an oversight: git's DWIM (`--guess`, on by default) also creates a local
+    // branch from `git switch <name>` when <name> exists on exactly one remote. Catching that needs
+    // repo state — does the local branch exist? — which no matcher here can know. Prompting on EVERY
+    // plain switch/checkout would fire on ordinary sub-agent work and train reflexive approval,
+    // which is worse than the gap. It is also the narrow case: the main loop cannot reach a plain
+    // switch at all (the role gate denies mutating git for it), and what DWIM materialises is a
+    // branch that already exists on the remote, not new history.
+    "|(checkout|switch)\\s+([^&|;]*\\s)?(-t|--track)(\\s|$)" +
+    "|branch\\s+(?!-[dDmMar]|--(list|delete|move|show-current|all|remotes))\\S)",
+);
+
 const GH_ISSUE_WRITE_RE =
   /(^|&&|\|\||;|\|)\s*(rtk\s+)?gh\s+issue\s+(create|new|edit|comment|close|reopen|delete|lock|unlock|pin|unpin|transfer|develop)\b/;
 // State-mutating git subcommands. Read verbs (status/log/diff/show/fetch/branch-list/
@@ -234,12 +335,98 @@ function orchestratorGate({ log, toolName, input, agent }) {
   return null;
 }
 
-/** Deterministic pre-gates run BEFORE the permission policy: the orchestrator role gate
+/**
+ * Push, dependency changes and branch creation — the three the framework used to gate with shell
+ * hooks. Every agent passes through here, because "a sub-agent must never push" is the whole point.
+ *
+ * There is no "ask" verdict at this layer: the SDK's PermissionResult is allow or deny. An ASK is
+ * therefore a real round-trip to the human (`waitFor("permission", …)`), which is also what makes
+ * it honest — the prompt cannot be satisfied by a session policy that happens to auto-allow.
+ *
+ * @param {GateDeps} d
+ * @returns {Promise<{ behavior: "deny", message: string } | { behavior: "allow", updatedInput: Record<string, unknown> } | null>}
+ */
+async function consequentialActionGate({ session, waitFor, log, toolName, input, agent }) {
+  if (toolName !== "Bash") return null;
+  const cmd = /** @type {{ command?: unknown }} */ (input)?.command;
+  if (typeof cmd !== "string") return null;
+  const policy = getActionPolicy();
+  const isSubagent = agent !== "main";
+
+  /** @param {string} message */
+  const deny = (message) => ({ behavior: /** @type {const} */ ("deny"), message });
+  /** A human decides, right now. Autonomous runs cannot answer, so they are refused instead.
+   * @param {string} what @param {string} message */
+  const askHuman = async (what, message) => {
+    if (session.autonomousActive) {
+      log("auto", { type: "permission", toolName, policy: `${what}-denied-autonomous` });
+      return deny(`${message} (An autonomous run cannot answer this, so it is refused.)`);
+    }
+    const { allow } = await waitFor("permission", { toolName, input, agent });
+    return allow
+      ? { behavior: /** @type {const} */ ("allow"), updatedInput: input }
+      : deny(message);
+  };
+
+  if (PUSH_RE.test(cmd)) {
+    // A sub-agent NEVER pushes, whatever the policy says: push triggers CI, CI deploys, and a
+    // deploy closes issues. That chain starts with a person, not with a worker finishing early.
+    if (isSubagent)
+      return deny(
+        "Sub-agents never push. Push is the human's checkpoint — it triggers CI, which deploys, " +
+          "which closes issues. Report ready-to-push to the orchestrator and stop there.",
+      );
+    if (policy.push === "ask")
+      return askHuman(
+        "push",
+        "`git push` publishes and triggers the CI deploy — the pipeline's one hard human gate.",
+      );
+  }
+
+  if (mutatesDependencies(cmd)) {
+    if (isSubagent)
+      return deny(
+        "A new dependency is a DESIGN decision, not an implementation detail — agents never add, " +
+          "remove or re-pin packages. It mutates the lockfile, which agents cannot clean (an " +
+          "uninvited install once wrote a ~350-line subtree nobody could unpick). Name the exact " +
+          "package in your report and surface the decision. To sync to the COMMITTED lockfile use " +
+          "`--frozen-lockfile` or `npm ci` — those pass untouched.",
+      );
+    if (policy.dependencies === "ask")
+      return askHuman(
+        "dependencies",
+        "This mutates package.json and/or the lockfile. A dependency change is a design decision. " +
+          "A lockfile-faithful sync (`--frozen-lockfile`, `npm ci`) does not ask.",
+      );
+  }
+
+  if (BRANCH_CREATE_RE.test(cmd) && policy.branchCreate === "ask")
+    return askHuman(
+      "branch-create",
+      "This creates a branch. Branching shapes where the work lands and how it merges — the " +
+        "project's own doctrine (`.xenomoon/branch-model`). Listing, switching to an existing " +
+        "branch and deleting are untouched.",
+    );
+
+  return null;
+}
+
+/** Deterministic pre-gates run BEFORE the permission policy: the consequential-action gate (push / dependencies / branch creation, every agent), the
+ * orchestrator role gate
  * (main loop never implements / never goes generic / never freehands the tracker) and the
  * screenshot read gate. Returns a decision to short-circuit, or null to fall through.
  * Keeps makeCanUseTool's arrow under the complexity cap and its file under the line cap.
  * @param {GateDeps} d */
 export async function preToolGate({ session, waitFor, log, toolName, input, agent }) {
+  const consequential = await consequentialActionGate({
+    session,
+    waitFor,
+    log,
+    toolName,
+    input,
+    agent,
+  });
+  if (consequential) return consequential;
   const role = orchestratorGate({ session, waitFor, log, toolName, input, agent });
   if (role) return role;
   if (isImageRead(toolName, input))

@@ -57,7 +57,7 @@ for (let i = 0; i < argv.length; i++) {
 // each asked ONLY when its value is missing — scripted/CI invocations that pass flags stay
 // byte-identical): project folder → domain → port (empty = default) → hermes/codex/kimi.
 // The AI half of onboarding happens in the FIRST UI SESSION: the server sees the
-// `onboarded:false` flag (written below) and kicks off /onboard there — full tooling,
+// `onboarded:false` flag (written below) and kicks off onboarding there — full tooling,
 // no terminal plugin install needed.
 const interactive = process.stdin.isTTY && process.stdout.isTTY;
 const rl = interactive
@@ -98,7 +98,7 @@ if (rl) {
   }
 }
 // Branch model — the project's branch & merge convention, decided by the human here and
-// re-confirmable at /onboard. Written to <project>/.xenomoon/branch-model (the runtime
+// re-confirmable during onboarding. Written to <project>/.xenomoon/branch-model (the runtime
 // source every session reads); the .xenomoon.json copy is provenance only. Presets:
 //   trunk   — POC/early MVP: work lands directly on the default branch
 //   pr-main — risk-declared MVP: short-lived branch → PR → main, branch dies at merge
@@ -257,7 +257,7 @@ for (const [stub, content] of Object.entries(LIBRARY_STUBS)) {
 
 // 1d. Bake the branch model project-side — the runtime source of truth every session and
 //     capability reads. Never overwritten on re-install: an existing file IS the human's
-//     current choice (edit it, or re-run /onboard, to change the model as the project matures).
+//     current choice (edit it, or re-run onboarding, to change the model as the project matures).
 {
   const modelFile = path.join(target, ".xenomoon", "branch-model");
   if (existsSync(modelFile)) {
@@ -330,7 +330,7 @@ if (rl) {
   }
 }
 
-// 6. First-boot flag: the SERVER kicks off /onboard in the first UI session (the session
+// 6. First-boot flag: the SERVER kicks off onboarding in the first UI session (the session
 //    has the plugin loaded, so the command exists with full tooling — forms + board). Only
 //    set on a fresh install; a re-install of an already-onboarded project keeps its flag.
 {
@@ -349,5 +349,5 @@ if (rl) {
 rl?.close();
 
 console.log(
-  `\nnew: done (domain "${domainName}"). Start the server:\n    xenomoon up         # web UI on port ${portAnswer ?? "3117"}, DETACHED (terminal stays free; xenomoon stop / restart)\n    xenomoon start      # same server in the foreground, logs in this terminal\nThe FIRST session runs the /onboard interview, then the UI asks the rest.`,
+  `\nnew: done (domain "${domainName}"). Start the server:\n    xenomoon up         # web UI on port ${portAnswer ?? "3117"}, DETACHED (terminal stays free; xenomoon stop / restart)\n    xenomoon start      # same server in the foreground, logs in this terminal\nThe FIRST session runs the onboarding interview, then the UI asks the rest.`,
 );

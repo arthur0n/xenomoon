@@ -6,7 +6,7 @@
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Status: experimental](https://img.shields.io/badge/Status-experimental-orange.svg)
-![Skills: 27](https://img.shields.io/badge/Skills-27-b08d57)
+![Skills: 28](https://img.shields.io/badge/Skills-28-b08d57)
 ![Agents: 9](https://img.shields.io/badge/Agents-9-b08d57)
 ![Domains: expoapp · webapp](https://img.shields.io/badge/Domains-expoapp_·_webapp-b08d57)
 
@@ -54,7 +54,7 @@ npx github:arthur0n/xenomoon
 It confirms the folder as the project, installs the framework BESIDE it (default sibling
 `../myapp-xm` — one install per project, learnings stay per project), then walks the terminal
 questionnaire: domain → port → Hermes/Codex/Kimi. If your project already uses Claude, it
-offers the `/onboard` interview (terminal Claude Code) BEFORE the server starts. It also links
+offers the onboarding interview (terminal Claude Code) BEFORE the server starts. It also links
 the `xenomoon` CLI, so from then on the verbs are real words:
 
 ```bash

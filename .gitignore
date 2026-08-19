@@ -36,11 +36,13 @@ plugin/.xenomoon/
 # Personal untracked hook extensions (sourced by .husky/post-commit when present).
 .husky/post-commit.local
 
-# Paths a DOMAIN-PACK INSTALL writes into the single capability tree. The trunk must never
-# track one: `xenomoon update` ff-merges, and git refuses to overwrite a locally-written file
-# at a tracked path — tracking this one broke update in every bound clone (fixed 376c614).
-# The pack's own copy under domains/<name>/plugin/ IS tracked; only the installed path is not.
-/plugin/library/sources/skill-sources.md
+# NOTE: paths a DOMAIN-PACK INSTALL writes into the capability tree are NOT listed here any
+# more. The install declares its own output in a generated `plugin/.gitignore`
+# (ui/server/core/install-output.js) — the writers know exactly what they wrote, so the list is
+# derived instead of hand-maintained, and it shrinks when a pack stops shipping a path. This
+# block used to carry one such path by hand; tracking it once broke `xenomoon update` in every
+# bound clone (fixed 376c614), which is the failure the generated manifest now prevents by
+# construction.
 
 .claude/token-audits/history.html
 

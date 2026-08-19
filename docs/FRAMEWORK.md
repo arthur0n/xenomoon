@@ -55,6 +55,12 @@ palette. Never reintroduce upstream's green alien identity.
 
 - `plugin/` — the one runtime capability tree (see above). `plugin/docs/` +
   `plugin/commands/` SHIP with the plugin and may be referenced by capabilities/runtime.
+  **In a BOUND clone this tree also holds the installed pack's files.** They are install
+  OUTPUT — the pack under `domains/` is their source — and the install declares exactly which
+  paths it wrote in a generated `plugin/.gitignore` (`ui/server/core/install-output.js`). So
+  `git status` stays clean and no `git add` can publish one project's install as framework
+  content. Do not hand-edit that manifest; re-running the install regenerates it, and a path the
+  pack stops shipping drops out of it and becomes visible again.
 - `domains/<name>/` — install-source catalog. Off the upstream-sync surface.
 - `ui/server/` — Node server + CLI, by area: `core/` (+`core/http/`; `session.js` loads
   the one plugin, `config.js` reads the BAKED descriptor from `.xenomoon.json`),

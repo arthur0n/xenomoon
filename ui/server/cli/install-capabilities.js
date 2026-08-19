@@ -19,6 +19,8 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseJSON } from "../../lib/json.js";
 import { loadDomain } from "../core/domain-resolver.js";
+import { writeInstallOutput } from "../core/install-output.js";
+import { ensureDomainLibrary } from "../features/promotions/ensure-library.js";
 
 /** Capability subdirs copied from the pack's plugin into the framework plugin. `.claude-plugin/`
  * (the pack's own manifest) is deliberately NOT copied — the base `plugin/.claude-plugin/plugin.json`
@@ -27,16 +29,19 @@ import { loadDomain } from "../core/domain-resolver.js";
 const CAP_SUBDIRS = ["agents", "skills", "commands", "library"];
 
 /** Recursively copy srcDir → dstDir, overwriting on every run (the pack is the source of truth for
- * what it installs). Executable `.sh` scripts keep their bit. @param {string} srcDir @param {string} dstDir */
-function copyTree(srcDir, dstDir) {
+ * what it installs). Executable `.sh` scripts keep their bit. Every destination file is pushed to
+ * `written` so the installer can DECLARE its own output (see core/install-output.js).
+ * @param {string} srcDir @param {string} dstDir @param {string[]} written */
+function copyTree(srcDir, dstDir, written) {
   mkdirSync(dstDir, { recursive: true });
   for (const e of readdirSync(srcDir, { withFileTypes: true })) {
     const s = path.join(srcDir, e.name);
     const d = path.join(dstDir, e.name);
-    if (e.isDirectory()) copyTree(s, d);
+    if (e.isDirectory()) copyTree(s, d, written);
     else if (e.isFile()) {
       copyFileSync(s, d);
       if (e.name.endsWith(".sh")) chmodSync(d, 0o755);
+      written.push(d);
     }
   }
 }
@@ -80,16 +85,20 @@ export function installCapabilities(frameworkDir, domainName) {
   const packDir = path.join(frameworkDir, descriptor.plugin); // domains/<name>/plugin
   const pluginDir = path.join(frameworkDir, "plugin");
   const copied = [];
+  /** Every file this run writes into `plugin/` — the input to `plugin/.gitignore`. @type {string[]} */
+  const written = [];
 
   // 1. Capabilities: agents / skills / commands / library → the single plugin tree.
   for (const sub of CAP_SUBDIRS) {
     const src = path.join(packDir, sub);
     if (!existsSync(src)) continue;
-    copyTree(src, path.join(pluginDir, sub));
+    copyTree(src, path.join(pluginDir, sub), written);
     copied.push(sub);
   }
 
-  // 2. Hooks: copy the pack's hook scripts, then merge its hooks.json into the base.
+  // 2. Hooks: copy the pack's hook scripts, then merge its hooks.json into the base. The merged
+  //    hooks.json is NOT install output — it is the framework's own file with the pack's entries
+  //    concatenated in — so it stays tracked and out of the generated ignore list.
   const packHooks = path.join(packDir, "hooks");
   if (existsSync(packHooks)) {
     for (const e of readdirSync(packHooks, { withFileTypes: true }))
@@ -98,6 +107,7 @@ export function installCapabilities(frameworkDir, domainName) {
         mkdirSync(path.dirname(d), { recursive: true });
         copyFileSync(path.join(packHooks, e.name), d);
         if (e.name.endsWith(".sh")) chmodSync(d, 0o755);
+        written.push(d);
       }
     mergeHooks(path.join(pluginDir, "hooks", "hooks.json"), path.join(packHooks, "hooks.json"));
     copied.push("hooks");
@@ -106,9 +116,18 @@ export function installCapabilities(frameworkDir, domainName) {
   // 3. Orchestrator prompt: the pack's orchestrator.md becomes the framework's single orchestrator.
   const packOrch = path.join(frameworkDir, descriptor.orchestrator);
   if (existsSync(packOrch)) {
-    copyFileSync(packOrch, path.join(pluginDir, "orchestrator.md"));
+    const dst = path.join(pluginDir, "orchestrator.md");
+    copyFileSync(packOrch, dst);
+    written.push(dst);
     copied.push("orchestrator.md");
   }
+
+  // 3b. Declare what was written, so install output can never be staged as framework content.
+  //     This REPLACES the manifest (the install owns it), so the learning scaffolds are ensured
+  //     right after — they append themselves, and one install run leaves a complete list. Without
+  //     this the scaffolds stay undeclared until doctor/promote next runs.
+  writeInstallOutput(pluginDir, domainName, written);
+  ensureDomainLibrary(pluginDir);
 
   // 4. Bake the pack's runtime descriptor into the framework config, so the runtime never resolves a
   //    live domain.json. `domain` (the name) is written by new.js; this adds the resolved values.

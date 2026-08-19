@@ -6,6 +6,7 @@
 // one dir + `index.md` per kind, records as `<kind>/<slug>.md` with machine-face frontmatter.
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { addInstallOutput } from "../../core/install-output.js";
 
 /** The domain-agnostic record kinds (godot-era `addons`/`transcripts` are upstream-only). */
 export const LIBRARY_KINDS = ["findings", "verdicts", "tools"];
@@ -39,7 +40,10 @@ the next session.
 export function ensureDomainLibrary(pluginDir) {
   /** @type {string[]} */
   const created = [];
+  /** Every scaffold this function OWNS, whether it wrote it now or on an earlier run. @type {string[]} */
+  const managed = [];
   const write = (/** @type {string} */ file, /** @type {string} */ text) => {
+    managed.push(file);
     if (existsSync(file)) return;
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, text);
@@ -49,5 +53,11 @@ export function ensureDomainLibrary(pluginDir) {
   write(path.join(pluginDir, "library", "README.md"), LIBRARY_README);
   for (const kind of LIBRARY_KINDS)
     write(path.join(pluginDir, "library", kind, "index.md"), indexSeed(kind));
+  // Scaffolds in an INSTALLED tree are install output too, so declare them next to the pack
+  // copies — ALL of them, not just this run's new ones: a scaffold written by an earlier run is
+  // just as derived, and declaring only `created` would leave it undeclared forever. In the
+  // framework trunk there is no manifest, so this no-ops and the scaffolds stay visible for
+  // committing — correct, because with no pack installed they ARE framework content.
+  addInstallOutput(pluginDir, managed);
   return created;
 }

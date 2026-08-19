@@ -63,6 +63,10 @@ discarded when it finishes. A symptom is never a lookup.
   **Tracker search FIRST** (issuekit — read prior attempts, never re-try a flagged dead
   end, reuse any known fix), then run the CORE stages in order — the same chain in every
   domain, so the domain block never restates them:
+  **HOW to run any of them — target selection, the brief, concurrency, what to report, and
+  where each verdict routes — is the `pipeline-dispatch` skill. Load it before dispatching.**
+  The stages themselves:
+
   - **`/triage <N>`** → `junior-analyst`: proves the root cause, scores `sev:*`, and judges
     whether the issue should exist — `necessary` / `fold` / `not-necessary` with a reopen
     trigger. A `fold` or `not-necessary` verdict goes to the **human**, never onward to a

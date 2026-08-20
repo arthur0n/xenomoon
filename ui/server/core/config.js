@@ -6,6 +6,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
+import { shq } from "../../lib/shell.js";
 import { resolveActiveDomain } from "./domain-resolver.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -573,6 +574,27 @@ export const CODEX_COMPANION = path.join(CODEX_PLUGIN_DIR, "scripts", "codex-com
  * in a fresh install, on any machine.
  */
 export const ISSUEKIT = path.join(FRAMEWORK_DIR, "ui", "server", "cli", "issuekit.js");
+
+/** The one place a session is TOLD where issuekit lives, so every `issuekit …` written in a skill or
+ * a doc resolves to this install's copy.
+ *
+ * Static prose cannot carry an absolute path that differs per install, so the skills say
+ * `issuekit commit <N>` and an agent naturally types exactly that — which on a machine carrying an
+ * older standalone copy on PATH runs a DIFFERENT program. That copy predates the verbs adopted here
+ * and answers `Unknown command: commit`, which reads as "the commit stage is broken" rather than
+ * "you ran something else". Naming the path once, in the prompt, makes the convention executable
+ * instead of merely described — and one statement covers the whole shipped surface, so it cannot
+ * drift the way a per-file sweep does.
+ * @returns {string} */
+export function getIssuekitBlock() {
+  return [
+    "## issuekit — the tracker tool, by path",
+    "",
+    `Run it as \`node ${shq(ISSUEKIT)}\`. **Every \`issuekit …\` you read in a skill, doc or deny message means THAT path** — the skills cannot spell it out because it differs per install.`,
+    "",
+    "A bare `issuekit` on PATH is not necessarily this one: an older standalone copy shadows it on some machines and lacks this version's verbs (`commit`, `labels`), so it fails with `Unknown command: …`. That is a wrong-program error, not a broken stage — use the path above and it goes away.",
+  ].join("\n");
+}
 /** Cost doctrine injected into the Codex block per the detected auth economics: a
  * subscription login has ZERO marginal cost, so quality is free and the default flips
  * from "dispatch deliberately" to "offer and use at every natural gate". */

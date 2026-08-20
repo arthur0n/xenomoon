@@ -23,6 +23,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readRegistry, resolveInstall } from "./install-registry.js";
+import { shq } from "../../lib/shell.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const OWN_ROOT = path.join(here, "..", "..", ".."); // the install this linked CLI ships inside
@@ -64,12 +65,6 @@ function targetRoot() {
 }
 
 const ROOT = ROOT_VERBS.includes(verb ?? "") ? targetRoot() : OWN_ROOT;
-
-/** Quote a path for a shell command we PRINT. These commands are the only guided way out of a
- * half-updated install, and they are handed over at the exact moment the install is already broken —
- * so advice that silently does something else on a path with a space is worse than none.
- * @param {string} s @returns {string} */
-const shq = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
 
 /** @param {string} script @param {string[]} [args] */
 const run = (script, args = []) =>

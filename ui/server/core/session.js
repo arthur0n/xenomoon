@@ -30,6 +30,7 @@ import {
   getHermesBlock,
   getCodexBlock,
   getEconomicsBlock,
+  getIssuekitBlock,
   getBranchModelBlock,
   getKimiBlock,
   getHermesConfig,
@@ -140,6 +141,27 @@ function makeWaitFor(send, pending) {
   };
 }
 
+/** Everything appended to Claude Code's own preset: the orchestrator role, then the blocks that
+ * describe THIS session's actual team and tools. Hermes/Kimi/Codex appear only when those
+ * integrations are on, so the routing instructions never name a worker that is not there.
+ * @param {boolean} codexOn @returns {string} */
+function orchestratorAppend(codexOn) {
+  return (
+    getOrchestratorPrompt() +
+    (getHermesConfig().enabled ? "\n\n" + getHermesBlock() : "") +
+    (getKimiConfig().enabled ? "\n\n" + getKimiBlock() : "") +
+    (codexOn ? "\n\n" + getCodexBlock() : "") +
+    "\n\n" +
+    getEconomicsBlock() +
+    // Where issuekit actually lives. Static prose cannot carry a per-install absolute path, so the
+    // session is told it once and every `issuekit …` in a skill or doc resolves through it.
+    "\n\n" +
+    getIssuekitBlock() +
+    // The project's branch & merge doctrine (baked at install/onboarding); empty when it has none.
+    (getBranchModelBlock() ? "\n\n" + getBranchModelBlock() : "")
+  );
+}
+
 /**
  * Drive the Claude Code session and stream its messages to the browser.
  * @param {{ resumeId: string | null, policy: string, inbox: ReturnType<typeof createInbox>, send: (obj: OutMsg) => void, canUseTool: import("@anthropic-ai/claude-agent-sdk").CanUseTool, abort: AbortController, waitFor: WaitFor, agentByTool: Map<string, string>, formAgentQueue: string[], session: SessionState }} deps
@@ -248,16 +270,7 @@ function runSession({
             systemPrompt: {
               type: "preset",
               preset: "claude_code",
-              append:
-                getOrchestratorPrompt() +
-                (getHermesConfig().enabled ? "\n\n" + getHermesBlock() : "") +
-                (getKimiConfig().enabled ? "\n\n" + getKimiBlock() : "") +
-                (codexOn ? "\n\n" + getCodexBlock() : "") +
-                "\n\n" +
-                getEconomicsBlock() +
-                // The project's branch & merge doctrine (baked at install/onboarding);
-                // empty string when the project has no branch-model file.
-                (getBranchModelBlock() ? "\n\n" + getBranchModelBlock() : ""),
+              append: orchestratorAppend(codexOn),
             },
             canUseTool,
             abortController: abort,

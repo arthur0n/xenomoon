@@ -11,6 +11,8 @@ Three things own this stage, and none replaces the others:
 
 - **`issuekit commit <N> -m "…"` does it** — asks the gate, commits, then stamps the labels in the
   same call. Bookkeeping that lives in a separate step is bookkeeping that gets skipped.
+  As everywhere, `issuekit` means **the shipped path your prompt names** — a bare one on PATH may be
+  an older copy with no `commit` verb at all.
 - **The commit gate judges it** — deterministically, for any commit, including one typed by hand.
 - **This skill is the method** — when a commit is earned, what belongs in it, what to do when it is
   refused.

@@ -180,6 +180,24 @@ export function installCapabilities(frameworkDir, domainName) {
     copied.push("orchestrator.md");
   }
 
+  // 3a-bis. Record where issuekit actually is, INSIDE the plugin tree.
+  //
+  // Hooks are the one surface that must name it without a system prompt to lean on — a terminal
+  // session gets the guards and nothing else — and they can only infer the framework root from
+  // CLAUDE_PLUGIN_ROOT's parent, which holds solely while the plugin is loaded in place. Install a
+  // plugin by a route that COPIES the directory and that inference breaks silently: the guard still
+  // denies, but its advice degrades to a note with no path, pointing back at whatever `issuekit` is
+  // on PATH. A file written here travels WITH the copy and carries an absolute path, so it keeps
+  // working wherever the plugin ends up.
+  // Declared as install output like everything else written here: it holds an ABSOLUTE, per-machine
+  // path, so committing it would ship one install's layout to every clone.
+  const issuekitPathFile = path.join(pluginDir, "hooks", "issuekit-path.generated");
+  writeFileSync(
+    issuekitPathFile,
+    path.join(frameworkDir, "ui", "server", "cli", "issuekit.js") + "\n",
+  );
+  written.push(issuekitPathFile);
+
   // 3b. Declare what was written, so install output can never be staged as framework content.
   //     This REPLACES the manifest (the install owns it), so the learning scaffolds are ensured
   //     right after — they append themselves, and one install run leaves a complete list. Without

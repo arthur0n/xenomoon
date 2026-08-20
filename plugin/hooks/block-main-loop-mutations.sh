@@ -37,11 +37,18 @@ decision() { # $1 = deny|ask, $2 = reason
     "$1" "$(printf '%s' "$2" | jq -Rs .)"
 }
 
+# This gate's whole job is routing the orchestrator to issuekit, and a terminal session has no
+# prompt block saying which issuekit. Fallback first, so a missing helper costs the note, never the
+# decision.
+issuekit_note() { printf ' (`issuekit` means the copy shipped with this framework.)'; }
+# shellcheck source=./issuekit-path.sh
+. "$(dirname "$0")/issuekit-path.sh" 2>/dev/null || true
+
 # Consequential + irreversible: merging and promoting to prod are the human's call, never a
 # routing shortcut. ASK rather than DENY — the human IS the sanctioned approver here.
 consent_re='(^|&&|\|\||;|\|)[[:space:]]*(rtk[[:space:]]+)?(gh[[:space:]]+pr[[:space:]]+merge|issuekit[[:space:]]+promote|issuekit[[:space:]]+pr[[:space:]]+merge|issuekit[[:space:]]+branch[[:space:]]+prune[^&|;]*--apply)([[:space:]]|$)'
 if printf '%s' "$cmd" | grep -Eq "$consent_re"; then
-  decision ask "Merge / promote is consequential and irreversible — the human gates it, not the orchestrator's throughput judgment. Confirm only if this merge is the agreed next step (and its checks are green: \`issuekit pr merge <PR#> --when-green\` refuses on a red run instead of merging blind)."
+  decision ask "Merge / promote is consequential and irreversible — the human gates it, not the orchestrator's throughput judgment. Confirm only if this merge is the agreed next step (and its checks are green: \`issuekit pr merge <PR#> --when-green\` refuses on a red run instead of merging blind).$(issuekit_note)"
   exit 0
 fi
 
@@ -69,6 +76,6 @@ git_pre='(^|&&|\|\||;|\|)[[:space:]]*(rtk[[:space:]]+)?git[[:space:]]+(-C[[:spac
 mutate_re="${git_pre}""((add|commit|stash|rebase|merge|reset|push|pull|cherry-pick|revert|am|apply|restore|switch|checkout|rm|mv|clean|tag)([[:space:]]|"'$'")"'|worktree[[:space:]]+(add|remove|move|prune|repair|lock|unlock)|remote[[:space:]]+(add|remove|rm|rename|set-url|set-head|set-branches|prune)|submodule[[:space:]]+(add|update|init|deinit|sync|set-url|set-branch|absorbgitdirs)|branch[[:space:]]+([^&|;]*[[:space:]])?(-[DdMmCcf]|--(delete|move|copy|force|set-upstream-to|unset-upstream))([[:space:]]|$))'
 
 if printf '%s' "$cmd" | grep -Eq "$mutate_re"; then
-  decision deny "Orchestrator never touches the working tree — mutating git is denied for the MAIN LOOP (sub-agents keep it; read-only git stays open, since investigation is your job). The sanctioned paths: PR/branch plumbing → issuekit (\`issuekit branch <#>\`, \`issuekit pr <#>\`, \`issuekit pr update <PR#>\`, \`issuekit branch sync <name>\`) — ONE Bash call by you, never an agent dispatch; anything that changes code → dispatch the owning agent; a real conflict → have it work in an ISOLATED worktree from origin/<branch>, so the user's uncommitted changes are never staged, stashed or parked. Commits land via the pipeline's commit stage."
+  decision deny "Orchestrator never touches the working tree — mutating git is denied for the MAIN LOOP (sub-agents keep it; read-only git stays open, since investigation is your job). The sanctioned paths: PR/branch plumbing → issuekit (\`issuekit branch <#>\`, \`issuekit pr <#>\`, \`issuekit pr update <PR#>\`, \`issuekit branch sync <name>\`) — ONE Bash call by you, never an agent dispatch; anything that changes code → dispatch the owning agent; a real conflict → have it work in an ISOLATED worktree from origin/<branch>, so the user's uncommitted changes are never staged, stashed or parked. Commits land via the pipeline's commit stage.$(issuekit_note)"
 fi
 exit 0

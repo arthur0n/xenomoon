@@ -20,6 +20,7 @@ import {
   ISSUEKIT,
 } from "../core/config.js";
 import { parseJSON } from "../../lib/json.js";
+import { shq } from "../../lib/shell.js";
 import { prepareGame } from "./materialize.js";
 import { AGENT_REGISTRY } from "../agents/registry.js";
 import { ensureDomainLibrary } from "../features/promotions/ensure-library.js";
@@ -324,10 +325,18 @@ const checks = [
       label: !shipped
         ? `issuekit MISSING at ${ISSUEKIT} — the orchestrator is told to use it for every issue operation; reinstall the framework`
         : stale
-          ? `issuekit on PATH resolves to ${resolved}, NOT this framework's ${ISSUEKIT} — agents told to run \`issuekit …\` would use the other copy; run \`npm link\` in the framework to re-point it`
+          ? // The fix is the shipped PATH, not the shared bin. `npm link` re-points a machine-wide
+            // `issuekit` at THIS install, taking it from whichever install owns it now — the same
+            // one-global-bin ambiguity the install registry exists to make visible, and it changes
+            // what every other project on this machine runs. Naming the absolute path fixes only
+            // the caller that needs fixing.
+            `issuekit on PATH resolves to ${resolved}, NOT this framework's ${ISSUEKIT} — that copy may lack this version's verbs. Sessions are told the shipped path, so this is informational: anything running \`issuekit …\` by hand should use \`node ${shq(ISSUEKIT)}\`. (\`npm link\` would capture the machine-wide bin for this install and change what every other install runs — \`xenomoon list\` shows who owns it. Do that only if you mean to.)`
           : config
             ? `issuekit ready (${path.relative(PROJECT_DIR, config)} bound${resolved ? "" : ", not on PATH — agents call it by absolute path"})`
-            : "issuekit shipped but the project has no .issuekit.json — run `issuekit init` in the project once, or issue verbs fall back to the cwd remote",
+            : // By the shipped path for the same reason: a bare `issuekit` here may be another copy,
+              // and letting a DIFFERENT version write this project's .issuekit.json is how the
+              // binding ends up in a shape this framework does not read.
+              `issuekit shipped but the project has no .issuekit.json — run \`node ${shq(ISSUEKIT)} init\` in the project once, or issue verbs fall back to the cwd remote`,
     };
   })(),
   {

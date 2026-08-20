@@ -88,18 +88,28 @@ switch (verb) {
   case "stop":
     execFileSync("bash", [path.join(ROOT, "stop_server")], { cwd: ROOT, stdio: "inherit" });
     break;
-  case "restart":
-    // stop_server exits non-zero when nothing was running — a restart shouldn't care.
+  case "restart": {
+    // stop_server exits 0 when nothing was running, so ANY failure here means the stop did not
+    // complete — and starting on top of a server that could not be stopped is how an unstoppable
+    // orphan gets a sibling. This used to swallow every non-zero status on the (since falsified)
+    // premise that non-zero just meant "nothing to stop".
     try {
       execFileSync("bash", [path.join(ROOT, "stop_server")], { cwd: ROOT, stdio: "inherit" });
-    } catch {
-      /* nothing to stop */
+    } catch (err) {
+      const status = /** @type {{ status?: number }} */ (err).status ?? 1;
+      console.error(
+        status === 3
+          ? "restart: not starting — stop could not confirm the port is free (see above)."
+          : `restart: not starting — stop failed (exit ${status}).`,
+      );
+      process.exit(status);
     }
     execFileSync("bash", [path.join(ROOT, "start_server"), ...rest], {
       cwd: ROOT,
       stdio: "inherit",
     });
     break;
+  }
   case "update":
     // An installed clone is LEGITIMATELY dirty: the domain pack was copied over plugin/ at
     // install (README/hooks overlays), and learnings accumulate locally. --autostash parks

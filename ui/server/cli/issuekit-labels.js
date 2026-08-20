@@ -245,11 +245,16 @@ export function printLabelReport(r) {
   for (const n of r.present) console.log(`  present  ${n}`);
   for (const d of r.drift)
     console.log(`  differs  ${d.name}: has "${d.have}", canonical is "${d.want}"`);
-  if (r.drift.length)
+  if (r.drift.length) {
+    // Count LABELS, not findings. A label whose colour AND description both differ contributes two
+    // lines above, so counting entries inflates the total — and a human sizing up "how far has this
+    // repo drifted" is asking about labels.
+    const labels = new Set(r.drift.map((d) => d.name)).size;
     console.log(
-      `\n  ${r.drift.length} label(s) differ from the canonical set. NOT changed — the name is what the\n` +
+      `\n  ${labels} label(s) differ from the canonical set. NOT changed — the name is what the\n` +
         "  gates match; colour and wording are the project's own. Align them by hand if you want to.",
     );
+  }
   if (r.retired.length) {
     console.log("\n  RETIRED labels still on this repo — migrate before a gate reads them:");
     for (const t of r.retired) console.log(`    ${t.name} — ${t.why}`);

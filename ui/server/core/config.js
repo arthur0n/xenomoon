@@ -592,7 +592,7 @@ export function getIssuekitBlock() {
     "",
     `Run it as \`node ${shq(ISSUEKIT)}\`. **Every \`issuekit …\` you read in a skill, doc or deny message means THAT path** — the skills cannot spell it out because it differs per install.`,
     "",
-    "A bare `issuekit` on PATH is not necessarily this one: an older standalone copy shadows it on some machines and lacks this version's verbs (`commit`, `labels`), so it fails with `Unknown command: …`. That is a wrong-program error, not a broken stage — use the path above and it goes away.",
+    "A bare `issuekit` on PATH is not necessarily this one: an older standalone copy shadows it on some machines, and it predates the `commit` verb — so the commit stage fails with `Unknown command: commit`. That is a wrong-program error, not a broken stage; use the path above and it goes away.",
   ].join("\n");
 }
 /** Cost doctrine injected into the Codex block per the detected auth economics: a

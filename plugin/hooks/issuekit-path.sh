@@ -40,7 +40,7 @@ fi
 _ik_quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 issuekit_note() {
   if [ -n "$ISSUEKIT_PATH" ]; then
-    printf ' (`issuekit` here means THIS install'"'"'s copy — run it as `node %s`; a bare `issuekit` on PATH may be an older version without these verbs.)' "$(_ik_quote "$ISSUEKIT_PATH")"
+    printf ' (`issuekit` here means THIS install'"'"'s copy — run it as `node %s`; a bare `issuekit` on PATH may be an older version missing verbs this pipeline needs.)' "$(_ik_quote "$ISSUEKIT_PATH")"
   else
     printf ' (`issuekit` means the copy shipped with this framework — not necessarily a bare `issuekit` on PATH, which may be an older version.)'
   fi

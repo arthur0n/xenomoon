@@ -143,20 +143,28 @@ latest_verdict() { # $1 lane rx, $2 pass rx, $3 marker key, $4 block rx → "BLO
 # The blocking words are the lanes' own vocabulary, matched case-insensitively — the verdict is a
 # heading written by an agent, and `Changes` is the same verdict as `changes`.
 #
-# The two are deliberately ASYMMETRIC. A pass must be the WHOLE verdict — the canonical word and
-# then the end of the line — because a prefix match reads `— pass-with-caveats`, `— passed but
-# needs-attention` and `— PASS (blocked pending X)` as clean passes, and if such a comment also
-# carries a marker the gate would call a qualified or self-contradicting verdict a SHA-bound green.
-# A block, by contrast, matches on the leading word alone: blocks should bite widely, and anything
+# The two are deliberately ASYMMETRIC. A pass must be the WHOLE verdict — the canonical word, at
+# most a note from a KNOWN list, and then the end of the line — because a bare prefix match reads
+# `— pass-with-caveats` and `— passed but needs-attention` as clean passes, and with a marker
+# present the gate would call a qualified verdict a SHA-bound green.
+#
+# The note is an ALLOWLIST, not a filter for bad words. A live issue really does say
+# `## 🧪 QA — PASS (re-QA)`, so some note must be accepted — but "any note without the word blocked"
+# greens `PASS (pending deploy)`, `PASS (not verified)`, `PASS (partial)`, and every other way of
+# saying "yes, but". Naming the few notes that mean nothing about the verdict is the only version of
+# this that cannot be widened by a phrase nobody thought of.
+#
+# A block, by contrast, matches on the leading word alone. Blocks should bite widely, and anything
 # that escapes both patterns lands in UNKNOWN, which asks rather than allows.
+PASS_NOTE='( \((re-?QA|re-?review|re-?run|round [0-9]+)\))?[ \t]*(\n|$)'
 qa_verdict="$(latest_verdict \
   '(^|\n)## (🧪 )?QA( \([^)\n]*\))? —' \
-  '(?i)(^|\n)## (🧪 )?QA( \([^)\n]*\))? — PASS[ \t]*(\n|$)' \
+  "(?i)(^|\n)## (🧪 )?QA( \([^)\n]*\))? — PASS$PASS_NOTE" \
   'qa-verified' \
   '(?i)(^|\n)## (🧪 )?QA( \([^)\n]*\))? — (blocked|fail)')"
 review_verdict="$(latest_verdict \
   '(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? —' \
-  '(?i)(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? — pass[ \t]*(\n|$)' \
+  "(?i)(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? — pass$PASS_NOTE" \
   'review-verified' \
   '(?i)(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? — (changes|needs-attention|blocked|reject)')"
 

@@ -20,8 +20,16 @@ import { parseJSON } from "../../lib/json.js";
 export const REGISTRY_FILE =
   process.env.XENOMOON_REGISTRY ?? path.join(homedir(), ".xenomoon", "installs.json");
 
-/** This package's name in package.json — the marker that a directory IS an install. */
-const PKG_NAME = "xenomoon-forge";
+/** This package's name in package.json — the marker that a directory IS an install.
+ * It matches the `xenomoon` bin on purpose: npm resolves `npx github:arthur0n/xenomoon` by
+ * looking for the bin named after the package, and a package with several bins and no such
+ * match cannot be executed at all. */
+const PKG_NAME = "xenomoon";
+
+/** The pre-rename name. Installs created before it still carry it, and they are still
+ * installs — dropping it would strand every existing one from findInstallRoot, which is what
+ * server ownership and `xenomoon <verb>` targeting both walk. Delete once none remain. */
+const LEGACY_PKG_NAME = "xenomoon-forge";
 
 /** Whether `dir` is a framework install (its package.json names this package).
  * @param {string} dir @returns {boolean} */
@@ -30,7 +38,7 @@ export function isInstallDir(dir) {
     const pkg = path.join(dir, "package.json");
     if (!existsSync(pkg)) return false;
     const meta = /** @type {{ name?: string }} */ (parseJSON(readFileSync(pkg, "utf8")));
-    return meta.name === PKG_NAME;
+    return meta.name === PKG_NAME || meta.name === LEGACY_PKG_NAME;
   } catch {
     return false;
   }

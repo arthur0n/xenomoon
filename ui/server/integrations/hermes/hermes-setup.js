@@ -50,14 +50,12 @@ import {
   getHermesConfig,
   CONFIG_FILE,
   HERMES_DEFAULT_MODEL,
+  PROJECT_DIR,
+  DOMAIN,
+  FRAMEWORK_DIR,
 } from "../../core/config.js";
-import {
-  hermesHome,
-  hermesEnv,
-  hermesEnvPrefix,
-  ensureProfile,
-  defaultGatewayPort,
-} from "./hermes-profile.js";
+import { hermesHome, hermesEnv, hermesEnvPrefix, ensureProfile } from "./hermes-profile.js";
+import { resolveInstallIdentity } from "../../cli/hermes-identity.js";
 import { ensureWebBackend } from "./hermes-web-backend.js";
 
 const argv = process.argv.slice(2);
@@ -73,16 +71,21 @@ const val = (n) =>
 
 const ASSUME_YES = flag("yes");
 const RESET = flag("reset");
-// Per-DOMAIN profile (see hermes-profile.js): the baked domain by default, `--profile=<name>`
-// overrides, "default" = the legacy shared ~/.hermes (godot's — untouched).
-const PROFILE = val("profile") ?? getHermesConfig().profile;
+const SAVED_HERMES = getHermesConfig(); // per-INSTALL identity — rationale in hermes-profile.js
+const { profile: PROFILE, port: PORT } = resolveInstallIdentity({
+  flagProfile: val("profile"),
+  flagPort: val("port"),
+  saved: SAVED_HERMES,
+  domain: DOMAIN.name ?? "default",
+  projectDir: PROJECT_DIR,
+  frameworkDir: FRAMEWORK_DIR,
+});
 const ENV_PREFIX = hermesEnvPrefix(PROFILE);
 const HERMES_DIR = hermesHome(PROFILE) ?? path.join(homedir(), ".hermes");
 const ENV_FILE = path.join(HERMES_DIR, ".env");
 const SOUL_FILE = path.join(HERMES_DIR, "SOUL.md");
 // The repo's source of truth for the "partner" persona, installed into <profile>/SOUL.md.
 const SOUL_TEMPLATE = path.join(path.dirname(fileURLToPath(import.meta.url)), "hermes-soul.md");
-const PORT = val("port") ?? String(defaultGatewayPort(PROFILE));
 const URL = `http://localhost:${PORT}`;
 const INSTALL_CMD = "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash";
 

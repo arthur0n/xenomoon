@@ -198,6 +198,12 @@ export function installCapabilities(frameworkDir, domainName) {
   );
   written.push(issuekitPathFile);
 
+  // Same reason, second consumer: the consequential-action gate imports its matchers from
+  // ui/lib/, and a hook that cannot find them stops gating the only surface it covers.
+  const frameworkRootFile = path.join(pluginDir, "hooks", "framework-root.generated");
+  writeFileSync(frameworkRootFile, frameworkDir + "\n");
+  written.push(frameworkRootFile);
+
   // 3b. Declare what was written, so install output can never be staged as framework content.
   //     This REPLACES the manifest (the install owns it), so the learning scaffolds are ensured
   //     right after — they append themselves, and one install run leaves a complete list. Without

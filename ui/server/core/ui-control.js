@@ -4,6 +4,10 @@
 // that file's length) in check.
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+// The matchers live in ui/lib because the PreToolUse hook enforces the SAME rules on the surface
+// this layer cannot see — sub-agents, and terminal sessions with no server. Two copies would mean
+// two answers to "is this a push", and the permissive one would be the one that ships.
+import { PUSH_RE, BRANCH_CREATE_RE, mutatesDependencies } from "../../lib/consequential.js";
 import {
   TASK_TOOL,
   ASK_TOOL,
@@ -101,100 +105,6 @@ function pipelineRoster() {
 //
 // Unlike orchestratorGate below, these apply to EVERY agent — a sub-agent pushing is the case the
 // push rule exists for.
-const PUSH_RE = /(^|&&|\|\||;|\|)\s*(rtk\s+)?git\s+(-C\s+\S+\s+)?push\b/;
-/** Lifecycle verbs that write package.json or the lockfile. `update`/`upgrade`/`dedupe` re-pin, and
- * the denial message claims agents never re-pin — so the matcher has to agree with it. */
-const DEP_VERBS = new Set([
-  "add",
-  "remove",
-  "install",
-  "i",
-  "uninstall",
-  "rm",
-  "update",
-  "upgrade",
-  "up",
-  "dedupe",
-]);
-/** Package-manager options that consume the NEXT token, so the verb is not where it looks. */
-const DEP_VALUE_FLAGS = new Set([
-  "-C",
-  "--dir",
-  "--cwd",
-  "--prefix",
-  "--filter",
-  "-F",
-  "--workspace",
-  "-w",
-]);
-// A faithful sync mutates nothing — it installs exactly what the committed lockfile says.
-const DEP_FAITHFUL_RE = /--frozen-lockfile|(^|[^\w])npm\s+ci(\s|$)/;
-
-/**
- * The lifecycle verb one package-manager invocation actually runs, or null.
- *
- * A regex demanding the verb right after the binary missed every workspace shape —
- * `pnpm -C worker add x`, `pnpm --filter web update react`, `npm --workspace ui install x`,
- * `yarn workspace app add react` — which is precisely where an unintended lockfile change is
- * hardest to notice. So: find the manager, then walk past its options (and the values they eat) to
- * the first real token.
- * @param {string} seg @returns {string | null}
- */
-function packageManagerVerb(seg) {
-  const tokens = seg.trim().split(/\s+/).filter(Boolean);
-  let i = tokens.findIndex((t) => ["pnpm", "npm", "yarn", "bun"].includes(t));
-  if (i === -1) return null;
-  i += 1;
-  while (i < tokens.length) {
-    const t = tokens[i] ?? "";
-    if (t.startsWith("-")) {
-      i += DEP_VALUE_FLAGS.has(t) ? 2 : 1;
-      continue;
-    }
-    // `yarn workspace <name> <verb>` / `pnpm workspace <name> <verb>`
-    if (t === "workspace" || t === "workspaces") {
-      i += 2;
-      continue;
-    }
-    return t;
-  }
-  return null;
-}
-
-/**
- * Does this command line mutate dependencies ANYWHERE in it?
- *
- * Classified PER SEGMENT: testing the faithful-sync exemption against the whole string was
- * launderable, because `npm ci && npm install lodash` contains a faithful sync and the whole line
- * then read as faithful. A safe neighbour does not vouch for a risky one.
- * @param {string} cmd
- */
-function mutatesDependencies(cmd) {
-  return cmd.split(/&&|\|\||;|\|/).some((seg) => {
-    const verb = packageManagerVerb(seg);
-    return verb !== null && DEP_VERBS.has(verb) && !DEP_FAITHFUL_RE.test(seg);
-  });
-}
-
-// Branch CREATION only. Listing, deleting and switching to an existing branch are not this.
-const GIT_PRE = "(^|&&|\\|\\||;|\\|)\\s*(rtk\\s+)?git\\s+(-C\\s+\\S+\\s+)?";
-const BRANCH_CREATE_RE = new RegExp(
-  GIT_PRE +
-    "(checkout\\s+-[bB]|switch\\s+(-[cC]|--create)|worktree\\s+add" +
-    // `--track` / `-t` creates a LOCAL branch from a remote one — it forks history exactly like
-    // -b does, and it reads like a checkout, which is what makes it easy to miss.
-    //
-    // STATED BOUNDARY, not an oversight: git's DWIM (`--guess`, on by default) also creates a local
-    // branch from `git switch <name>` when <name> exists on exactly one remote. Catching that needs
-    // repo state — does the local branch exist? — which no matcher here can know. Prompting on EVERY
-    // plain switch/checkout would fire on ordinary sub-agent work and train reflexive approval,
-    // which is worse than the gap. It is also the narrow case: the main loop cannot reach a plain
-    // switch at all (the role gate denies mutating git for it), and what DWIM materialises is a
-    // branch that already exists on the remote, not new history.
-    "|(checkout|switch)\\s+([^&|;]*\\s)?(-t|--track)(\\s|$)" +
-    "|branch\\s+(?!-[dDmMar]|--(list|delete|move|show-current|all|remotes))\\S)",
-);
-
 const GH_ISSUE_WRITE_RE =
   /(^|&&|\|\||;|\|)\s*(rtk\s+)?gh\s+issue\s+(create|new|edit|comment|close|reopen|delete|lock|unlock|pin|unpin|transfer|develop)\b/;
 // State-mutating git subcommands. Read verbs (status/log/diff/show/fetch/branch-list/
@@ -234,6 +144,23 @@ function hasCommitGateHook() {
   _commitGateHook ??= existsSync(join(FRAMEWORK_PLUGIN_DIR, "hooks", "commit-gate.sh"));
   return _commitGateHook;
 }
+
+// NO DEFERRAL to the consequential-action hook, deliberately, and it cost two attempts to land here.
+//
+// An env marker was tried first — the server stamping "the layer is present" so the hook could
+// stand down. Any nested process inherits it, so the hook went quiet in sessions this layer never
+// mediates: the marker disabled the gate exactly where it was the only one.
+//
+// File-existence was tried next, this layer standing down when the hook ships. But "the file is on
+// disk" is not "the gate ran": a hook that exits without a decision, or is skewed with the install,
+// turns an action that needed approval into a silent allow — and it disables the fallback precisely
+// when the hook may not be enforcing.
+//
+// So both layers judge what they can see. In a server session a consequential command can draw two
+// prompts, which is a real cost paid knowingly: a duplicate question is a nuisance, a silent allow
+// is the failure this whole file exists to prevent. The overlap is narrow anyway — the role gate
+// already denies the main loop's mutating git, and the sub-agent DENIES below never reach a prompt
+// at all.
 // Hard ceiling for a Task dispatch brief; roomy enough for a real brief with a spec
 // pointer + constraints, far below the re-specify-everything failure mode.
 const MAX_DISPATCH_BRIEF_CHARS = 2500;

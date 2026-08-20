@@ -15,6 +15,7 @@ import { existsSync, mkdirSync, readdirSync, realpathSync, rmSync } from "node:f
 import { execFileSync, execSync } from "node:child_process";
 import readline from "node:readline/promises";
 import path from "node:path";
+import { foreignBins, conflictReport } from "./link-conflicts.js";
 
 const REPO = "https://github.com/arthur0n/xenomoon.git";
 const TARBALL = "https://codeload.github.com/arthur0n/xenomoon/tar.gz/refs/heads/main";
@@ -120,7 +121,7 @@ execFileSync("npm", ["ci"], { cwd: dest, stdio: "inherit" });
 // unannounced steal is what made `xenomoon update` appear to update the wrong project.
 const priorLink = globalLinkTarget();
 try {
-  execFileSync("npm", ["link"], { cwd: dest, stdio: "ignore" });
+  execFileSync("npm", ["link"], { cwd: dest, stdio: ["ignore", "ignore", "pipe"] });
   console.log("Linked the `xenomoon` CLI (install | doctor | start | update | promote).");
   if (priorLink && path.resolve(priorLink) !== path.resolve(dest)) {
     console.warn(
@@ -130,8 +131,17 @@ try {
         `      them from, and each run prints the install it resolved to.`,
     );
   }
-} catch {
-  console.warn("Could not npm-link the CLI — use `npm run <script>` inside the install instead.");
+} catch (err) {
+  const conflicts = foreignBins(dest);
+  if (conflicts.length > 0) {
+    for (const line of conflictReport(conflicts)) console.warn(line);
+  } else {
+    const raw = /** @type {{ stderr?: Buffer | string }} */ (err).stderr;
+    const stderr = (typeof raw === "string" ? raw : (raw?.toString("utf8") ?? "")).trim();
+    const why = stderr.split("\n").filter(Boolean).slice(-2).join("\n        ");
+    console.warn(`Could not npm-link the CLI${why ? `:\n        ${why}` : "."}`);
+  }
+  console.warn("      The install itself is fine — use `npm run <script>` inside it meanwhile.");
 }
 
 rl.close();

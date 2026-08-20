@@ -24,14 +24,14 @@ Godot stays the exclusive product of the upstream we forked from — it is **not
 
 - **This repo is the trunk.** It is never bound to a project directly.
 - **One install per project** (`xm-<name>` convention). An install is a full framework checkout **bound** to an external project via a gitignored `.xenomoon.json`.
-- **Domains are install-time pickers only.** Installing copies the chosen pack's agents/skills/commands into `plugin/` and bakes the descriptor into `.xenomoon.json`. Nothing under `domains/` is read at runtime.
+- **Domains are install-time pickers only.** Installing copies the chosen pack's agents and skills into `plugin/` and bakes the descriptor into `.xenomoon.json`. Nothing under `domains/` is read at runtime.
 - **At runtime there is exactly ONE capability tree: `plugin/`.** Every session loads it.
 - **Your project stays pure.** The framework reads it in place; project-side state is confined to `<project>/.xenomoon/` plus project-owned capabilities in `<project>/.claude/`.
 
 ```
 xenomoon/                      ← the INSTALL (fork/clone; your projects bind to it)
 ├── plugin/                    ← the framework's ONE plugin tree: loaded into EVERY session
-│   ├── skills/  hooks/  agents/  commands/     (meta skills, safety gates, researchers)
+│   ├── skills/  agents/  hooks/                 (capabilities, safety gates)
 │   └── docs/process/          (updates-routing.md · repo-boundary.md · promotion.md)
 ├── domains/<name>/            ← install-time PICKER packs (webapp, expoapp) — never loaded at runtime
 │   ├── domain.json  orchestrator.md
@@ -52,10 +52,9 @@ npx github:arthur0n/xenomoon
 ```
 
 It confirms the folder as the project, installs the framework BESIDE it (default sibling
-`../myapp-xm` — one install per project, learnings stay per project), then walks the terminal
-questionnaire: domain → port → Hermes/Codex/Kimi. If your project already uses Claude, it
-offers the onboarding interview (terminal Claude Code) BEFORE the server starts. It also links
-the `xenomoon` CLI, so from then on the verbs are real words:
+`../myapp-xm`), then asks: domain → port → Hermes/Codex/Kimi. If your project already uses
+Claude, it offers the onboarding interview before the server starts. It also links the
+`xenomoon` CLI:
 
 ```bash
 xenomoon up              # serve the UI DETACHED (recommended — terminal stays free)
@@ -68,23 +67,10 @@ xenomoon promote         # apply approved promotions
 xenomoon list            # every install on this machine, and what each one drives
 ```
 
-(`up`/`stop`/`restart` are thin wrappers over `./start_server` / `./stop_server` — PID file
-under `.xm-run/`, port reclaim, survives the launching terminal.)
-
-**More than one project?** npm gives every install the same global `xenomoon` bin, so the name
-belongs to whichever install ran `xenomoon install` last. That ownership decides nothing: a verb
-acts on the install your **location** resolves to, and every run prints which install it picked.
-
-```
-xenomoon update → /ws/alpha-xm  (cwd is inside this install)
-```
-
-Resolution order: `--install=<path>` (or `XENOMOON_INSTALL`) → the install you are inside → the
-install bound to the project you are inside → the only install on the machine. If none of those
-settle it, the verb **stops and lists the candidates** rather than guessing — silently driving the
-wrong project is the one outcome worth failing over. Installs register themselves at install time
-in `~/.xenomoon/installs.json` (`XENOMOON_REGISTRY` overrides the path); the file is a cache, so a
-deleted install is pruned on the next read and `xenomoon doctor` re-registers the one it runs in.
+**With several projects, verbs follow your location, not a global setting.** Run one from
+inside an install (or inside the project it drives) and it acts on that one, printing which it
+picked. When nothing settles it, the verb stops and lists the candidates instead of guessing —
+silently driving the wrong project is the one outcome worth failing over.
 
 Already have the framework checked out? Same flow, minus step zero:
 
@@ -94,44 +80,19 @@ npm run install-project  # the questionnaire (or pass flags: -- <PATH> --domain=
 npm start                # http://localhost:3117 (or your chosen port)
 ```
 
-(Have the optional `rtk` (Rust Token Killer) token-saving proxy on PATH? The framework
-detects it per session and auto-routes agent shell commands through it (the `rtk-rewrite`
-hook) — nothing to configure. For your own terminal commands, prefix manually (`rtk npm ci`).
-Everything works identically without it; `doctor` reports it as a soft, optional check.)
-
-Or hand the whole install to an agent — paste this verbatim, replacing the target path:
-
-```text
-You are installing the Xenomoon Forge framework into a React + Node.js web app, using the `webapp` domain.
-
-Context:
-- Framework repo = the xenomoon checkout you are running in (this directory).
-- Target project = <ABSOLUTE_PATH_TO_YOUR_WEBAPP>  ← a React + Node.js app with a package.json.
-- Domain = `webapp`: a Node domain that installs in place, writes nothing into your project, and keeps it pure.
-
-If `rtk` is on PATH (`command -v rtk`), prefix every shell command with it; otherwise run the
-commands plain — they are identical either way. Do exactly this:
-1. Install framework deps:        npm ci
-2. Install into the project:       npm run install-project -- <ABSOLUTE_PATH_TO_YOUR_WEBAPP> --domain=webapp
-   (locks the domain, binds the path in .xenomoon.json, runs doctor)
-3. Confirm health:                 npm run doctor   → must report OK for the webapp domain.
-4. Boot the UI:                    npm start         → serves http://localhost:3117
-5. Verify: open http://localhost:3117 (expect HTTP 200) and check /api/state returns the project's
-   name with "found": true.
-
-Do not scaffold, copy, or edit anything inside the target project beyond the framework binding.
-Stop and report if `doctor` fails or the `webapp` domain is not found.
-```
+Optional: with the `rtk` (Rust Token Killer) token-saving proxy on PATH, the framework detects
+it per session and routes agent shell commands through it automatically. Everything works
+identically without it; `doctor` reports it as a soft check.
 
 ## What works today
 
-- **A domain-neutral spine.** The framework reads everything domain-specific (project marker, orchestrator prompt, capabilities, build/verify commands) from the pack descriptor baked at install time. No hardcoded product.
-- **Deterministic per-project install** — including into existing, non-greenfield projects, never scaffolding over your code. The binding is a committed lock, read literally; a conflicting override is **refused**, not silently applied.
-- **Two shipped packs.** **`webapp`**: a React + Node head-start running an issue-driven `triage → solution → implement` pipeline (analyst / developer / reviewer / tester agents, QA and auto-commit stages). **`expoapp`**: a React Native / Expo pack (both platforms) with the simulator/emulator acceptance lanes for the CORE `uat-runner`, plus Android/iOS local-run + ship skills.
-- **A CLI that refuses to guess.** Every verb resolves the install from your location, prints which one it picked, and stops with a candidate list when ambiguous — it never silently drives the wrong project.
-- **Mechanical safety gates.** The orchestrator's role is enforced at the tool boundary, not by prose: mutating git is denied to the main loop (the working tree belongs to you and the pipeline), merge/promote surfaces as a human approval, and the orchestrator dispatches agents instead of implementing. Two layers, because a prohibition you have to _recall_ loses to an affordance that is _present_: the web UI enforces it in the session's permission gate, and a hook enforces the same class in terminal sessions, which never load that gate. Sub-agents and read-only git stay untouched — investigation is genuinely the orchestrator's job. A third hook layer guards destructive git/shell for **every** caller, sub-agents included.
+- **A domain-neutral spine.** Everything domain-specific — project marker, orchestrator prompt, capabilities, build and verify commands — is read from the pack descriptor baked at install time. No hardcoded product.
+- **Deterministic per-project install**, including into existing projects, never scaffolding over your code. The binding is a committed lock, read literally; a conflicting override is **refused**, not silently applied.
+- **Two shipped packs.** **`webapp`**: React + Node, running an issue-driven `triage → solution → implement` pipeline with QA and auto-commit stages. **`expoapp`**: React Native / Expo, both platforms, with simulator and emulator acceptance lanes plus local-run and ship skills.
+- **A CLI that refuses to guess.** Every verb resolves the install from your location, says which one it picked, and stops when that is ambiguous.
+- **Safety gates that don't depend on an agent remembering.** Anything with consequences — pushing, changing dependencies, creating branches, spending money on a metered API, pushing with migrations unapplied — is **policy** in `.xenomoon.json`, and it defaults to asking you. Two layers read those same rules, so the answer is the same either way: the web UI's permission gate, and a hook covering terminal sessions and subagents, which never load that gate. Separately, the orchestrator cannot edit your working tree at all — it dispatches agents. The tree belongs to you and the pipeline.
 - **External workers, used not competed with.** Optional **Hermes** (researcher/critic) and **Codex** (reviewer) integrations with per-domain profiles and cost-basis economics — subscription workers are there to be spent.
-- **Self-improvement loops, all human-gated.** Sessions end in a debrief; learnings become project-local capabilities; a promotions flow moves the good ones upward — you approve every step. The forge itself is audited the same way (framework-audit, session harvesting, token audits), findings recorded in a ledger the human applies.
+- **Self-improvement loops, all human-gated.** Sessions end in a debrief; learnings become project-local capabilities; a promotions flow moves the good ones upward — you approve every step. The forge audits itself the same way, recording findings in a ledger you apply.
 
 ## What's not here yet
 

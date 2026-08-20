@@ -40,20 +40,35 @@ import { installCapabilities } from "./install-capabilities.js";
 import { deploysOnPush, order, prompt, choose } from "./branch-model.js";
 import { render, choose as pick, question } from "./picklist.js";
 import { detect as detectDomain, order as orderDomains, summarize } from "./domain-pick.js";
+import { DEFAULT_PORT, savedPort, otherInstallPorts, firstFreePort } from "./port-pick.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
 
-// Parse argv: a positional target path + an optional `--domain=<name>` / `--domain <name>`.
+// Parse argv: a positional target path + optional `--domain=<name>` and `--port=<n>` (both
+// also accepted space-separated).
+//
+// `--port` exists because a SCRIPTED install had no way to state one: the question is
+// TTY-only, so a non-interactive run wrote no port and the install silently fell back to the
+// global default. Rebuilding an install that way moves it off the port it had been using onto
+// one another install may already hold — which is exactly how two installs ended up both
+// answering on 3117.
 const argv = process.argv.slice(2);
 let domainFlag = null;
+let portFlag = null;
 const positional = [];
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === undefined) continue;
   if (a.startsWith("--domain=")) domainFlag = a.slice("--domain=".length);
   else if (a === "--domain") domainFlag = argv[++i] ?? null;
+  else if (a.startsWith("--port=")) portFlag = a.slice("--port=".length);
+  else if (a === "--port") portFlag = argv[++i] ?? null;
   else if (!a.startsWith("--")) positional.push(a);
+}
+if (portFlag !== null && !/^\d+$/.test(portFlag)) {
+  console.error(`new: --port must be a number (got "${portFlag}").`);
+  process.exit(1);
 }
 
 // ---- The terminal questionnaire ----------------------------------------------------------
@@ -183,15 +198,31 @@ if (!domainName && rl) {
     process.exit(1);
   }
 }
-// Port — empty keeps the default. Saved into .xenomoon.json so `npm start` needs no env.
-let portAnswer = null;
-if (rl) {
-  portAnswer = (await rl.question("UI port [empty = 3117]: ")).trim() || null;
+// Port — an install OWNS one, and it is saved into .xenomoon.json so `npm start` needs no env.
+//
+// An unanswered port used to write nothing and fall through to the global default, so two
+// installs on one machine both answered on it and whichever server started first served the
+// other's UI. So: `--port` wins, then the port this install already had (a re-install keeps
+// what it was using), then the first port no OTHER registered install claims — and it is
+// ALWAYS written. The suggestion is announced with its reason, never applied silently.
+const takenPorts = otherInstallPorts(FRAMEWORK_DIR);
+const currentPort = savedPort(FRAMEWORK_DIR);
+const suggestedPort = currentPort ?? firstFreePort(DEFAULT_PORT, takenPorts);
+let portAnswer = portFlag;
+if (!portAnswer && rl) {
+  if (suggestedPort !== DEFAULT_PORT)
+    console.log(
+      currentPort
+        ? `  This install already uses port ${currentPort} — keeping it unless you say otherwise.`
+        : `  Port ${DEFAULT_PORT} is taken by another install on this machine; suggesting ${suggestedPort}.`,
+    );
+  portAnswer = (await rl.question(`UI port [empty = ${suggestedPort}]: `)).trim() || null;
   if (portAnswer && !/^\d+$/.test(portAnswer)) {
     console.error(`new: port must be a number (got "${portAnswer}").`);
     process.exit(1);
   }
 }
+portAnswer ??= String(suggestedPort);
 // Branch model — the project's branch & merge convention, decided by the human here and
 // re-confirmable during onboarding. Written to <project>/.xenomoon/branch-model (the runtime
 // source every session reads); the .xenomoon.json copy is provenance only. The options and
@@ -401,15 +432,15 @@ if (!DOMAIN.materializeIntoProject) {
         ...cfg,
         domain: domainName,
         branchModel,
-        ...(portAnswer ? { port: Number(portAnswer) } : {}),
+        // ALWAYS written. An absent port is not "the default" — it is two installs silently
+        // resolving to the same one, and the server that starts first serving the other's UI.
+        port: Number(portAnswer),
       },
       null,
       2,
     ) + "\n",
   );
-  console.log(
-    `new: bound domain "${domainName}"${portAnswer ? ` on port ${portAnswer}` : ""} in ${cfgFile}.`,
-  );
+  console.log(`new: bound domain "${domainName}" on port ${portAnswer} in ${cfgFile}.`);
 }
 
 // 3. Materialize the domain's per-project files: tools/ copied, library/ symlinked (if any).
@@ -459,5 +490,5 @@ if (rl) {
 rl?.close();
 
 console.log(
-  `\nnew: done (domain "${domainName}"). Start the server:\n    xenomoon up         # web UI on port ${portAnswer ?? "3117"}, DETACHED (terminal stays free; xenomoon stop / restart)\n    xenomoon start      # same server in the foreground, logs in this terminal\nThe FIRST session runs the onboarding interview, then the UI asks the rest.`,
+  `\nnew: done (domain "${domainName}"). Start the server:\n    xenomoon up         # web UI on port ${portAnswer}, DETACHED (terminal stays free; xenomoon stop / restart)\n    xenomoon start      # same server in the foreground, logs in this terminal\nThe FIRST session runs the onboarding interview, then the UI asks the rest.`,
 );

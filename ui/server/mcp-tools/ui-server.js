@@ -1,5 +1,5 @@
 // The in-process "ui" MCP server: the UI-facing SDK tools (forms, tasks, asks,
-// promotions, Hermes, autonomous, set-skill) the orchestrator and agents call. Built fresh per
+// promotions, Hermes, Kimi, Codex, autonomous, set-skill) the orchestrator and agents call. Built fresh per
 // session because each tool closes over session-scoped senders/queues. Lives here, not inline in
 // session.js, so that file stays under its line cap and the tool list has one obvious home.
 import { createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
@@ -9,6 +9,7 @@ import { makeAskTool } from "./ask-tool.js";
 import { makePromoteTool } from "./promote-tool.js";
 import { makeHermesTool, makeHermesFeedbackTool } from "./hermes-tool.js";
 import { makeKimiTool } from "./kimi-tool.js";
+import { makeCodexTool } from "./codex-tool.js";
 import { makeAutonomousTool } from "./autonomous-tool.js";
 import { makeSetSkillTool } from "./set-skill-tool.js";
 import { makeEpicTool } from "./epic-tool.js";
@@ -40,6 +41,7 @@ export function buildUiServer({ waitFor, formAgentQueue, send, hermesPush, disar
       makeHermesTool(send, hermesPush),
       makeHermesFeedbackTool(send),
       makeKimiTool({ send, push: hermesPush, waitFor }),
+      makeCodexTool(send),
       makeAutonomousTool(send, disarm),
       makeSetSkillTool(),
       makeEpicTool(),

@@ -147,7 +147,7 @@ Right-size the gate to the work:
 - A backgrounded implementer writes its full report to `.xenomoon/handoffs/<slug>.md`
   (agent-report protocol) and the haiku `handoff-summarizer` distills it — you never load
   the raw report.
-- A **Codex `audit`** goes through the **`codex-review` subagent**, never a background Bash whose
+- A **Codex `audit`** goes through the **`mcp__ui__codex` tool**, never a background Bash whose
   output you read and post. Two reasons, both learned the hard way: the raw review lands in your
   context, and its vocabulary reaches the lane unmapped — a live project posted
   `## 🔎 REVIEW — approve`, which the commit gate could not read as a pass. `pipeline-dispatch`

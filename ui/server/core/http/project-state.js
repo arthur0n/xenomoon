@@ -141,9 +141,11 @@ export function projectState() {
         path.join(dir, ".claude", "agents"),
       ]),
       // Hermes is an external worker behind an mcp tool, not an SDK agent .md — so the
-      // file scan above never finds it, unlike Codex (codex-review.md). Surface it in the
-      // roster whenever it is enabled, same as any team member; the client's DISPLAY map
-      // already labels the id ("hermes" → "Hermes: Researcher") and colors it.
+      // file scan above never finds it. Surface it in the roster whenever it is enabled, same
+      // as any team member; the client's DISPLAY map already labels the id ("hermes" →
+      // "Hermes: Researcher") and colors it. Codex and Kimi are deliberately NOT listed here:
+      // they are mcp tools with no Claude model behind them, and the roster's model column
+      // would have to invent one (the retired codex-review.md agent read as "Codex · sonnet").
       ...(hermesPublicConfig().enabled
         ? [{ name: "hermes", model: hermesPublicConfig().model }]
         : []),

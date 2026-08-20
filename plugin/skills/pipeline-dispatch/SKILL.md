@@ -152,13 +152,22 @@ different things:
 Propose the choice and let the human decide when it is not obvious — Codex spends their money, and
 skipping review spends their trust.
 
-**Run Codex through the `codex-review` subagent**, never your own Bash: the full review then stays
-out of your context and you get a receipt back. (This replaced an older instruction to run the
-companion directly in a background Bash — one route, so the raw output cannot leak into the router's
-context. If the subagent is not available in a given install, that is a setup problem to report, not
-a reason to shell out.) Its vocabulary is not the lane's — map
+**Run Codex through the `mcp__ui__codex` tool**, never your own Bash: the full review then stays
+out of your context and you get a receipt back (verdict, findings as one-liners, next steps, and the
+path to the full review on disk). (This replaced first a background Bash, then a `codex-review`
+sub-agent — one route, so the raw output cannot leak into the router's context, and no Claude turn
+is spent formatting what the companion already emits as JSON. If the tool is not available in a
+given install, that is a setup problem to report, not a reason to shell out.) Its vocabulary is not
+the lane's — map
 `approve` → `pass` and `needs-attention` → `changes` when you record it. Never paste its verdict
 wording into the lane raw; a live project did, and the gate read `## 🔎 REVIEW — approve` as a block.
+
+**A receipt that opens `PARTIAL —` is not a verdict.** A long native review comes back as its
+structure only (headings + finding leads), with the full text parked on disk. Do not map a lane
+verdict off a partial receipt and do not read the file into your own context: dispatch
+`xenomoon:handoff-summarizer` on the named path — haiku, ≤5 lines, `verdict`/`blocking`/`minor`/
+`open` — and map from THAT. A `verdict:` line (the adversarial pass) or a short native review is
+already complete; summarizing those only loses detail.
 
 ### Audit with no number: query, THEN inspect
 

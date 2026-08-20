@@ -37,8 +37,7 @@ const ROLE_COLOR = {
   debrief: "oklch(0.72 0.14 25)", // ember red — the retrospective / learning loop
   hermes: "#3b2aff", // electric indigo — the external Hermes researcher (not a Xenomoon)
   kimi: "#10b981", // Moonshot teal — the external Kimi coder (not a Xenomoon)
-  "codex-review": "#b9c2cc", // silver steel — the external Codex reviewer (not a Xenomoon)
-  "codex-rescue": "#b9c2cc", // same identity color: both are Codex
+  "codex-rescue": "#b9c2cc", // silver steel — the external Codex fix-it agent (not a Xenomoon)
 };
 
 /** Strip "namespace:" prefix from a plugin-namespaced agent id.
@@ -71,7 +70,6 @@ const DISPLAY = {
   "uat-runner": "UAT Runner",
   "handoff-summarizer": "Handoff",
   hermes: "Hermes: Researcher",
-  "codex-review": "Codex: Reviewer",
   "codex-rescue": "Codex: Rescue",
   kimi: "Kimi: Coder",
 };

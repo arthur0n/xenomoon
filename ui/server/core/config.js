@@ -224,6 +224,14 @@ export const HERMES_TOOL = "mcp__ui__hermes";
 // hits the per-call permission gate. Granted to the Hive only.
 export const KIMI_TOOL = "mcp__ui__kimi";
 
+// In-process MCP tool the HIVE calls to run ONE Codex code review (see codex-tool.js). Codex is
+// OpenAI's model on OpenAI's billing, so — like HERMES_TOOL and KIMI_TOOL — it has NO auto-allow
+// branch in canUseTool: every review hits the per-call permission gate, and THAT prompt is the
+// human's consent. It replaces the old `codex-review` sub-agent, which spent a Claude turn doing
+// string work the companion's `--json` payload already makes deterministic (and put a Claude model
+// badge on a worker with no Claude in it).
+export const CODEX_TOOL = "mcp__ui__codex";
+
 /** Hermes model ids for the settings dropdown; the user can also enter a custom id. The Nous
  * Portal (provider `nous`) routes non-Nous ids too (e.g. `qwen/*`, `z-ai/*`), so they're valid
  * picklist entries as long as they're in the Portal model catalog.
@@ -581,10 +589,13 @@ export function getHermesBlock() {
   return readFileSync(path.join(UI_DIR, "hermes-block.md"), "utf8");
 }
 /** Absolute path to the vendored Codex companion CLI — the same Node script the `/codex:*`
- * slash commands wrap. Injected into the Codex block (replacing the `{{CODEX_COMPANION}}`
- * placeholder) so the orchestrator can launch reviews/tasks ITSELF via Bash, not just tell the
- * user to type a slash command. The launch path is consent-gated by policy, not by capability. */
-export const CODEX_COMPANION = path.join(CODEX_PLUGIN_DIR, "scripts", "codex-companion.mjs");
+ * slash commands wrap, and what `mcp__ui__codex` spawns for a review. Also injected into the Codex
+ * block (replacing the `{{CODEX_COMPANION}}` placeholder) so the orchestrator can launch a Codex
+ * TASK itself via Bash. The launch path is consent-gated by policy, not by capability.
+ * `CODEX_COMPANION` in the env overrides it — same env-first convention as the rest of this file,
+ * and the seam the codex-tool suite uses to run against a stub instead of a real vendored clone. */
+export const CODEX_COMPANION =
+  process.env.CODEX_COMPANION ?? path.join(CODEX_PLUGIN_DIR, "scripts", "codex-companion.mjs");
 
 /**
  * issuekit — the framework's OWN issue/branch/PR tool, shipped in this tree (not vendored: it is
@@ -622,8 +633,8 @@ const CODEX_COST_DOCTRINE = {
     "**Billing: the user's ChatGPT SUBSCRIPTION — zero marginal cost.** Quality here is " +
     "free; rationing it is the mistake. Use it at every natural quality gate — " +
     "post-implement, pre-commit, pre-push, post-merge — and on any diff you are less " +
-    "than sure about, ALWAYS by dispatching the `codex-review` subagent. The harness " +
-    "permission prompt on the review command IS the consent: never offer in chat first, " +
+    "than sure about, ALWAYS by calling `mcp__ui__codex`. The harness " +
+    "permission prompt on that call IS the consent: never offer in chat first, " +
     "never ask twice, never route around the prompt. One review round per slice is the " +
     "default; further rounds need the human's go.",
   metered:
@@ -653,8 +664,8 @@ export function getEconomicsBlock() {
   if (codex.enabled)
     rows.push(
       codex.costBasis === "subscription"
-        ? "| Codex review | ChatGPT subscription — marginal-free | dispatch `codex-review` subagent at EVERY quality gate; the permission prompt IS the consent, one round per slice |"
-        : "| Codex review | metered (OpenAI billing) | deliberate `codex-review` dispatch at decision points; the permission prompt IS the consent |",
+        ? "| Codex review | ChatGPT subscription — marginal-free | call `mcp__ui__codex` at EVERY quality gate; the permission prompt IS the consent, one round per slice |"
+        : "| Codex review | metered (OpenAI billing) | deliberate `mcp__ui__codex` calls at decision points; the permission prompt IS the consent |",
     );
   if (getHermesConfig().enabled)
     rows.push("| Hermes research | metered API | deliberate dispatch; batch questions |");

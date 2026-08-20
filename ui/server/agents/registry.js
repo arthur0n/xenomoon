@@ -143,12 +143,14 @@ export const AGENT_REGISTRY = [
     id: "codex",
     label: "Codex",
     blurb:
-      "OpenAI's Codex as an optional, on-demand code reviewer. When on, type /codex:review (or /codex:adversarial-review) in a session to review the current diff. Advisory and never auto-runs. Billed to your ChatGPT/OpenAI account — your Anthropic plan doesn't cover it; Codex owns the credential (codex login), Xenomoon never sees it.",
+      "OpenAI's Codex as an optional, on-demand code reviewer. When on, the Hive reviews a diff via the mcp__ui__codex tool (one permission prompt per review) and you can still type /codex:review or /codex:adversarial-review yourself. Advisory and never auto-runs. Billed to your ChatGPT/OpenAI account — your Anthropic plan doesn't cover it; Codex owns the credential (codex login), Xenomoon never sees it.",
     docHref: "https://developers.openai.com/codex/",
     runbook: "CODEX.md",
     roles: ["reviewer"],
     defaultRoles: CODEX_DEFAULT_ROLES,
-    runtimeKind: "cli-plugin",
+    // The Hive's path is the in-process mcp__ui__codex tool; the vendored plugin stays loaded for
+    // the user-typed /codex:* commands and the codex-rescue subagent.
+    runtimeKind: "mcp-tool",
     fields: [],
     install: {
       summary: "First time? Install the Codex CLI & vendor the plugin",

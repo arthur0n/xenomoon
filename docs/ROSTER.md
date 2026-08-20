@@ -6,13 +6,12 @@ print the live table with `node ui/server/cli/agents-lint.js --table`).
 
 ## CORE (`plugin/agents/` — loads in every session)
 
-| agent              | model  | effort | when used                                                                                                                                                                                                                                                                                     | cost expectation                                 |
-| ------------------ | ------ | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| product-owner      | opus   | high   | Vague/feature/intent request → interview → one-page PRD (`design/<slug>.md`) + business-rules capture. Never backgrounded.                                                                                                                                                                    | High per run, rare — runs once per feature slice |
-| researcher         | opus   | high   | The ONE research role — mode named at dispatch: `research-skill-gap` (missing-skill gap), `research-tooling` (capability gate), `research-transcript` (harvest a dropped transcript). Human-gated adopts.                                                                                     | High, rare/occasional                            |
-| debrief            | opus   | high   | Retrospective / learning loop (opt-in, offered after a fix, friction, or a human override): root-cause → one verdict (update project skill / dispatch researcher / update docs / refine rubric / framework finding / no change). May call Hermes. Human-gated applies, project surfaces only. | High per run, rare                               |
-| codex-review       | sonnet | low    | Wrapper for the external Codex reviewer — runs the companion, parses the structured result, and returns a tight receipt. Exists so the full review never enters the router's context                                                                                                          | Low, per review                                  |
-| handoff-summarizer | haiku  | low    | Distill a builder's handoff file to ≤5 lines                                                                                                                                                                                                                                                  | Trivial, frequent                                |
+| agent              | model | effort | when used                                                                                                                                                                                                                                                                                     | cost expectation                                 |
+| ------------------ | ----- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| product-owner      | opus  | high   | Vague/feature/intent request → interview → one-page PRD (`design/<slug>.md`) + business-rules capture. Never backgrounded.                                                                                                                                                                    | High per run, rare — runs once per feature slice |
+| researcher         | opus  | high   | The ONE research role — mode named at dispatch: `research-skill-gap` (missing-skill gap), `research-tooling` (capability gate), `research-transcript` (harvest a dropped transcript). Human-gated adopts.                                                                                     | High, rare/occasional                            |
+| debrief            | opus  | high   | Retrospective / learning loop (opt-in, offered after a fix, friction, or a human override): root-cause → one verdict (update project skill / dispatch researcher / update docs / refine rubric / framework finding / no change). May call Hermes. Human-gated applies, project surfaces only. | High per run, rare                               |
+| handoff-summarizer | haiku | low    | Distill a builder's handoff file to ≤5 lines                                                                                                                                                                                                                                                  | Trivial, frequent                                |
 
 ### CORE pipeline stages (being promoted stage by stage — `plugin/docs/process/promote-agent-to-core.md`)
 
@@ -76,5 +75,11 @@ threshold from the other side.
   (`p-bug-triage`, `p-scrape-2fase`). The UI renders them "Project · <Name>", so the user
   always knows whose agent is talking. A project agent must NEVER reuse a framework
   agent's name — `doctor` warns on shadowing.
-- **External agents** keep their vendor prefix in the UI ("Hermes: Researcher",
-  "Codex: Reviewer", "Kimi: Coder").
+- **External workers are MCP tools, not agents.** Hermes (`mcp__ui__hermes`), Kimi
+  (`mcp__ui__kimi`) and Codex (`mcp__ui__codex`) run somebody else's model on somebody else's
+  billing, so none of them appears in the table above — a roster row would have to name a
+  Claude model they do not use. The one that did (`codex-review`, a sonnet wrapper that read
+  the companion's JSON and retyped it) was retired: the companion emits structure, so the
+  distillation is deterministic string work in `ui/server/mcp-tools/codex-tool.js`.
+  Where an external worker does surface in the UI it keeps its vendor prefix
+  ("Hermes: Researcher", "Codex: Rescue", "Kimi: Coder").

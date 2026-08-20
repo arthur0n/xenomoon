@@ -38,6 +38,8 @@ import {
 } from "../core/domain-resolver.js";
 import { installCapabilities } from "./install-capabilities.js";
 import { deploysOnPush, order, prompt, choose } from "./branch-model.js";
+import { render, choose as pick, question } from "./picklist.js";
+import { detect as detectDomain, order as orderDomains, summarize } from "./domain-pick.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
@@ -92,6 +94,43 @@ function projectDefaultBranch(dir) {
   return "main";
 }
 
+/** A pack's RAW descriptor. `loadDomain` normalises into the runtime shape and drops
+ * `description`, which is the one field a picklist row wants.
+ * @param {string} name @returns {{ label?: string, description?: string }} */
+function packDescriptor(name) {
+  try {
+    const dir = resolvePackDir(name, FRAMEWORK_DIR);
+    return /** @type {{ label?: string, description?: string }} */ (
+      parseJSON(readFileSync(path.join(FRAMEWORK_DIR, "domains", dir, "domain.json"), "utf8"))
+    );
+  } catch {
+    return { label: loadDomain(name, FRAMEWORK_DIR).label };
+  }
+}
+
+/** The project's own package.json — {} when it has none or it is unreadable.
+ * @param {string} dir @returns {{ dependencies?: Record<string, string>,
+ *   devDependencies?: Record<string, string> }} */
+function projectPkg(dir) {
+  try {
+    return /** @type {{ dependencies?: Record<string, string> }} */ (
+      parseJSON(readFileSync(path.join(dir, "package.json"), "utf8"))
+    );
+  } catch {
+    return {};
+  }
+}
+
+/** Names in the project root — empty when it cannot be read.
+ * @param {string} dir @returns {string[]} */
+function projectFiles(dir) {
+  try {
+    return readdirSync(dir);
+  } catch {
+    return [];
+  }
+}
+
 /** The project's workflow files, as {name, text} — empty when it has none.
  * @param {string} dir @returns {{ name: string, text: string }[]} */
 function projectWorkflows(dir) {
@@ -116,12 +155,33 @@ if (domainFlag && existingLock && domainFlag !== existingLock) {
   process.exit(1);
 }
 let domainName = domainFlag ?? existingLock;
+// Domain — asked as a picklist ordered by what the PROJECT declares. An Expo app names `expo`
+// in its manifest; a web app does not. Detection only decides the ORDER and is always shown
+// with its evidence — a recommendation you can check beats a default you cannot.
 if (!domainName && rl) {
   const avail = availableDomains(FRAMEWORK_DIR);
-  domainName =
-    (
-      await rl.question(`Domain for this project${avail.length ? ` (${avail.join(" | ")})` : ""}: `)
-    ).trim() || null;
+  const detected = detectDomain(projectPkg(target), projectFiles(target));
+  const domainItems = orderDomains(
+    avail.map((name) => ({ id: name, summary: summarize(packDescriptor(name)) })),
+    detected,
+  );
+  process.stdout.write(
+    render({
+      title: "Domain for this project — the capability pack installed into `plugin/`.",
+      items: domainItems,
+      note: detected
+        ? [`Detected ${detected.id} from ${detected.why}.`]
+        : ["Nothing in the project decided it — pick the one that matches your stack."],
+    }) + "\n",
+  );
+  const answer = await rl.question(question("Domain", domainItems));
+  domainName = pick(answer, domainItems);
+  if (!domainName) {
+    console.error(
+      `new: pick 1-${domainItems.length} or a name (${domainItems.map((d) => d.id).join(", ")}) — got "${answer.trim()}".`,
+    );
+    process.exit(1);
+  }
 }
 // Port — empty keeps the default. Saved into .xenomoon.json so `npm start` needs no env.
 let portAnswer = null;

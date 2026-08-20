@@ -11,6 +11,8 @@
 //
 // Pure by design: the caller does the file reading, this decides and formats.
 
+import { render, choose as pick } from "./picklist.js";
+
 /** @typedef {{ id: string, summary: string, when: string }} BranchModel */
 
 /** The models, in their stable definitions. Ordering is decided per project by `order()`. */
@@ -72,40 +74,37 @@ const named = (text, branch) =>
     .replaceAll("the default branch", `\`${branch}\``)
     .replaceAll("default branch", `\`${branch}\``);
 
+/** The models as picklist rows, with the project's real branch name in the prose.
+ * @param {BranchModel[]} models @param {string} branch
+ * @returns {import("./picklist.js").PickItem[]} */
+export const items = (models, branch) =>
+  models.map((m) => ({
+    id: m.id,
+    summary: named(m.summary, branch),
+    detail: named(m.when, branch),
+  }));
+
 /** What the installer prints: the list, the warning when earned, and the guideline note.
  * @param {{ models: BranchModel[], branch: string, deployWorkflows: string[] }} opts
  * @returns {string} */
 export function prompt({ models, branch, deployWorkflows }) {
-  const lines = [
-    `Branch model — how work reaches \`${branch}\`.`,
-    "",
-    ...models.flatMap((m, i) => [
-      `  ${i + 1}) ${m.id.padEnd(9)} ${named(m.summary, branch)}`,
-      `     ${" ".repeat(9)} ${named(m.when, branch)}`,
-    ]),
-  ];
-  if (deployWorkflows.length > 0) {
-    lines.push(
-      "",
-      `  ⚠ ${deployWorkflows.join(", ")} run on push to \`${branch}\`.`,
-      `    Under \`trunk\`, every commit ships to production.`,
-    );
-  }
-  lines.push(
-    "",
-    "  A guideline the agents follow, not a lock — it is one line in",
-    "  <project>/.xenomoon/branch-model, and you can change it whenever the project does.",
-    "",
-  );
-  return lines.join("\n");
+  return render({
+    title: `Branch model — how work reaches \`${branch}\`.`,
+    items: items(models, branch),
+    warning:
+      deployWorkflows.length > 0
+        ? [
+            `${deployWorkflows.join(", ")} run on push to \`${branch}\`.`,
+            `  Under \`trunk\`, every commit ships to production.`,
+          ]
+        : [],
+    note: [
+      "A guideline the agents follow, not a lock — it is one line in",
+      "<project>/.xenomoon/branch-model, and you can change it whenever the project does.",
+    ],
+  });
 }
 
-/** The model an answer selects — a number, a name, or empty for the first (recommended) one.
- * Returns null for anything else, so the caller can say what was wrong rather than guessing.
- * @param {string} answer @param {BranchModel[]} models @returns {string | null} */
-export function choose(answer, models) {
-  const a = answer.trim().toLowerCase();
-  if (!a) return models[0]?.id ?? null;
-  if (/^\d+$/.test(a)) return models[Number(a) - 1]?.id ?? null;
-  return models.find((m) => m.id === a)?.id ?? null;
-}
+/** The model an answer selects. @param {string} answer @param {BranchModel[]} models
+ * @returns {string | null} */
+export const choose = (answer, models) => pick(answer, items(models, ""));

@@ -2,7 +2,7 @@
 name: gate-sweep
 agents: [junior-analyst]
 domain: universal
-description: The mechanical quality sweep on a change — run each touched package's OWN validate verbatim, check diff and commit hygiene, spot-check the repo's rules against the diff, and return QUICK-PASS or a numbered FIX list with path:line. Not a review of the fix's correctness. Sets no labels. Load when sweeping an implemented change before the adversarial review.
+description: The mechanical quality sweep on a change — run each touched package's OWN validate verbatim, check diff and commit hygiene, spot-check the repo's rules against the diff, report whether the last change actually deployed, and return QUICK-PASS or a numbered FIX list with path:line. Not a review of the fix's correctness. Sets no labels. Load when sweeping an implemented change before the adversarial review.
 ---
 
 # Gate sweep — the mechanical pass
@@ -50,22 +50,75 @@ even when everything is green — that is precisely how green becomes meaningles
 
 Where the pack ships a `domain-conventions` skill, its floor applies here too.
 
-## 5. The verdict
+## 5. Deploy status — "merged" is not "shipped"
+
+A clean working tree says nothing about whether the LAST change actually reached production. Ask the
+tool that already answers this — `issuekit deploy-check`, whose whole job is the last COMPLETED
+deploy run's conclusion ("merged ≠ done") — and report its answer in one line.
+
+**Use that, or a command the project itself documents. Do not invent a signal.** Not a health
+endpoint you guessed at, not a version string you found, not a production URL you decided to probe:
+a sweep that picks its own source of truth can report reassuring news while the real deploy gate is
+red, which is worse than reporting nothing. No declared signal and no deploy-check → say
+`deploy: not checked — no declared signal` and move on.
+
+**Two different questions, and the answer only covers one of them.** deploy-check reports the last
+COMPLETED run and never polls one in flight — so a green conclusion means _the pipeline is healthy_,
+not _this change is live_. Run it right after a merge and it will happily report the PREVIOUS
+deploy's success while yours is still queued.
+
+Which line you may write depends on what you are sweeping, and in this lane the usual answer is the
+last one:
+
+    deploy: <conclusion> @ <sha> — this change            merged, and the SHAs match
+    deploy: <conclusion> @ <sha> — NOT this change yet    merged, and they do not
+    deploy: <conclusion> @ <sha> — pipeline only          the change is not merged, so
+                                                          nothing here is about it
+    deploy: not checked — no declared signal              nothing to ask
+
+**The third is the normal case.** This sweep runs on an implemented change that is still
+uncommitted, so there is no deploy candidate to compare against — and writing "this change" or "NOT
+this change yet" would be inventing an attribution the evidence cannot support. Only claim the first
+two when a merge SHA genuinely exists.
+
+This is here because a deploy pipeline can sit red for days while every PR gate stays green. Nothing
+in a per-change checklist looks at the deployed state, so a broken deploy is invisible to exactly
+the routine that runs most often — and each new green sweep quietly reinforces the belief that
+everything shipped. Two separate breaks once hid in one such window.
+
+**Not a blocker on its own.** A red deploy is not this change's fault and does not make the diff
+wrong; it is a finding to name, because the person reading this sweep is the one who can act on it.
+
+## 6. Ownership — who does what with what you find
+
+- A defect you find routes to the **implement** stage to be fixed, and to the **QA** stage for a
+  verdict. You name it; you do not fix it.
+- The **orchestrator coordinates and never fixes**. A router that starts patching the thing it is
+  routing has stopped being able to judge it.
+- **You set no labels at all.** `qa:*` belongs to the QA stage — and only after the gates ran
+  verbatim — while `review:*` belongs to the adversarial lane. A mechanical sweep must never be
+  mistakable for either, because both of those are verdicts and this is an inventory.
+
+Stating it here is not bureaucracy: this checklist is the point where somebody holding a FIX list is
+most tempted to just apply it.
+
+## 7. The verdict
 
 ```
 QUICK-PASS — gates: <package: command → result + counts, one line each>
+           deploy: <one of the four §5 lines — "pipeline only" unless a merge SHA exists>
 ```
 
 or
 
 ```
 FIX LIST — gates: <as above>
+           deploy: <as above>
 1. `path:line` — <what is wrong, one line>
 2. `path:line` — <…>
 ```
 
-Nothing else. **You set no labels** — `qa:*` belongs to the QA gate and `review:*` to the
-adversarial lane; a mechanical sweep must never be mistakable for either.
+Nothing else, and **you set no labels** — see §6.
 
 A FIX list routes straight back to the implement stage. If something needs a heavyweight
 adversarial read (money paths, auth, prompts, data scoping), **say so in one line and stop** —

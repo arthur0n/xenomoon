@@ -133,6 +133,13 @@ removing the twin. A missing label fails the edit — say which; never silently 
 two, touch no label at all** — stamping `review:pass` from evidence would put the lane's own sticker
 on a round that has not been reconciled yet, which is the failure this whole section prevents.
 
+**Language: the project's, not yours by default.** Where the project's own instructions state a
+language for what it writes to its tracker, write the PROSE in that language — a tracker read by
+people who work in Portuguese should not fill up with English because the framework's skills happen
+to be written in it. Absent any such statement, English.
+
+**The structure is not prose and is never translated**: the `## 🔎 REVIEW` heading, the verdict word (pass / changes), its field names (PROBED, FINDINGS, TEST GUARDS BUG), the `review-verified:` / `review-changes-at:` markers and the `review:*` labels stay exactly as written — and so do the EVIDENCE headings `## 🔎 CODEX REVIEW` / `## 🔎 INTERNAL REVIEW` you post under when you are one of two reviewers, even though those carry no marker and no label. The gate finds unreconciled evidence by matching them: translate one and a newer finding becomes invisible, leaving a stale `review:pass` and its matching marker authoritative — which is a commit approved without the reconciliation this whole two-reviewer path exists to force. The commit gate MATCHES those literally — a translated heading is a verdict the gate cannot see, which is the failure SHA-binding exists to prevent, reintroduced through the front door.
+
 ## 6. Routing
 
 `changes` goes back to the implement stage with your findings as the fix list. Something that needs

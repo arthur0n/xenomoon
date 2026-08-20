@@ -123,3 +123,10 @@ Nothing else, and **you set no labels** — see §6.
 A FIX list routes straight back to the implement stage. If something needs a heavyweight
 adversarial read (money paths, auth, prompts, data scoping), **say so in one line and stop** —
 naming it is your job, judging it is the senior lane's.
+
+**Language: the project's, not yours by default.** Where the project's own instructions state a
+language for what it writes to its tracker, write the PROSE in that language. Absent any such
+statement, English.
+
+**The structure is never translated**: the verdict tokens `QUICK-PASS` and `FIX LIST` stay exactly as written, and so do the `deploy:` prefix and the `path:line` shape of each numbered finding. The dispatcher ROUTES on these — `QUICK-PASS` advances to QA, a FIX list goes back to implement — so a translated verdict stops the pipeline dead while looking like a completed sweep. A translated verdict is a record the gates and
+queues cannot see — literal matching is how every stage after this one finds your work.

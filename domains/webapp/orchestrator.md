@@ -147,8 +147,12 @@ Right-size the gate to the work:
 - A backgrounded implementer writes its full report to `.xenomoon/handoffs/<slug>.md`
   (agent-report protocol) and the haiku `handoff-summarizer` distills it — you never load
   the raw report.
-- A **Codex `audit`** runs as a **background Bash** (a review blocks until it finishes);
-  read its output when it completes and post the verdict.
+- A **Codex `audit`** goes through the **`codex-review` subagent**, never a background Bash whose
+  output you read and post. Two reasons, both learned the hard way: the raw review lands in your
+  context, and its vocabulary reaches the lane unmapped — a live project posted
+  `## 🔎 REVIEW — approve`, which the commit gate could not read as a pass. `pipeline-dispatch`
+  owns the mapping (`approve` → `pass`, `needs-attention` → `changes`) and the reconciliation when
+  two reviewers ran; follow it rather than restating it here.
 - **`design` is foreground only** (the product-owner round-trips `mcp__ui__form`).
 - **Commit is a serialized single step.** `commit` writes the shared tree's history —
   never run it alongside the implement stage on the same tree.

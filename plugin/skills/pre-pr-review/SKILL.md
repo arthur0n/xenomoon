@@ -82,3 +82,10 @@ name, and write it in the header exactly — the header IS the verdict the gate 
 - **Not a re-run of the gates.** QA owns that.
 - **Not a place to redesign.** A better idea that was not asked for is a new slice, and saying so
   is the correct output.
+
+**Language: the project's, not yours by default.** Where the project's own instructions state a
+language for what it writes to its tracker, write the PROSE in that language. Absent any such
+statement, English.
+
+**The structure is never translated**: the `## 🚦 PRE-PR — ready | not-ready` heading, its field names (DELIVERS, DROPPED, UNASKED, COHERENT AS ONE PR, BEFORE MERGE) AND the lane's signature footer stay exactly as written — the commit gate requires BOTH before a `not-ready` counts, so translating either silently unblocks a delivery nobody cleared. The verdict values `ready` / `not-ready` are routed literals as well — the dispatcher matches them exactly. A translated heading or label is a record the
+gates and queues cannot see — literal matching is how every stage after this one finds your work.

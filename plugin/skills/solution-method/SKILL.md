@@ -122,3 +122,10 @@ builds from. If a developer would have to guess anything material, the spec is n
 Intent conflict → the product owner, not a deeper trace. `needs-info` → waits on the reporter.
 Cause turned out WRONG and the real one is a different area → say so plainly; a re-triage is
 cheaper than a fix built on a corrected-in-passing hypothesis.
+
+**Language: the project's, not yours by default.** Where the project's own instructions state a
+language for what it writes to its tracker, write the PROSE in that language. Absent any such
+statement, English.
+
+**The structure is never translated**: the `## 🔬 ANALYSIS` heading, EVERY field name in the template above (SEVERITY, AREA, CONFIDENCE, VERDICT, REAL CAUSE, SYMPTOM, FIX, STEPS, WATCH, TEST, TESTABILITY, SHIP, SCOPING, NEEDS FROM REPORTER), the signature footer, and EVERY label this stage adds — `solution-ready`, `needs-info`, and the project's ship labels — stay exactly as written. The VERDICT values are structure — `CONFIRMED` / `REFINED` / `WRONG` decide whether the issue advances to implement or goes back to triage. `needs-info` in particular is a routing verdict the dispatcher reads to stop the queue; translated, a blocked issue is neither stopped nor findable. A translated heading or label is a record the
+gates and queues cannot see — literal matching is how every stage after this one finds your work.

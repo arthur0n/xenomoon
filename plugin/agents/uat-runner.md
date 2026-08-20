@@ -108,3 +108,10 @@ and it does not turn a green commit red after the fact.
 
 Report to your caller: verdict · scenario · what ran · evidence · and, on FAIL, the bug you would
 file.
+
+**Language: the project's, not yours by default.** Where the project's own instructions state a
+language for what it writes to its tracker, write the PROSE in that language. Absent any such
+statement, English.
+
+**The structure is never translated**: the verdict tokens `uat:pass` / `uat:fail` / `uat:blocked` stay exactly as written. They are how a caller tells a product defect from a setup problem without reading your prose, and that distinction is this lane's entire value. A translated verdict is a record the gates and
+queues cannot see — literal matching is how every stage after this one finds your work.

@@ -93,3 +93,10 @@ stayed open for weeks when this was treated as a footnote.
 **Backgrounded?** Your last action is the `agent-report` protocol — write the full report to
 `.xenomoon/handoffs/<slug>.md` with the gate line FIRST, then files, done, caveats, blocked. Write
 it last so it reflects final state; the relayed result is just `<path> — gate PASS|FAIL`.
+
+**Language: the project's, not yours by default.** Where the project's own instructions state a
+language for what it writes to its tracker, write the PROSE in that language. Absent any such
+statement, English.
+
+**The structure is never translated**: the `implemented` label stays exactly as written — pipeline-dispatch queues on it BOTH ways (implement takes `solution-ready` and not `implemented`; QA takes `implemented` with no `qa:*`), so a translated one leaves the issue invisible to QA and permanently re-offered for implementation. The upstream `## 🔬 ANALYSIS` field names you are building against are structure too. A translated heading or label is a record the
+gates and queues cannot see — literal matching is how every stage after this one finds your work.

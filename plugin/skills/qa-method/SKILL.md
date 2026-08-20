@@ -122,6 +122,13 @@ were running and this is not a forced run, post nothing and say so — only the 
 Then label: exactly one of `qa:pass` / `qa:blocked`, removing the twin. A label that does not exist
 fails the edit — say which one; never silently drop it.
 
+**Language: the project's, not yours by default.** Where the project's own instructions state a
+language for what it writes to its tracker, write the PROSE in that language — a tracker read by
+people who work in Portuguese should not fill up with English because the framework's skills happen
+to be written in it. Absent any such statement, English.
+
+**The structure is not prose and is never translated**: the `## 🧪 QA` heading, the verdict word (PASS / BLOCKED), its field names (GATES, REGRESSION TEST, TREE, BLOCKERS), the `qa-verified:` / `qa-blocked-at:` markers and the `qa:*` labels stay exactly as written. `PASS` and `BLOCKED` are the values the dispatcher routes on, read literally. The commit gate MATCHES those literally — a translated heading is a verdict the gate cannot see, which is the failure SHA-binding exists to prevent, reintroduced through the front door.
+
 ## 6. BLOCKED routes back
 
 A `qa:blocked` verdict sends the issue back to the implement stage, and your blockers are the fix

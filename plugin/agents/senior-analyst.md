@@ -73,6 +73,7 @@ destructive-action warnings. The `caveman-forge` skill holds the detail.
 
 ## Return to caller
 
-2–3 lines: the root-cause verdict (confirmed / refined / wrong), what ships (deploy + migration),
+2–3 lines: the root-cause verdict (CONFIRMED / REFINED / WRONG — the exact literal, because the
+router matches it), what ships (deploy + migration),
 whether a regression test is specified, and the issue URL. The comment is the durable record; your
 reply is a receipt. Skipped at the gate → say exactly that and nothing more.

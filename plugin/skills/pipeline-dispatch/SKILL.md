@@ -78,7 +78,7 @@ makes a run auditable afterwards:
 | stage     | report                                                                                                                                          |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | triage    | `sev · area · necessary/fold/not-necessary · the cause` — plus which issues were SKIPPED as already triaged, and any label that failed to apply |
-| solution  | `confirmed/refined/wrong · ships deploy/migration? · the regression test it specified`                                                          |
+| solution  | `CONFIRMED/REFINED/WRONG · ships deploy/migration? · the regression test it specified`                                                          |
 | implement | `files changed · validate/build/test · the regression test going red→green`                                                                     |
 | sweep     | the verdict VERBATIM: `QUICK-PASS` with the gates and their counts, or the numbered FIX list with `path:line`                                   |
 | qa        | `PASS/BLOCKED · validate/build/test/smoke · whether the regression test actually guards the bug`                                                |
@@ -103,17 +103,17 @@ verdicts deliberately go nowhere:
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `needs-info`                                         | **stops.** The pipeline cannot proceed without the reporter; nothing downstream can invent the missing facts.                                 |
 | `fold` / `not-necessary`                             | **stops, and it is a RESULT, not a failure** — the cheapest fix is the one nobody implements. Report it; closing the issue stays the human's. |
-| solution `wrong`                                     | back to **triage**, not forward to implement — the cause itself was wrong, and building on it builds the wrong thing.                         |
+| solution `WRONG`                                     | back to **triage**, not forward to implement — the cause itself was wrong, and building on it builds the wrong thing.                         |
 | `qa:blocked` · `review:changes` · pre-pr `not-ready` | back to **implement**, with the findings as the fix list.                                                                                     |
 
 And the ones that DO advance. Each stage's success has its own name, so "did it pass" is the wrong
-question to ask generically — `refined` and `QUICK-PASS` are successes, and treating them as
+question to ask generically — `REFINED` and `QUICK-PASS` are successes, and treating them as
 anything else strands finished work:
 
 | stage    | success verdict                                                     | goes to                                                  |
 | -------- | ------------------------------------------------------------------- | -------------------------------------------------------- |
 | triage   | `necessary`                                                         | solution                                                 |
-| solution | `confirmed` **or `refined`** — a refined cause is a good one, found | implement                                                |
+| solution | `CONFIRMED` **or `REFINED`** — a refined cause is a good one, found | implement                                                |
 | sweep    | `QUICK-PASS`                                                        | qa                                                       |
 | qa       | `PASS`                                                              | audit (reviewer choice per §5)                           |
 | audit    | `pass`                                                              | pre-pr on a full-gate change, otherwise the commit stage |
@@ -218,3 +218,10 @@ unanswerable.
 - **`sweep` with no number** → the uncommitted working tree. The gates and diff hygiene run the
   same; only "does this file belong to THIS change" loses its reference, so the agent reports scope
   doubts instead of asserting them.
+
+**Language: the project's, not yours by default.** Where the project's own instructions state a
+language for what it writes to its tracker, write the PROSE in that language. Absent any such
+statement, English.
+
+**The structure is never translated**: the reconciled `## 🔎 REVIEW` heading, its verdict word, the `review-verified:` / `review-changes-at:` markers and the `review:*` labels stay exactly as written — as do the EVIDENCE headings `## 🔎 CODEX REVIEW` / `## 🔎 INTERNAL REVIEW` when you post a reviewer's findings under one. The gate detects unreconciled evidence by matching those exactly; translated, a newer finding is invisible and a stale pass stays authoritative. The same holds for **every verdict value in the two routing tables above** — the ones that stop (`needs-info`, `fold` / `not-necessary`, `WRONG`, `qa:blocked`, `review:changes`, `not-ready`) and the ones that advance (`necessary`, `CONFIRMED` / `REFINED`, `QUICK-PASS`, `PASS`, `pass`, `ready`), plus `FIX LIST` and `uat:pass` / `uat:fail` / `uat:blocked`. Those tables ARE the list — do not maintain a second one here, and if a verdict value ever changes there it is protected here by that fact alone. You read every one of them as a literal, never as prose: a translated verdict does not fail loudly, it routes nowhere, and a stage that routes nowhere looks exactly like a stage still in progress. A translated heading or label is a record the
+gates and queues cannot see — literal matching is how every stage after this one finds your work.

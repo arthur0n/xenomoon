@@ -90,3 +90,10 @@ stay revertable on its own.
 The sha, the subject, the labels applied, and — explicitly — that nothing was pushed. If the labels
 did not land, say so loudly: the deploy workflow closes issues on `fixed-pending-deploy`, so a fix
 that ships without it stays open forever, and someone will eventually re-fix it.
+
+**Language: the project's, not yours by default.** Where the project's own instructions state a
+language for what it writes to its tracker, write the PROSE in that language. Absent any such
+statement, English.
+
+**The structure is never translated**: every label this stage stamps (`committed`, `fixed-pending-deploy`, and the deploy-gate labels) stays exactly as written, and so does the `(#N)` issue reference in the commit message — the commit gate and the label stamp both parse it to find the issue at all. A translated heading or label is a record the
+gates and queues cannot see — literal matching is how every stage after this one finds your work.

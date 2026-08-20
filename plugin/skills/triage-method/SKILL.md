@@ -113,6 +113,13 @@ one line; verbatim values only; **omit any field you have nothing for**.
 *triage · junior-analyst · <git rev-parse --short HEAD>*
 ```
 
+**Language: the project's, not yours by default.** Where the project's own instructions state a
+language for what it writes to its tracker, write the PROSE in that language. Absent any such
+statement, English.
+
+**The structure is never translated**: the `## 🔍 Triage` heading, its field names (GOAL, NECESSARY, RECORD) and every label — `triaged`, `sev:*`, `area:*`, `needs-info` — stay exactly as written. Your VERDICT values are structure too — `necessary`, `fold` / `not-necessary` route the whole issue, and the dispatcher reads them literally. A translated heading or label is a record the
+gates and queues cannot see — literal matching is how every stage after this one finds your work.
+
 ## 7. Labels
 
 Always add `triaged`, exactly one `sev:*`, and at least one `area:*`. Add `needs-info` when the

@@ -10,7 +10,7 @@ description: >-
 model: opus
 effort: high
 color: magenta
-skills: caveman-forge, tasks-mcp, intent-guardrails, library-first, graphify, code-investigation, solution-method, adversarial-review, pre-pr-review
+skills: caveman-forge, tasks-mcp, intent-guardrails, library-first, project-library, graphify, code-investigation, solution-method, adversarial-review, pre-pr-review
 tools: Bash, Read, Grep, Glob, mcp__ui__tasks, mcp__ui__ask
 ---
 

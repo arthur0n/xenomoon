@@ -10,7 +10,7 @@ description: >-
 model: sonnet
 effort: high
 color: cyan
-skills: caveman-forge, tasks-mcp, intent-guardrails, library-first, graphify, code-investigation, triage-method, gate-sweep
+skills: caveman-forge, tasks-mcp, intent-guardrails, library-first, project-library, graphify, code-investigation, triage-method, gate-sweep
 tools: Bash, Read, Grep, Glob, mcp__ui__tasks
 ---
 

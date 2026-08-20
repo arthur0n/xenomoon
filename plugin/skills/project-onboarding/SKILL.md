@@ -53,12 +53,19 @@ Dispatch it **foreground and form-driven**, and **dispatch it CLEAN**: pass the 
 facts, and do NOT suggest candidate rule areas or topics. A pre-loaded topic list manufactures
 rubber-stamp questions — the product-owner will dutifully cite code for whatever you seed it with.
 
-It produces two things:
+It produces three things:
 
 **An annotated `CLAUDE.md` merge proposal.** Their content stays verbatim; the proposal ADDS the
 missing framework blocks — the commands mapping from step 1.4, a `## Library index` scaffold
 pointing at an empty `.claude/library/business-rules.md`, a NEVER-list seed. `CLAUDE.md` stays an
 INDEX: full rules live in the library doc with one pointer line each. The human approves the edit.
+
+**The project library, scaffolded — `.claude/library/`** with `README.md` (the index),
+`business-rules.md`, and `explorations/`. Empty is fine and expected; what is NOT fine is absent,
+because a library that does not exist is never looked in, and every session then rediscovers the
+same things from scratch. **Onboarding is the only moment guaranteed to happen once per project,
+so it is where the shelf gets built** — what fills it is the work that comes after. The method,
+and who writes which kind, is `project-library`; load it before proposing the scaffold.
 
 **A business-rules interview, where intent comes from what the user SAYS.** Code-mining is banned as
 a question source: a rule reverse-engineered from an implemented check is a restatement of enforced

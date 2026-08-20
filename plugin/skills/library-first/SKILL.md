@@ -56,6 +56,11 @@ propose the record that should exist, so the gap closes instead of recurring:
 Propose; never write it yourself unless writing records is your job. A record is a durable claim
 and it is human-gated — see `library-record-writing` for the writing method.
 
+**And close the loop at the END of the work, not only at the start.** Reading first stops you
+repeating an investigation; writing after is what stops the NEXT one repeating yours. When the
+task finishes, `project-library` says what earns an entry, who writes which kind, and why a
+revision beats a second record that contradicts the first.
+
 ## OKF — what makes a record findable
 
 Records carry frontmatter as their **machine face**: the UI sidebar and the kind index read it.

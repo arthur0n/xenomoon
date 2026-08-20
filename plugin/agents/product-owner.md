@@ -15,6 +15,7 @@ tools: Read, Glob, Grep, Write, Edit, Skill, Bash, mcp__ui__form, mcp__ui__tasks
 skills:
   - caveman-forge
   - grill
+  - project-library
   - tasks-mcp
   - xeno-epic
 ---

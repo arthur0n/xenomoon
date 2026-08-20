@@ -109,13 +109,22 @@ fi
 # would let an older pass outlive a newer block at the SAME sha: the blocking comment posts, its
 # label edit fails, and the gate would still find a matching pass marker behind it. The newest
 # verdict is the verdict.
-latest_verdict() { # $1 = lane regex, $2 = pass regex, $3 = marker key → "BLOCKED" | "<key>: <sha>" | ""
+# A verdict word this gate does not know is NOT a block — it is an unread verdict, and saying
+# "demanded changes" about it is simply false. Real data proved the difference matters: a live
+# project's lane carried `## 🔎 REVIEW — approve (Codex adversarial)`, Codex's own vocabulary pasted
+# straight into the lane instead of being mapped to `pass` at its source. The gate called that a
+# demand for changes and denied the commit, citing a verdict that had actually approved. Three
+# states, then: pass, a RECOGNISED block, and anything else — which asks, quoting the heading so the
+# human can see the word nobody taught this gate.
+latest_verdict() { # $1 lane rx, $2 pass rx, $3 marker key, $4 block rx → "BLOCKED"|"UNKNOWN <hdr>"|"<key>: <sha>"|""
   printf '%s' "$issue" |
-    jq -r --arg lane "$1" --arg pass "$2" --arg key "$3" '
+    jq -r --arg lane "$1" --arg pass "$2" --arg key "$3" --arg block "$4" '
       ([ .comments[]?.body // "" | select(test($lane)) ] | last) as $c
-      | if   $c == null        then ""
-        elif ($c | test($pass)) then ([ $c | scan($key + ": [0-9a-f]{7,40}") ] | last // "")
-        else "BLOCKED" end' 2>/dev/null
+      | if   $c == null         then ""
+        elif ($c | test($pass))  then ([ $c | scan($key + ": [0-9a-f]{7,40}") ] | last // "")
+        elif ($c | test($block)) then "BLOCKED"
+        else "UNKNOWN " + (($c | match($lane + "[^\\n]*").string) | ltrimstr("\n") | .[0:120])
+        end' 2>/dev/null
 }
 # The parenthetical may not span lines: a heading is ONE line, and `[^)]*` would let a pasted
 # multi-line block be read as a verdict.
@@ -130,8 +139,26 @@ latest_verdict() { # $1 = lane regex, $2 = pass regex, $3 = marker key → "BLOC
 # The EMOJI, though, is decoration: a live project wrote `## QA — PASS` without it in 6 of 10
 # sampled issues. A verdict this gate cannot see is a verdict that silently does not count, and the
 # label-only path then decides — the exact failure the SHA binding exists to prevent.
-qa_verdict="$(latest_verdict '(^|\n)## (🧪 )?QA( \([^)\n]*\))? —' '(^|\n)## (🧪 )?QA( \([^)\n]*\))? — PASS' 'qa-verified')"
-review_verdict="$(latest_verdict '(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? —' '(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? — pass' 'review-verified')"
+#
+# The blocking words are the lanes' own vocabulary, matched case-insensitively — the verdict is a
+# heading written by an agent, and `Changes` is the same verdict as `changes`.
+#
+# The two are deliberately ASYMMETRIC. A pass must be the WHOLE verdict — the canonical word and
+# then the end of the line — because a prefix match reads `— pass-with-caveats`, `— passed but
+# needs-attention` and `— PASS (blocked pending X)` as clean passes, and if such a comment also
+# carries a marker the gate would call a qualified or self-contradicting verdict a SHA-bound green.
+# A block, by contrast, matches on the leading word alone: blocks should bite widely, and anything
+# that escapes both patterns lands in UNKNOWN, which asks rather than allows.
+qa_verdict="$(latest_verdict \
+  '(^|\n)## (🧪 )?QA( \([^)\n]*\))? —' \
+  '(?i)(^|\n)## (🧪 )?QA( \([^)\n]*\))? — PASS[ \t]*(\n|$)' \
+  'qa-verified' \
+  '(?i)(^|\n)## (🧪 )?QA( \([^)\n]*\))? — (blocked|fail)')"
+review_verdict="$(latest_verdict \
+  '(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? —' \
+  '(?i)(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? — pass[ \t]*(\n|$)' \
+  'review-verified' \
+  '(?i)(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? — (changes|needs-attention|blocked|reject)')"
 
 # When TWO reviewers ran, NEITHER writes the lane verdict: each posts EVIDENCE under its own header
 # (`## 🔎 CODEX REVIEW`, `## 🔎 INTERNAL REVIEW`) with no marker and no label, and the audit stage folds
@@ -171,8 +198,11 @@ prepr_blocked="$(printf '%s' "$issue" | jq -r '
                    and test("(^|\n)\\*pre-PR review · senior-analyst");
   ([ .comments[]?.body // "" | select(lane_report) ] | last) as $c
   | if ($c != null and ($c | test("(^|\n)## (🚦 )?PRE-PR — not-ready"))) then "yes" else "" end' 2>/dev/null)"
-qa_sha="$(printf '%s' "$qa_verdict" | grep -v BLOCKED | awk '{print $2}')"
-review_sha="$(printf '%s' "$review_verdict" | grep -v BLOCKED | awk '{print $2}')"
+# A non-sha state must never be mistaken for one: field 2 of `UNKNOWN ## 🔎 REVIEW — approve` is a
+# heading fragment, not a marker, and letting it through would compare it to HEAD and deny with a
+# nonsense sha.
+qa_sha="$(printf '%s' "$qa_verdict" | grep -vE 'BLOCKED|UNKNOWN' | awk '{print $2}')"
+review_sha="$(printf '%s' "$review_verdict" | grep -vE 'BLOCKED|UNKNOWN' | awk '{print $2}')"
 short() { printf '%s' "${1:0:7}"; }
 
 has() { printf '%s\n' "$labels" | grep -qxF "$1"; }
@@ -186,12 +216,19 @@ elif [ "$review_verdict" = "BLOCKED" ]; then
   decision deny "Gate: the NEWEST review verdict on #$n demanded changes (whatever the labels say). Route back to implement, then re-run audit $n."
 elif [ -n "$prepr_blocked" ]; then
   decision deny "Gate: the NEWEST pre-PR verdict on #$n is not-ready — the delivery does not match what was agreed (dropped scope, unasked additions, or not one coherent PR). It carries no label by design, but an unanswered not-ready still blocks. Address its findings via implement, then re-run pre-pr $n."
-elif [ -n "$evidence_unreconciled" ]; then
-  decision ask "A reviewer's findings on #$n (a '## 🔎 CODEX REVIEW' / '## 🔎 INTERNAL REVIEW' comment) landed AFTER the lane's own verdict, and no reconciled '## 🔎 REVIEW' followed — so the standing verdict predates a reviewer nobody folded in. Re-run audit $n; it folds every reviewer into ONE verdict where any block wins. Approve only if you have read those findings yourself and they raise nothing."
 elif has "qa:blocked"; then
   decision deny "Gate: issue #$n carries qa:blocked — QA blocked this fix. Route back to implement; a stale block outranks a pass."
 elif has "review:changes"; then
-  decision deny "Gate: issue #$n carries review:changes — review demanded changes. Route back to /implement."
+  decision deny "Gate: issue #$n carries review:changes — review demanded changes. Route back to the implement stage."
+# The label denies sit ABOVE the unreadable-verdict asks on purpose. An unrecognised heading beside a
+# blocking LABEL is not an open question — it is a block whose wording drifted, and asking about it
+# would let the one case this change was written for downgrade a hard deny to a prompt.
+elif [ "${qa_verdict%% *}" = "UNKNOWN" ]; then
+  decision ask "The newest QA verdict on #$n uses a word this gate does not know, so it cannot tell a pass from a block: \"${qa_verdict#UNKNOWN }\". The canonical QA verdict is PASS or BLOCKED. Re-run qa $n so the lane carries a verdict the gate can read; approve only if you have read that comment yourself and it is a genuine pass."
+elif [ "${review_verdict%% *}" = "UNKNOWN" ]; then
+  decision ask "The newest review verdict on #$n uses a word this gate does not know, so it cannot tell a pass from a block: \"${review_verdict#UNKNOWN }\". The canonical review verdict is pass or changes — an external reviewer's own vocabulary (approve / needs-attention) must be MAPPED when it is folded into the lane, never pasted raw. Re-run audit $n; approve only if you have read that comment yourself and it is a genuine pass."
+elif [ -n "$evidence_unreconciled" ]; then
+  decision ask "A reviewer's findings on #$n (a '## 🔎 CODEX REVIEW' / '## 🔎 INTERNAL REVIEW' comment) landed AFTER the lane's own verdict, and no reconciled '## 🔎 REVIEW' followed — so the standing verdict predates a reviewer nobody folded in. Re-run audit $n; it folds every reviewer into ONE verdict where any block wins. Approve only if you have read those findings yourself and they raise nothing."
 elif ! has "qa:pass"; then
   decision deny "Gate: issue #$n lacks qa:pass — run qa $n first. Commit is earned, not asserted."
 elif ! has "review:pass"; then

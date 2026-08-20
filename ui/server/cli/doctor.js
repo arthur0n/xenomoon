@@ -27,6 +27,7 @@ import { ensureDomainLibrary } from "../features/promotions/ensure-library.js";
 import { readPromotions, approvedPending } from "../features/promotions/promotions-store.js";
 import { locate } from "../features/promotions/promote-run.js";
 import { registerInstall, readRegistry } from "./install-registry.js";
+import { listeningServers, orphans, report } from "./orphan-servers.js";
 
 /** Count files with a suffix in a dir (0 if missing). @param {string} dir @param {string} suffix */
 function countFiles(dir, suffix) {
@@ -408,6 +409,12 @@ if (requested || approvedEntries.length) {
       ".",
   );
 }
+
+// Servers outliving their install. Reported ALWAYS — before the hard-fail exit and after an
+// OK alike, because an orphan holding a port is exactly what makes the next install look
+// broken, and it is invisible from inside any install. Reported, never killed: doctor
+// diagnoses, and a stray `kill` from a health check is not a health check.
+for (const line of report(orphans(listeningServers()))) console.log(line);
 
 if (hardFails > 0) {
   console.error(`doctor: ${hardFails} hard check(s) failed.`);

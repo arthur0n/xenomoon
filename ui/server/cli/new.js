@@ -17,6 +17,7 @@ import {
   existsSync,
   mkdirSync,
   cpSync,
+  readdirSync,
   readFileSync,
   appendFileSync,
   writeFileSync,
@@ -36,6 +37,7 @@ import {
   availableDomains,
 } from "../core/domain-resolver.js";
 import { installCapabilities } from "./install-capabilities.js";
+import { deploysOnPush, order, prompt, choose } from "./branch-model.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
@@ -70,6 +72,39 @@ if (!targetInput && rl) {
 }
 const target = path.resolve(targetInput ?? path.join(FRAMEWORK_DIR, "..", "game"));
 
+/** The project's own default branch — what "lands on main" actually means here.
+ * @param {string} dir @returns {string} */
+function projectDefaultBranch(dir) {
+  for (const args of [
+    ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+    ["rev-parse", "--abbrev-ref", "HEAD"],
+  ]) {
+    try {
+      const out = execFileSync("git", ["-C", dir, ...args], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      if (out) return out.replace(/^origin\//, "");
+    } catch {
+      /* not a repo, or no origin — try the next form */
+    }
+  }
+  return "main";
+}
+
+/** The project's workflow files, as {name, text} — empty when it has none.
+ * @param {string} dir @returns {{ name: string, text: string }[]} */
+function projectWorkflows(dir) {
+  const wfDir = path.join(dir, ".github", "workflows");
+  try {
+    return readdirSync(wfDir)
+      .filter((f) => /\.ya?ml$/.test(f))
+      .map((name) => ({ name, text: readFileSync(path.join(wfDir, name), "utf8") }));
+  } catch {
+    return [];
+  }
+}
+
 // Determine the install domain: explicit flag wins; else an existing lock (re-install); else the
 // default. A flag that contradicts an existing lock is refused — re-domaining is deliberate.
 const existingLock = readProjectLock(target);
@@ -99,22 +134,37 @@ if (rl) {
 }
 // Branch model — the project's branch & merge convention, decided by the human here and
 // re-confirmable during onboarding. Written to <project>/.xenomoon/branch-model (the runtime
-// source every session reads); the .xenomoon.json copy is provenance only. Presets:
-//   trunk   — POC/early MVP: work lands directly on the default branch
-//   pr-main — risk-declared MVP: short-lived branch → PR → main, branch dies at merge
-//   staged  — production: development is the default target; main = promotion-only + deploys
-const BRANCH_MODELS = ["trunk", "pr-main", "staged"];
+// source every session reads); the .xenomoon.json copy is provenance only. The options and
+// their ordering live in ./branch-model.js — asked as a picklist, ordered by what the PROJECT
+// does, because "land directly on main" is the wrong default on a repo that deploys from it.
+const defaultBranch = projectDefaultBranch(target);
+const deployWorkflows = deploysOnPush(projectWorkflows(target), defaultBranch);
+const branchModels = order(deployWorkflows.length > 0);
 let branchModel = null;
 if (rl) {
-  branchModel =
-    (await rl.question(`Branch model (${BRANCH_MODELS.join(" | ")}) [empty = trunk]: `)).trim() ||
-    null;
-  if (branchModel && !BRANCH_MODELS.includes(branchModel)) {
-    console.error(`new: branch model must be one of ${BRANCH_MODELS.join(", ")}.`);
+  process.stdout.write(
+    prompt({ models: branchModels, branch: defaultBranch, deployWorkflows }) + "\n",
+  );
+  const first = /** @type {string} */ (branchModels[0]?.id);
+  const answer = await rl.question(`Branch model [empty = ${first}]: `);
+  branchModel = choose(answer, branchModels);
+  if (!branchModel) {
+    console.error(
+      `new: pick 1-${branchModels.length} or a name (${branchModels.map((m) => m.id).join(", ")}) — got "${answer.trim()}".`,
+    );
     process.exit(1);
   }
 }
-branchModel ??= "trunk";
+branchModel ??= branchModels[0]?.id ?? "trunk";
+// Non-interactive installs get the same evidence-based pick — but never silently, since nobody
+// saw the question. Announcing it is what makes it correctable.
+if (!rl)
+  console.log(
+    `new: branch model "${branchModel}"` +
+      (deployWorkflows.length > 0
+        ? ` — ${deployWorkflows.join(", ")} deploy on push to \`${defaultBranch}\`.`
+        : ` — nothing deploys from \`${defaultBranch}\`.`),
+  );
 if (!domainName) {
   const avail = availableDomains(FRAMEWORK_DIR);
   console.error(

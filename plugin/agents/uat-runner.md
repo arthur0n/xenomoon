@@ -10,7 +10,7 @@ model: sonnet
 effort: high
 color: cyan
 skills: caveman-forge, tasks-mcp
-tools: Bash, Read, Grep, Glob, mcp__ui__tasks, mcp__ui__ask
+tools: Bash, Read, Grep, Glob, mcp__ui__tasks, mcp__ui__ask, mcp__claude-in-chrome__tabs_context_mcp, mcp__claude-in-chrome__tabs_create_mcp, mcp__claude-in-chrome__tabs_close_mcp, mcp__claude-in-chrome__navigate, mcp__claude-in-chrome__read_page, mcp__claude-in-chrome__get_page_text, mcp__claude-in-chrome__find, mcp__claude-in-chrome__computer
 ---
 
 <!-- roster-justification: runs on its OWN cadence, in parallel with the per-issue pipeline and

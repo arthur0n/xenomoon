@@ -2,7 +2,7 @@
 name: webapp-uat
 agents: [uat-runner]
 domain: webapp
-description: The browser acceptance lane — run the project's own capped e2e script against a running app with a saved auth session. Covers the caps that must already live in the config, the saved-session ritual, and what the minimal proof scenario asserts. A project with NO suite is currently BLOCKED, not covered — the direct-browser fallback is documented but unreachable until the runner carries a browser tool. Load when running UAT on a web app.
+description: The browser acceptance lane — run the project's own capped e2e script against a running app with a saved auth session, or drive the browser directly when the project has no suite. Covers the caps that must already live in the config, the saved-session ritual, and what the minimal proof scenario asserts. Load when running UAT on a web app.
 ---
 
 # The browser lane
@@ -59,15 +59,8 @@ one user-scoped path. Nothing more.
 
 **If you have no browser capability, that is BLOCKED — say so and stop.** A browser lane without a
 browser is not a lane, and reporting anything else would put a verdict on a run that never happened.
-Say plainly that the direct path needs a browser tool the run did not have, so the gap is visible as
-a missing capability rather than as a flaky lane.
-
-> **Known gap.** The runner's tool allowlist does not currently include any browser tool, so this
-> section is unreachable in practice: a project with no e2e suite gets BLOCKED here every time. The
-> suite path above is the working lane. Closing this needs a decision about WHERE the capability
-> belongs — a CORE runner naming a specific browser provider, or a pack-side runner that carries it —
-> and it must not be closed by guessing, because a tool name that the agent loader rejects would
-> cost every project its UAT runner, browser or not.
+Say plainly that the direct path needs a browser tool the run did not have, so the gap reads as a
+missing capability rather than as a flaky lane.
 
 **Keep it deliberately small**, because this path has none of the protections the suite has: no
 config caps, no saved-state discipline, no artefacts unless you capture them. So:

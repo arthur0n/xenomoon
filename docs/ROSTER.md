@@ -39,18 +39,13 @@ pack: expoapp ships the simulator/emulator lanes, webapp ships `webapp-uat`. Its
 is three-valued — PASS / FAIL / BLOCKED — because a product defect and a setup problem need
 different answers. **No lane installed is a BLOCKED verdict**, not a generic run.
 
-**Retired — do not reintroduce:** `committer` (2026-07-21 → direct hook-gated `commit`); the
-webapp-pack agent that fused triage with fix-design behind a single `/analyze` command and label
-(2026-08-18); and the webapp `reviewer` (2026-08-19 → the `adversarial-review` skill on
-`senior-analyst`, since a reviewer that differs from an analyst only by checklist is a lane).
-
-Two things this note is here to prevent being "simplified" back:
+Two rules hold the roster at this shape:
 
 - **Triage and solution stay separate stages.** Fusing them costs the independent second read —
   the pass that catches a confidently wrong root cause before any code is written.
-- **A lane never becomes an agent again.** The mechanical sweep and the adversarial review are
-  checklists on the two analysts. A `junior-reviewer` / `senior-reviewer` pair was proposed and
-  rejected: same model, same read-only contract, same tools, differing only in what they read.
+- **A lane is not an agent.** The mechanical sweep and the adversarial review are checklists on the
+  two analysts. Same model, same read-only contract, same tools, differing only in what they read
+  is a lane, and it belongs in a skill.
 
 ## Roster discipline (the bar for adding an agent)
 

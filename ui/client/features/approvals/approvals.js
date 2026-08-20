@@ -91,6 +91,10 @@ export function renderPermission(m) {
     cmd.append(el("span", "prompt", "$ "), permissionCmd(m.input));
     return cmd;
   };
+  /** WHY this is being asked. The gate classifies every consequential thing one command does — a
+   * metered API call, a push, a lockfile change — and without this the card showed the command
+   * alone, so approving a spend looked identical to approving anything else. */
+  const mkReason = () => (m.reason ? [el("div", "approval-reason", m.reason)] : []);
 
   // Inline chat card (interactive, primary)
   const chatCard = el("div", "card approval");
@@ -99,7 +103,7 @@ export function renderPermission(m) {
   if (headChip) head.append(headChip, " ");
   head.append(el("span", `verb-pill verb-${kind}`, m.toolName), ` waiting for your approval`);
   const body = el("div", "approval-body");
-  body.append(mkCmd(), mkActions());
+  body.append(mkCmd(), ...mkReason(), mkActions());
   chatCard.append(head, body, el("div", "approval-resolved"));
 
   // Panel mini (interactive too — both resolve together)
@@ -108,7 +112,7 @@ export function renderPermission(m) {
   const rowChip = agentChip(m.agent);
   if (rowChip) row.append(rowChip, " ");
   row.append(el("span", `verb-pill verb-${kind}`, m.toolName));
-  panelCard.append(row, mkCmd(), mkActions());
+  panelCard.append(row, mkCmd(), ...mkReason(), mkActions());
 
   registerPending(m.id, chatCard, panelCard);
 }

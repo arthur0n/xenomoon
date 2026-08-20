@@ -94,6 +94,40 @@ export function mutatesDependencies(cmd) {
   });
 }
 
+// ── spend ────────────────────────────────────────────────────────────────────
+/** Commands that call a metered model endpoint directly, recognised without any project setup.
+ *
+ * A live project learned this the hard way: an agent drained a prepay balance in one session,
+ * batch-generating images before validating one and re-running an eval four times to chase a
+ * difference inside its own noise floor. Nothing stopped it, because `Bash(curl *)` and
+ * `Bash(node *)` are allow-listed — and a PreToolUse `ask` is the ONLY layer that overrides an
+ * allow rule.
+ *
+ * These defaults are the floor: a project that spends money through its OWN scripts must say so,
+ * because no framework can know that `scripts/eval.ts` costs $0.16 a run. */
+// Case-INSENSITIVE: hostnames are, so `API.OPENAI.COM` reaches the same billed endpoint as
+// `api.openai.com`. A matcher that only knows the lowercase spelling is a bypass anyone can hit by
+// pasting a URL from documentation.
+export const DEFAULT_SPEND_RE =
+  /\b(api\.openai\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|api\.groq\.com|api\.mistral\.ai|api\.cohere\.ai|openrouter\.ai|api\.replicate\.com|api\.elevenlabs\.io)\b/i;
+
+/**
+ * Does this command spend real money? The project's own patterns are added to the defaults —
+ * substrings, matched case-insensitively, because a project declares things like
+ * `scripts/eval.ts` or `db:seed-images`, not regexes.
+ *
+ * An unusable pattern is SKIPPED rather than fatal: a typo in a hand-edited config must not take
+ * the whole gate down with it, and the remaining patterns still hold.
+ * @param {string} cmd @param {string[]} [patterns] @returns {boolean}
+ */
+export function spendsMoney(cmd, patterns = []) {
+  if (DEFAULT_SPEND_RE.test(cmd)) return true;
+  const haystack = cmd.toLowerCase();
+  return patterns.some(
+    (p) => typeof p === "string" && p.length > 0 && haystack.includes(p.toLowerCase()),
+  );
+}
+
 // ── branch creation ──────────────────────────────────────────────────────────
 // Branch CREATION only. Listing, deleting and switching to an existing branch are not this.
 const GIT_PRE = "(^|&&|\\|\\||;|\\|)\\s*(rtk\\s+)?git\\s+(-C\\s+\\S+\\s+)?";

@@ -7,7 +7,12 @@ import { join } from "node:path";
 // The matchers live in ui/lib because the PreToolUse hook enforces the SAME rules on the surface
 // this layer cannot see — sub-agents, and terminal sessions with no server. Two copies would mean
 // two answers to "is this a push", and the permissive one would be the one that ships.
-import { PUSH_RE, BRANCH_CREATE_RE, mutatesDependencies } from "../../lib/consequential.js";
+import {
+  PUSH_RE,
+  BRANCH_CREATE_RE,
+  mutatesDependencies,
+  spendsMoney,
+} from "../../lib/consequential.js";
 import {
   TASK_TOOL,
   ASK_TOOL,
@@ -262,6 +267,77 @@ function orchestratorGate({ log, toolName, input, agent }) {
   return null;
 }
 
+/** Which consequential things does ONE command do? Every category is classified BEFORE anything is
+ * decided — returning on the first match meant `git push && npm install lodash` asked only about
+ * the push, and approving that single prompt ran the install unasked.
+ * @param {string} cmd @param {ReturnType<typeof getActionPolicy>} policy @param {boolean} isSubagent
+ * @returns {{ denials: string[], questions: string[], kinds: string[] }} */
+function classifyConsequential(cmd, policy, isSubagent) {
+  /** @type {string[]} */ const denials = [];
+  /** @type {string[]} */ const questions = [];
+  /** @type {string[]} */ const kinds = [];
+
+  if (PUSH_RE.test(cmd)) {
+    // A sub-agent NEVER pushes, whatever the policy says: push triggers CI, CI deploys, and a
+    // deploy closes issues. That chain starts with a person, not with a worker finishing early.
+    if (isSubagent)
+      denials.push(
+        "Sub-agents never push. Push is the human's checkpoint — it triggers CI, which deploys, " +
+          "which closes issues. Report ready-to-push to the orchestrator and stop there.",
+      );
+    else if (policy.push === "ask") {
+      kinds.push("push");
+      questions.push(
+        "`git push` publishes and triggers the CI deploy — the pipeline's one hard human gate.",
+      );
+    }
+  }
+
+  if (mutatesDependencies(cmd)) {
+    if (isSubagent)
+      denials.push(
+        "A new dependency is a DESIGN decision, not an implementation detail — agents never add, " +
+          "remove or re-pin packages. It mutates the lockfile, which agents cannot clean (an " +
+          "uninvited install once wrote a ~350-line subtree nobody could unpick). Name the exact " +
+          "package in your report and surface the decision. To sync to the COMMITTED lockfile use " +
+          "`--frozen-lockfile` or `npm ci` — those pass untouched.",
+      );
+    else if (policy.dependencies === "ask") {
+      kinds.push("dependencies");
+      questions.push(
+        "This mutates package.json and/or the lockfile. A dependency change is a design decision. " +
+          "A lockfile-faithful sync (`--frozen-lockfile`, `npm ci`) does not ask.",
+      );
+    }
+  }
+
+  // Money. Unlike the others this is not about history or the lockfile — it is a balance that does
+  // not come back. A live project watched an agent drain a prepay balance in one session because
+  // `Bash(curl *)` and `Bash(node *)` are allow-listed, and only an ask overrides an allow rule.
+  // Asked of every caller, sub-agents included: a worker spending is not wrong because of who it
+  // is, it is wrong because nobody agreed to the cost.
+  if (policy.spend === "ask" && spendsMoney(cmd, policy.spendPatterns)) {
+    kinds.push("spend");
+    questions.push(
+      "This command SPENDS real credits against a metered API. Confirm the exact scope first — how " +
+        "many calls, and whether one sample was validated before a batch. A repeat run to chase a " +
+        "difference inside the noise floor is the failure this gate exists for.",
+    );
+  }
+
+  if (BRANCH_CREATE_RE.test(cmd) && policy.branchCreate === "ask") {
+    kinds.push("branch-create");
+    questions.push(
+      "This creates a branch. Branching shapes where the work lands and how it merges — the " +
+        "project's own doctrine (`.xenomoon/branch-model`). Listing, switching to an existing " +
+        "branch and deleting are untouched.",
+    );
+  }
+
+  // Denials win: nothing runs, so the questions are moot.
+  return { denials, questions, kinds };
+}
+
 /**
  * Push, dependency changes and branch creation — the three the framework used to gate with shell
  * hooks. Every agent passes through here, because "a sub-agent must never push" is the whole point.
@@ -289,50 +365,25 @@ async function consequentialActionGate({ session, waitFor, log, toolName, input,
       log("auto", { type: "permission", toolName, policy: `${what}-denied-autonomous` });
       return deny(`${message} (An autonomous run cannot answer this, so it is refused.)`);
     }
-    const { allow } = await waitFor("permission", { toolName, input, agent });
+    // The REASON travels with the question. Without it the card shows only the command, and the
+    // classification this gate just did — "this one command does 4 consequential things" — is
+    // computed and thrown away, leaving the human to approve a metered API call with no idea it
+    // costs anything.
+    const { allow } = await waitFor("permission", { toolName, input, agent, reason: message });
     return allow
       ? { behavior: /** @type {const} */ ("allow"), updatedInput: input }
       : deny(message);
   };
 
-  if (PUSH_RE.test(cmd)) {
-    // A sub-agent NEVER pushes, whatever the policy says: push triggers CI, CI deploys, and a
-    // deploy closes issues. That chain starts with a person, not with a worker finishing early.
-    if (isSubagent)
-      return deny(
-        "Sub-agents never push. Push is the human's checkpoint — it triggers CI, which deploys, " +
-          "which closes issues. Report ready-to-push to the orchestrator and stop there.",
-      );
-    if (policy.push === "ask")
-      return askHuman(
-        "push",
-        "`git push` publishes and triggers the CI deploy — the pipeline's one hard human gate.",
-      );
-  }
-
-  if (mutatesDependencies(cmd)) {
-    if (isSubagent)
-      return deny(
-        "A new dependency is a DESIGN decision, not an implementation detail — agents never add, " +
-          "remove or re-pin packages. It mutates the lockfile, which agents cannot clean (an " +
-          "uninvited install once wrote a ~350-line subtree nobody could unpick). Name the exact " +
-          "package in your report and surface the decision. To sync to the COMMITTED lockfile use " +
-          "`--frozen-lockfile` or `npm ci` — those pass untouched.",
-      );
-    if (policy.dependencies === "ask")
-      return askHuman(
-        "dependencies",
-        "This mutates package.json and/or the lockfile. A dependency change is a design decision. " +
-          "A lockfile-faithful sync (`--frozen-lockfile`, `npm ci`) does not ask.",
-      );
-  }
-
-  if (BRANCH_CREATE_RE.test(cmd) && policy.branchCreate === "ask")
+  const { denials, questions, kinds } = classifyConsequential(cmd, policy, isSubagent);
+  if (denials.length) return deny(denials.join("\n\n"));
+  if (questions.length)
     return askHuman(
-      "branch-create",
-      "This creates a branch. Branching shapes where the work lands and how it merges — the " +
-        "project's own doctrine (`.xenomoon/branch-model`). Listing, switching to an existing " +
-        "branch and deleting are untouched.",
+      kinds.join("+"),
+      questions.length === 1
+        ? (questions[0] ?? "")
+        : `This ONE command does ${questions.length} consequential things — approving it approves all of them:\n\n` +
+            questions.map((q) => `• ${q}`).join("\n\n"),
     );
 
   return null;

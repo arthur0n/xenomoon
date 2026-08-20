@@ -2016,6 +2016,31 @@ input.cmd::placeholder {
   color: var(--text-3);
 }
 
+/* WHY an approval is being asked. The gate names every consequential thing one command does; the
+   card used to show the command alone, so approving a metered API call looked like approving `ls`.
+   Bordered rather than coloured-in: it must read as information the human needs, not an alarm they
+   learn to dismiss. */
+.approval-reason {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--green);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-dim);
+  white-space: pre-wrap;
+}
+
+/* The panel mini is a glance, not the decision surface — the chat card carries the full reason.
+   Clamped so a multi-consequence prompt cannot push the queue off-screen. */
+.approval-mini .approval-reason {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .approval-actions {
   display: flex;
   gap: 8px;

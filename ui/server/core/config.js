@@ -377,7 +377,7 @@ export function saveHermesConfig(patch) {
  * trade deliberately — the alternative was a second copy of each rule in a hook, and two copies of
  * a rule is how they drift.
  *
- * @typedef {{ push?: "ask" | "allow", dependencies?: "ask" | "allow", branchCreate?: "ask" | "allow" }} ActionPolicy
+ * @typedef {{ push?: "ask" | "allow", dependencies?: "ask" | "allow", branchCreate?: "ask" | "allow", spend?: "ask" | "allow", spendPatterns?: string[] }} ActionPolicy
  * @returns {Required<ActionPolicy>}
  */
 export function getActionPolicy() {
@@ -400,6 +400,13 @@ export function getActionPolicy() {
     push: mode(saved.push),
     dependencies: mode(saved.dependencies),
     branchCreate: mode(saved.branchCreate),
+    spend: mode(saved.spend),
+    // The project's own paid commands. CORE recognises the well-known model endpoints without any
+    // config; what a project's OWN scripts cost is a project fact — no framework can know that an
+    // eval script bills per row. Non-strings are dropped rather than trusted into a matcher.
+    spendPatterns: Array.isArray(saved.spendPatterns)
+      ? saved.spendPatterns.filter((p) => typeof p === "string" && p.length > 0)
+      : [],
   };
 }
 

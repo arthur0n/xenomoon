@@ -186,7 +186,7 @@
  *   | { type: "event", message: SdkEvent }
  *   | { type: "ask", id: number, input: { questions?: Question[] }, agent?: string }
  *   | { type: "form", id: number, input: FormSpec, agent?: string }
- *   | { type: "permission", id: number, toolName: string, input: ToolInput, agent?: string }
+ *   | { type: "permission", id: number, toolName: string, input: ToolInput, agent?: string, reason?: string }
  *   | { type: "policy", value: string }
  *   | { type: "history", items?: HistoryItem[] }
  *   | { type: "tasks", tasks: Task[] }

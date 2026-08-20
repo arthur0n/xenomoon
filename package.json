@@ -1,6 +1,6 @@
 {
   "name": "xenomoon",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Xenomoon Forge — POC web UI + agent workflow (triage -> solution -> implement -> verify) you install per project and lock to a Node/web app domain; the orchestrator self-improves per project, with Claude Code",
   "type": "module",
   "private": true,

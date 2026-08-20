@@ -117,15 +117,21 @@ latest_verdict() { # $1 = lane regex, $2 = pass regex, $3 = marker key → "BLOC
         elif ($c | test($pass)) then ([ $c | scan($key + ": [0-9a-f]{7,40}") ] | last // "")
         else "BLOCKED" end' 2>/dev/null
 }
-# The EMOJI IS DECORATION, but the HEADING is STRUCTURE. Both patterns anchor to the start of a
+# The parenthetical may not span lines: a heading is ONE line, and `[^)]*` would let a pasted
+# multi-line block be read as a verdict.
+# The EMOJI IS DECORATION, and so is a PARENTHETICAL — real verdicts on a live project were
+# written `## QA — PASS` (no emoji, 4 of 10 sampled issues) and `## 🔎 REVIEW (Codex) — changes`
+# (annotated lane). A verdict this gate cannot see is a verdict that silently does not count, and
+# the label alone then decides — which is the failure the SHA binding exists to prevent. But the
+# HEADING is STRUCTURE. Both patterns anchor to the start of a
 # line (`(^|\n)## `), so a comment QUOTING a verdict ("> ## QA — PASS") or mentioning one inline
 # cannot supersede a real blocking one — the rule the PRE-PR parser already used.
 #
 # The EMOJI, though, is decoration: a live project wrote `## QA — PASS` without it in 6 of 10
 # sampled issues. A verdict this gate cannot see is a verdict that silently does not count, and the
 # label-only path then decides — the exact failure the SHA binding exists to prevent.
-qa_verdict="$(latest_verdict '(^|\n)## (🧪 )?QA —' '(^|\n)## (🧪 )?QA — PASS' 'qa-verified')"
-review_verdict="$(latest_verdict '(^|\n)## (🔎 )?REVIEW —' '(^|\n)## (🔎 )?REVIEW — pass' 'review-verified')"
+qa_verdict="$(latest_verdict '(^|\n)## (🧪 )?QA( \([^)\n]*\))? —' '(^|\n)## (🧪 )?QA( \([^)\n]*\))? — PASS' 'qa-verified')"
+review_verdict="$(latest_verdict '(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? —' '(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? — pass' 'review-verified')"
 
 # When TWO reviewers ran, NEITHER writes the lane verdict: each posts EVIDENCE under its own header
 # (`## 🔎 CODEX REVIEW`, `## 🔎 INTERNAL REVIEW`) with no marker and no label, and the audit stage folds
@@ -137,7 +143,7 @@ review_verdict="$(latest_verdict '(^|\n)## (🔎 )?REVIEW —' '(^|\n)## (🔎 )
 evidence_unreconciled="$(printf '%s' "$issue" | jq -r '
   ([ .comments[]?.body // "" ] | to_entries) as $all
   | (([$all[] | select(.value | test("(^|\n)## (🔎 )?(CODEX|INTERNAL) REVIEW")) | .key] | last) // -1) as $ev
-  | (([$all[] | select(.value | test("(^|\n)## (🔎 )?REVIEW —")) | .key] | last) // -1) as $rv
+  | (([$all[] | select(.value | test("(^|\n)## (🔎 )?REVIEW( \\([^)\\n]*\\))? —")) | .key] | last) // -1) as $rv
   | if $ev > $rv then "yes" else "" end' 2>/dev/null)"
 # The pre-PR stage sets NO label — deliberately: it adds judgement, not another sticker to collect, and the
 # gate-depth rules let a sev:low change skip it. So this gate does NOT require a `ready` verdict.
@@ -157,7 +163,7 @@ evidence_unreconciled="$(printf '%s' "$issue" | jq -r '
 # there writes.
 pipeline_state="$(printf '%s' "$issue" | jq -r '
   ([ .labels[]?.name // "" | select(test("^(qa|review)[:]")) ] | length) as $l
-  | ([ .comments[]?.body // "" | select(test("(^|\n)## (🧪 )?QA —|(^|\n)## (🔎 )?REVIEW —|(^|\n)## (🚦 )?PRE-PR —")) ] | length) as $c
+  | ([ .comments[]?.body // "" | select(test("(^|\n)## (🧪 )?QA( \\([^)\\n]*\\))? —|(^|\n)## (🔎 )?REVIEW( \\([^)\\n]*\\))? —|(^|\n)## (🚦 )?PRE-PR —")) ] | length) as $c
   | if ($l + $c) > 0 then "yes" else "" end' 2>/dev/null)"
 
 prepr_blocked="$(printf '%s' "$issue" | jq -r '

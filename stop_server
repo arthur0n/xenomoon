@@ -16,11 +16,9 @@
 #      file is kept, and `xenomoon restart` refuses to start on top of it.
 set -euo pipefail
 cd "$(dirname "$0")"
-
-# PHYSICAL path, both sides. `cd` keeps the logical spelling (symlinks intact) while lsof reports
-# the kernel's canonical cwd, so comparing raw strings would call this install's own server a
-# stranger and leave the orphan running — the exact failure this script exists to end.
-INSTALL_DIR="$(pwd -P)"
+# Port resolution and the ownership rule are SHARED with start_server — see the file's header for
+# why they may never be answered twice.
+. ./server-port.sh
 
 stopped_any=""
 pid_was_stale=""
@@ -41,7 +39,15 @@ give_up() {
 
 if [ -f "$PIDFILE" ]; then
   pid="$(cat "$PIDFILE" 2>/dev/null || true)"
-  if [ -n "$pid" ] && kill "$pid" 2>/dev/null; then
+  # PROVE it is ours before signalling. The file is a number we wrote hours ago, and the OS reuses
+  # numbers — an unproven kill here would land on whatever inherited it. Nothing about the port scan
+  # below can undo a signal already sent, which is why the proof comes first.
+  if [ -n "$pid" ] && is_our_server_process "$pid"; then
+    # Wait for it to actually die. "Signal sent" is not "stopped": a server that is SIGSTOPped or
+    # stuck in shutdown keeps the port, and saying otherwise while deleting the pid file is how a
+    # restart ends up starting a sibling on a port that was never freed.
+    stop_proven_pid "$pid" ||
+      give_up "PID $pid is this install's server and would not stop, even forced."
     echo "Stopped PID $pid."
     stopped_any=1
     rm -f "$PIDFILE"
@@ -50,57 +56,27 @@ if [ -f "$PIDFILE" ]; then
     # port check below cannot run — no lsof, no permission — throwing it away makes the next
     # attempt blinder than this one.
     pid_was_stale=1
-    [ -n "$pid" ] && echo "PID $pid (from $PIDFILE) is already gone — checking the port."
+    if [ -z "$pid" ]; then
+      : # an empty pid file says nothing; the port check is the whole answer
+    elif kill -0 "$pid" 2>/dev/null; then
+      echo "PID $pid (from $PIDFILE) is alive but is not this install's server — left alone. Checking the port."
+    else
+      echo "PID $pid (from $PIDFILE) is already gone — checking the port."
+    fi
   fi
 fi
-
-# Port: resolved exactly as start_server resolves it, so we look where the server actually binds.
-CONFIGURED_PORT="$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync(".xenomoon.json","utf8")).port??"")}catch{console.log("")}' 2>/dev/null || true)"
-PORT="${PORT:-${CONFIGURED_PORT:-3117}}"
 
 command -v lsof >/dev/null 2>&1 ||
   give_up "lsof not available — cannot check port $PORT for an untracked server."
 
-# Whose server is this? A cwd EQUAL to the install is ours, and so is one beneath it — a server
-# started from a subdirectory is still this install's. But "beneath it" is not ownership on its own:
-# a nested checkout, a git worktree or a fixture app under this tree is a DIFFERENT install with its
-# own lifecycle, and killing it because the parent happens to sit above it is the same crime as
-# orphaning ours, pointed the other way.
-#
-# So the boundary is the NEAREST install root, not the path prefix: walk up from the listener's cwd
-# and stop at whichever comes first. Reaching this install first means ours; meeting another install
-# marker on the way means it belongs to that one. The walk stops at INSTALL_DIR without requiring a
-# marker there, so an unbound trunk still recognises its own server.
-# $1 = the listener's cwd
-belongs_to_this_install() {
-  local dir="$1"
-  [ -n "$dir" ] || return 1
-  while [ -n "$dir" ] && [ "$dir" != "/" ]; do
-    if [ "$dir" = "$INSTALL_DIR" ]; then return 0; fi
-    # a nearer install root — that server is its business, not ours
-    if [ -f "$dir/.xenomoon.json" ]; then return 1; fi
-    dir="$(dirname "$dir")"
-  done
-  return 1
-}
-
-# lsof answers "nothing is listening" and "I could not look" with the SAME exit code, separable only
-# by whether it complained on stderr. That distinction is the whole point here: silencing it would
-# let a permission error, an unusable port value or a transient failure read as a clean port, and the
-# pid file — the last record of what this install started — would be thrown away on the strength of
-# a check that never happened.
-lsof_err="$(mktemp)"
-listeners="$(lsof -ti "tcp:$PORT" -sTCP:LISTEN 2>"$lsof_err" || true)"
-lsof_complaint="$(head -1 "$lsof_err")" # its first line says what went wrong; the rest is a usage dump
-rm -f "$lsof_err"
-
-if [ -z "$listeners" ] && [ -n "$lsof_complaint" ]; then
-  give_up "Could not inspect port $PORT for an untracked server: $lsof_complaint"
+port_listeners
+if [ -z "$PORT_LISTENERS" ] && [ -n "$LSOF_COMPLAINT" ]; then
+  give_up "Could not inspect port $PORT for an untracked server: $LSOF_COMPLAINT"
 fi
 
 unreadable=""
-for p in $listeners; do
-  owner_cwd="$(lsof -p "$p" -a -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
+for p in $PORT_LISTENERS; do
+  owner_cwd="$(listener_cwd "$p")"
   # An unreadable cwd is NOT a foreign process. Treating it as one would leave a possibly-ours
   # server running while the run still counted as a completed check — the same orphan, reached by
   # a quieter road.
@@ -113,17 +89,20 @@ for p in $listeners; do
     unreadable=1
     continue
   fi
-  if belongs_to_this_install "$owner_cwd"; then
-    if kill "$p" 2>/dev/null; then
+  # The same two-factor proof the pid path uses: our server entry AND our directory. A cwd inside
+  # this install is not enough on its own — a service the user happened to start from here would
+  # match, and stopping the UI server is no reason to kill it.
+  if is_our_server_process "$p"; then
+    if stop_proven_pid "$p"; then
       echo "Stopped PID $p (was listening on $PORT, untracked by $PIDFILE)."
       stopped_any=1
     else
-      echo "PID $p on $PORT exited before it could be stopped."
+      give_up "PID $p on $PORT is this install's server and would not stop, even forced."
     fi
   else
     # Another install — or an unrelated program holding the port — is not ours to kill, and killing
     # it would be the worst kind of helpful.
-    echo "Port $PORT is held by PID $p from $owner_cwd — not this install, left alone."
+    echo "Port $PORT is held by PID $p from $owner_cwd — not this install's server, left alone."
   fi
 done
 

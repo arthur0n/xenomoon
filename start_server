@@ -1,33 +1,84 @@
 #!/usr/bin/env bash
 # Start the Xenomoon Forge UI server, DETACHED, with a PID + log under .xm-run/.
-# Survives the terminal that launched it (no SIGHUP "vanish") and reclaims the port if a
-# stale server is still holding it, so it always starts fresh.
+# Survives the terminal that launched it (no SIGHUP "vanish") and reclaims the port from THIS
+# install's own stale server, so it always starts fresh.
 #   ./start_server                 # the configured project (see .xenomoon.json / config.js)
 #   ./start_server /path/to/project   # a specific project
 #   PORT=9000 ./start_server       # a different port
 set -euo pipefail
 cd "$(dirname "$0")"
+# Port resolution and the ownership rule are SHARED with stop_server — see the file's header.
+. ./server-port.sh
 
-# Port: env override → the bound install's configured port (.xenomoon.json) → default.
-# The banner and the reclaim below must name the port the server will ACTUALLY bind, or a
-# restart reclaims/announces the wrong one.
-CONFIGURED_PORT="$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync(".xenomoon.json","utf8")).port??"")}catch{console.log("")}' 2>/dev/null || true)"
-PORT="${PORT:-${CONFIGURED_PORT:-3117}}"
 RUN_DIR=".xm-run"
 LOG="$RUN_DIR/ui.log"
 PIDFILE="$RUN_DIR/ui.pid"
 mkdir -p "$RUN_DIR"
 
-# Reclaim: stop whatever is already listening on this port so we don't fail on "in use".
-existing="$(lsof -ti "tcp:$PORT" -sTCP:LISTEN 2>/dev/null || true)"
-if [ -n "$existing" ]; then
-  echo "Port $PORT was held by PID(s): $existing — stopping them."
-  # shellcheck disable=SC2086
-  kill $existing 2>/dev/null || true
-  for _ in $(seq 1 25); do
-    lsof -ti "tcp:$PORT" -sTCP:LISTEN >/dev/null 2>&1 || break
+# Reclaim OUR OWN stale server, and only that. This used to kill whatever held the port, no
+# questions asked — which meant two installs left on the default port took turns killing each other,
+# and any unrelated program listening on it was collateral. A port we do not own is not a thing to
+# take; it is a reason to stop and say so, because binding is about to fail anyway and the failure
+# would otherwise land silently in the log.
+refuse() {
+  echo "$1" >&2
+  echo "  Not starting. Stop it yourself, or give this install its own port:" >&2
+  echo "    PORT=<n> ./start_server        (once)" >&2
+  echo "    or set \"port\" in .xenomoon.json  (for good)" >&2
+  exit "${2:-1}"
+}
+
+# No scan, no start. Launching on an unchecked port puts the collision in .xm-run/ui.log — where
+# nobody looks — behind a PID file for a server that never came up.
+command -v lsof >/dev/null 2>&1 ||
+  refuse "lsof not available — cannot tell whether port $PORT is already held." 3
+
+port_listeners
+[ -n "$PORT_LISTENERS" ] || [ -z "$LSOF_COMPLAINT" ] ||
+  refuse "Could not inspect port $PORT before starting: $LSOF_COMPLAINT" 3
+
+# Classify EVERY listener before killing any. Killing as we go would let a port holding one of ours
+# and one stranger cost us the running server AND the start — we would stop ours, then refuse
+# because of the stranger, leaving the user with nothing. Ownership is all-or-nothing.
+reclaim=""
+for p in $PORT_LISTENERS; do
+  owner_cwd="$(listener_cwd "$p")"
+  if is_our_server_process "$p"; then
+    reclaim="$reclaim $p"
+  else
+    # Anything else — another install, a stranger, or a service of the user's own started from this
+    # very directory — is left alone. Sitting in our cwd is not consent to be killed.
+    refuse "Port $PORT is held by PID $p from ${owner_cwd:-a directory that could not be read} — not this install's server."
+  fi
+done
+
+# Reclaim, then PROVE the port is free. The wait used to be best-effort: an owned server that
+# ignored SIGTERM or was slow to exit left the port held, node failed to bind, and the script still
+# printed a URL and wrote a PID file for a process that was already dying — turning a working stale
+# server into an apparently-successful dead start, with the only evidence buried in ui.log.
+#
+# SIGKILL is escalated to only for PIDs already PROVEN to be ours. A stranger is never signalled,
+# whatever it is doing to the port.
+port_free() {
+  port_listeners
+  [ -z "$PORT_LISTENERS" ] && [ -z "$LSOF_COMPLAINT" ]
+}
+wait_for_port() {
+  for _ in $(seq 1 "$1"); do
+    port_free && return 0
     sleep 0.2
   done
+  return 1
+}
+
+if [ -n "$reclaim" ]; then
+  for p in $reclaim; do
+    echo "Port $PORT was held by this install's PID $p — stopping it."
+    stop_proven_pid "$p" || refuse "PID $p would not stop, even forced." 1
+  done
+  # Gone is not the same as free — the socket can linger a moment after the process does.
+  wait_for_port 15 ||
+    refuse "Port $PORT is STILL held after stopping this install's server$([ -n "$LSOF_COMPLAINT" ] && echo " ($LSOF_COMPLAINT)")." 1
 fi
 
 # Launch detached; all output → the log; record the PID so it's easy to find/stop.
@@ -35,6 +86,31 @@ nohup node ui/server/core/index.js "$@" >"$LOG" 2>&1 &
 pid=$!
 echo "$pid" >"$PIDFILE"
 disown "$pid" 2>/dev/null || true
+
+# Announce only what is true. A free port before launch does not mean OUR process got it: it can
+# die on any startup error, or lose the race to something that binds in between. Printing a URL and
+# keeping a PID file either way is how a failed start looks exactly like a good one, with the real
+# error alone in the log — and it leaves stop_server a PID that owns nothing.
+listening=""
+for _ in $(seq 1 50); do
+  if ! kill -0 "$pid" 2>/dev/null; then break; fi # died during startup
+  if lsof -a -p "$pid" -i "tcp:$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+    listening=1
+    break
+  fi
+  sleep 0.2
+done
+if [ -z "$listening" ]; then
+  # Through the same proof as every other signal. This PID was recorded up to 10 seconds ago and the
+  # process may already have exited — cleaning up after our own failed launch is no excuse to signal
+  # whatever inherited its number.
+  stop_proven_pid "$pid" || true
+  rm -f "$PIDFILE"
+  echo "Server did not come up on port $PORT — nothing is running." >&2
+  echo "  Last lines of $LOG:" >&2
+  tail -15 "$LOG" >&2 || true
+  exit 1
+fi
 
 echo "UI server started (detached) — PID $pid"
 echo "  url:  http://localhost:$PORT"

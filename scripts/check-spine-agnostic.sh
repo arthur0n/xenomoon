@@ -68,12 +68,18 @@ fi
 
 # 3. Project hardcoding — the bound project's name baked into the framework. Case-INSENSITIVE:
 #    the terms arrive lowercased, and a leak writes the project's name the way prose does
-#    ("Maggie"), so a case-sensitive match would sail straight past the real thing. Skip this
-#    command's own doc, which legitimately names a project as an example.
+#    ("Acme"), so a case-sensitive match would sail straight past the real thing.
+#
+#    NO EXCLUSIONS. There used to be one, for a shipped command doc that named a project as an
+#    example — and it outlived the file by the whole re-homing that deleted it, sitting here as a
+#    pathspec for something no longer in the tree. Its successor is a shipped SKILL, and a skill
+#    naming somebody's project is the contamination this check exists to catch, so the allowance
+#    should not follow the content. Everything under domains/, plugin/ and ui/server/ ships to every
+#    project; if one of them ever needs an example, it uses a made-up name.
 if [ "$SKIP_PROJECT" = 0 ] && [ -n "$PROJECT" ] &&
-   git grep -nIEi "$PROJECT" -- domains plugin ui/server ':!plugin/commands/sync-framework.md' >/dev/null 2>&1; then
+   git grep -nIEi "$PROJECT" -- domains plugin ui/server >/dev/null 2>&1; then
   echo "FAIL: project term '$PROJECT' hardcoded into the framework (it belongs in the project's own CLAUDE.md) —" >&2
-  git grep -nIEi "$PROJECT" -- domains plugin ui/server ':!plugin/commands/sync-framework.md' >&2 || true
+  git grep -nIEi "$PROJECT" -- domains plugin ui/server >&2 || true
   leak=1
 fi
 

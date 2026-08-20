@@ -49,16 +49,18 @@ skill.
    - **Never satisfy a gate by shrinking the agent.** The gate asks for wiring. Dropping a tool or
      a skill to turn it green, then justifying it afterwards, is how a capability quietly
      disappears — it happened on the first promotion and the reasoning sounded fine at the time.
-7. **Adversarially review the diff BEFORE committing** (`/audit`, or the Codex companion:
+7. **Adversarially review the diff BEFORE committing** (`audit`, or the Codex companion:
    `node vendor/codex-plugin-cc/plugins/codex/scripts/codex-companion.mjs adversarial-review
 --background --scope working-tree "<focus>"`). On the first promotion this caught a real defect
    that self-review and every `check:*` gate missed — the gates verify wiring, not whether the
    prose contradicts itself. Scope the focus explicitly and tell it to IGNORE untracked
    pack-install artifacts (`plugin/skills/{ios,android}-*`, pack-copied agents), or it reviews the
    installed tree and reports findings that are not yours.
-8. **Make it reachable.** A capability nothing routes to is dead weight: ship the command
-   (`plugin/commands/<stage>.md`, CORE — the trigger for a CORE agent is CORE) and add the routing
-   line to the orchestrator of the pack you are testing in. Frontmatter grants a tool; only the
+8. **Make it reachable.** A capability nothing routes to is dead weight — but **do NOT create
+   `plugin/commands/<stage>.md`. There is no command surface**: the installer does not install one
+   and `check:install-paths` refuses a pack that ships one. Reachability is three edits instead: the
+   routing line in the spine, the stage's row in the `pipeline-dispatch` skill (agent, lane, queue,
+   report shape), and the method in the agent's own skill. Frontmatter grants a tool; only the
    prompt and the routing say when to reach for it. **Pass identity in the brief** (repo, issue,
    force flag): if the agent must open a project file to learn where the work lives, its cheap
    gates stop being cheap.
@@ -124,7 +126,7 @@ gate, not the design.
 `validate` proves the wiring: frontmatter agrees with audiences, models satisfy policy, nothing
 project-specific leaked. It cannot see that paragraph 3 contradicts paragraph 7. The first
 promotion passed all 8 checks green while carrying trap 1. An adversarial review (Codex, or
-`/audit`) found it in one pass — and found the follow-up contradiction each time a fix introduced
+`audit`) found it in one pass — and found the follow-up contradiction each time a fix introduced
 a new one. Budget more than one review round: fixing an ordering bug tends to create the next.
 
 ## Rules

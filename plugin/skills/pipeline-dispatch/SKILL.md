@@ -201,7 +201,7 @@ earlier — a Codex block overwritten by an internal pass, on exactly the change
 reviewers.
 
 **If a run dies after the evidence but before the reconciliation**, the commit gate will ask about
-it. Re-running `/audit` fixes it — say in the brief that evidence is already on the issue awaiting
+it. Re-running `audit` fixes it — say in the brief that evidence is already on the issue awaiting
 reconciliation, or the reviewer's skip gate will report "already reviewed" and the ask stays
 unanswerable.
 

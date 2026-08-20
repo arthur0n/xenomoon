@@ -20,7 +20,7 @@
 #   sub-agent (agent_id present)  → allow  (the developer legitimately does git surgery)
 #
 # Carve-out: when the domain pack ships commit-gate.sh, an add/commit-only line is the pipeline's
-# /commit stage and is allowed through to THAT gate (which re-derives qa/review + their SHAs).
+# commit stage and is allowed through to THAT gate (which re-derives qa/review + their SHAs).
 # Mirrors ui-control.js hasCommitGateHook() so both layers agree.
 #
 # Reads the PreToolUse payload on stdin; emits a decision (exit 0) only on a match.

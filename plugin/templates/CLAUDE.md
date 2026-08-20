@@ -56,7 +56,7 @@ gets ONE line here. Never dump full rules or specs into this file.
 - `.claude/library/business-rules.md` — standing product facts, user's words verbatim.
   **Product-owner-maintained, human-gated.** The framework's agents treat it as
   **AUTHORITATIVE intent** — they build and reason to it and never manufacture an
-  assumption that contradicts a rule stated there. Empty until the first `/design`
+  assumption that contradicts a rule stated there. Empty until the first `design`
   seeds it.
 - {{add a one-line pointer per additional library doc as they're created}}
 

@@ -2,7 +2,7 @@
 name: grill
 agents: [product-owner]
 domain: universal
-description: Grill the user — a relentless one-question-at-a-time interview that walks every branch of a slice's decision tree until shared understanding. Use when the user asks to be grilled (/grill, "grill me", "stress-test this plan"), or when a slice is high-stakes — schema migration, auth/permissions, money paths, destructive/irreversible operations.
+description: Grill the user — a relentless one-question-at-a-time interview that walks every branch of a slice's decision tree until shared understanding. Use when the user asks to be grilled (grill, "grill me", "stress-test this plan"), or when a slice is high-stakes — schema migration, auth/permissions, money paths, destructive/irreversible operations.
 ---
 
 # Grill mode — walk the decision tree

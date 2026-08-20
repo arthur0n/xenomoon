@@ -241,7 +241,7 @@ const LIBRARY_STUBS = {
     "# Business rules / product facts\n\n" +
     "Standing facts about what this product does / doesn't do — captured product INTENT,\n" +
     "in the user's own words, verbatim. Product-owner-maintained, human-gated. The agents treat\n" +
-    "this doc as AUTHORITATIVE intent. Empty until the first /design seeds it.\n",
+    "this doc as AUTHORITATIVE intent. Empty until the first design seeds it.\n",
   "project.md":
     "# Project details\n\n" +
     "Extended project details too long for a CLAUDE.md one-liner — infra notes, service\n" +

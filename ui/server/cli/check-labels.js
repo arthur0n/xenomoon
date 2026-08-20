@@ -26,9 +26,22 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..",
 
 /** Where the framework's own text lives. A bound clone's install output under plugin/ is included
  * deliberately — a pack that ships a stale label name is exactly what this catches. */
-const SCAN = ["plugin", "domains", "ui/orchestrator-spine.md", "ui/codex-block.md", "docs"];
+const SCAN = [
+  "plugin",
+  "domains",
+  "ui/orchestrator-spine.md",
+  "ui/codex-block.md",
+  // The shipped UI's quick-action chips FILL the user's prompt box — the most user-visible surface
+  // there is, and the one a markdown-only scan never sees.
+  "ui/index.html",
+  "docs",
+  // A generator that writes a stale string is the same failure, one level removed.
+  "ui/server/cli/new.js",
+];
 const SKIP_DIRS = new Set(["node_modules", ".git", "logs", "vendor"]);
-const TEXT = /\.(md|sh|json|js)$/;
+// `.html` is in here because the shipped UI has quick-action chips that FILL the user's
+// prompt box — the most user-visible surface of all, and the one a markdown-only scan misses.
+const TEXT = /\.(md|sh|json|js|html)$/;
 
 /** Families CORE owns end-to-end: if the framework writes one of these, it must be canonical. */
 const CORE_FAMILIES = ["qa", "review", "sev", "uat"];
@@ -109,6 +122,38 @@ export function buildMatchers(retiredNames) {
   };
 }
 
+// The framework ships NO command files, so a prompt naming a stage in slash form advertises a
+// surface that does not exist — and a model reading it will either try to invoke it or tell the
+// user to. Cheap to check, impossible to remember: removing them took 74 edits across two files.
+const STAGE_NAMES = [
+  "triage",
+  "solution",
+  "implement",
+  "sweep",
+  "qa",
+  "audit",
+  "pre-pr",
+  "commit",
+  "feedback",
+  "design",
+  "uat",
+  "learn",
+  "onboard",
+  "epic",
+  "grill",
+  "debrief",
+  "contribute",
+  "sync-framework",
+  "build",
+];
+// Format-agnostic on purpose: the first version required a backtick, so it passed a tree that
+// still said `run /triage` in prose, listed `/design` in a state diagram, advertised the whole set
+// in domain.json, and generated one in a project template. The lookbehind excludes paths and URLs
+// (`design/<slug>`, `docs/qa`, `https://x/build`) and the trailing guard excludes filenames
+// that merely START with a stage name (`$(dirname "$0")/commit-parse.sh`) — only a bare `/stage`
+// counts.
+const SLASH_STAGE_RE = new RegExp("(?<![\\w/.])/(" + STAGE_NAMES.join("|") + ")(?![\\w./-])");
+
 /** @param {string} dir @returns {string[]} */
 function walk(dir) {
   /** @type {string[]} */
@@ -152,6 +197,19 @@ function main() {
       path.basename(file).startsWith("issuekit-labels")
     )
       continue;
+    const rel = path.relative(ROOT, file);
+    readFileSync(file, "utf8")
+      .split("\n")
+      .forEach((line, i) => {
+        // docs/roadmap/ RECORDS what was built and why, including files that later went away —
+        // rewriting history to match the present would destroy the reason the present looks
+        // like this.
+        if (!rel.startsWith("docs/roadmap/") && SLASH_STAGE_RE.test(line))
+          errors.push(
+            `${rel}:${i + 1}  slash-form stage name — the framework ships no command files, so ` +
+              "this advertises a surface that does not exist; use the bare stage name",
+          );
+      });
     errors.push(
       ...scanText(readFileSync(file, "utf8"), path.relative(ROOT, file), {
         canonical,

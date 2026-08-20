@@ -5,7 +5,7 @@
 # an unstamped commit leaves the fix merged and its issue open forever, which is exactly what
 # happened to #43/#45/#47 when this was a model step. Companion to commit-gate.sh (PreToolUse). The pipeline's promise ("a committed fix auto-closes on deploy")
 # depends on the issue carrying `fixed-pending-deploy` — the ONLY label close-deployed-issues.yml
-# reads. Leaving that to a model step (/commit step 6) orphaned #43/#45/#47: the fix merged but the
+# reads. Leaving that to a model step (commit step 6) orphaned #43/#45/#47: the fix merged but the
 # label never flipped, so the issue never closed. This hook re-derives the label from the commit
 # itself, the instant it lands, for ALL callers — no prompt discipline.
 #

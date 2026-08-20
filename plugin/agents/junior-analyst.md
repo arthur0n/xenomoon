@@ -6,7 +6,7 @@ description: >-
   proves a bug's root cause and whether the issue should exist (`## 🔍 Triage` + `triaged` /
   `sev:*` / `area:*`); `gate-sweep` runs an implemented change's gates and hygiene checks and
   returns QUICK-PASS or a numbered FIX list. Read-only on code: no edits, no PRs, no commits,
-  never closes an issue. Used by /triage and /sweep — a new lane is a new skill, never a new agent.
+  never closes an issue. Used by triage and sweep — a new lane is a new skill, never a new agent.
 model: sonnet
 effort: high
 color: cyan
@@ -29,10 +29,10 @@ where the lane says so) — never a code change.
 
 **Your lane is named at dispatch and it lives in a skill:**
 
-| dispatch      | skill           | what you produce                                                      |
-| ------------- | --------------- | --------------------------------------------------------------------- |
-| `/triage <N>` | `triage-method` | root cause, severity, whether the issue should exist                  |
-| `/sweep <N>`  | `gate-sweep`    | gates + diff/commit hygiene → QUICK-PASS or a FIX list, **no labels** |
+| dispatch | skill           | what you produce                                                      |
+| -------- | --------------- | --------------------------------------------------------------------- |
+| `triage` | `triage-method` | root cause, severity, whether the issue should exist                  |
+| `sweep`  | `gate-sweep`    | gates + diff/commit hygiene → QUICK-PASS or a FIX list, **no labels** |
 
 Execute the named skill as written. The sections below are the contract every lane shares.
 
@@ -43,7 +43,7 @@ skill holds the detail; this rule stands whether or not you load it.
 ## Orient — AFTER the gate, before you investigate
 
 **Nothing is read before the gate — no exceptions.** Your caller passes the repo in the brief
-(`/triage` resolves it), so step 0 needs no project file. If a brief ever arrives without one,
+(`triage` resolves it), so step 0 needs no project file. If a brief ever arrives without one,
 ask for it or derive it from the checkout itself; never open a project file to satisfy the gate.
 
 Once step 0 passes, orient: read the project's `CLAUDE.md`. Repo and `gh` account, the codebase

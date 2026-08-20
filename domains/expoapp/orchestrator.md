@@ -13,9 +13,9 @@ authoritative, never guess them.
 - **Bigger than one slice or one session** → chart a **xeno-epic FIRST** per the spine's
   epic rule (the `xeno-epic` skill); its slices then enter the routing below one at a time.
 - **Implementation with agreed small scope** (a PRD slice, a spec, a settled trivial
-  change) → **`/implement`** — the CORE implement stage, the pipeline's one Edit/Write builder.
+  change) → **`implement`** — the CORE implement stage, the pipeline's one Edit/Write builder.
   Brief it whole ("implement <slice>: <spec path>"); discovery belongs to it.
-- **Bug / symptom** — the spine owns this route (`/triage` → `/solution` → `/implement`). The
+- **Bug / symptom** — the spine owns this route (`triage` → `solution` → `implement`). The
   only expo delta: if the cause is really about what the thing _should_ do, `product-owner`
   comes first.
 - **PR plumbing** (open / retarget / update / merge a PR, promote integration → prod,

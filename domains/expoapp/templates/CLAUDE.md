@@ -74,7 +74,7 @@ path renders non-empty. Nothing larger until that proves stable.
 - **Out of harness scope:** {{what Maestro can't cross here — e.g. system camera/mic capture UI}}
 
 UAT is **out-of-band** of the per-issue pipeline — it applies no `qa:*` / `review:*` labels and gates
-no commit. A FAIL files a new `/feedback` bug; a BLOCKED is a harness/environment finding.
+no commit. A FAIL files a new `feedback` bug; a BLOCKED is a harness/environment finding.
 
 ## Infrastructure
 

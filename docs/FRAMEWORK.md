@@ -33,8 +33,11 @@ palette. Never reintroduce upstream's green alien identity.
   (namespaced `xenomoon:<name>`).
 - **CORE owns the PIPELINE; a pack ships SKILLS.** The pipeline is what the framework IS
   (see the goal above), so it cannot be an optional pack feature: trunk `plugin/` ships the
-  pipeline roster and its stage commands (`junior-analyst` → `/triage`, `senior-analyst` →
-  `/solution`, and the stages still being promoted), the cross-cutting agents
+  whole pipeline roster (`junior-analyst`, `senior-analyst`, `developer`, `tester`,
+  `uat-runner`) and the skills that hold each stage's method — there are NO shipped
+  command files: routing lives in the spine, a stage's method in its agent's skill, and
+  the dispatch layer in orchestrator skills, so each fact has exactly one home. Plus the
+  cross-cutting agents
   (product-owner, researcher, debrief, handoff-summarizer), the shared method skills
   (`code-investigation`, `library-first`, `intent-guardrails`, the `*-method` skills), the
   meta skills (`quick`, `caveman-forge`, `tasks-mcp`, `agent-report`,
@@ -53,8 +56,10 @@ palette. Never reintroduce upstream's green alien identity.
 
 ## Stable layout — directions, not inventory
 
-- `plugin/` — the one runtime capability tree (see above). `plugin/docs/` +
-  `plugin/commands/` SHIP with the plugin and may be referenced by capabilities/runtime.
+- `plugin/` — the one runtime capability tree (see above). `plugin/docs/` ships with the
+  plugin and may be referenced by capabilities/runtime. There is **no `plugin/commands/`**:
+  the framework ships no command files, the installer does not install any, and
+  `check:install-paths` refuses a pack that ships one.
   **In a BOUND clone this tree also holds the installed pack's files.** They are install
   OUTPUT — the pack under `domains/` is their source — and the install declares exactly which
   paths it wrote in a generated `plugin/.gitignore` (`ui/server/core/install-output.js`). So
@@ -85,7 +90,7 @@ autonomous,pulse}/`. `ui/lib/` — shared JSDoc typedefs.
 - **Project facts live project-side**: `<project>/.claude/library/` indexed by the
   project's `CLAUDE.md` (index-only doctrine — CLAUDE.md points, never dumps). Read the
   index, follow pointers; project rules override framework defaults.
-- Routing doctrine (webapp pack): vague brief → `/design` first; bug → issue-tracker
+- Routing doctrine (webapp pack): vague brief → the design path first; bug → issue-tracker
   search first (issuekit; never re-try `DO-NOT-RETRY` attempts); research → Hermes
   worker first when enabled; every defect enters the pipeline.
 - Persistent task board via `mcp__ui__tasks` → `<project>/.xenomoon/tasks.json`.

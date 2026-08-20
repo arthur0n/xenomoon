@@ -52,7 +52,7 @@ Project-specific hard rules every change must respect (the agents obey these ove
 - {{e.g. no console.log / no `any` / no non-null `!`; lint runs with zero warnings}}
 - {{e.g. algorithms are config-driven — no magic numbers}}
 - **Every fix carries a regression test** — a hermetic **unit** test for isolatable logic, a
-  **smoke / integration** test for data-API paths (scoping, transactions). `/qa` blocks (`qa:blocked`)
+  **smoke / integration** test for data-API paths (scoping, transactions). `qa` blocks (`qa:blocked`)
   any fix without a test that actually guards the bug; a green build alone is not a pass.
 - **Acceptance (UAT) is resource-capped, never unbounded** — the capped Playwright config below is
   the only way it runs (headless, one worker, chromium-only, no retries, strict timeouts). Never a
@@ -68,7 +68,7 @@ gets ONE line here. Never dump full rules or specs into this file.
   **Product-owner-maintained, human-gated.** The agents treat it as **AUTHORITATIVE intent**:
   the analysts never manufacture a hypothesis that contradicts it (a symptom-vs-intent
   conflict is a product-owner question, not a code trace); the developer builds to it; the
-  tester reads it as rubric. Empty until the first `/design` seeds it.
+  tester reads it as rubric. Empty until the first `design` seeds it.
 - `.claude/library/project.md` — extended project details (infra notes, service map,
   anything too long for the sections above).
 - {{add a one-line pointer per additional library doc as they're created}}
@@ -99,7 +99,7 @@ explicit context/browser teardown after each run
    is stale — re-run the manual step. **Never** script the Clerk login form or store credentials.
 
 UAT is **out-of-band** of the per-issue pipeline — it applies no `qa:*` / `review:*` labels and gates
-no commit. A UAT failure files a new `/feedback` bug.
+no commit. A UAT failure files a new `feedback` bug.
 
 ## Infrastructure
 

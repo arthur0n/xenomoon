@@ -2,7 +2,7 @@
 name: xeno-epic
 agents: [orchestrator, product-owner]
 domain: universal
-description: Epic — the durable decision container for an effort bigger than one slice. Use when a brief spans more than one PRD/slice or more than one session, when the user says "epic", "/epic", "chart this", "this is big", or when an open epic exists for the work at hand (check mcp__ui__epic op:"list").
+description: Epic — the durable decision container for an effort bigger than one slice. Use when a brief spans more than one PRD/slice or more than one session, when the user says "epic", "epic", "chart this", "this is big", or when an open epic exists for the work at hand (check mcp__ui__epic op:"list").
 ---
 
 # Xeno-epic — a tiny wayfinder

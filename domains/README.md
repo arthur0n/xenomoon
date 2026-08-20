@@ -50,7 +50,7 @@ them. See
 
 - **`webapp`** — a populated HEAD-START for React + Node apps: an issue-driven, human-gated pipeline
   (`product-owner` → the CORE triage / solution / implement / sweep / audit / QA / pre-PR stages; the
-  `/feedback /design /commit /build` commands are the pack's own). Triage
+  intake, design, commit and build steps are the pack's own). Triage
   and solution are **CORE** stages the pack routes to, not pack agents — see
   `plugin/docs/process/promote-agent-to-core.md`. The orchestrator then learns the specific project
   and promotes broadly-useful capabilities back into the pack for the next project.

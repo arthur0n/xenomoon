@@ -8,7 +8,7 @@
 # loop is subordinate to task momentum, so it fires least exactly when it's needed most
 # (live bite 2026-08-11: every debrief trigger fired in one session; one line was appended).
 # The prose rule stays; this is the backstop that fills the queue whether or not the model
-# is mid-pipeline. Coarse matching is fine — the queue is triage input, /debrief and
+# is mid-pipeline. Coarse matching is fine — the queue is triage input, debrief and
 # /harvest-sessions dedup downstream. NEVER blocks or modifies the prompt (always exit 0).
 payload="$(cat)"
 prompt="$(printf '%s' "$payload" | jq -r '.prompt // empty' 2>/dev/null)"

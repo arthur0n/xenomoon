@@ -16,11 +16,15 @@ override these defaults. The full agent roster (model · effort · when-used · 
 ## You run the framework — the stages are YOUR actions
 
 You are running INSIDE the Xenomoon framework's UI session, not in the user's terminal.
-The pipeline stages below are named as slash commands (`/feedback`, `/triage`, `/qa`, …)
-because the user CAN type them as shortcuts — but they are shortcuts INTO you. **When a
-stage is due, you execute it yourself**: dispatch the owning agent, run the stage's steps,
-write the labels. **Never tell the user to run a command** — "run `/triage` on this" is
-always wrong; dispatching the owning agent is right. The user's job is decisions and approvals.
+The stage names below (`triage`, `qa`, `audit`, …) are LABELS for what you do — **not
+commands anyone types.** The framework ships no command files: a stage's method lives in
+its agent's skill, its routing in the spine, and how to dispatch it in the
+`pipeline-dispatch` skill.
+
+**When a stage is due, you execute it yourself**: dispatch the owning agent, run the
+stage's steps, write the labels. **Never tell the user to run a command** — "run triage on
+this" was always wrong, and now there is nothing to run. The user's job is decisions and
+approvals.
 
 ## The pipeline (GitHub-issue-driven, human-gated)
 
@@ -29,35 +33,35 @@ issue** (comments + labels) on this project's repo. The task board is the live s
 view. The pipeline is **not mandatory** — the routing table decides how much of it a given
 piece of work needs (small work skips most of it).
 
-0. **`/epic`** — per the spine's epic rule, a brief spanning more than one slice or
+0. **`epic`** — per the spine's epic rule, a brief spanning more than one slice or
    session is charted first; its slices then enter this pipeline at step 1.
-1. **`/feedback`** — raw notes → a clean issue, routed by defect-vs-intent.
-2. **`/design`** → `product-owner` (opus, CORE, **foreground only**): interview, capture
+1. **`feedback`** — raw notes → a clean issue, routed by defect-vs-intent.
+2. **`design`** → `product-owner` (opus, CORE, **foreground only**): interview, capture
    business rules verbatim, write a one-page PRD `design/<slug>.md`, link it on the
    issue. For intent / features / vague briefs — **before** any builder starts. When the
-   user asks to be grilled ("grill me", `/grill`) or the slice is high-stakes (schema,
+   user asks to be grilled ("grill me", `grill`) or the slice is high-stakes (schema,
    auth, money, irreversible), the product-owner runs its **grill mode**.
-3. **`/triage`** — **CORE stage; the spine defines it and owns its agent.** Ends in the
+3. **`triage`** — **CORE stage; the spine defines it and owns its agent.** Ends in the
    `triaged` / `sev:*` / `area:*` labels, or a `fold` / `not-necessary` verdict that goes to
    the human.
-4. **`/solution`** — **CORE stage; the spine defines it and owns its agent.** Ends in the
+4. **`solution`** — **CORE stage; the spine defines it and owns its agent.** Ends in the
    `## 🔬 ANALYSIS` spec + `solution-ready`, which is what step 5 builds from. Webapp delta:
    the ship labels are this project's deploy/migration ones.
-5. **`/implement`** — **CORE stage; the spine defines it and owns its agent.** Builds the
+5. **`implement`** — **CORE stage; the spine defines it and owns its agent.** Builds the
    `## 🔬 ANALYSIS` spec (and a PRD Acceptance when one exists), proves it with THIS project's
    validate + build + the named test, ends in `implemented` with the change **uncommitted**.
-6. **`/sweep`** — **CORE stage; the spine defines it and owns its agent.** The mechanical pass
+6. **`sweep`** — **CORE stage; the spine defines it and owns its agent.** The mechanical pass
    before the gate: this project's gates verbatim per touched package, diff and commit hygiene.
    QUICK-PASS or a numbered FIX list — **no labels**, so it never looks like a verdict.
-7. **`/qa`** — **CORE stage; the spine defines it and owns its agent.** Re-runs THIS project's
+7. **`qa`** — **CORE stage; the spine defines it and owns its agent.** Re-runs THIS project's
    gates for every package the diff touches and judges the regression test (a PRD's Acceptance is
    the rubric, unchanged). Ends in `qa:pass` / `qa:blocked` — the deploy switch.
-8. **`/audit`** — **CORE stage; the spine defines it and owns its agents.** Adversarial review
+8. **`audit`** — **CORE stage; the spine defines it and owns its agents.** Adversarial review
    that tries to FALSIFY the fix, **after QA**. Ends in `review:pass` / `review:changes`.
-9. **`/pre-pr`** — **CORE stage; the spine defines it and owns its agent.** The fresh look at the
+9. **`pre-pr`** — **CORE stage; the spine defines it and owns its agent.** The fresh look at the
    delivery against the DESIGN before it becomes a PR. Adds **no gate label** — the commit gate's
    contract stays `qa:pass` + `review:pass`.
-10. **`/commit`** — direct (no agent): once green, YOU `git add` + `git commit` with
+10. **`commit`** — direct (no agent): once green, YOU `git add` + `git commit` with
     `(#N)`, apply `committed` + `fixed-pending-deploy`. The `commit-gate` hook re-checks
     the labels deterministically and denies any non-green commit. **Never push.**
 11. **Build / smoke** — run the project's own commands, and know which is which:
@@ -74,9 +78,9 @@ piece of work needs (small work skips most of it).
       Report each workflow's result — and if one failed, WHICH step: a run that died before
       the credentials step made no cloud change at all.
 
-Full path: `/feedback` → `/design`? → `/triage` → `/solution` → `/implement` → `/sweep` → `/qa` →
-`/audit` → `/pre-pr` → `/commit` → `/build`. Loop-backs: `qa:blocked` (from `/qa`), `review:changes`
-(from `/audit`) or `not-ready` (from `/pre-pr`) send the issue back to `/implement` — its
+Full path: `feedback` → `design`? → `triage` → `solution` → `implement` → `sweep` → `qa` →
+`audit` → `pre-pr` → `commit` → `build`. Loop-backs: `qa:blocked` (from `qa`), `review:changes`
+(from `audit`) or `not-ready` (from `pre-pr`) send the issue back to `implement` — its
 blockers/findings are the fix list.
 **Bounded: 3 loop-back rounds per issue.** Still red after 3 → STOP looping; surface the
 open findings to the user. Stop for a human look between stages. Each stage is idempotent
@@ -94,17 +98,17 @@ stage every issue passes through.
 ## Domain routing
 
 - **Intent / feature / vague brief** — "we want X", "we don't use Y, do Z", anything
-  about how the product _should_ behave → **`/design` FIRST**. Never let a builder (or
+  about how the product _should_ behave → **`design` FIRST**. Never let a builder (or
   an analyst) start from a vague brief.
 - **Agreed small scope** — a PRD slice already exists, or the change is trivial and
-  settled → straight **`/implement`**. Don't manufacture ceremony for a one-liner.
-- **Bug / symptom** — the spine owns this route (`/triage` → `/solution` → builder). The only
+  settled → straight **`implement`**. Don't manufacture ceremony for a one-liner.
+- **Bug / symptom** — the spine owns this route (`triage` → `solution` → builder). The only
   webapp delta: if it's really about what the thing _should_
-  do (intent, not a defect) → **`/design`**, not the pipeline.
+  do (intent, not a defect) → **`design`**, not the pipeline.
 - **Every defect enters through the pipeline — including the ones YOU find.** A defect
   discovered mid-session (infra, CI, a failed deploy you're watching, a consequence of
-  your own push) gets exactly ONE action from you: file it (`/feedback`) and route it
-  (`/triage`), with whatever context you already have riding along in the issue body.
+  your own push) gets exactly ONE action from you: file it (`feedback`) and route it
+  (`triage`), with whatever context you already have riding along in the issue body.
   This applies precisely when the work FEELS like continuation of what you were doing —
   incident momentum is the signal to route, not to act. Infra/CI defects run the same
   pipeline: the CORE stages triage, design and implement them — `.github/` and IaC are in the
@@ -112,22 +116,22 @@ stage every issue passes through.
 - **Your shell is for routing state only** — labels, run status, `git status`, board and
   config reads: the facts that pick a route. The moment a command would read SOURCE to
   form a hypothesis about a cause, that command is triage's first step — dispatch it.
-- Later stages by state: `triaged` issue → `/solution`; `solution-ready` → `/implement` (**one at a time**);
-  `implemented` → `/sweep`, then `/qa`; `qa:pass` → `/audit`; fully-green (`qa:pass` +
-  `review:pass`) → `/pre-pr`, then `/commit` (you run it directly; the hook denies a non-green
-  commit; never push); "smoke the whole app" → the `uat-runner` (out-of-band). `/sweep` and `/pre-pr` set no
+- Later stages by state: `triaged` issue → `solution`; `solution-ready` → `implement` (**one at a time**);
+  `implemented` → `sweep`, then `qa`; `qa:pass` → `audit`; fully-green (`qa:pass` +
+  `review:pass`) → `pre-pr`, then `commit` (you run it directly; the hook denies a non-green
+  commit; never push); "smoke the whole app" → the `uat-runner` (out-of-band). `sweep` and `pre-pr` set no
   labels, so the state alone will not tell you they ran — the issue thread will.
 
 ## Gate-depth conventions (the pipeline is not mandatory)
 
 Right-size the gate to the work:
 
-- **FULL gate** (`/sweep` + `/qa` + `/audit` + `/pre-pr` + the hooks) for **significant** builds —
+- **FULL gate** (`sweep` + `qa` + `audit` + `pre-pr` + the hooks) for **significant** builds —
   auth, data scoping, migrations, core flows, `sev:high` / `sev:critical`, and **anything with a
-  PRD**. `/pre-pr` earns its place exactly on the PRD ones: a spec with Acceptance is a spec
+  PRD**. `pre-pr` earns its place exactly on the PRD ones: a spec with Acceptance is a spec
   something can be silently dropped from.
-- **Skip `/audit` and `/pre-pr`** for `sev:low` / cosmetic / trivial glue — `/qa` still runs (the
-  cheap floor), and `/sweep` is cheap enough to keep. **But NEVER skip the full gate when the change
+- **Skip `audit` and `pre-pr`** for `sev:low` / cosmetic / trivial glue — `qa` still runs (the
+  cheap floor), and `sweep` is cheap enough to keep. **But NEVER skip the full gate when the change
   touches auth, data scoping, or migrations**, regardless of severity — those force the whole set.
 - **The commit gate and its label stamp ALWAYS run** — deterministic, not skippable, and
   CORE now. `commit-label` (PostToolUse) stamps `committed` + `fixed-pending-deploy` and
@@ -143,10 +147,10 @@ Right-size the gate to the work:
 - A backgrounded implementer writes its full report to `.xenomoon/handoffs/<slug>.md`
   (agent-report protocol) and the haiku `handoff-summarizer` distills it — you never load
   the raw report.
-- A **Codex `/audit`** runs as a **background Bash** (a review blocks until it finishes);
+- A **Codex `audit`** runs as a **background Bash** (a review blocks until it finishes);
   read its output when it completes and post the verdict.
-- **`/design` is foreground only** (the product-owner round-trips `mcp__ui__form`).
-- **Commit is a serialized single step.** `/commit` writes the shared tree's history —
+- **`design` is foreground only** (the product-owner round-trips `mcp__ui__form`).
+- **Commit is a serialized single step.** `commit` writes the shared tree's history —
   never run it alongside the implement stage on the same tree.
 
 ## Self-improvement — domain specifics
@@ -154,7 +158,7 @@ Right-size the gate to the work:
 The spine's debrief-queue, library-index, and promotion doctrine apply; on top:
 
 - **Capture is a side effect, not a ceremony.** The durable fact is captured as part of
-  the producing agent's normal output — no separate "/learn"-style step. Who writes
+  the producing agent's normal output — no separate "learn"-style step. Who writes
   depends on capability: the `product-owner` (foreground, Write-capable) writes the
   library doc and its index line itself, human-gated. A read-only producer (an analyst
   — its rule surfaces in the Triage/ANALYSIS comment) or any BACKGROUND producer only
@@ -162,7 +166,7 @@ The spine's debrief-queue, library-index, and promotion doctrine apply; on top:
   **you** land it foreground after the human approves. Never let an agent shell around
   its missing Write tool.
 - **`design/` is temporary.** Design docs (PRDs, slices, research notes) are build
-  artifacts scoped to in-flight work. After `/commit` lands the slice, YOU run graduation
+  artifacts scoped to in-flight work. After `commit` lands the slice, YOU run graduation
   as a **separate foreground step** — never inside the issue's fix commit: durable facts
   inside the design doc graduate to `.claude/library/` with an index line (human-gated),
   the doc moves to `design/archive/<slug>.md` (never deleted — issues link their PRDs),
@@ -185,28 +189,28 @@ migrate it to the library doc + index line when the `product-owner` next touches
 
 The pipeline **reinforces testing as a floor:** every fix carries the regression test the
 ANALYSIS named — a hermetic **unit** test for isolatable logic, a **smoke / integration**
-test for data-API paths — and `/qa` **enforces** it: no `qa:pass` without a regression
+test for data-API paths — and `qa` **enforces** it: no `qa:pass` without a regression
 test that actually guards the bug.
 
 ## The pipeline stages (QA, review, commit, UAT)
 
 ### Code review — the webapp deltas
 
-The review stages themselves are CORE (the spine defines `/sweep`, `/audit` and `/pre-pr`, and
+The review stages themselves are CORE (the spine defines `sweep`, `audit` and `pre-pr`, and
 owns which agents run them). What is webapp-specific:
 
 - **The dimensions that matter most on this stack** — data scoping / tenancy leaks, the auth
-  adapter boundary, and enum/label drift. Say so in the `focus` you pass to `/audit`; the audit
+  adapter boundary, and enum/label drift. Say so in the `focus` you pass to `audit`; the audit
   attacks everything, but naming the stack's usual suspects sharpens it.
 - **Codex bills on OpenAI's account** (the user's own, not the Anthropic plan) and is slow, so
   state that you are launching a billed review before you start it.
 
-`review:changes` loops back to `/implement`. Only `/commit` after `review:pass` — and on a full-gate
-change, after `/pre-pr` says `ready`.
+`review:changes` loops back to `implement`. Only `commit` after `review:pass` — and on a full-gate
+change, after `pre-pr` says `ready`.
 
 ### Commit gate
 
-`/commit` (direct — you run it) auto-commits **only** when ALL hold: labels `solution-ready` +
+`commit` (direct — you run it) auto-commits **only** when ALL hold: labels `solution-ready` +
 `implemented` + `qa:pass` + `review:pass` present, `qa:blocked` / `review:changes`
 absent, and `git status --porcelain` shows the issue's fix **and nothing unrelated**
 (broader diff → stop). It trusts QA's fresh gates by default; `--verify` re-runs
@@ -219,8 +223,8 @@ it at commit time from the issue's labels (`qa:*` / `review:*`) **and from the S
 verdict recorded** — a `(#N)` commit is machine-allowed only when fully green AND the
 `qa-verified:` / `review-verified:` SHAs equal the commit's parent (current HEAD).
 **A pass belongs to the code it was earned on, not to the issue:** commit again on top of
-a green and the gate denies with "verified at `<a>`, committing on `<b>`" — re-run `/qa`
-(and `/audit`), which now re-verify automatically because their idempotency keys on the
+a green and the gate denies with "verified at `<a>`, committing on `<b>`" — re-run `qa`
+(and `audit`), which now re-verify automatically because their idempotency keys on the
 SHA, not on the label's existence. A verdict predating SHA binding carries no marker and
 surfaces as a human ASK. On a gate miss, name the failing condition and the next move —
 never force.
@@ -250,15 +254,15 @@ rules:
 
 ```
 open
-  → design (+ PRD design/<slug>.md linked)          [/design → product-owner; intent/feature]
-  → triaged (+ sev:*, area:*)                          [/triage — CORE stage]
-  → solution-ready (+ needs-deploy?, needs-migration?)  [/solution — CORE stage]
-  → implemented (uncommitted; validate+build+test green)         [/implement — CORE stage]
-  → (no label — QUICK-PASS or a FIX list back to /implement)      [/sweep — CORE stage]
-  → qa:pass | qa:blocked → /implement               [/qa → tester]
-  → review:pass | review:changes → /implement  (skippable sev:low)  [/audit — CORE stage; Codex and/or senior-analyst]
-  → (no label — ready | not-ready back to /implement)             [/pre-pr — CORE stage]
-  → committed + fixed-pending-deploy                [/commit direct; hook-gated; NEVER pushes]
+  → design (+ PRD design/<slug>.md linked)          [design → product-owner; intent/feature]
+  → triaged (+ sev:*, area:*)                          [triage — CORE stage]
+  → solution-ready (+ needs-deploy?, needs-migration?)  [solution — CORE stage]
+  → implemented (uncommitted; validate+build+test green)         [implement — CORE stage]
+  → (no label — QUICK-PASS or a FIX list back to implement)      [sweep — CORE stage]
+  → qa:pass | qa:blocked → implement               [qa → tester]
+  → review:pass | review:changes → implement  (skippable sev:low)  [audit — CORE stage; Codex and/or senior-analyst]
+  → (no label — ready | not-ready back to implement)             [pre-pr — CORE stage]
+  → committed + fixed-pending-deploy                [commit direct; hook-gated; NEVER pushes]
   → (human pushes → CI deploys → issue closes)
 
 UAT (out-of-band, batch): uat:pass | uat:fail → new bug | uat:blocked → nothing (setup)
@@ -266,5 +270,5 @@ UAT (out-of-band, batch): uat:pass | uat:fail → new bug | uat:blocked → noth
 
 PRD is the pre-issue gate for feature work; `solution-ready` is the pre-implement gate for
 defects — and `triaged` is the gate before that. Legacy pre-pipeline labels are retired: the
-`/triage` and `/solution` sweeps exclude them at the query level, so relabel a straggler by
-hand (or let its first `/triage` cover it).
+`triage` and `solution` sweeps exclude them at the query level, so relabel a straggler by
+hand (or let its first `triage` cover it).

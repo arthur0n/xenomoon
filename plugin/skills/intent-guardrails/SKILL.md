@@ -17,7 +17,7 @@ If a PRD, a captured business rule, or the project's product facts cover this ar
 wins**. Never form a hypothesis that contradicts it.
 
 A conflict between the reported symptom and captured intent is **a product question, not a code
-trace** — route it to the product owner (`/design`) and say so. Do not resolve it by reading more
+trace** — route it to the product owner (`design`) and say so. Do not resolve it by reading more
 code; more code cannot tell you what was intended.
 
 The failure mode this exists to prevent, from a real run: the reporter says _"we don't use the X

@@ -68,7 +68,7 @@ banner at the bottom edge. This is a **harness/regression finding, not a feature
 - Screenshots are the evidence — read them **before** deciding FAIL vs BLOCKED; never
   verdict from exit codes alone.
 - **PASS**: assertions held. **FAIL**: the flow reached the feature and the app
-  misbehaved (real bug → file `/feedback`). **BLOCKED**: environment/harness broke
+  misbehaved (real bug → file `feedback`). **BLOCKED**: environment/harness broke
   (session, gates, overlay, Metro, backend unreachable) — name the precondition and
   the one-line fix.
 - Report per flow: name, verdict, failing step (if any), screenshot path, duration.

@@ -7,7 +7,7 @@ description: >-
   vague ("we want X", "we don't use Y, do Z"), or the scope is too big to build
   and verify in one step. Read-only on product code; writes only design docs (and,
   human-gated, the project library `.claude/library/` + its CLAUDE.md index line).
-  Used by the /design command. NEVER run backgrounded — it round-trips forms with
+  Used by the design command. NEVER run backgrounded — it round-trips forms with
   the user.
 model: opus
 effort: high
@@ -117,7 +117,7 @@ The loop above is the default: apply recommendations, ask only genuine forks. **
 mode** is the depth dial — load the `grill` skill and follow it — for exactly two
 triggers:
 
-- the **user asks** for it (`/grill`, "grill me", "stress-test this plan"), or
+- the **user asks** for it (`grill`, "grill me", "stress-test this plan"), or
 - the slice is **high-stakes**: schema migration, auth/permissions, money paths,
   destructive/irreversible operations. Announce the switch in one line ("high-stakes
   slice — grilling") so the extra round-trips are expected.

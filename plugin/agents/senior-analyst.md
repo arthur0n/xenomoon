@@ -5,7 +5,7 @@ description: >-
   never from this file: `solution-method` designs the fix from a proven cause; `adversarial-review`
   tries to BREAK an implemented change; `pre-pr-review` takes the fresh look after QA, judging the
   delivery against the DESIGN. Read-only on code: it decides and specifies, it never implements.
-  Used by /solution, /audit and /pre-pr — a new lane is a new skill, never a new agent. Invoke with
+  Used by solution, audit and pre-pr — a new lane is a new skill, never a new agent. Invoke with
   the lane and an issue number, e.g. "Design the fix for issue #42" or "Audit issue #42".
 model: opus
 effort: high
@@ -27,11 +27,11 @@ edit its body** — your output is one comment plus labels.
 
 **Your lane is named at dispatch and it lives in a skill:**
 
-| dispatch        | skill                | what you decide                                               |
-| --------------- | -------------------- | ------------------------------------------------------------- |
-| `/solution <N>` | `solution-method`    | is the triaged cause real, and what is the minimal fix        |
-| `/audit <N>`    | `adversarial-review` | can this implemented change be broken                         |
-| `/pre-pr <N>`   | `pre-pr-review`      | after QA: does the delivery match the DESIGN, what was missed |
+| dispatch   | skill                | what you decide                                               |
+| ---------- | -------------------- | ------------------------------------------------------------- |
+| `solution` | `solution-method`    | is the triaged cause real, and what is the minimal fix        |
+| `audit`    | `adversarial-review` | can this implemented change be broken                         |
+| `pre-pr`   | `pre-pr-review`      | after QA: does the delivery match the DESIGN, what was missed |
 
 Execute the named skill as written. **Each dispatch is a fresh context** — reviewing an
 implementation you do not remember specifying it, and you read the `## 🔬 ANALYSIS` off the issue

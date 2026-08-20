@@ -13,7 +13,7 @@ commands, and hand back — uncommitted.
 
 ## 0. Gate
 
-No `solution-ready` label and no ANALYSIS on the issue → stop and say it needs `/solution <N>`
+No `solution-ready` label and no ANALYSIS on the issue → stop and say it needs `solution`
 first. Building from an unproven cause is what the stage before you exists to prevent; doing it
 anyway silently discards that protection.
 

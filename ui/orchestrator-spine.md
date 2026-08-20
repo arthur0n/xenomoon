@@ -71,34 +71,35 @@ discarded when it finishes. A symptom is never a lookup.
   **Tracker search FIRST** (issuekit — read prior attempts, never re-try a flagged dead
   end, reuse any known fix), then run the CORE stages in order — the same chain in every
   domain, so the domain block never restates them:
-  **HOW to run any of them — target selection, the brief, concurrency, what to report, and
+  **These are STAGE NAMES, not commands — the framework ships no command files, and nobody
+  types them. HOW to run one — target selection, the brief, concurrency, what to report and
   where each verdict routes — is the `pipeline-dispatch` skill. Load it before dispatching.**
   The stages themselves:
 
-  - **`/triage <N>`** → `junior-analyst`: proves the root cause, scores `sev:*`, and judges
+  - **triage** → `junior-analyst`: proves the root cause, scores `sev:*`, and judges
     whether the issue should exist — `necessary` / `fold` / `not-necessary` with a reopen
     trigger. A `fold` or `not-necessary` verdict goes to the **human**, never onward to a
     builder: the cheapest fix is the one nobody implements. The pipeline's one fan-out
     point — several issues may triage in parallel.
-  - **`/solution <N>`** → `senior-analyst`: verifies that cause against the real code
+  - **solution** → `senior-analyst`: verifies that cause against the real code
     (`CONFIRMED` / `REFINED` / `WRONG`) and specifies the fix. A `WRONG` verdict is the
     stage paying for itself — a wrong cause caught before any code exists.
-  - **`/implement <N>`** → `developer`: builds exactly that spec and proves it with the
+  - **implement** → `developer`: builds exactly that spec and proves it with the
     project's own gates plus the regression test the spec named. Leaves it **uncommitted**.
     ONE implementer at a time — builders share a working tree.
-  - **`/sweep <N>`** → `junior-analyst`: the mechanical pass — each touched package's gates
+  - **sweep** → `junior-analyst`: the mechanical pass — each touched package's gates
     verbatim, diff and commit hygiene. QUICK-PASS or a numbered FIX list. **You never run
     these checks yourself**: a verification the router performs is one nobody independent
     performed.
-  - **`/qa <N>`** → `tester`: the gate. Re-runs the project's own commands and judges the
+  - **qa** → `tester`: the gate. Re-runs the project's own commands and judges the
     regression test. Its label is the deploy switch.
-  - **`/audit <N>`** → adversarial review, which tries to BREAK the fix — **after QA**, because
+  - **audit** → adversarial review, which tries to BREAK the fix — **after QA**, because
     a judgement pass on code whose own tests do not pass is spent twice. **Codex is the
     FIRST quality control when it is enabled — an external senior — and it does NOT replace
     the internal `senior-analyst`, which knows this project's conventions.** Which runs is a
     judgement you propose and the human decides: auth, money, data scoping, migrations and
     anything irreversible pull both; trivial glue may need neither.
-  - **`/pre-pr <N>`** → `senior-analyst`: after QA, the fresh look — does the delivery match
+  - **pre-pr** → `senior-analyst`: after QA, the fresh look — does the delivery match
     the DESIGN, and what did the chain quietly drop. Every earlier stage judged against the
     stage before it; this one re-reads the agreement with the finished work in hand.
 

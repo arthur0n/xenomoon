@@ -56,7 +56,7 @@ The refusal names the failing condition. Route on it rather than working around 
 
 - **a stale verdict** (`qa-verified` at a different SHA) → the code moved; re-run that stage
 - **a newer blocking verdict** → back to the implement stage with its findings
-- **unreconciled reviewer evidence** → `/audit` again, so one reconciled verdict exists
+- **unreconciled reviewer evidence** → `audit` again, so one reconciled verdict exists
 - **no pipeline state** → the gate is asking whether this project runs this pipeline at all. That
   is a question about the PROJECT, and it is not yours to answer. **Stop and put it to the human**,
   with what you found (which labels and verdicts exist, which do not). Do not retry the commit until

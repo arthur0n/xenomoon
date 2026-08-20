@@ -1,6 +1,6 @@
 ---
-description: Framework self-audit — score agents/skills/orchestrator/commands across 11 quality dimensions, record findings in the ledger, propose fixes, critique itself. Manual, human-run. Forge-local (not shipped).
-argument-hint: "[D1..D10 | all]"
+description: Framework self-audit — score agents/skills/orchestrator/commands across 12 quality dimensions, record findings in the ledger, propose fixes, critique itself. Manual, human-run. Forge-local (not shipped).
+argument-hint: "[D1..D12 | all]"
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Agent, Skill, mcp__ui__form, mcp__ui__tasks, mcp__ui__ask
 model: opus
 ---
@@ -92,6 +92,12 @@ markdown/precedence sentence in it survived multiple full passes.
 warnings and D8 audits the gate chain itself, so its real exit status is an INPUT to the pass, and a
 RED gate reframes everything downstream (a pass that assumed green has been wrong before). Record
 pass/fail + the actual errors before any dimension runs.
+
+**And `rtk npm run check:deps`, in the same preflight.** It is not part of `validate` on purpose — a
+stranger publishing an advisory at 3am must not turn your commits red for something you cannot fix
+in that moment, and a gate nobody can satisfy is one people learn to bypass. This weekly pass is
+where it belongs: it reports, D12 decides. It exits 0 always; read its output, do not read its
+status.
 
 ## Steps
 
@@ -243,6 +249,28 @@ plugin/orchestrator.md`, and the pack's agents/skills too): an edit made to the 
      Hermes findings…") survived edits. Origin: the fork kept the consumer half of the loop while
      the orchestrator routing + sources registry silently dropped — agents pointed at files and
      dispatchers that didn't exist, and sessions improvised general-purpose spawns instead.
+
+   - **D12 — Supply chain (the pinned tree).** Read the preflight's `check:deps` output. The
+     lockfile is the defence: `npm ci` installs it exactly, so a package compromised tonight cannot
+     reach anyone until a human regenerates the lock. **That protection is only worth something if
+     the regeneration is deliberate** — "audit says fix, so fix" walks a freshly published
+     attacker version straight in, which is how the npm supply-chain incidents actually land.
+     The rule, in order:
+     (a) **Age before advisories.** A candidate version under the quarantine (`MIN_AGE_DAYS`, 7)
+     is HELD however severe the advisory it fixes — malicious releases are typically caught and
+     unpublished within days, so waiting costs a week and skipping can cost the machine.
+     (b) **No publish date is not permission.** An unreachable registry, an unpublished version
+     and a tampered response are indistinguishable; all three wait.
+     (c) **Judge what a bump PULLS IN, not just what it fixes.** An aged, blameless bump can add
+     a two-day-old transitive package, and nothing is reported against it because nothing is
+     wrong with it — yet.
+     (d) **Never `npm audit fix`.** It applies every candidate including the quarantined ones.
+     Bump per package, then re-run the check and read what actually landed.
+     File a finding per package that is past quarantine and still pinned old; record a HELD one as
+     `later` with the date it becomes eligible, so the next pass picks it up rather than
+     rediscovering it. An advisory with no published fix is not a finding — there is nothing to
+     decide. Origin: six advisories sat against the lockfile unnoticed because nothing in
+     `validate` or CI ever looked at dependencies.
 
 4. **Judge + id each finding.** EXPECT most findings to be false positives on inspection — they are
    hypotheses until checked against the actual files: generic industry vocabulary (tank/grunt/runner)

@@ -28,6 +28,7 @@
     "check:contamination": "node ui/server/cli/gen-contamination.js",
     "check:install-paths": "node ui/server/cli/check-install-paths.js",
     "check:labels": "node ui/server/cli/check-labels.js",
+    "check:deps": "node ui/server/cli/check-deps.js",
     "test": "node --test $(find ui -name '*.test.js' -not -path '*/node_modules/*') && node ui/reducer.check.js && node ui/server/features/skills/skills.check.js && node ui/server/features/pulse/pulse.check.js",
     "test:onboarding": "node ui/server/cli/onboarding.check.js",
     "lint": "eslint . --max-warnings 0",

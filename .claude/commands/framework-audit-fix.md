@@ -129,6 +129,17 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
      else tag the base to a lighter agent and let the builder load it on-demand via the deltas'
      `## Requirements` (the `godot-3d-pixelation` precedent). Unlike D3 this is NOT a rename: sweep only
      refs to NEUTRAL content that MOVED to the base; leave valid domain-named refs intact.
+   - **D12 (supply chain — bump a pinned dependency):** re-run `rtk npm run check:deps` FIRST; the
+     ledger row records an age judged on the day it was written, and a version that was held then may
+     be eligible now (or a newer one may have superseded it, restarting its own quarantine). Apply
+     ONLY what the check reports as `ready`, one package at a time —
+     `rtk npm update <name> --package-lock-only` — **never `npm audit fix`**, which applies the
+     quarantined candidates too. Then re-run the check and read what actually landed: a bump can pull
+     in a package fresher than the quarantine even when the bump itself is aged, and npm does not say
+     which bump brought which. If a held version appears in the tree afterwards, `git checkout
+package-lock.json` and leave the row for the next pass. Verify with `rtk npm ci` +
+     `XENOMOON_DOMAIN=webapp rtk npm test` (a transitive bump is a runtime change, not a doc edit),
+     and commit the lockfile ALONE — a dependency move belongs in its own revertable commit.
 4. **Verify.** If any framework file changed: `rtk npm run validate` (tsc + eslint, zero
    warnings — this also runs the skill-scope check, catching D1/D3/D5 wiring mistakes) and
    `rtk npx prettier --write` on the touched files. If the fix touches a bash hook

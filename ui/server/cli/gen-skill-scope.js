@@ -15,7 +15,12 @@
 //   builders     → the active domain's general builder + its specialists (the code-writers)
 //   orchestrator → the main session only (cross-checked against ORCHESTRATOR_FRAMEWORK_SKILLS)
 import { orchestratorFrameworkSkills } from "../features/skills/skill-catalog.js";
-import { ORCH, loadRegistry, SKILLS_DIR } from "../features/skills/skill-registry.js";
+import {
+  ORCH,
+  BUILDERS_SOURCE,
+  loadRegistry,
+  SKILLS_DIR,
+} from "../features/skills/skill-registry.js";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 
@@ -106,6 +111,14 @@ const packSlots = (() => {
   return out;
 })();
 
+// A descriptor that exists but cannot be parsed is not "no domain" — it is a broken explicit
+// choice, and the gate says so rather than quietly judging the tree as an unbound trunk (the one
+// state that tolerates builder drift).
+if (BUILDERS_SOURCE === "invalid")
+  errors.push(
+    "the active domain descriptor could not be read — `.xenomoon.json`'s `domainDescriptor`, or the `domains/<XENOMOON_DOMAIN>/domain.json` it names, is malformed. Fix it: until then the `builders` audience cannot be resolved and this gate cannot judge builder scoping.",
+  );
+
 for (const [id, want] of expected) {
   /** @type {Set<string>} */
   const have = actual.get(id) ?? new Set();
@@ -123,10 +136,26 @@ for (const [id, want] of expected) {
       errors.push(
         `${label} is missing \`${s}\` (a skill tags this audience but the frontmatter omits it)`,
       );
-  for (const s of minus(have, want))
+  for (const s of minus(have, want)) {
+    // On a trunk where NO domain answered, `builders` names nobody — CORE ships no builder of its
+    // own, each pack declares the cohort. So a CORE builder listing a `builders`-tagged skill looks
+    // like drift while nothing is mis-tagged: there is simply no install yet for the token to name.
+    // Undecidable, not wrong — reported as a warning so the state stays visible.
+    //
+    // Keyed on the SOURCE, never on emptiness. A bound domain that declares `builders: []` has
+    // answered, and its answer is decidable: an agent listing a builders-tagged skill there is real
+    // drift and must still fail. Conflating the two would let a zero-builder pack ship agents
+    // preloading skills outside their audience with the gate green.
+    if (BUILDERS_SOURCE === "unbound" && (skills.get(s) ?? []).includes("builders")) {
+      warnings.push(
+        `${label} lists \`${s}\` (tagged \`builders\`) — undecidable on an unbound trunk, where \`builders\` names no agent. Install a domain, or set XENOMOON_DOMAIN, to check it.`,
+      );
+      continue;
+    }
     errors.push(
       `${label} lists \`${s}\`, but \`${s}\`'s \`agents:\` tag does not include this audience`,
     );
+  }
 }
 
 // Self-check: keep each context's tier-1 skill INDEX small. Past ~10–15 the always-listed description

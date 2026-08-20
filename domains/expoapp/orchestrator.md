@@ -39,7 +39,8 @@ authoritative, never guess them.
 ## The platform lanes (skills load into BUILDERS, not you)
 
 Skill names carry their platform prefix; platform-agnostic skills carry none. iOS:
-`ios-local-run` (Simulator launch), `ios-local-uat` (Maestro acceptance). Android:
+`ios-local-run` (Simulator launch), `ios-local-uat` (Maestro acceptance),
+`ios-testflight-ship` (EAS → TestFlight). Android:
 `android-local-run` (emulator launch), `android-local-uat`, `android-identity`
 (branding/launcher label), `android-play-ship` (EAS → Play internal testing). Never load
 these yourself — brief the implement stage / `uat-runner` to load the lane it needs.

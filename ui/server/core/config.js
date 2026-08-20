@@ -377,7 +377,7 @@ export function saveHermesConfig(patch) {
  * trade deliberately — the alternative was a second copy of each rule in a hook, and two copies of
  * a rule is how they drift.
  *
- * @typedef {{ push?: "ask" | "allow", dependencies?: "ask" | "allow", branchCreate?: "ask" | "allow", spend?: "ask" | "allow", spendPatterns?: string[] }} ActionPolicy
+ * @typedef {{ push?: "ask" | "allow", dependencies?: "ask" | "allow", branchCreate?: "ask" | "allow", spend?: "ask" | "allow", spendPatterns?: string[], migrationPush?: "ask" | "allow", migrationsPending?: string }} ActionPolicy
  * @returns {Required<ActionPolicy>}
  */
 export function getActionPolicy() {
@@ -401,6 +401,18 @@ export function getActionPolicy() {
     dependencies: mode(saved.dependencies),
     branchCreate: mode(saved.branchCreate),
     spend: mode(saved.spend),
+    migrationPush: mode(saved.migrationPush),
+    // The NAME of one of the bound project's own npm scripts, which answers "are there unapplied
+    // migrations?" by its exit code. A name, never a command line: an arbitrary shell string from
+    // config would be executed at push time, before the human sees the prompt, so anything able to
+    // edit this file could run code at a high-trust moment. A script name points at code that lives
+    // in the project's repository and is reviewed like the rest of it.
+    //
+    // INSTALL-LOCAL only, never a pack default — a domain pack is shared code, and letting one
+    // declare this would run it in every project that installs the pack. Whether an unapplied
+    // migration is a hazard at all is a property of THIS project's deployment (who applies
+    // migrations, and when), not of its stack.
+    migrationsPending: typeof saved.migrationsPending === "string" ? saved.migrationsPending : "",
     // The project's own paid commands. CORE recognises the well-known model endpoints without any
     // config; what a project's OWN scripts cost is a project fact — no framework can know that an
     // eval script bills per row. Non-strings are dropped rather than trusted into a matcher.

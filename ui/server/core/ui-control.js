@@ -13,6 +13,7 @@ import {
   mutatesDependencies,
   spendsMoney,
 } from "../../lib/consequential.js";
+import { migrationsPending } from "../../lib/migrations.js";
 import {
   TASK_TOOL,
   ASK_TOOL,
@@ -22,6 +23,7 @@ import {
   EDIT_TOOLS,
   GENERIC_SUBAGENT_TYPES,
   FRAMEWORK_PLUGIN_DIR,
+  PROJECT_DIR,
   ISSUEKIT,
   getActionPolicy,
 } from "./config.js";
@@ -267,6 +269,30 @@ function orchestratorGate({ log, toolName, input, agent }) {
   return null;
 }
 
+/** The migration check, added to the push question when a project has opted in. Split out so the
+ * classifier stays under the complexity cap — and because this is the one check that SHELLS OUT,
+ * which is worth keeping visible on its own.
+ * @param {string} cmd @param {ReturnType<typeof getActionPolicy>} policy
+ * @param {string[]} kinds @param {string[]} questions */
+function migrationQuestion(cmd, policy, kinds, questions) {
+  if (!PUSH_RE.test(cmd) || policy.migrationPush !== "ask" || !policy.migrationsPending) return;
+  const result = migrationsPending(policy.migrationsPending, PROJECT_DIR);
+  if (result.state === "pending") {
+    kinds.push("migrations");
+    questions.push(
+      `MIGRATIONS ARE NOT APPLIED where this push lands, so pushing ships code ahead of the schema it needs:\n${result.detail}\n` +
+        "Apply them first, or approve only if you know this push does not depend on them.",
+    );
+  } else if (result.state === "broken") {
+    kinds.push("migrations-broken");
+    questions.push(
+      `A migration check is configured but it did not run: ${result.detail}. Nobody has verified ` +
+        "whether this push ships code ahead of its schema — fix the check, or approve knowing it " +
+        "is unguarded.",
+    );
+  }
+}
+
 /** Which consequential things does ONE command do? Every category is classified BEFORE anything is
  * decided — returning on the first match meant `git push && npm install lodash` asked only about
  * the push, and approving that single prompt ran the install unasked.
@@ -324,6 +350,8 @@ function classifyConsequential(cmd, policy, isSubagent) {
         "difference inside the noise floor is the failure this gate exists for.",
     );
   }
+
+  migrationQuestion(cmd, policy, kinds, questions);
 
   if (BRANCH_CREATE_RE.test(cmd) && policy.branchCreate === "ask") {
     kinds.push("branch-create");

@@ -14,8 +14,12 @@
 // their own branch-creation hook to cover precisely this, which is the evidence that the gap is
 // real and that a hook is the layer that closes it.
 //
-// It defers where the layer is present (XENOMOON_PERMISSION_LAYER), so one command never draws two
-// prompts — a human trained to approve reflexively is worse than no gate.
+// It does NOT try to detect whether the layer is also present. Two coordination schemes were tried
+// and both failed in the same direction — an inherited env marker silenced this hook in nested
+// sessions the layer never mediates, and deferring the layer on this file's existence silenced the
+// LAYER whenever this hook did not actually run. So both judge what they can see, and a command
+// can draw two prompts in a server session. That is the accepted cost: a duplicate question is a
+// nuisance, a silent allow is the failure both layers exist to prevent.
 //
 // Matchers are IMPORTED, never restated: ui/lib/consequential.js is the single definition both
 // layers read. Policy is the same `.xenomoon.json` block `getActionPolicy()` reads.
@@ -23,7 +27,7 @@
 // Fail-OPEN on its own errors. A guard that wedges every Bash call on its own bug is a worse
 // failure than the one it prevents, and this matches block-destructive-git.sh and both projects'
 // guards.
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -104,15 +108,19 @@ function decide(denials, questions) {
 
 /** The policy block, read exactly as config.js reads it — ASK is the default AND the fallback, and
  * only the literal "allow" allows. A typo or a stale value must never silently switch a prompt off.
- * @returns {{ push: string, dependencies: string, branchCreate: string }} */
+ * @returns {{ push: string, dependencies: string, branchCreate: string, spend: string, spendPatterns: string[], migrationPush: string, migrationsPending: string, projectDir: string }} */
 function policy() {
   /** @type {Record<string, unknown>} */
   let saved = {};
+  /** The bound project — where a migration checker has to run. */
+  let projectDir = "";
   try {
     const raw = /** @type {unknown} */ (
       JSON.parse(readFileSync(path.join(FRAMEWORK_DIR, ".xenomoon.json"), "utf8"))
     );
-    saved = /** @type {{ policy?: Record<string, unknown> }} */ (raw).policy ?? {};
+    const cfg = /** @type {{ policy?: Record<string, unknown>, projectDir?: unknown }} */ (raw);
+    saved = cfg.policy ?? {};
+    if (typeof cfg.projectDir === "string") projectDir = cfg.projectDir;
   } catch {
     /* absent or unreadable — every action falls back to ask below */
   }
@@ -123,6 +131,12 @@ function policy() {
     dependencies: mode(saved["dependencies"]),
     branchCreate: mode(saved["branchCreate"]),
     spend: mode(saved["spend"]),
+    migrationPush: mode(saved["migrationPush"]),
+    // INSTALL-LOCAL only — no pack default. See config.js: a pack declaring this would run its
+    // shell in every project that installs it, at push time.
+    migrationsPending:
+      typeof saved["migrationsPending"] === "string" ? saved["migrationsPending"] : "",
+    projectDir,
     spendPatterns: Array.isArray(patterns)
       ? patterns.filter((p) => typeof p === "string" && p.length > 0)
       : [],
@@ -234,6 +248,60 @@ process.stdin.on("end", () => {
           "`git push` publishes and triggers the CI deploy — the pipeline's one hard human gate. " +
             "Approve only if publishing this is the agreed next step.",
         );
+
+      // Only on a push, because that is the moment the schema and the code can part company. The
+      // checker is the project's, and it runs here rather than in the permission layer because this
+      // hook fires on EVERY surface — a terminal session would otherwise push ahead of its schema
+      // with nothing watching.
+      if (p.migrationPush === "ask" && p.migrationsPending) {
+        // Loaded the same way the matchers are — by the RECORDED framework root, never a relative
+        // path, so a copied plugin still finds it. A checker we cannot load is a broken opt-in, not
+        // a clean bill of health.
+        let checker = null;
+        try {
+          ({ migrationsPending: checker } = await import(
+            path.join(FRAMEWORK_DIR, "ui", "lib", "migrations.js")
+          ));
+        } catch {
+          /* reported as broken below */
+        }
+        // A configured checker with nowhere to run is a broken opt-in, and running it in the wrong
+        // tree would answer confidently about a repository that has no migrations. Say so instead.
+        const cwdOk = (() => {
+          try {
+            return statSync(p.projectDir).isDirectory();
+          } catch {
+            return false;
+          }
+        })();
+        if (!cwdOk)
+          questions.push(
+            "A migration check is configured but the bound project directory could not be resolved, " +
+              "so nobody has verified whether this push ships code ahead of its schema. Fix " +
+              "`projectDir` in .xenomoon.json.",
+          );
+        // Only with a VALID directory. existsSync says yes to a file, and a cwd that is not a
+        // directory makes execSync throw before the checker runs — which this module reads as "no
+        // verdict", so a broken binding would have looked exactly like a clean bill of health.
+        const result =
+          cwdOk && typeof checker === "function"
+            ? checker(p.migrationsPending, p.projectDir)
+            : {
+                state: /** @type {const} */ ("broken"),
+                detail: cwdOk ? "its checker module could not be loaded" : "",
+              };
+        if (result.state === "pending")
+          questions.push(
+            `MIGRATIONS ARE NOT APPLIED where this push lands, so pushing ships code ahead of the schema it needs:\n${result.detail}\n` +
+              "Apply them first, or approve only if you know this push does not depend on them.",
+          );
+        else if (cwdOk && result.state === "broken")
+          questions.push(
+            `A migration check is configured but it did not run: ${result.detail}. Nobody has ` +
+              "verified whether this push ships code ahead of its schema — fix the check, or " +
+              "approve knowing it is unguarded.",
+          );
+      }
     }
 
     if (m.mutatesDependencies(cmd)) {

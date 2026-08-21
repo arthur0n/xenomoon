@@ -47,6 +47,26 @@ On a change, write the file — foreground and human-gated like every onboarding
 additionally lands the doctrine text in `.claude/library/branch-doctrine.md` with one pointer line
 in `CLAUDE.md`.
 
+## Step 1c — the paid surface
+
+The spend gate (`policy.spend`) always covers the well-known model endpoints; what it CANNOT know
+is which of this project's own scripts spend real money — an image-gen script, an eval that bills
+per row. That list is `policy.spendPatterns` in the install's `.xenomoon.json`, and onboarding is
+where it gets confirmed:
+
+1. **Inventory as facts**: `package.json` scripts whose names or files suggest paid calls
+   (eval / gen / diagnose / anything invoking a model SDK), and any pre-existing spend-guard hook
+   the project carries — the guard's own match list is the best source there is.
+2. **One interview field** (step 2's form): "which commands in this project spend real API
+   credits?" — the human's answer is the list, the inventory is only the prompt for it. Prefer
+   DISTINCTIVE substrings (`gen-assets.ts`, `eval:real-vision`) over generic words (`run`, `test`)
+   — matching is substring, and a pattern that fires on inspection commands trains reflexive
+   approval, which is worse than no gate.
+3. **Write it, foreground and human-gated**: merge `spendPatterns` into the `policy` block of the
+   install's `.xenomoon.json` (the FRAMEWORK dir, not the project — and merge, never rewrite: that
+   file carries other blocks). Already configured → report the current list, change only if the
+   human says so.
+
 ## Step 2 — the judgement half goes to the product-owner
 
 Dispatch it **foreground and form-driven**, and **dispatch it CLEAN**: pass the step-1 inventory as

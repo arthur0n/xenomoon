@@ -253,6 +253,44 @@ if (!rl)
         ? ` — ${deployWorkflows.join(", ")} deploy on push to \`${defaultBranch}\`.`
         : ` — nothing deploys from \`${defaultBranch}\`.`),
   );
+// Paid commands — the project's OWN spend surface, which no framework can know. The well-known
+// model endpoints are always gated (DEFAULT_SPEND_RE); what a project's `pnpm eval` or image-gen
+// script costs is a fact only its human has, and 2026-07-14 proved what an unasked one costs (a
+// prepay balance drained in one session). Asked here because setup is the one moment guaranteed
+// to happen per project; onboarding re-confirms it on projects with an existing Claude life.
+// Fresh installs only — an existing policy block is the human's, edited by hand, never re-asked.
+/** @type {string[]} */
+let spendPatterns = [];
+const hasPolicyBlock = (() => {
+  try {
+    const cfg = /** @type {{ policy?: unknown }} */ (
+      parseJSON(readFileSync(path.join(FRAMEWORK_DIR, ".xenomoon.json"), "utf8"))
+    );
+    return cfg.policy !== undefined;
+  } catch {
+    return false;
+  }
+})();
+if (rl && !hasPolicyBlock) {
+  const spendAnswer = (
+    await rl.question(
+      "Paid commands — scripts in this project that SPEND real API credits (image gen, evals,\n" +
+        "batch LLM calls). Each match gates behind one approval prompt; well-known model\n" +
+        "endpoints are always gated regardless.\n" +
+        "Comma-separated substrings [empty = none]: ",
+    )
+  ).trim();
+  spendPatterns = [
+    ...new Set(
+      spendAnswer
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (spendPatterns.length > 0)
+    console.log(`  gating ${spendPatterns.length} pattern(s): ${spendPatterns.join(" · ")}`);
+}
 if (!domainName) {
   const avail = availableDomains(FRAMEWORK_DIR);
   console.error(
@@ -496,6 +534,7 @@ if (rl) {
       dependencies: "ask",
       branchCreate: "ask",
       spend: "ask",
+      spendPatterns,
       codexReview: "ask",
     };
   if (next.onboarded !== cfg.onboarded || next.policy !== cfg.policy) {

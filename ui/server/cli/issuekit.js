@@ -471,7 +471,8 @@ const HELP = `issuekit — searchable, deterministic GitHub-issue attempt log (s
   issuekit commit <#> -m "<message>"
       Commit the STAGED fix for an issue: asks the same commit gate the hook uses, commits
       with the (#N) reference, then stamps committed + fixed-pending-deploy (dropping
-      needs-deploy). Never pushes. --force overrides a gate ASK only, never a DENY.
+      needs-deploy). Never pushes — the push stage does. --force overrides a gate ASK only,
+      never a DENY.
 
   issuekit resolve <#> --cause "…" [--fix "…"] [--close] [--label fixed-pending-deploy] [--repo R]
   issuekit new --title "…" [--body-file f|-] [--symptom-file f|-] [--label a,b] [--force] [--repo R]

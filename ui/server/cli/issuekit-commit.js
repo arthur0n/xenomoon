@@ -94,7 +94,8 @@ function recordOverrideOrRefuse(repo, num, flags, decision, reason) {
 
 /**
  * `issuekit commit <#N> -m "<message>"` — commit the staged fix for an issue, then reconcile its
- * deploy-gate labels. Never pushes: push stays the human's checkpoint.
+ * deploy-gate labels. Never pushes: publishing is the push stage's (`senior-analyst` +
+ * `push-method`, gated by the branch model and policy.push).
  * @param {string} num @param {Flags} flags
  */
 export function cmdCommit(num, flags) {
@@ -165,5 +166,5 @@ export function cmdCommit(num, flags) {
       `  #${num}: LABELS NOT SET (${labelled.err || "gh failed"}) — the deploy workflow closes on\n` +
         "  fixed-pending-deploy, so set it by hand or this fix stays open after it ships.",
     );
-  console.log("  not pushed — push is the human's checkpoint.");
+  console.log("  not pushed — publishing is the push stage's.");
 }

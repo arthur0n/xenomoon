@@ -6,7 +6,7 @@
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Status: experimental](https://img.shields.io/badge/Status-experimental-orange.svg)
-![Skills: 32](https://img.shields.io/badge/Skills-32-b08d57)
+![Skills: 33](https://img.shields.io/badge/Skills-33-b08d57)
 ![Agents: 9](https://img.shields.io/badge/Agents-9-b08d57)
 ![Domains: expoapp · webapp](https://img.shields.io/badge/Domains-expoapp_·_webapp-b08d57)
 
@@ -90,7 +90,7 @@ identically without it; `doctor` reports it as a soft check.
 - **Deterministic per-project install**, including into existing projects, never scaffolding over your code. The binding is a committed lock, read literally; a conflicting override is **refused**, not silently applied.
 - **Two shipped packs.** **`webapp`**: React + Node, running an issue-driven `triage → solution → implement` pipeline with QA and auto-commit stages. **`expoapp`**: React Native / Expo, both platforms, with simulator and emulator acceptance lanes plus local-run and ship skills.
 - **A CLI that refuses to guess.** Every verb resolves the install from your location, says which one it picked, and stops when that is ambiguous.
-- **Safety gates that don't depend on an agent remembering.** Anything with consequences — pushing, changing dependencies, creating branches, spending money on a metered API, pushing with migrations unapplied — is **policy** in `.xenomoon.json`, and it defaults to asking you. Two layers read those same rules, so the answer is the same either way: the web UI's permission gate, and a hook covering terminal sessions and subagents, which never load that gate. Separately, the orchestrator cannot edit your working tree at all — it dispatches agents. The tree belongs to you and the pipeline.
+- **Safety gates that don't depend on an agent remembering.** Anything with consequences — pushing to the deploy branch, merging, changing dependencies, creating branches, spending money on a metered API, pushing with migrations unapplied, firing a Codex review unattended — is **policy** in `.xenomoon.json`, and it defaults to asking you; `allow` (the literal string) is the per-project opt-in an **autonomous** run needs, since an unattended prompt is refused. Push is also a LANE: only the push stage (`senior-analyst` + `push-method`, never the author) publishes, and your **branch model** draws the line — a routine work-branch push runs free, the deploy-reaching one is the gate. Two layers read those same rules, so the answer is the same either way: the web UI's permission gate, and a hook covering terminal sessions and subagents, which never load that gate. Separately, the orchestrator cannot edit your working tree at all — it dispatches agents. The tree belongs to you and the pipeline.
 - **External workers, used not competed with.** Optional **Hermes** (researcher/critic) and **Codex** (reviewer) integrations with per-domain profiles and cost-basis economics — subscription workers are there to be spent.
 - **Self-improvement loops, all human-gated.** Sessions end in a debrief; learnings become project-local capabilities; a promotions flow moves the good ones upward — you approve every step. The forge audits itself the same way, recording findings in a ledger you apply.
 

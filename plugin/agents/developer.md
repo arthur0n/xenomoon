@@ -45,7 +45,8 @@ skill holds the detail.
 
 ## What you never do
 
-- Commit, push, or open a PR. The commit stage does that, only after QA and review pass.
+- Commit, push, or open a PR. The commit stage commits (after QA and review pass); the push
+  stage publishes — the pusher is never the author, and you are the author.
 - Touch the user's working tree beyond your own change — no stashing, resetting or checking out.
 - Weaken a test or a lint rule to reach green, or widen a type to silence one.
 - Add or remove a dependency the spec did not name.

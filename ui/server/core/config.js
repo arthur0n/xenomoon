@@ -375,17 +375,23 @@ export function saveHermesConfig(patch) {
 /**
  * Consequential-action policy, per project, in `.xenomoon.json`.
  *
- * These three were shell hooks. They are judgement calls, not deterministic verifications — "is
+ * These started as shell hooks. They are judgement calls, not deterministic verifications — "is
  * this dependency worth adding", "is this the moment to publish" — so they belong where the human
  * can actually be asked, and where a project can set its own answer once instead of arguing with a
  * hook every time.
+ *
+ * `push` does not answer "may an agent publish" — a LANE answers that (see PUSH_AGENT in
+ * ui/lib/consequential.js: only the push stage publishes, whatever this says). It answers "does
+ * the sanctioned push stage ask a human first". `merge` is the same gate on `gh pr merge` /
+ * `issuekit pr merge|promote`. `ask` is the default; `allow` is the per-project opt-in an
+ * autonomous pipeline needs, because an unattended run cannot answer a prompt and is refused.
  *
  * KNOWN BOUNDARY, stated rather than implied: this layer governs sessions THIS server drives. A
  * plain `claude` session in the project does not pass through it. The framework accepted that
  * trade deliberately — the alternative was a second copy of each rule in a hook, and two copies of
  * a rule is how they drift.
  *
- * @typedef {{ push?: "ask" | "allow", dependencies?: "ask" | "allow", branchCreate?: "ask" | "allow", spend?: "ask" | "allow", spendPatterns?: string[], migrationPush?: "ask" | "allow", migrationsPending?: string }} ActionPolicy
+ * @typedef {{ push?: "ask" | "allow", merge?: "ask" | "allow", dependencies?: "ask" | "allow", branchCreate?: "ask" | "allow", spend?: "ask" | "allow", spendPatterns?: string[], migrationPush?: "ask" | "allow", migrationsPending?: string, codexReview?: "ask" | "allow" }} ActionPolicy
  * @returns {Required<ActionPolicy>}
  */
 export function getActionPolicy() {
@@ -406,10 +412,16 @@ export function getActionPolicy() {
   const mode = (v) => (v === "allow" ? "allow" : "ask");
   return {
     push: mode(saved.push),
+    merge: mode(saved.merge),
     dependencies: mode(saved.dependencies),
     branchCreate: mode(saved.branchCreate),
     spend: mode(saved.spend),
     migrationPush: mode(saved.migrationPush),
+    // Codex review consent (require-codex-consent.sh reads the same key): `ask` is today's
+    // one-prompt-per-review; `allow` lets an unattended run fire reviews — the opt-in an
+    // autonomous "merge when Codex approves" goal needs. A knob, never billing-derived: that
+    // costBasis "subscription" makes `allow` cheap is documentation, not logic.
+    codexReview: mode(saved.codexReview),
     // The NAME of one of the bound project's own npm scripts, which answers "are there unapplied
     // migrations?" by its exit code. A name, never a command line: an arbitrary shell string from
     // config would be executed at push time, before the human sees the prompt, so anything able to
@@ -702,8 +714,9 @@ const BRANCH_MODEL_RULES = {
 /** The project's branch & merge doctrine, chosen by the human at install/onboarding and
  * baked into `<project>/.xenomoon/branch-model` (first line = model; optional `prod=`/`dev=`
  * lines override the main/development defaults). Appended to every session prompt like the
- * economics block; absent file → empty string (older installs unaffected). Prose by design —
- * the owner's call is convention-first, mechanism only if sessions prove they need it.
+ * economics block; absent file → empty string (older installs unaffected). The push gates read
+ * the SAME file (`ui/lib/branch-doctrine.js`) — only ever to RELAX: a routine work-branch push
+ * is opened up, the deploy-reaching half stays policy-gated; absent/custom → every push gates.
  * @returns {string} */
 export function getBranchModelBlock() {
   let raw;

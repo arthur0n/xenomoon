@@ -73,10 +73,12 @@ protects nothing, and the next person cannot tell it was bypassed.
 a written reason that is posted to the issue before the commit lands — so an override is a decision
 someone signed, findable later. Reach for it when the human has told you to; not to get unstuck.
 
-## 4. Never push
+## 4. The commit stage does not publish
 
-Push is the human's checkpoint — the one place a person decides that this goes out. The commit is
-automatic once green; the push is not, and no agent performs it.
+Publishing is the `push` stage's — `senior-analyst` running `push-method`, adversarial to the
+author, gated by the branch model and `policy.push`. The commit is automatic once green; this
+stage's job ends with the commit recorded, and the route onward is the push stage, dispatched by
+the orchestrator.
 
 ## 5. The design doc graduates separately
 
@@ -87,7 +89,8 @@ stay revertable on its own.
 
 ## 6. Report
 
-The sha, the subject, the labels applied, and — explicitly — that nothing was pushed. If the labels
+The sha, the subject, the labels applied, and — explicitly — that nothing was pushed YET (the
+push stage is next). If the labels
 did not land, say so loudly: the deploy workflow closes issues on `fixed-pending-deploy`, so a fix
 that ships without it stays open forever, and someone will eventually re-fix it.
 

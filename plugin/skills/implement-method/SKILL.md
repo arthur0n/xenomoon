@@ -76,8 +76,9 @@ Label `implemented` once validate + build + test are green and the regression te
 that label is what the QA sweep looks for. If the edit fails on a missing label, say which one;
 never silently drop it.
 
-**Do not commit, push, or open a PR.** The pipeline's commit stage does that, only after QA and
-review pass, and the commit gate enforces it. Leave the change in the working tree.
+**Do not commit, push, or open a PR.** The pipeline's commit stage commits (after QA and review
+pass, the commit gate enforces it) and the push stage publishes — never the author. Leave the
+change in the working tree.
 
 ## 5. Report
 

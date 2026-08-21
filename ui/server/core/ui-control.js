@@ -9,10 +9,15 @@ import { join } from "node:path";
 // two answers to "is this a push", and the permissive one would be the one that ships.
 import {
   PUSH_RE,
+  MERGE_RE,
   BRANCH_CREATE_RE,
+  pushDecision,
+  mergeDecision,
+  routinePushTarget,
   mutatesDependencies,
   spendsMoney,
 } from "../../lib/consequential.js";
+import { readBranchModel, deployReaching } from "../../lib/branch-doctrine.js";
 import { migrationsPending } from "../../lib/migrations.js";
 import {
   TASK_TOOL,
@@ -110,8 +115,9 @@ function pipelineRoster() {
 // are policy now (see getActionPolicy), because "should we add this dependency" and "is this the
 // moment to publish" are questions for a human, not conditions a script can decide.
 //
-// Unlike orchestratorGate below, these apply to EVERY agent — a sub-agent pushing is the case the
-// push rule exists for.
+// Unlike orchestratorGate below, these apply to EVERY agent — and for push the rule names ONE
+// lane: the push stage (PUSH_AGENT + push-method) publishes, the orchestrator is routed to
+// dispatching it, and every other lane is routed to a ready-to-push report.
 const GH_ISSUE_WRITE_RE =
   /(^|&&|\|\||;|\|)\s*(rtk\s+)?gh\s+issue\s+(create|new|edit|comment|close|reopen|delete|lock|unlock|pin|unpin|transfer|develop)\b/;
 // State-mutating git subcommands. Read verbs (status/log/diff/show/fetch/branch-list/
@@ -122,8 +128,11 @@ const GH_ISSUE_WRITE_RE =
 //      forms stay open (`git worktree list` is how the orchestrator checks isolation);
 //   3. `git branch` — a READ by default (`-a`, `-v`, `--list`), mutating only behind a
 //      delete/move/copy/force flag, so `branch -D` no longer slips through as a "read verb".
+// `push` is deliberately NOT here: it publishes, it does not mutate the tree, and every push
+// decision — including the main loop's routing deny — is owned by classifyConsequential via
+// pushDecision(), so there is exactly one answer per role. `pull` stays: it moves the tree.
 const GIT_MUTATE_SUB =
-  "(add|commit|stash|rebase|merge|reset|push|pull|cherry-pick|revert|am|apply|restore|switch|checkout|rm|mv|clean|tag)\\b";
+  "(add|commit|stash|rebase|merge|reset|pull|cherry-pick|revert|am|apply|restore|switch|checkout|rm|mv|clean|tag)\\b";
 const GIT_MUTATE_NESTED =
   "worktree\\s+(add|remove|move|prune|repair|lock|unlock)\\b" +
   "|remote\\s+(add|remove|rm|rename|set-url|set-head|set-branches|prune)\\b" +
@@ -203,7 +212,8 @@ function mainBashDenyMessage(input) {
       "Orchestrator never touches the working tree — mutating git is denied for the main " +
       "loop (read verbs like status/log/diff stay open). Dispatch the developer agent; for " +
       "rebases/conflicts have it work in an ISOLATED git worktree so the user's uncommitted " +
-      "changes are never staged, stashed, or parked. Commits land via the pipeline's commit stage."
+      "changes are never staged, stashed, or parked. Commits land via the pipeline's commit " +
+      "stage, and publishing via the push stage."
     );
   if (BUILD_GATE_RE.test(cmd))
     return (
@@ -296,26 +306,39 @@ function migrationQuestion(cmd, policy, kinds, questions) {
 /** Which consequential things does ONE command do? Every category is classified BEFORE anything is
  * decided — returning on the first match meant `git push && npm install lodash` asked only about
  * the push, and approving that single prompt ran the install unasked.
- * @param {string} cmd @param {ReturnType<typeof getActionPolicy>} policy @param {boolean} isSubagent
+ * @param {string} cmd @param {ReturnType<typeof getActionPolicy>} policy @param {string} agent
  * @returns {{ denials: string[], questions: string[], kinds: string[] }} */
-function classifyConsequential(cmd, policy, isSubagent) {
+function classifyConsequential(cmd, policy, agent) {
   /** @type {string[]} */ const denials = [];
   /** @type {string[]} */ const questions = [];
   /** @type {string[]} */ const kinds = [];
+  const isSubagent = agent !== "main";
+  let pushDenied = false;
 
   if (PUSH_RE.test(cmd)) {
-    // A sub-agent NEVER pushes, whatever the policy says: push triggers CI, CI deploys, and a
-    // deploy closes issues. That chain starts with a person, not with a worker finishing early.
-    if (isSubagent)
-      denials.push(
-        "Sub-agents never push. Push is the human's checkpoint — it triggers CI, which deploys, " +
-          "which closes issues. Report ready-to-push to the orchestrator and stop there.",
-      );
-    else if (policy.push === "ask") {
+    // Exactly one lane publishes. This surface knows the caller by name, so the decision is
+    // three-way: the push lane rides the branch model + policy.push, the main loop gets the
+    // routing deny (dispatch the stage), every other lane gets the report-ready deny. The
+    // branch model (the setup choice) draws routine vs deploy-reaching — fail-closed: only the
+    // strict routine shape targeting a non-prod branch is routine.
+    const reaches = deployReaching(routinePushTarget(cmd), readBranchModel(PROJECT_DIR));
+    const d = pushDecision(agent, isSubagent, policy.push, reaches);
+    if (d.verdict === "deny") {
+      denials.push(d.message);
+      pushDenied = true;
+    } else if (d.verdict === "ask") {
       kinds.push("push");
-      questions.push(
-        "`git push` publishes and triggers the CI deploy — the pipeline's one hard human gate.",
-      );
+      questions.push(d.message);
+    }
+  }
+
+  if (MERGE_RE.test(cmd)) {
+    // Merge/promote is the orchestrator's plumbing under policy.merge; workers report merge-ready.
+    const d = mergeDecision(agent, isSubagent, policy.merge);
+    if (d.verdict === "deny") denials.push(d.message);
+    else if (d.verdict === "ask") {
+      kinds.push("merge");
+      questions.push(d.message);
     }
   }
 
@@ -351,7 +374,9 @@ function classifyConsequential(cmd, policy, isSubagent) {
     );
   }
 
-  migrationQuestion(cmd, policy, kinds, questions);
+  // Never on a DENIED push (Codex impl review, 2026-08-21): the checker SHELLS OUT to a
+  // project-defined script, and a command that will be refused anyway must not run it.
+  if (!pushDenied) migrationQuestion(cmd, policy, kinds, questions);
 
   if (BRANCH_CREATE_RE.test(cmd) && policy.branchCreate === "ask") {
     kinds.push("branch-create");
@@ -367,8 +392,9 @@ function classifyConsequential(cmd, policy, isSubagent) {
 }
 
 /**
- * Push, dependency changes and branch creation — the three the framework used to gate with shell
- * hooks. Every agent passes through here, because "a sub-agent must never push" is the whole point.
+ * Push, merge, dependency changes and branch creation — the consequential actions. Every agent
+ * passes through here, because "exactly one lane publishes" is the whole point: the push stage
+ * rides policy, the orchestrator is routed to dispatching it, every other lane to a report.
  *
  * There is no "ask" verdict at this layer: the SDK's PermissionResult is allow or deny. An ASK is
  * therefore a real round-trip to the human (`waitFor("permission", …)`), which is also what makes
@@ -382,7 +408,9 @@ async function consequentialActionGate({ session, waitFor, log, toolName, input,
   const cmd = /** @type {{ command?: unknown }} */ (input)?.command;
   if (typeof cmd !== "string") return null;
   const policy = getActionPolicy();
-  const isSubagent = agent !== "main";
+  // Identity misses in agent tracking read as "main" (session-permissions.js) and fail SAFE into
+  // the routing deny — log push-shaped commands with the resolved agent so a miss is findable.
+  if (PUSH_RE.test(cmd)) log("auto", { type: "permission", toolName, policy: `push-${agent}` });
 
   /** @param {string} message */
   const deny = (message) => ({ behavior: /** @type {const} */ ("deny"), message });
@@ -403,7 +431,7 @@ async function consequentialActionGate({ session, waitFor, log, toolName, input,
       : deny(message);
   };
 
-  const { denials, questions, kinds } = classifyConsequential(cmd, policy, isSubagent);
+  const { denials, questions, kinds } = classifyConsequential(cmd, policy, agent);
   if (denials.length) return deny(denials.join("\n\n"));
   if (questions.length)
     return askHuman(

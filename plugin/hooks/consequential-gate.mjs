@@ -14,6 +14,12 @@
 // their own branch-creation hook to cover precisely this, which is the evidence that the gap is
 // real and that a hook is the layer that closes it.
 //
+// IDENTITY BOUNDARY: the payload names no agent — only whether an `agent_id` is present. So this
+// surface enforces role COARSELY (sub-agent vs main) plus per-project policy; the framework's
+// named push lane (senior-analyst + push-method) is enforced by the SERVER's permission layer,
+// the surface where the pipeline and autonomous runs actually execute. A sub-agent push here is a
+// policy-governed question (or allow), never a silent pass and never an unappealable deny.
+//
 // It does NOT try to detect whether the layer is also present. Two coordination schemes were tried
 // and both failed in the same direction — an inherited env marker silenced this hook in nested
 // sessions the layer never mediates, and deferring the layer on this file's existence silenced the
@@ -57,10 +63,12 @@ const FRAMEWORK_DIR = frameworkDir();
 // Last-resort tripwires for when the real matchers cannot be loaded. Deliberately CRUDE and
 // deliberately not classifiers: their only job is to notice that something consequential-SHAPED
 // went past while this gate was blind. They are kept SEPARATE by shape so the degraded path can
-// still tell a push from a branch — because "sub-agents never push" is a role rule, and a blind
-// gate that downgrades it to an approvable prompt reopens the hole under exactly the conditions
-// (stale install, version skew) where this hook is the only thing left.
+// still tell a push from a branch. Push blind-asks rather than blind-denies now: the role rule is
+// WHICH lane publishes (the push stage), and this surface cannot see a lane at all — a blind deny
+// would block the sanctioned stage on exactly the degraded installs where a human is watching
+// anyway. The deps deny stays a deny: it names no lane, it is the same for every worker.
 const BLIND_PUSH_RE = /\bgit\s+([^&|;]*\s)?push\b/;
+const BLIND_MERGE_RE = /\bgh\s+pr\s+merge\b|\bissuekit(\.js)?\s+(pr\s+merge|promote)\b/;
 const BLIND_DEPS_RE =
   /\b(npm|pnpm|yarn|bun)\s+([^&|;]*\s)?(add|install|i|remove|uninstall|rm|update|upgrade|up|dedupe)\b/;
 const BLIND_BRANCH_RE = /\bgit\s+(-C\s+\S+\s+)?(branch|worktree)\b|\bgit\s+(checkout|switch)\s+-/;
@@ -108,7 +116,7 @@ function decide(denials, questions) {
 
 /** The policy block, read exactly as config.js reads it — ASK is the default AND the fallback, and
  * only the literal "allow" allows. A typo or a stale value must never silently switch a prompt off.
- * @returns {{ push: string, dependencies: string, branchCreate: string, spend: string, spendPatterns: string[], migrationPush: string, migrationsPending: string, projectDir: string }} */
+ * @returns {{ push: string, merge: string, dependencies: string, branchCreate: string, spend: string, spendPatterns: string[], migrationPush: string, migrationsPending: string, projectDir: string }} */
 function policy() {
   /** @type {Record<string, unknown>} */
   let saved = {};
@@ -128,6 +136,7 @@ function policy() {
   const patterns = saved["spendPatterns"];
   return {
     push: mode(saved["push"]),
+    merge: mode(saved["merge"]),
     dependencies: mode(saved["dependencies"]),
     branchCreate: mode(saved["branchCreate"]),
     spend: mode(saved["spend"]),
@@ -181,7 +190,11 @@ process.stdin.on("end", () => {
       const mod = await import(modulePath);
       const missing = [
         ["PUSH_RE", mod.PUSH_RE instanceof RegExp],
+        ["MERGE_RE", mod.MERGE_RE instanceof RegExp],
         ["BRANCH_CREATE_RE", mod.BRANCH_CREATE_RE instanceof RegExp],
+        ["pushDecision", typeof mod.pushDecision === "function"],
+        ["mergeDecision", typeof mod.mergeDecision === "function"],
+        ["routinePushTarget", typeof mod.routinePushTarget === "function"],
         ["mutatesDependencies", typeof mod.mutatesDependencies === "function"],
         ["spendsMoney", typeof mod.spendsMoney === "function"],
       ]
@@ -206,20 +219,25 @@ process.stdin.on("end", () => {
       const pushShaped = BLIND_PUSH_RE.test(cmd);
       const depsShaped = BLIND_DEPS_RE.test(cmd);
 
-      if (isSubagent && pushShaped)
-        blindDenials.push(
-          `Sub-agents never push. ${blind} A push-shaped command from a worker is refused.`,
-        );
       if (isSubagent && depsShaped)
         blindDenials.push(
           `Agents never add, remove or re-pin packages. ${blind} A dependency-shaped command from a worker is refused.`,
+        );
+      if (isSubagent && BLIND_MERGE_RE.test(cmd))
+        blindDenials.push(
+          `Merging and promoting are the orchestrator's plumbing, never a worker's. ${blind} A merge-shaped command from a worker is refused.`,
         );
 
       if (BLIND_SPEND_RE.test(cmd))
         blindQuestions.push(
           `This calls a metered API endpoint and SPENDS real credits. ${blind} Confirm the scope before approving.`,
         );
-      if (!isSubagent && pushShaped) blindQuestions.push(`This looks like a push. ${blind}`);
+      if (pushShaped)
+        blindQuestions.push(
+          `This looks like a push. The push lane is \`senior-analyst\` running \`push-method\`; every other lane reports ready-to-push instead of pushing. ${blind} Approve only if that lane is what is running.`,
+        );
+      if (!isSubagent && BLIND_MERGE_RE.test(cmd))
+        blindQuestions.push(`This looks like a merge/promote. ${blind}`);
       if (!isSubagent && depsShaped)
         blindQuestions.push(`This looks like a dependency change. ${blind}`);
       if (BLIND_BRANCH_RE.test(cmd))
@@ -238,22 +256,35 @@ process.stdin.on("end", () => {
     /** @type {string[]} */ const questions = [];
 
     if (m.PUSH_RE.test(cmd)) {
-      if (isSubagent)
-        denials.push(
-          "Sub-agents never push. Push is the human's checkpoint — it triggers CI, which deploys, " +
-            "which closes issues. Report ready-to-push to the orchestrator and stop there.",
-        );
-      else if (p.push === "ask")
-        questions.push(
-          "`git push` publishes and triggers the CI deploy — the pipeline's one hard human gate. " +
-            "Approve only if publishing this is the agreed next step.",
-        );
+      // STATED BOUNDARY (Codex plan review, 2026-08-21): this surface cannot name the caller —
+      // the payload carries only agent_id presence — so it enforces role COARSELY (sub vs main)
+      // plus policy. The named push lane (senior-analyst + push-method) is enforced on the server
+      // surface, where the pipeline and autonomous runs actually execute. Here, the branch model
+      // still draws routine vs deploy-reaching, and policy governs the consequential half.
+      // FAIL-CLOSED on the doctrine module too (Codex impl review, 2026-08-21): a stale or
+      // malformed branch-doctrine.js returning a truthy non-doctrine object must gate, not
+      // relax — so the prod branch is only trusted as a non-empty STRING.
+      let prod = null;
+      try {
+        const bd = await import(path.join(FRAMEWORK_DIR, "ui", "lib", "branch-doctrine.js"));
+        if (typeof bd.readBranchModel === "function") {
+          const doctrine = bd.readBranchModel(p.projectDir);
+          if (doctrine && typeof doctrine.prod === "string" && doctrine.prod) prod = doctrine.prod;
+        }
+      } catch {
+        /* no doctrine → deployReaching stays null → the push gates; fail-closed */
+      }
+      const target = typeof m.routinePushTarget === "function" ? m.routinePushTarget(cmd) : null;
+      const reaches = prod !== null && target !== null ? target === prod : null;
+      const d = m.pushDecision(null, isSubagent, p.push, reaches);
+      if (d.verdict === "deny") denials.push(d.message);
+      else if (d.verdict === "ask") questions.push(d.message);
 
       // Only on a push, because that is the moment the schema and the code can part company. The
       // checker is the project's, and it runs here rather than in the permission layer because this
       // hook fires on EVERY surface — a terminal session would otherwise push ahead of its schema
       // with nothing watching.
-      if (p.migrationPush === "ask" && p.migrationsPending) {
+      if (d.verdict !== "deny" && p.migrationPush === "ask" && p.migrationsPending) {
         // Loaded the same way the matchers are — by the RECORDED framework root, never a relative
         // path, so a copied plugin still finds it. A checker we cannot load is a broken opt-in, not
         // a clean bill of health.
@@ -302,6 +333,14 @@ process.stdin.on("end", () => {
               "approve knowing it is unguarded.",
           );
       }
+    }
+
+    if (m.MERGE_RE.test(cmd)) {
+      // Merge/promote: workers report merge-ready; the main loop rides policy.merge. Same shared
+      // decision the permission layer uses — one definition, one answer.
+      const d = m.mergeDecision(null, isSubagent, p.merge);
+      if (d.verdict === "deny") denials.push(d.message);
+      else if (d.verdict === "ask") questions.push(d.message);
     }
 
     if (m.mutatesDependencies(cmd)) {

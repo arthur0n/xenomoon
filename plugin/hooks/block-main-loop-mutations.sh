@@ -10,9 +10,11 @@
 # session could recite the prohibition while breaking it a dozen times. This closes the
 # affordance at the tool boundary, so there is nothing left to remember.
 #
-#   main loop + mutating git      → DENY   (dispatch the owning agent; conflicts go to a worktree)
-#   main loop + merge/promote     → ASK    (consequential + irreversible: the HUMAN consents;
-#                                           gh pr merge, issuekit pr merge / promote / prune --apply)
+#   main loop + mutating git      → DENY   (dispatch the owning agent; conflicts go to a worktree;
+#                                           push included — the push STAGE publishes, never you)
+#   main loop + merge/promote     → policy (moved to consequential-gate.mjs beside this file: it
+#                                           reads `.xenomoon.json` policy.merge, which a role hook
+#                                           deliberately cannot — ask by default, allow by opt-in)
 #   main loop + read-only git     → allow  (status/log/diff/show/fetch/ls-remote/rev-parse,
 #                                           `branch`/`worktree list` — investigation IS its job)
 #   main loop + issuekit (rest)   → allow  (search/new/attempt/resolve/branch/pr are the
@@ -44,13 +46,11 @@ issuekit_note() { printf ' (`issuekit` means the copy shipped with this framewor
 # shellcheck source=./issuekit-path.sh
 . "$(dirname "$0")/issuekit-path.sh" 2>/dev/null || true
 
-# Consequential + irreversible: merging and promoting to prod are the human's call, never a
-# routing shortcut. ASK rather than DENY — the human IS the sanctioned approver here.
-consent_re='(^|&&|\|\||;|\|)[[:space:]]*(rtk[[:space:]]+)?(gh[[:space:]]+pr[[:space:]]+merge|issuekit[[:space:]]+promote|issuekit[[:space:]]+pr[[:space:]]+merge|issuekit[[:space:]]+branch[[:space:]]+prune[^&|;]*--apply)([[:space:]]|$)'
-if printf '%s' "$cmd" | grep -Eq "$consent_re"; then
-  decision ask "Merge / promote is consequential and irreversible — the human gates it, not the orchestrator's throughput judgment. Confirm only if this merge is the agreed next step (and its checks are green: \`issuekit pr merge <PR#> --when-green\` refuses on a red run instead of merging blind).$(issuekit_note)"
-  exit 0
-fi
+# Merge/promote consent moved OUT of this hook (2026-08-21): a role hook reads no config by
+# design, so its unconditional ASK could never honor `policy.merge: allow` — which froze every
+# autonomous run at the merge step. consequential-gate.mjs (same directory, fires on the same
+# PreToolUse) now owns that judgement, policy-aware: ask by default, allow by per-project opt-in,
+# and a worker's merge-shaped command stays refused there.
 
 # The pipeline's commit stage: let add/commit through to the COMMIT GATE, which re-derives the lane
 # verdicts and their recorded SHAs.
@@ -76,6 +76,6 @@ git_pre='(^|&&|\|\||;|\|)[[:space:]]*(rtk[[:space:]]+)?git[[:space:]]+(-C[[:spac
 mutate_re="${git_pre}""((add|commit|stash|rebase|merge|reset|push|pull|cherry-pick|revert|am|apply|restore|switch|checkout|rm|mv|clean|tag)([[:space:]]|"'$'")"'|worktree[[:space:]]+(add|remove|move|prune|repair|lock|unlock)|remote[[:space:]]+(add|remove|rm|rename|set-url|set-head|set-branches|prune)|submodule[[:space:]]+(add|update|init|deinit|sync|set-url|set-branch|absorbgitdirs)|branch[[:space:]]+([^&|;]*[[:space:]])?(-[DdMmCcf]|--(delete|move|copy|force|set-upstream-to|unset-upstream))([[:space:]]|$))'
 
 if printf '%s' "$cmd" | grep -Eq "$mutate_re"; then
-  decision deny "Orchestrator never touches the working tree — mutating git is denied for the MAIN LOOP (sub-agents keep it; read-only git stays open, since investigation is your job). The sanctioned paths: PR/branch plumbing → issuekit (\`issuekit branch <#>\`, \`issuekit pr <#>\`, \`issuekit pr update <PR#>\`, \`issuekit branch sync <name>\`) — ONE Bash call by you, never an agent dispatch; anything that changes code → dispatch the owning agent; a real conflict → have it work in an ISOLATED worktree from origin/<branch>, so the user's uncommitted changes are never staged, stashed or parked. Commits land via the pipeline's commit stage.$(issuekit_note)"
+  decision deny "Orchestrator never touches the working tree — mutating git is denied for the MAIN LOOP (sub-agents keep it; read-only git stays open, since investigation is your job). The sanctioned paths: PR/branch plumbing → issuekit (\`issuekit branch <#>\`, \`issuekit pr <#>\`, \`issuekit pr update <PR#>\`, \`issuekit branch sync <name>\`) — ONE Bash call by you, never an agent dispatch; anything that changes code → dispatch the owning agent; a real conflict → have it work in an ISOLATED worktree from origin/<branch>, so the user's uncommitted changes are never staged, stashed or parked. Commits land via the pipeline's commit stage, and publishing via the push stage (\`senior-analyst\` + \`push-method\` — dispatch it, never push yourself).$(issuekit_note)"
 fi
 exit 0

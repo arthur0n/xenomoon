@@ -99,8 +99,9 @@ export function prompt({ models, branch, deployWorkflows }) {
           ]
         : [],
     note: [
-      "A guideline the agents follow, not a lock — it is one line in",
-      "<project>/.xenomoon/branch-model, and you can change it whenever the project does.",
+      "A guideline the agents follow — and the line the push gates draw: a work-branch push",
+      "is routine, one reaching your deploy branch asks (policy.push). One line in",
+      "<project>/.xenomoon/branch-model; change it whenever the project does.",
     ],
   });
 }

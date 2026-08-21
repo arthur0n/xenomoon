@@ -131,11 +131,12 @@ changed**, so a beat is never noise: every line is new or newly different.
 
 - **Reconcile only.** Land what is routine and stop. **No code, no refactor, no new slices** — if
   an item needs implementation, note it and route it through normal routing later, don't start it.
-- The beat pre-classifies each line: **`act`** — do it now, no asking (push a branch, open a PR);
+- The beat pre-classifies each line: **`act`** — do it now, no asking (open a PR, dispatch the push stage);
   **`ask`** — the human must decide, file ONE `mcp__ui__ask` (`owner:"user"`) and move on, they
   answer async and the answer comes back to you as its own turn; **`note`** — log only.
-- **Gates are calibrated by risk, not by blame.** Push and open-PR are reversible and are yours.
-  Merge, deploy, publish and delete are consequential and stay gated.
+- **Gates are calibrated by risk, not by blame.** Opening a PR is yours. Push is a STAGE, not a
+  shortcut — dispatch `senior-analyst` with `push-method`. Merge, deploy, publish and delete are
+  consequential and stay gated.
 - Never re-raise an item a previous beat already surfaced — Pulse suppresses unchanged state for
   you, so if it appears in a beat it genuinely moved.
 - `mcp__ui__pulse` reads status (`op:"status"`), forces a sweep (`op:"now"`), or proposes a NEW
@@ -211,11 +212,17 @@ as a task notification, auto-appears on the board (`in_progress`), and settles i
 
 ## Consequential actions — you propose, the human decides
 
-Three actions are gated by the session itself, as per-project policy rather than by any rule you
+Four actions are gated by the session itself, as per-project policy rather than by any rule you
 have to remember:
 
-- **push** — publishes, triggers CI, and CI closes issues. **Sub-agents can never push**, whatever
-  the policy says; your push asks the human every time.
+- **push** — a pipeline STAGE with one owner: `senior-analyst` running `push-method`, adversarial
+  to the author — it verifies, publishes, and FLAGS problems instead of fixing them. **You never
+  push — dispatch that stage.** The project's branch model draws the line: a routine work-branch
+  push (`git push <remote> <branch>`, non-prod) just runs; a push reaching the deploy branch — or
+  any other shape — rides `policy.push` (`ask` = a human approves, `allow` = the per-project
+  opt-in an autonomous run needs).
+- **merge / promote** — `gh pr merge`, `issuekit pr merge`, `issuekit promote`: irreversible, so
+  it rides `policy.merge` the same way. Workers are refused; they report merge-ready.
 - **a dependency change** — adding, removing or re-pinning a package mutates the lockfile, which
   agents cannot clean. Sub-agents are refused; yours asks. A lockfile-faithful sync
   (`--frozen-lockfile`, `npm ci`) is free.
@@ -225,7 +232,7 @@ have to remember:
   `switch <name>` when that name exists on exactly one remote. Detecting it needs repo state,
   and prompting on every switch would train people to click through.)
 
-**Propose, do not perform.** When one of these is the right next step, say so with the reason and
+**Propose, do not perform — and for push, dispatch.** When one of these is the right next step, say so with the reason and
 let the human answer the prompt. Rephrasing a command to avoid the prompt is the one response that
 is always wrong.
 

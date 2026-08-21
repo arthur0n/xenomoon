@@ -63,8 +63,15 @@ piece of work needs (small work skips most of it).
    contract stays `qa:pass` + `review:pass`.
 10. **`commit`** — direct (no agent): once green, YOU `git add` + `git commit` with
     `(#N)`, apply `committed` + `fixed-pending-deploy`. The `commit-gate` hook re-checks
-    the labels deterministically and denies any non-green commit. **Never push.**
-11. **Build / smoke** — run the project's own commands, and know which is which:
+    the labels deterministically and denies any non-green commit. **The commit stage records;
+    it does not publish — the push stage does.**
+11. **`push`** — **CORE stage; agent `senior-analyst`, skill `push-method`, adversarial to the
+    author.** It verifies (clean tree, fast-forward, branch-model target, verdicts and checks
+    still green), publishes with ONE `git push <remote> <branch>`, and FLAGS any problem instead
+    of fixing it. The branch model draws the line: a routine work-branch push just runs; a push
+    reaching the deploy branch rides `policy.push` (`ask` = a human approves, `allow` = the
+    autonomous opt-in). You dispatch this stage; you never push.
+12. **Build / smoke** — run the project's own commands, and know which is which:
     - **build** (default) — the production build, plus validate if it has not been green
       this session. This is how you verify a change builds clean. For quick iteration the
       dev servers are enough; no rebuild needed.
@@ -73,23 +80,25 @@ piece of work needs (small work skips most of it).
       `uat-runner`.
     - **deploy — never from here.** Deploy happens by PUSHING the main branch; CI does the
       cloud work, and a manual `sam deploy` / `wrangler deploy` is forbidden (shared cloud
-      account, OIDC role). Confirm with the human, and after their push watch it:
+      account, OIDC role). After the push stage lands on the deploy branch, watch it:
       `gh run list -R <repo> --branch <main> --limit 5` then `gh run watch -R <repo> <id>`.
       Report each workflow's result — and if one failed, WHICH step: a run that died before
       the credentials step made no cloud change at all.
 
 Full path: `feedback` → `design`? → `triage` → `solution` → `implement` → `sweep` → `qa` →
-`audit` → `pre-pr` → `commit` → `build`. Loop-backs: `qa:blocked` (from `qa`), `review:changes`
+`audit` → `pre-pr` → `commit` → `push` → `build`. Loop-backs: `qa:blocked` (from `qa`), `review:changes`
 (from `audit`) or `not-ready` (from `pre-pr`) send the issue back to `implement` — its
 blockers/findings are the fix list.
 **Bounded: 3 loop-back rounds per issue.** Still red after 3 → STOP looping; surface the
 open findings to the user. Stop for a human look between stages. Each stage is idempotent
 (skips already-done issues unless forced). One issue does not skip ahead.
 
-The **human gate is the push, not the commit.** Commit is automatic once QA + review
-pass; nothing in the pipeline pushes — the session's permission policy denies sub-agent
-pushes outright and turns yours into a human prompt. A human approves the push, CI deploys, and the
-`fixed-pending-deploy` issue closes.
+The **gate is `policy.push` on a stage that verifies first, not the commit.** Commit is
+automatic once QA + review pass; publishing is the `push` stage's (`senior-analyst` +
+`push-method` — never the author, never you). A routine work-branch push under the project's
+branch model just runs; the deploy-reaching push asks the human (`ask`, the default) or flows
+autonomously (`allow`, the per-project opt-in). Then CI deploys and the `fixed-pending-deploy`
+issue closes.
 
 **Acceptance (UAT)** runs **out-of-band** of the per-issue chain — batch, POC-first,
 resource-capped (see below). It is dispatched on a scenario, not on an issue, and is not a
@@ -107,7 +116,7 @@ stage every issue passes through.
   do (intent, not a defect) → **`design`**, not the pipeline.
 - **Every defect enters through the pipeline — including the ones YOU find.** A defect
   discovered mid-session (infra, CI, a failed deploy you're watching, a consequence of
-  your own push) gets exactly ONE action from you: file it (`feedback`) and route it
+  a push you dispatched) gets exactly ONE action from you: file it (`feedback`) and route it
   (`triage`), with whatever context you already have riding along in the issue body.
   This applies precisely when the work FEELS like continuation of what you were doing —
   incident momentum is the signal to route, not to act. Infra/CI defects run the same
@@ -119,7 +128,7 @@ stage every issue passes through.
 - Later stages by state: `triaged` issue → `solution`; `solution-ready` → `implement` (**one at a time**);
   `implemented` → `sweep`, then `qa`; `qa:pass` → `audit`; fully-green (`qa:pass` +
   `review:pass`) → `pre-pr`, then `commit` (you run it directly; the hook denies a non-green
-  commit; never push); "smoke the whole app" → the `uat-runner` (out-of-band). `sweep` and `pre-pr` set no
+  commit; publishing is the `push` stage's); "smoke the whole app" → the `uat-runner` (out-of-band). `sweep` and `pre-pr` set no
   labels, so the state alone will not tell you they ran — the issue thread will.
 
 ## Gate-depth conventions (the pipeline is not mandatory)
@@ -137,9 +146,10 @@ Right-size the gate to the work:
   CORE now. `commit-label` (PostToolUse) stamps `committed` + `fixed-pending-deploy` and
   drops `needs-deploy` the instant a `(#N)` commit lands, so the deploy-close workflow
   can never orphan a merged fix on a slipped label.
-- **Push, dependency changes and branch creation are POLICY, not hooks** — the session
-  asks the human (and refuses sub-agents outright for push and dependencies). Per-project
-  answers live in `.xenomoon.json`; the spine states the boundary.
+- **Push, merge, dependency changes and branch creation are POLICY, not hooks** — and push is
+  also a LANE: only the push stage publishes; the main loop and every other agent are refused
+  with a pointer to it (dependencies stay refused for all workers). Per-project answers live in
+  `.xenomoon.json`; the spine states the boundary.
 - **UAT stays out-of-band** (batch POC, dispatched by scenario) — never a per-issue gate.
 
 ## Background — domain specifics
@@ -266,8 +276,9 @@ open
   → qa:pass | qa:blocked → implement               [qa → tester]
   → review:pass | review:changes → implement  (skippable sev:low)  [audit — CORE stage; Codex and/or senior-analyst]
   → (no label — ready | not-ready back to implement)             [pre-pr — CORE stage]
-  → committed + fixed-pending-deploy                [commit direct; hook-gated; NEVER pushes]
-  → (human pushes → CI deploys → issue closes)
+  → committed + fixed-pending-deploy                [commit direct; hook-gated; never pushes]
+  → (push stage pushes [senior-analyst · push-method; policy.push gates the deploy branch]
+     → CI deploys → issue closes)
 
 UAT (out-of-band, batch): uat:pass | uat:fail → new bug | uat:blocked → nothing (setup)
 ```

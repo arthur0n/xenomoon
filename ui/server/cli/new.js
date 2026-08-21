@@ -474,6 +474,12 @@ if (rl) {
 // 6. First-boot flag: the SERVER kicks off onboarding in the first UI session (the session
 //    has the plugin loaded, so the command exists with full tooling — forms + board). Only
 //    set on a fresh install; a re-install of an already-onboarded project keeps its flag.
+//    The consequential-action policy block is seeded here too, create-only: the knobs exist
+//    whether or not this writes them (config.js defaults every absent key to "ask"), but an
+//    invisible knob is an undiscoverable one — the 2026-08 live test parked for days on gates
+//    whose `allow` opt-in nothing had ever surfaced. Only the literal "allow" allows; `ask`
+//    prompts a human, and an AUTONOMOUS run cannot answer a prompt, so a goal that orders a
+//    deploy-reaching push/merge (or an unattended Codex review) needs its key set to "allow".
 {
   const cfgFile = path.join(FRAMEWORK_DIR, ".xenomoon.json");
   /** @type {Record<string, unknown>} */
@@ -483,8 +489,20 @@ if (rl) {
   } catch {
     /* absent — fresh */
   }
-  if (cfg.onboarded === undefined) {
-    writeFileSync(cfgFile, JSON.stringify({ ...cfg, onboarded: false }, null, 2) + "\n");
+  /** @type {Record<string, unknown>} */
+  const next = { ...cfg };
+  if (next.onboarded === undefined) next.onboarded = false;
+  if (next.policy === undefined)
+    next.policy = {
+      push: "ask",
+      merge: "ask",
+      dependencies: "ask",
+      branchCreate: "ask",
+      spend: "ask",
+      codexReview: "ask",
+    };
+  if (next.onboarded !== cfg.onboarded || next.policy !== cfg.policy) {
+    writeFileSync(cfgFile, JSON.stringify(next, null, 2) + "\n");
   }
 }
 rl?.close();

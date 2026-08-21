@@ -19,6 +19,145 @@
 /** `git push` anywhere in a command line, including behind `rtk` and `-C <path>`. */
 export const PUSH_RE = /(^|&&|\|\||;|\|)\s*(rtk\s+)?git\s+(-C\s+\S+\s+)?push\b/;
 
+// ── the push lane ────────────────────────────────────────────────────────────
+/** The ONE agent that may publish — the pipeline's push STAGE. Named here, once, so the permission
+ * layer and the hook cannot disagree about who the sanctioned pusher is. */
+export const PUSH_AGENT = "senior-analyst";
+/** The skill that stage runs: verify the gates, then push. */
+export const PUSH_SKILL = "push-method";
+
+/** A dispatch may name an agent plugin-qualified (`xenomoon:senior-analyst`) or bare. Compare on
+ * the bare name — an exact-string match would read the sanctioned lane as "some other sub-agent"
+ * on exactly the installs that namespace it, turning the push stage into a dead end.
+ * @param {string} agent */
+const bareAgent = (agent) => agent.slice(agent.lastIndexOf(":") + 1);
+
+export const MAIN_PUSH_DENY =
+  "Orchestrator never publishes — push is a pipeline STAGE, not a main-loop command. Dispatch " +
+  '`senior-analyst` with the `push-method` skill (e.g. "Push the committed work for issue #42 ' +
+  'in owner/repo — run the `push-method` skill."). That lane is ADVERSARIAL to the author: it ' +
+  "verifies the branch, the verdicts and the checks, pushes only when clean, and FLAGS any " +
+  "problem instead of fixing it. This is routing, not a dead end: the push happens, in the lane " +
+  "that owns it.";
+
+export const OTHER_AGENT_PUSH_DENY =
+  "Publishing belongs to the push STAGE — `senior-analyst` running `push-method` — never to the " +
+  "lane that authored the work: the pusher is adversarial to the author by design. Report " +
+  "ready-to-push instead: the branch, the commits, and what a push would publish. The " +
+  "orchestrator dispatches the push stage from that report.";
+
+export const PUSH_LANE_ASK =
+  "This push REACHES THE DEPLOY BRANCH (or its target cannot be named), so it ships — the " +
+  "pipeline's last gate, and this is the push lane (`push-method`) asking for it. Approve once " +
+  "the branch is fast-forward on the intended remote, the commit gate's verdicts are green and " +
+  "unblocked, and the checks are not red. A routine work-branch push under this project's branch " +
+  "model does not ask.";
+
+export const UNKNOWN_AGENT_PUSH_ASK =
+  "`git push` toward the deploy branch (or an unnamed target). This surface cannot tell WHICH " +
+  "agent is asking, so the question comes to you: the push lane is `senior-analyst` running " +
+  "`push-method` — adversarial to the author — and every other lane reports ready-to-push " +
+  "instead of pushing. Approve only if that lane is what is running.";
+
+export const TOP_LEVEL_PUSH_ASK =
+  "`git push` toward the deploy branch (or an unnamed target) — the pipeline's last gate. Inside " +
+  "the framework the push stage is `senior-analyst` + `push-method`; from a plain terminal " +
+  "session this prompt IS that gate. Approve only if publishing this is the agreed next step.";
+
+/** @typedef {{ verdict: "allow" | "ask" | "deny", message: string }} LaneDecision */
+
+/**
+ * Who may push, and how. Role first, then the branch model's line between routine and consequential:
+ *
+ *   - the orchestrator NEVER pushes, whatever the policy says — a routing rule, which is what lets
+ *     `push` live here instead of in the mutating-git role regexes (push publishes; it does not
+ *     mutate the tree);
+ *   - only the push lane (PUSH_AGENT) publishes, and it is a DIFFERENT agent from the one that
+ *     authored the work — adversarial by design: verify, push when clean, FLAG problems, never fix;
+ *   - a push that does NOT reach the deploy branch is the pipeline's routine work (opening a PR
+ *     path under `pr-main`, feeding the dev branch under `staged`) and is allowed for the lane;
+ *   - a push that reaches the deploy branch — or whose target cannot be named — is the
+ *     consequential half, governed by `policy.push` (`ask` default, `allow` per-project opt-in).
+ *
+ * @param {string | null} agent exact identity ("main" or an agent name), or null where the surface
+ *   cannot name it (the PreToolUse hook sees only whether an `agent_id` is present)
+ * @param {boolean} isSubagent did a sub-agent raise this call at all
+ * @param {"ask" | "allow"} policy `.xenomoon.json` → policy.push
+ * @param {boolean | null} deployReaching does this push land on a deploy branch — null when the
+ *   target could not be determined (bare `git push`, unknown refspec), which gates like true
+ * @returns {LaneDecision} */
+export function pushDecision(agent, isSubagent, policy, deployReaching) {
+  if (agent === "main") return { verdict: "deny", message: MAIN_PUSH_DENY };
+  if (agent !== null && bareAgent(agent) !== PUSH_AGENT)
+    return { verdict: "deny", message: OTHER_AGENT_PUSH_DENY };
+  if (deployReaching === false) return { verdict: "allow", message: "" };
+  if (policy === "allow") return { verdict: "allow", message: "" };
+  if (agent !== null) return { verdict: "ask", message: PUSH_LANE_ASK };
+  return { verdict: "ask", message: isSubagent ? UNKNOWN_AGENT_PUSH_ASK : TOP_LEVEL_PUSH_ASK };
+}
+
+/**
+ * THREAT BOUNDARY, stated once for every matcher in this file: these gates are guardrails against
+ * agent DRIFT — an agent typing the honest command gets the honest rule. They are not a sandbox
+ * against deliberate evasion (`sh -c`, `env` prefixes, aliases, xargs): every hook in this
+ * framework is fail-open regex by the same deliberate stance, and a session determined to evade
+ * its own guardrails is a trust failure no matcher fixes.
+ *
+ * The branch a push lands on — but ONLY when the command is the one ROUTINE shape, fail-closed:
+ *
+ *   [rtk] git [-C <dir>] push [-u|--set-upstream] <remote> <branch>
+ *
+ * Single bare remote, single bare branch, nothing else. Any other form — bare `git push`, a colon
+ * refspec, `--delete`, `--mirror`, `--all`, `--tags`, `--force*`, `--repo`, `-o`, quoted refs,
+ * chains around it — returns null, and null GATES. A publish gate must never guess what git would
+ * do with flag arity; the narrow shape is the one whose meaning is beyond argument, and the push
+ * lane's skill is told to use exactly it.
+ * @param {string} cmd @returns {string | null} the branch, or null = not the routine shape */
+export function routinePushTarget(cmd) {
+  const m =
+    /^\s*(?:rtk\s+)?git\s+(?:-C\s+\S+\s+)?push\s+(?:(?:-u|--set-upstream)\s+)?([A-Za-z0-9._][A-Za-z0-9._-]*)\s+([A-Za-z0-9._/][A-Za-z0-9._/-]*)\s*$/.exec(
+      cmd,
+    );
+  if (!m) return null;
+  const branch = /** @type {string} */ (m[2]);
+  if (branch === "HEAD") return null;
+  return branch;
+}
+
+// ── merge / promote ──────────────────────────────────────────────────────────
+/** PR-merge and promote commands — `gh pr merge`, `issuekit pr merge|promote`, and the destructive
+ * half of `issuekit branch prune`. Plain `git merge` is NOT this: that is tree work inside a
+ * branch, and the mutating-git role rules own it. Matches issuekit whether invoked bare or by its
+ * shipped path (`node …/issuekit.js`). */
+export const MERGE_RE = new RegExp(
+  "(^|&&|\\|\\||;|\\|)\\s*(rtk\\s+)?(" +
+    "gh\\s+pr\\s+merge\\b" +
+    "|(node\\s+\\S*issuekit\\.js\\s+|issuekit\\s+)" +
+    "(pr\\s+merge\\b|promote\\b|branch\\s+prune\\s+[^&|;]*--apply\\b)" +
+    ")",
+);
+
+export const SUBAGENT_MERGE_DENY =
+  "Merging and promoting are the orchestrator's plumbing, never a worker's. Report merge-ready — " +
+  "the PR number and its checks state — and stop there.";
+
+export const MERGE_ASK =
+  "Merge / promote is consequential and irreversible. Approve only if this merge is the agreed " +
+  "next step and its checks are green (`issuekit pr merge <PR#> --when-green` refuses on a red " +
+  "run instead of merging blind).";
+
+/**
+ * Who may merge a PR / promote, and how. Sub-agents never do (they report merge-ready); the main
+ * loop is governed by `policy.merge` — `ask` puts a human on it, `allow` is the per-project opt-in
+ * that lets an autonomous pipeline merge when its goal orders it.
+ * @param {string | null} agent @param {boolean} isSubagent @param {"ask" | "allow"} policy
+ * @returns {LaneDecision} */
+export function mergeDecision(agent, isSubagent, policy) {
+  if (isSubagent) return { verdict: "deny", message: SUBAGENT_MERGE_DENY };
+  if (policy === "allow") return { verdict: "allow", message: "" };
+  return { verdict: "ask", message: MERGE_ASK };
+}
+
 // ── dependencies ─────────────────────────────────────────────────────────────
 /** Lifecycle verbs that write package.json or the lockfile. `update`/`upgrade`/`dedupe` re-pin, and
  * the denial message claims agents never re-pin — so the matcher has to agree with it. */
@@ -133,7 +272,14 @@ export function spendsMoney(cmd, patterns = []) {
 const GIT_PRE = "(^|&&|\\|\\||;|\\|)\\s*(rtk\\s+)?git\\s+(-C\\s+\\S+\\s+)?";
 export const BRANCH_CREATE_RE = new RegExp(
   GIT_PRE +
-    "(checkout\\s+-[bB]|switch\\s+(-[cC]|--create)|worktree\\s+add" +
+    // `worktree add` creates a branch in exactly two shapes: an explicit `-b/-B`, or the
+    // single-path form (git auto-creates a branch named after the path). The TWO-ARG form —
+    // `git worktree add <path> <existing-ref>` — checks out an existing ref and creates NOTHING;
+    // it is the worktree-discipline recipe's daily move, and flagging it froze the developer on
+    // ordinary isolated work (live bite 2026-08-20). `--detach` creates no branch in any shape.
+    "(checkout\\s+-[bB]|switch\\s+(-[cC]|--create)" +
+    "|worktree\\s+add\\s+([^&|;]*\\s)?-[bB]([\\s]|$)" +
+    "|worktree\\s+add\\s+(?!(?:[^&|;]*--detach))(--\\S+\\s+)*[^-\\s][^\\s&|;]*\\s*($|&&|\\|\\||;|\\|)" +
     // `--track` / `-t` creates a LOCAL branch from a remote one — it forks history exactly like
     // -b does, and it reads like a checkout, which is what makes it easy to miss.
     //

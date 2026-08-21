@@ -30,6 +30,7 @@ different one — the queue IS the stage's definition of "not done yet":
 | `qa`        | `implemented` with no `qa:*` verdict yet                                                     | oldest first |
 | `audit`     | query-then-inspect — see §5, it is not a label predicate                                     | oldest first |
 | `pre-pr`    | nothing: it needs a target, so say what you need                                             | —            |
+| `push`      | the current branch's committed-but-unpushed work — it needs a branch, not an issue           | —            |
 
 **How many at once is per stage, and the reasons differ:**
 
@@ -59,10 +60,12 @@ skill they load, so a brief that omits the lane gets generic behaviour from the 
 | pre-pr    | `senior-analyst` | `pre-pr-review`          |
 | implement | `developer`      | `implement-method`       |
 | qa        | `tester`         | `qa-method`              |
+| push      | `senior-analyst` | `push-method`            |
 
 The brief names the skill, the issue, the repo, and force:
 
 > _"Audit issue #42 in owner/repo — run the `adversarial-review` skill. focus=auth. force=false."_
+> _"Push the committed work on `fix/42` in owner/repo — run the `push-method` skill. issue=#42."_
 
 Put the repo IN the brief. An agent that has to discover which repo it is working on will guess, and
 its first action is usually a label-only gate that must not open a project file to answer.
@@ -84,6 +87,7 @@ makes a run auditable afterwards:
 | qa        | `PASS/BLOCKED · validate/build/test/smoke · whether the regression test actually guards the bug`                                                |
 | audit     | `pass/changes · top finding · WHICH reviewers ran (codex\|internal\|both)`                                                                      |
 | pre-pr    | `ready/not-ready · delivered · dropped · unasked · what the human must do before merge`                                                         |
+| push      | `remote/branch · SHA range published · issues in the commits · checks state · every STOP flagged with its owning stage`                         |
 
 **A label that failed to apply is reported, never swallowed** — the labels are how the next stage
 finds its work, so a silent failure strands the issue.
@@ -118,6 +122,7 @@ anything else strands finished work:
 | qa       | `PASS`                                                              | audit (reviewer choice per §5)                           |
 | audit    | `pass`                                                              | pre-pr on a full-gate change, otherwise the commit stage |
 | pre-pr   | `ready`                                                             | the commit stage                                         |
+| commit   | recorded                                                            | the push stage (`senior-analyst` + `push-method`)        |
 
 Bounded: **3 loop-backs per issue.** Still red after three → stop looping and surface the open
 findings to the human. A fourth attempt at the same wall is not persistence.

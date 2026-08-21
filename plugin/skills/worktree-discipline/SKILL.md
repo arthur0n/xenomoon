@@ -18,7 +18,8 @@ commits — do all of it somewhere else:
 git worktree add ../wt-<slug> <branch>   # a separate checkout of the same repo
 cd ../wt-<slug>                          # do EVERY step here
 # … rebase / resolve / commit …
-git push origin <branch>
+# publishing is NOT yours: report ready-to-push; the push stage (senior-analyst +
+# push-method) publishes — a worktree add of an existing branch draws no prompt.
 cd -                                     # back to the user's checkout, untouched
 git worktree remove ../wt-<slug>
 ```

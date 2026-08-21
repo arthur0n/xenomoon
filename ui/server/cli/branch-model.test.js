@@ -69,9 +69,9 @@ test("the warning appears only when earned, and the guideline note always does",
   const withDeploy = prompt({ models, branch: "main", deployWorkflows: ["deploy-api.yml"] });
   assert.match(withDeploy, /deploy-api\.yml/);
   assert.match(withDeploy, /ships to production/);
-  assert.match(withDeploy, /not a lock/);
+  assert.match(withDeploy, /push gates draw/);
 
   const without = prompt({ models: order(false), branch: "main", deployWorkflows: [] });
   assert.doesNotMatch(without, /ships to production/);
-  assert.match(without, /not a lock/);
+  assert.match(without, /push gates draw/);
 });

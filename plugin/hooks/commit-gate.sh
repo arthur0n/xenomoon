@@ -248,6 +248,6 @@ elif [ "$qa_sha" != "$head_sha" ]; then
 elif [ "$review_sha" != "$head_sha" ]; then
   decision deny "Gate: review verified #$n at $(short "$review_sha") — committing on $(short "$head_sha"). The pass belongs to code that is no longer HEAD; re-run audit $n."
 else
-  decision allow "Gate green for #$n: qa:pass + review:pass, no blocks, both verdicts verified at HEAD $(short "$head_sha"). Deterministic auto-commit permitted (push stays the human gate)."
+  decision allow "Gate green for #$n: qa:pass + review:pass, no blocks, both verdicts verified at HEAD $(short "$head_sha"). Deterministic auto-commit permitted (publishing is the push stage's, gated by policy.push)."
 fi
 exit 0

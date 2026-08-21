@@ -124,9 +124,18 @@ function buildLogRow(entry) {
   if (entry.kind === "say") {
     row.append(el("span", "log-text", entry.text));
   } else {
-    const pill = el("span", `verb-pill verb-${entry.kind}`, entry.verb);
-    if (entry.color) pill.style.setProperty("--hermes-pill", entry.color);
-    row.append(pill);
+    // A pill that merely restates the agent's role is noise, not a verb — "Codex: Reviewer
+    // REVIEWER" was the live rendering. Skip it when the role already says it; a pill that ADDS
+    // something (Hermes' "Critic" persona against its Researcher role) still shows.
+    const redundant =
+      typeof entry.verb === "string" &&
+      entry.verb !== "" &&
+      agentRole(entry.agent).toLowerCase().includes(entry.verb.toLowerCase());
+    if (!redundant) {
+      const pill = el("span", `verb-pill verb-${entry.kind}`, entry.verb);
+      if (entry.color) pill.style.setProperty("--hermes-pill", entry.color);
+      row.append(pill);
+    }
     const detailEl = el("span", "log-detail");
     detailEl.append(Object.assign(document.createElement("bdo"), { textContent: detail }));
     row.append(detailEl);

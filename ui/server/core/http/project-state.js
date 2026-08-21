@@ -140,15 +140,18 @@ export function projectState() {
         path.join(FRAMEWORK_PLUGIN_DIR, "agents"),
         path.join(dir, ".claude", "agents"),
       ]),
-      // Hermes is an external worker behind an mcp tool, not an SDK agent .md — so the
-      // file scan above never finds it. Surface it in the roster whenever it is enabled, same
-      // as any team member; the client's DISPLAY map already labels the id ("hermes" →
-      // "Hermes: Researcher") and colors it. Codex and Kimi are deliberately NOT listed here:
-      // they are mcp tools with no Claude model behind them, and the roster's model column
-      // would have to invent one (the retired codex-review.md agent read as "Codex · sonnet").
+      // Hermes and Codex are external workers behind mcp tools, not SDK agent .md files — so
+      // the file scan above never finds them. Surface each in the roster whenever it is
+      // enabled, same as any team member; the client's DISPLAY map labels the ids ("hermes" →
+      // "Hermes: Researcher", "codex" → "Codex: Reviewer") and colors them. Codex's model
+      // column says `openai/codex` — the codex CLI owns the actual model choice and the
+      // framework never sees it, so naming the vendor+CLI is honest where the retired
+      // codex-review.md agent's "Codex · sonnet" was not. Kimi stays unlisted until it earns
+      // a row the same way.
       ...(hermesPublicConfig().enabled
         ? [{ name: "hermes", model: hermesPublicConfig().model }]
         : []),
+      ...(codexPublicConfig().enabled ? [{ name: "codex", model: "openai/codex" }] : []),
     ],
     skills: collectSkills([
       path.join(FRAMEWORK_PLUGIN_DIR, "skills"),

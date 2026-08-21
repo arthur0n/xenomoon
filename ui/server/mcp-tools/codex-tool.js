@@ -56,7 +56,10 @@ function relay(send, phase, text, runId) {
   send({
     type: "extAgent",
     agentId: "codex",
-    label: "Codex",
+    // The activity row prints the agent's display name ("Codex: Reviewer", client DISPLAY map)
+    // and then THIS as the verb pill — the role, mirroring Hermes' persona pills ("Researcher"),
+    // not the vendor name again ("Codex CODEX" was the live rendering of that mistake).
+    label: "Reviewer",
     color: CODEX_COLOR,
     phase,
     runId,

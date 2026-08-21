@@ -70,6 +70,7 @@ const DISPLAY = {
   "uat-runner": "UAT Runner",
   "handoff-summarizer": "Handoff",
   hermes: "Hermes: Researcher",
+  codex: "Codex: Reviewer",
   "codex-rescue": "Codex: Rescue",
   kimi: "Kimi: Coder",
 };

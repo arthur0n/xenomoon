@@ -84,11 +84,12 @@ export const items = (models, branch) =>
     detail: named(m.when, branch),
   }));
 
-/** What the installer prints: the list, the warning when earned, and the guideline note.
+/** The question's parts — consumed whole by the interactive picker, or rendered to a string by
+ * prompt() for the piped/CI flow. One builder so the two modes cannot drift.
  * @param {{ models: BranchModel[], branch: string, deployWorkflows: string[] }} opts
- * @returns {string} */
-export function prompt({ models, branch, deployWorkflows }) {
-  return render({
+ * @returns {{ title: string, items: import("./picklist.js").PickItem[], warning: string[], note: string[] }} */
+export function promptOpts({ models, branch, deployWorkflows }) {
+  return {
     title: `Branch model — how work reaches \`${branch}\`.`,
     items: items(models, branch),
     warning:
@@ -103,7 +104,14 @@ export function prompt({ models, branch, deployWorkflows }) {
       "is routine, one reaching your deploy branch asks (policy.push). One line in",
       "<project>/.xenomoon/branch-model; change it whenever the project does.",
     ],
-  });
+  };
+}
+
+/** What the installer prints in the piped/CI flow: the list, the warning when earned, and the
+ * guideline note. @param {{ models: BranchModel[], branch: string, deployWorkflows: string[] }} opts
+ * @returns {string} */
+export function prompt(opts) {
+  return render(promptOpts(opts));
 }
 
 /** The model an answer selects. @param {string} answer @param {BranchModel[]} models

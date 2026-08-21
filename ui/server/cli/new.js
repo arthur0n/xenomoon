@@ -37,8 +37,8 @@ import {
   availableDomains,
 } from "../core/domain-resolver.js";
 import { installCapabilities } from "./install-capabilities.js";
-import { deploysOnPush, order, prompt, choose } from "./branch-model.js";
-import { render, choose as pick, question } from "./picklist.js";
+import { deploysOnPush, order, promptOpts } from "./branch-model.js";
+import { pickList } from "./picklist.js";
 import { detect as detectDomain, order as orderDomains, summarize } from "./domain-pick.js";
 import { DEFAULT_PORT, savedPort, otherInstallPorts, firstFreePort } from "./port-pick.js";
 
@@ -180,20 +180,18 @@ if (!domainName && rl) {
     avail.map((name) => ({ id: name, summary: summarize(packDescriptor(name)) })),
     detected,
   );
-  process.stdout.write(
-    render({
-      title: "Domain for this project — the capability pack installed into `plugin/`.",
-      items: domainItems,
-      note: detected
-        ? [`Detected ${detected.id} from ${detected.why}.`]
-        : ["Nothing in the project decided it — pick the one that matches your stack."],
-    }) + "\n",
-  );
-  const answer = await rl.question(question("Domain", domainItems));
-  domainName = pick(answer, domainItems);
+  const picked = await pickList(rl, {
+    title: "Domain for this project — the capability pack installed into `plugin/`.",
+    items: domainItems,
+    note: detected
+      ? [`Detected ${detected.id} from ${detected.why}.`]
+      : ["Nothing in the project decided it — pick the one that matches your stack."],
+    label: "Domain",
+  });
+  domainName = picked.id;
   if (!domainName) {
     console.error(
-      `new: pick 1-${domainItems.length} or a name (${domainItems.map((d) => d.id).join(", ")}) — got "${answer.trim()}".`,
+      `new: pick 1-${domainItems.length} or a name (${domainItems.map((d) => d.id).join(", ")}) — got "${picked.answer.trim()}".`,
     );
     process.exit(1);
   }
@@ -233,15 +231,14 @@ const deployWorkflows = deploysOnPush(projectWorkflows(target), defaultBranch);
 const branchModels = order(deployWorkflows.length > 0);
 let branchModel = null;
 if (rl) {
-  process.stdout.write(
-    prompt({ models: branchModels, branch: defaultBranch, deployWorkflows }) + "\n",
-  );
-  const first = /** @type {string} */ (branchModels[0]?.id);
-  const answer = await rl.question(`Branch model [empty = ${first}]: `);
-  branchModel = choose(answer, branchModels);
+  const picked = await pickList(rl, {
+    ...promptOpts({ models: branchModels, branch: defaultBranch, deployWorkflows }),
+    label: "Branch model",
+  });
+  branchModel = picked.id;
   if (!branchModel) {
     console.error(
-      `new: pick 1-${branchModels.length} or a name (${branchModels.map((m) => m.id).join(", ")}) — got "${answer.trim()}".`,
+      `new: pick 1-${branchModels.length} or a name (${branchModels.map((m) => m.id).join(", ")}) — got "${picked.answer.trim()}".`,
     );
     process.exit(1);
   }

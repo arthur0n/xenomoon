@@ -49,6 +49,10 @@ export function cmdBranchNew(num, flags) {
     console.log(`branch ✓ ${name}  (from ${base} @ ${sha.slice(0, 7)}, server-side)`);
   }
   console.log(`work on it: git fetch origin && git switch ${name}`);
+  console.log(
+    `note: this branch is EMPTY (base's tip) — for STARTING work. Commits that already exist ` +
+      `locally are published by the push stage (senior-analyst + push-method), not by this verb.`,
+  );
 }
 
 // branch sync <name>: safely move a STALE LOCAL branch to origin's head. Never needs
@@ -165,6 +169,24 @@ export function cmdPrNew(num, flags) {
   const base = baseBranch(repo, flags);
   const prefix = str(flags.prefix) ?? cfgOf().branchPrefix ?? "fix";
   const head = str(flags.head) ?? `${prefix}/${num}-${slugify(issue.title ?? "")}`;
+  // The PR needs a PUBLISHED branch with commits. Opening one against a missing or empty head
+  // fails late or PRs nothing (live bite 2026-08-21: a stray empty remote branch and no PR) —
+  // and the fix is never this command creating branches, it is the push stage publishing the
+  // local work first. Refuse EARLY with the route.
+  const cmp = gh(["api", `repos/${repo}/compare/${base}...${head}`, "-q", ".ahead_by"], {
+    allowFail: true,
+  });
+  if (cmp.status !== 0)
+    throw new Error(
+      `branch "${head}" is not on origin — publish the local work first (the push stage: ` +
+        `senior-analyst running push-method pushes it), then re-run \`issuekit pr ${num}\`.`,
+    );
+  if (cmp.out.trim() === "0")
+    throw new Error(
+      `branch "${head}" is on origin but has NO commits ahead of ${base} — the local work was ` +
+        `never published. Route it through the push stage (senior-analyst + push-method), then ` +
+        `re-run \`issuekit pr ${num}\`.`,
+    );
   const r = gh([
     "pr",
     "create",

@@ -15,7 +15,7 @@ import {
   mergeDecision,
   routinePushTarget,
 } from "./consequential.js";
-import { readBranchModel, deployReaching } from "./branch-doctrine.js";
+import { readBranchModel, deployReaching, branchCreationRoutine } from "./branch-doctrine.js";
 
 /** Both policy values, typed for checkJs. @type {("ask" | "allow")[]} */
 const POLICIES = ["ask", "allow"];
@@ -141,6 +141,18 @@ test("BRANCH_CREATE_RE: worktree add of an EXISTING branch is not branch creatio
     assert.equal(BRANCH_CREATE_RE.test(cmd), true, cmd);
   for (const cmd of ["git switch main", "git branch -d old", "git branch --list"])
     assert.equal(BRANCH_CREATE_RE.test(cmd), false, cmd);
+});
+
+test("branchCreationRoutine: the model sanctions work branches — deviations gate", () => {
+  const d = (/** @type {"pr-main"|"trunk"|"staged"} */ model) => ({
+    model,
+    prod: "main",
+    dev: "development",
+  });
+  assert.equal(branchCreationRoutine(d("pr-main")), true);
+  assert.equal(branchCreationRoutine(d("staged")), true);
+  assert.equal(branchCreationRoutine(d("trunk")), false); // trunk keeps no work branches
+  assert.equal(branchCreationRoutine(null), false); // custom/absent — nothing to check against
 });
 
 test("readBranchModel + deployReaching: the setup choice draws the line, fail-closed", () => {

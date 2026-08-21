@@ -255,25 +255,32 @@ process.stdin.on("end", () => {
     /** @type {string[]} */ const denials = [];
     /** @type {string[]} */ const questions = [];
 
+    // The setup-time branch model, read once — it draws the routine line for push
+    // (deploy-reaching?) and for branch creation (does the convention sanction it?).
+    // FAIL-CLOSED on the doctrine module (Codex impl review, 2026-08-21): a stale or malformed
+    // branch-doctrine.js returning a truthy non-doctrine object must gate, not relax — so the
+    // prod branch is only trusted as a non-empty STRING, and "creation is routine" only as a
+    // literal boolean true from the shared helper.
+    let prod = null;
+    let branchesRoutine = false;
+    try {
+      const bd = await import(path.join(FRAMEWORK_DIR, "ui", "lib", "branch-doctrine.js"));
+      if (typeof bd.readBranchModel === "function") {
+        const doctrine = bd.readBranchModel(p.projectDir);
+        if (doctrine && typeof doctrine.prod === "string" && doctrine.prod) prod = doctrine.prod;
+        if (typeof bd.branchCreationRoutine === "function")
+          branchesRoutine = bd.branchCreationRoutine(doctrine) === true;
+      }
+    } catch {
+      /* no doctrine → everything gates; fail-closed */
+    }
+
     if (m.PUSH_RE.test(cmd)) {
       // STATED BOUNDARY (Codex plan review, 2026-08-21): this surface cannot name the caller —
       // the payload carries only agent_id presence — so it enforces role COARSELY (sub vs main)
       // plus policy. The named push lane (senior-analyst + push-method) is enforced on the server
       // surface, where the pipeline and autonomous runs actually execute. Here, the branch model
       // still draws routine vs deploy-reaching, and policy governs the consequential half.
-      // FAIL-CLOSED on the doctrine module too (Codex impl review, 2026-08-21): a stale or
-      // malformed branch-doctrine.js returning a truthy non-doctrine object must gate, not
-      // relax — so the prod branch is only trusted as a non-empty STRING.
-      let prod = null;
-      try {
-        const bd = await import(path.join(FRAMEWORK_DIR, "ui", "lib", "branch-doctrine.js"));
-        if (typeof bd.readBranchModel === "function") {
-          const doctrine = bd.readBranchModel(p.projectDir);
-          if (doctrine && typeof doctrine.prod === "string" && doctrine.prod) prod = doctrine.prod;
-        }
-      } catch {
-        /* no doctrine → deployReaching stays null → the push gates; fail-closed */
-      }
       const target = typeof m.routinePushTarget === "function" ? m.routinePushTarget(cmd) : null;
       const reaches = prod !== null && target !== null ? target === prod : null;
       const d = m.pushDecision(null, isSubagent, p.push, reaches);
@@ -368,11 +375,13 @@ process.stdin.on("end", () => {
           "chase a difference inside the noise floor is the failure this gate exists for.",
       );
 
-    if (p.branchCreate === "ask" && m.BRANCH_CREATE_RE.test(cmd))
+    // The model is the standing answer: under pr-main/staged, creating a work branch FOLLOWS
+    // the convention the human chose at setup, so it never asks — the prompt is for DEVIATIONS.
+    if (p.branchCreate === "ask" && !branchesRoutine && m.BRANCH_CREATE_RE.test(cmd))
       questions.push(
-        "This creates a branch. Branching shapes where the work lands and how it merges — the " +
-          "project's own doctrine (`.xenomoon/branch-model`). Listing, switching to an existing " +
-          "branch and deleting are untouched.",
+        "This creates a branch, and the project's branch model does not sanction work branches " +
+          "(`trunk` keeps none; no model = nothing to check against — `.xenomoon/branch-model`). " +
+          "Listing, switching to an existing branch and deleting are untouched.",
       );
 
     decide(denials, questions);

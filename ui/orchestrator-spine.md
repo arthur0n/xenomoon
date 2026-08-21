@@ -226,8 +226,11 @@ have to remember:
 - **a dependency change** — adding, removing or re-pinning a package mutates the lockfile, which
   agents cannot clean. Sub-agents are refused; yours asks. A lockfile-faithful sync
   (`--frozen-lockfile`, `npm ci`) is free.
-- **creating a branch** — branching shapes where work lands and how it merges, which is the
-  project's own doctrine. Listing, switching to an existing branch and deleting are untouched.
+- **creating a branch** — the project's branch model IS the standing answer: under `pr-main` and
+  `staged`, creating a work branch FOLLOWS the convention the human chose at setup, and the gate
+  stays silent — attempt it, never pre-ask in chat. The prompt exists for DEVIATIONS (`trunk`
+  keeps no work branches; no model = nothing to check). Listing, switching to an existing branch
+  and deleting are untouched.
   (One case is deliberately not caught: git can create a local branch from a plain
   `switch <name>` when that name exists on exactly one remote. Detecting it needs repo state,
   and prompting on every switch would train people to click through.)

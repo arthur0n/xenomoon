@@ -17,7 +17,11 @@ import {
   mutatesDependencies,
   spendsMoney,
 } from "../../lib/consequential.js";
-import { readBranchModel, deployReaching } from "../../lib/branch-doctrine.js";
+import {
+  readBranchModel,
+  deployReaching,
+  branchCreationRoutine,
+} from "../../lib/branch-doctrine.js";
 import { migrationsPending } from "../../lib/migrations.js";
 import {
   TASK_TOOL,
@@ -313,6 +317,9 @@ function classifyConsequential(cmd, policy, agent) {
   /** @type {string[]} */ const questions = [];
   /** @type {string[]} */ const kinds = [];
   const isSubagent = agent !== "main";
+  // The setup-time branch model, read once per classification — it draws the routine line for
+  // both push (deploy-reaching?) and branch creation (does the convention sanction it?).
+  const doctrine = readBranchModel(PROJECT_DIR);
   let pushDenied = false;
 
   if (PUSH_RE.test(cmd)) {
@@ -321,7 +328,7 @@ function classifyConsequential(cmd, policy, agent) {
     // routing deny (dispatch the stage), every other lane gets the report-ready deny. The
     // branch model (the setup choice) draws routine vs deploy-reaching — fail-closed: only the
     // strict routine shape targeting a non-prod branch is routine.
-    const reaches = deployReaching(routinePushTarget(cmd), readBranchModel(PROJECT_DIR));
+    const reaches = deployReaching(routinePushTarget(cmd), doctrine);
     const d = pushDecision(agent, isSubagent, policy.push, reaches);
     if (d.verdict === "deny") {
       denials.push(d.message);
@@ -378,17 +385,28 @@ function classifyConsequential(cmd, policy, agent) {
   // project-defined script, and a command that will be refused anyway must not run it.
   if (!pushDenied) migrationQuestion(cmd, policy, kinds, questions);
 
-  if (BRANCH_CREATE_RE.test(cmd) && policy.branchCreate === "ask") {
-    kinds.push("branch-create");
-    questions.push(
-      "This creates a branch. Branching shapes where the work lands and how it merges — the " +
-        "project's own doctrine (`.xenomoon/branch-model`). Listing, switching to an existing " +
-        "branch and deleting are untouched.",
-    );
-  }
+  branchCreateQuestion(cmd, policy, doctrine, kinds, questions);
 
   // Denials win: nothing runs, so the questions are moot.
   return { denials, questions, kinds };
+}
+
+/** The branch-creation question — asked only for DEVIATIONS. The model is the standing answer
+ * (live bite 2026-08-21): under pr-main/staged, creating a work branch FOLLOWS the convention the
+ * human chose at setup, so it never asks; `trunk` keeps no work branches and custom/absent give
+ * nothing to check, so those gate. Split out to keep the classifier under the complexity cap.
+ * @param {string} cmd @param {ReturnType<typeof getActionPolicy>} policy
+ * @param {ReturnType<typeof readBranchModel>} doctrine
+ * @param {string[]} kinds @param {string[]} questions */
+function branchCreateQuestion(cmd, policy, doctrine, kinds, questions) {
+  if (!BRANCH_CREATE_RE.test(cmd)) return;
+  if (policy.branchCreate !== "ask" || branchCreationRoutine(doctrine)) return;
+  kinds.push("branch-create");
+  questions.push(
+    "This creates a branch, and the project's branch model does not sanction work branches " +
+      "(`trunk` keeps none; no model = nothing to check against — `.xenomoon/branch-model`). " +
+      "Listing, switching to an existing branch and deleting are untouched.",
+  );
 }
 
 /**

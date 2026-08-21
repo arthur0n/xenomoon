@@ -51,13 +51,16 @@ export const PUSH_LANE_ASK =
   "pipeline's last gate, and this is the push lane (`push-method`) asking for it. Approve once " +
   "the branch is fast-forward on the intended remote, the commit gate's verdicts are green and " +
   "unblocked, and the checks are not red. A routine work-branch push under this project's branch " +
-  "model does not ask.";
+  "model does not ask — but ONLY in the bare shape `git push <remote> <branch>`: any chained " +
+  "command (`; echo …` exit-capture included), redirect or extra flag gates as unnameable.";
 
 export const UNKNOWN_AGENT_PUSH_ASK =
   "`git push` toward the deploy branch (or an unnamed target). This surface cannot tell WHICH " +
   "agent is asking, so the question comes to you: the push lane is `senior-analyst` running " +
   "`push-method` — adversarial to the author — and every other lane reports ready-to-push " +
-  "instead of pushing. Approve only if that lane is what is running.";
+  "instead of pushing. Approve only if that lane is what is running. (A routine work-branch " +
+  "push does not ask — but only in the bare shape `git push <remote> <branch>`; chains, " +
+  "redirects and extra flags gate as unnameable.)";
 
 export const TOP_LEVEL_PUSH_ASK =
   "`git push` toward the deploy branch (or an unnamed target) — the pipeline's last gate. Inside " +

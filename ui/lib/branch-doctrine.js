@@ -45,6 +45,19 @@ export function readBranchModel(projectDir) {
 }
 
 /**
+ * Does the project's branch model SANCTION creating work branches? Under `pr-main` and `staged`
+ * the convention IS "work happens on short-lived branches" — creating one follows the setup-time
+ * decision, and asking again second-guesses the human's own standing answer (live bite
+ * 2026-08-21: the pipeline asked for consent to create the feature branch its model prescribes).
+ * `trunk` keeps no work branches, so a creation there is a DEVIATION worth its prompt; `custom`
+ * and an absent file give no convention to check against, so they gate too.
+ * @param {ReturnType<typeof readBranchModel>} doctrine
+ * @returns {boolean} */
+export function branchCreationRoutine(doctrine) {
+  return !!doctrine && (doctrine.model === "pr-main" || doctrine.model === "staged");
+}
+
+/**
  * Does this push reach the deploy branch? Three answers:
  *   false — the command is the ROUTINE shape (`git push <remote> <branch>`, see
  *           `routinePushTarget`) and its branch is not `prod`: the pipeline's daily publish.

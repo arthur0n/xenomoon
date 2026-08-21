@@ -45,8 +45,11 @@ git push <remote> <branch>
 ```
 
 No flags beyond an explicitly-briefed `-u`, no tags, no refspecs, no `--force*`, no second
-command chained on. If the push draws a policy prompt, that prompt IS the gate — a human
-answers it, and a refusal ends the stage with a flagged report.
+command chained on — **including the `2>&1; echo "===EXIT:$?==="` exit-capture idiom**: the
+gate reads any chain or redirect as an unnameable push and prompts a human for what should
+have been routine (live bite 2026-08-21). The tool result already carries the exit status;
+run the bare command. If the push draws a policy prompt anyway, that prompt IS the gate — a
+human answers it, and a refusal ends the stage with a flagged report.
 
 ## 3. The report — the receipt
 

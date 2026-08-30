@@ -19,8 +19,12 @@ const STUB = path.join(TMP, "stub-companion.mjs");
 process.env.XENOMOON_DOMAIN = "webapp";
 process.env.GAME_DIR = TMP;
 process.env.CODEX_ENABLED = "true";
+// The env override doubles as the readiness seam: with CODEX_COMPANION overridden, the tool
+// skips its pre-spend checkCodex() probe — which is what keeps this suite hermetic (no real
+// `codex` CLI is ever shelled).
 process.env.CODEX_COMPANION = STUB;
 const { makeCodexTool } = await import("./codex-tool.js");
+const { PROJECT_DIR } = await import("../core/config.js");
 
 /** @typedef {import("../../lib/types.js").OutMsg} OutMsg */
 
@@ -31,8 +35,12 @@ function installStub(payload, exitCode = 0, json = true) {
   const body = json ? JSON.stringify(payload) : String(payload);
   writeFileSync(
     STUB,
+    // The audit prompt is multi-line, so the substitutions are JSON-escaped — a raw newline
+    // spliced into the payload string would corrupt the stub's own JSON output.
     `const argv = process.argv.slice(2);\n` +
-      `process.stdout.write(${JSON.stringify(body)}.replace("__ARGV__", argv.join(" ")));\n` +
+      `const esc = (s) => JSON.stringify(s).slice(1, -1);\n` +
+      `process.stdout.write(${JSON.stringify(body)}` +
+      `.replace("__ARGV__", esc(argv.join(" "))).replace("__CWD__", esc(process.cwd())));\n` +
       `process.exit(${exitCode});\n`,
     "utf8",
   );
@@ -47,12 +55,20 @@ function makeSend() {
 
 /** Call the tool and return its text result. Optional keys are spread in explicitly because the
  * SDK's InferShape keeps them required-as-`| undefined` (same trick as hermes-tool.test.js).
- * @param {{ kind?: "review" | "adversarial-review", base?: string, scope?: "auto" | "working-tree" | "branch", focus?: string }} input
+ * @param {{ kind?: "review" | "adversarial-review" | "audit", base?: string, scope?: "auto" | "working-tree" | "branch", focus?: string, cwd?: string, effort?: "low" | "medium" | "high" | "xhigh" }} input
  * @param {(o: OutMsg) => void} send @returns {Promise<string>} */
 async function run(input, send) {
   const t = makeCodexTool(send);
   const res = await t.handler(
-    { kind: undefined, base: undefined, scope: undefined, focus: undefined, ...input },
+    {
+      kind: undefined,
+      base: undefined,
+      scope: undefined,
+      focus: undefined,
+      cwd: undefined,
+      effort: undefined,
+      ...input,
+    },
     {},
   );
   return /** @type {{ content: { text?: string }[] }} */ (res).content[0]?.text ?? "";
@@ -185,7 +201,9 @@ test("flags reach the companion; focus only on the adversarial pass", async () =
     { kind: "review", base: "main", scope: "branch", focus: "ignored" },
     makeSend().send,
   );
-  assert.match(plain, /argv: review --base main --scope branch --json$/m);
+  // --cwd is emitted ALWAYS (one code path, no "did it default?" ambiguity).
+  assert.match(plain, new RegExp(`argv: review --cwd .+ --base main --scope branch --json$`, "m"));
+  assert.ok(plain.includes(`--cwd ${PROJECT_DIR} `), "defaults to the bound project");
 
   // The adversarial receipt is built from `result`, not from the prose, so the echo rides there.
   installStub({
@@ -194,7 +212,141 @@ test("flags reach the companion; focus only on the adversarial pass", async () =
     result: { verdict: "approve", summary: "argv: __ARGV__", findings: [], next_steps: [] },
   });
   const adv = await run({ kind: "adversarial-review", focus: "the save path" }, makeSend().send);
-  assert.match(adv, /argv: adversarial-review --json the save path$/m);
+  assert.match(adv, /argv: adversarial-review --cwd .+ --json the save path$/m);
+});
+
+test("audit maps to the task verb: read-only, blocking, effort high, rubric in the prompt", async () => {
+  installStub({ status: "completed", threadId: "th_1", rawOutput: "argv: __ARGV__" });
+  const text = await run({ kind: "audit", focus: "the auth boundary" }, makeSend().send);
+
+  assert.match(text, /argv: task --cwd .+ --effort high --json /);
+  assert.ok(!text.includes("--write"), "an audit never opts into workspace-write");
+  assert.ok(!text.includes("--background"), "blocking is the tool's contract");
+  assert.ok(!/--base|--scope/.test(text), "task takes no review flags");
+  // The rubric rides the prompt — task has no template and no outputSchema.
+  assert.match(text, /EXHAUSTIVE ADVERSARIAL AUDIT/);
+  assert.match(text, /Do NOT prefer one strong finding/);
+  assert.match(text, /\[P0\]/);
+  assert.match(text, /Never run `git fetch`/);
+  assert.match(text, /TOTAL: <n> findings/);
+  assert.match(text, /Weight these areas first, but audit everything in scope: the auth boundary/);
+});
+
+test("audit: base becomes a scope sentence in the prompt, never a flag", async () => {
+  installStub({ status: "completed", rawOutput: "argv: __ARGV__" });
+  const text = await run({ kind: "audit", base: "main" }, makeSend().send);
+  assert.ok(!text.includes("--base"), "task has no --base flag");
+  assert.match(text, /the changes on this branch relative to `main`/);
+});
+
+test("audit: effort is caller-tunable, and never leaks onto a review", async () => {
+  installStub({ status: "completed", rawOutput: "argv: __ARGV__" });
+  const audit = await run({ kind: "audit", effort: "medium" }, makeSend().send);
+  assert.match(audit, /--effort medium/);
+
+  installStub({ target: { label: "t" }, codex: { status: 0, stdout: "argv: __ARGV__" } });
+  const review = await run({ kind: "review", effort: "medium" }, makeSend().send);
+  assert.ok(!review.includes("--effort"), "the native reviewer owns its own settings");
+});
+
+test("audit receipt and park file come from rawOutput, with the TOTAL headline first", async () => {
+  const prose =
+    "## [P0] Token check off by one\n- where: auth.js:40\n\n" +
+    "TOTAL: 1 findings (1 P0, 0 P1, 0 P2, 0 P3)";
+  installStub({ status: "completed", threadId: "th_9", turnId: "tu_9", rawOutput: prose });
+  const text = await run({ kind: "audit" }, makeSend().send);
+
+  assert.match(text, /^TOTAL: 1 findings \(1 P0, 0 P1, 0 P2, 0 P3\)$/m, "headline present");
+  assert.match(text, /Token check off by one/);
+  const file = String(/full review: (.+)$/m.exec(text)?.[1]);
+  assert.match(file, /-audit\.md$/, "parked under the framework kind name, not 'task'");
+  assert.match(readFileSync(file, "utf8"), /Token check off by one/, "park holds rawOutput");
+  assert.match(text, /thread: th_9 · turn: tu_9/);
+  assert.match(text, /resume: codex resume th_9/);
+});
+
+test("audit skeleton keeps more finding lines than a review skeleton", async () => {
+  const many = Array.from({ length: 200 }, (_, i) => `- [P2] finding ${i}: ${"pad ".repeat(20)}`);
+  installStub({
+    status: "completed",
+    rawOutput: `${many.join("\n")}\nTOTAL: 200 findings (0 P0, 0 P1, 200 P2, 0 P3)`,
+  });
+  const text = await run({ kind: "audit" }, makeSend().send);
+  // 200 structural lines (the TOTAL trailer is not a bullet) minus the 120 audit cap.
+  assert.match(text, /…\(80 more\)/, "audit cap is 120, not the review's 60");
+  assert.match(text, /finding 100:/, "lines past the review cap survive");
+});
+
+test("cwd: a valid directory is reviewed in place and named on the receipt", async () => {
+  installStub({
+    target: { label: "t" },
+    codex: { status: 0, stdout: "argv: __ARGV__ cwd: __CWD__" },
+  });
+  const text = await run({ kind: "review", cwd: TMP }, makeSend().send);
+  assert.ok(text.includes(`--cwd ${TMP}`), "flag carries the worktree");
+  // macOS tmpdir is a /private symlink, so the child's cwd may be the realpath — suffix-match.
+  const echoed = / cwd: (.+)$/m.exec(text)?.[1] ?? "";
+  assert.ok(echoed.endsWith(TMP.replace(/^\/private/, "")), "the companion RUNS in that tree");
+  assert.match(text, new RegExp(`^tree: ${TMP.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
+});
+
+test("cwd: a missing path is refused as a setup answer — nothing spawns, nothing parks", async () => {
+  installStub({ target: { label: "t" }, codex: { status: 0, stdout: "should never run" } });
+  const before = parked().length;
+  const { send, msgs } = makeSend();
+  const text = await run({ kind: "review", cwd: "/nope/never/here" }, send);
+  assert.match(text, /is not a directory/);
+  assert.match(text, /omit cwd to review the bound project/);
+  assert.equal(msgs.length, 0, "no feed rows for a call that never ran");
+  assert.equal(parked().length, before, "no park file");
+});
+
+test("cwd: a file (not a directory) is refused the same way", async () => {
+  installStub({ target: { label: "t" }, codex: { status: 0, stdout: "should never run" } });
+  const text = await run({ kind: "review", cwd: STUB }, makeSend().send);
+  assert.match(text, /is not a directory/);
+});
+
+test("omitted cwd reviews the bound project and says so", async () => {
+  installStub({ target: { label: "t" }, codex: { status: 0, stdout: "fine" } });
+  const text = await run({ kind: "review" }, makeSend().send);
+  assert.ok(text.includes(`tree: ${PROJECT_DIR} (bound project)`));
+});
+
+test("trace ids surface when the payload carries them, and are never invented", async () => {
+  installStub({
+    target: { label: "t" },
+    codex: { status: 0, stdout: "fine" },
+    threadId: "th_a",
+    sourceThreadId: "th_src",
+  });
+  const withIds = await run({ kind: "review" }, makeSend().send);
+  assert.match(withIds, /thread: th_a · source thread: th_src/);
+  assert.match(withIds, /resume: codex resume th_a/);
+
+  installStub({ target: { label: "t" }, codex: { status: 0, stdout: "fine" } });
+  const without = await run({ kind: "review" }, makeSend().send);
+  assert.ok(!/thread:/.test(without), "no id line without ids");
+  assert.ok(!/resume:/.test(without), "no resume hint without a thread");
+});
+
+test("nonzero exit with valid JSON comes back DEGRADED — data kept, verdict refused", async () => {
+  installStub(
+    { target: { label: "t" }, codex: { status: 3, stdout: "half a review", stderr: "" } },
+    3,
+  );
+  const text = await run({ kind: "review" }, makeSend().send);
+  assert.match(text, /^DEGRADED — the Codex companion exited 3\./, "prefix first");
+  assert.match(text, /NOT lane evidence/);
+  assert.match(text, /half a review/, "the partial data still rides along");
+  const file = String(/full review: (.+)$/m.exec(text)?.[1]);
+  assert.match(readFileSync(file, "utf8"), /half a review/, "still parked");
+});
+
+test("exit 0 never reads as DEGRADED", async () => {
+  installStub({ target: { label: "t" }, codex: { status: 0, stdout: "clean" } });
+  const text = await run({ kind: "review" }, makeSend().send);
+  assert.ok(!/DEGRADED/.test(text));
 });
 
 test("non-JSON output is reported as a broken tool, not as a review", async () => {

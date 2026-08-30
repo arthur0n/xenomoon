@@ -157,12 +157,15 @@ Right-size the gate to the work:
 - A backgrounded implementer writes its full report to `.xenomoon/handoffs/<slug>.md`
   (agent-report protocol) and the haiku `handoff-summarizer` distills it — you never load
   the raw report.
-- A **Codex `audit`** goes through the **`mcp__ui__codex` tool**, never a background Bash whose
-  output you read and post. Two reasons, both learned the hard way: the raw review lands in your
-  context, and its vocabulary reaches the lane unmapped — a live project posted
-  `## 🔎 REVIEW — approve`, which the commit gate could not read as a pass. `pipeline-dispatch`
-  owns the mapping (`approve` → `pass`, `needs-attention` → `changes`) and the reconciliation when
-  two reviewers ran; follow it rather than restating it here.
+- A **Codex `audit`** goes through the **`mcp__ui__codex` tool** with `kind: "audit"` (the
+  exhaustive enumeration — the native `review` kind is a mergeability headline, not an audit),
+  never a background Bash whose output you read and post. Two reasons, both learned the hard way:
+  the raw review lands in your context, and its vocabulary reaches the lane unmapped — a live
+  project posted `## 🔎 REVIEW — approve`, which the commit gate could not read as a pass.
+  When the lane runs in a git worktree, pass `cwd` or the review judges the main checkout.
+  `pipeline-dispatch` owns the kind choice, the mapping (`approve` → `pass`,
+  `needs-attention` → `changes`) and the reconciliation when two reviewers ran; follow it rather
+  than restating it here.
 - **`design` is foreground only** (the product-owner round-trips `mcp__ui__form`).
 - **Commit is a serialized single step.** `commit` writes the shared tree's history —
   never run it alongside the implement stage on the same tree.
@@ -216,8 +219,10 @@ owns which agents run them). What is webapp-specific:
 - **The dimensions that matter most on this stack** — data scoping / tenancy leaks, the auth
   adapter boundary, and enum/label drift. Say so in the `focus` you pass to `audit`; the audit
   attacks everything, but naming the stack's usual suspects sharpens it.
-- **Codex bills on OpenAI's account** (the user's own, not the Anthropic plan) and is slow, so
-  state that you are launching a billed review before you start it.
+- **Codex bills on OpenAI's account** (the user's own, not the Anthropic plan) and is slow — an
+  `audit` is the priciest and slowest kind of all — so state that you are launching a billed
+  review (and which kind) before you start it. When one strong objection is what you need,
+  `adversarial-review` is the cheaper, sharper buy.
 
 `review:changes` loops back to `implement`. Only `commit` after `review:pass` — and on a full-gate
 change, after `pre-pr` says `ready`.

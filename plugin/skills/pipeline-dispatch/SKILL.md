@@ -157,12 +157,25 @@ different things:
 Propose the choice and let the human decide when it is not obvious — Codex spends their money, and
 skipping review spends their trust.
 
+**Which kind, once Codex is chosen.** The kinds are calibrated differently, and using the wrong
+one is how a live project got one finding per round for ten rounds:
+
+- `review` — the native diff review, a mergeability headline. Cheapest; ignores focus text.
+- `adversarial-review` — a high-precision challenge to the approach: one strong objection **by
+  design** (its template prefers one strong finding — that is a feature, not a drip). For "is
+  this change sound?".
+- `audit` — exhaustive adversarial enumeration: every defect, severity-laddered, ending in a
+  `TOTAL:` count. Slowest and priciest. For "list everything wrong" — never re-run it expecting
+  a verdict; it produces the list.
+
 **Run Codex through the `mcp__ui__codex` tool**, never your own Bash: the full review then stays
 out of your context and you get a receipt back (verdict, findings as one-liners, next steps, and the
 path to the full review on disk). (This replaced first a background Bash, then a `codex-review`
 sub-agent — one route, so the raw output cannot leak into the router's context, and no Claude turn
 is spent formatting what the companion already emits as JSON. If the tool is not available in a
-given install, that is a setup problem to report, not a reason to shell out.) Its vocabulary is not
+given install, that is a setup problem to report, not a reason to shell out.) When the lane runs
+in a git worktree, pass `cwd` — without it the review judges the main checkout and the receipt is
+about the wrong code (the receipt's `tree:` line says which was reviewed). Its vocabulary is not
 the lane's — map
 `approve` → `pass` and `needs-attention` → `changes` when you record it. Never paste its verdict
 wording into the lane raw; a live project did, and the gate read `## 🔎 REVIEW — approve` as a block.
@@ -172,7 +185,14 @@ structure only (headings + finding leads), with the full text parked on disk. Do
 verdict off a partial receipt and do not read the file into your own context: dispatch
 `xenomoon:handoff-summarizer` on the named path — haiku, ≤5 lines, `verdict`/`blocking`/`minor`/
 `open` — and map from THAT. A `verdict:` line (the adversarial pass) or a short native review is
-already complete; summarizing those only loses detail.
+already complete; summarizing those only loses detail. (An audit receipt is normally PARTIAL by
+design — its finding leads ARE the enumeration and its `TOTAL:` headline the count; the verdict
+still comes from the summarizer on the parked path.)
+
+**A receipt that opens `DEGRADED —` is not evidence.** The companion exited nonzero; a partial
+result is not a partial verdict. Do not post it under a reviewer's evidence heading, do not map a
+lane verdict from it, and do not loop back on it. Report the exit code and stderr to the human,
+and re-run only after the cause is fixed.
 
 ### Audit with no number: query, THEN inspect
 

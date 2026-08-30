@@ -1,9 +1,9 @@
 # Codex — optional, on-demand code review
 
-Xenomoon can use **OpenAI's Codex** as a second pair of eyes on code, for **both** the game
-(GDScript under your project) and the framework itself. It's **off by default**, gated, and
-lives **outside** the framework spine (`plugin/`) — nothing ships to games unless you turn it
-on. This mirrors the [Hermes](HERMES.md) pattern: a separate program with its **own model and
+Xenomoon can use **OpenAI's Codex** as a second pair of eyes on code, for **both** the bound
+project and the framework itself. It's **off by default**, gated, and
+lives **outside** the framework spine (`plugin/`) — nothing ships to a bound project unless you
+turn it on. This mirrors the [Hermes](HERMES.md) pattern: a separate program with its **own model and
 its own billing** (your Anthropic plan does **not** cover it).
 
 We don't reinvent the reviewer — we vendor OpenAI's official Claude Code plugin
@@ -77,10 +77,10 @@ are allowed depends on **how you logged in**:
 "Test Codex" button shows it) when a `*-codex` model is paired with a ChatGPT login — the exact
 combination that makes every review fail.
 
-## Reviewing the **game**
+## Reviewing the **bound project**
 
-In a game session (the web UI), once Codex is enabled, type a slash command in the input — it
-expands against the game's working tree, just like in terminal Claude Code:
+In a project session (the web UI), once Codex is enabled, type a slash command in the input — it
+expands against the project's working tree, just like in terminal Claude Code:
 
 ```
 /codex:review --base main
@@ -88,10 +88,25 @@ expands against the game's working tree, just like in terminal Claude Code:
 ```
 
 Codex posts its findings back into the session. You don't have to type the slash command
-yourself: the orchestrator can launch a review directly by calling the vendored companion CLI
-(`node vendor/codex-plugin-cc/plugins/codex/scripts/codex-companion.mjs review …` — the same
-script the slash command wraps) and can delegate a fix-it pass to the `codex:codex-rescue`
+yourself: the orchestrator runs Codex through the **`mcp__ui__codex` tool** (which wraps the same
+vendored companion CLI, parks the full review under `.xenomoon/codex/`, and returns a distilled
+receipt) and can delegate a fix-it pass to the `codex:codex-rescue`
 subagent. Everything is advisory — nothing auto-applies.
+
+### Review, adversarial-review, audit
+
+The tool offers three kinds, calibrated differently — cheapest/fastest first:
+
+- **`review`** — Codex's native diff review: a mergeability headline. Ignores focus text.
+- **`adversarial-review`** — a high-precision challenge to the approach; its template prefers
+  **one strong finding** by design. For "is this change sound?".
+- **`audit`** — an exhaustive adversarial enumeration under a framework-authored rubric (severity
+  ladder `[P0]..[P3]`, a `TOTAL:` count, read-only — it runs the companion's `task` verb, never
+  with write access). Slowest and priciest. For "list everything wrong".
+
+**Worktrees:** `mcp__ui__codex({ cwd })` reviews a git worktree instead of the bound project's
+main checkout; the full review is still parked under the bound project's `.xenomoon/codex/`, and
+every receipt names the `tree:` it actually reviewed.
 
 > **Consent-gated, not incapable.** Slash commands only run when **you** type them (the SDK
 > can't expand a slash command on its own) — but the orchestrator _can_ run Codex directly via
@@ -121,13 +136,18 @@ UI use the same local Codex.)
 - Reviews are **read-only and advisory**; the review gate stays **off** (no auto-blocking, no
   Claude↔Codex loops). If you ever want the gate, it's the plugin's
   `/codex:setup --enable-review-gate` — opt in knowingly.
-- Nothing about Codex is committed to the framework or shipped to games; it's vendored locally
-  and gated off until you run setup.
+- Nothing about Codex is committed to the framework or shipped to a bound project; it's vendored
+  locally and gated off until you run setup.
 
 ## Troubleshooting
 
 - `npm run codex:check` is the fast verdict: CLI on PATH? `codex login status` OK? plugin
   vendored? default model routable? It prints exactly what's missing.
+- **`⚠ vendored companion no longer advertises: …`** from `npm run codex:check` — the vendored
+  plugin drifted: an upstream sync changed the companion verbs the `mcp__ui__codex` tool maps its
+  kinds onto (`review`, `adversarial-review`, `task`). Warn-only (parsed from help text), but
+  paid calls may start failing — re-run `npm run codex:setup` or pin a known tag with
+  `--ref=<tag>`.
 - **"both Codex models were rejected by the ChatGPT account"** / `… model is not supported when
 using Codex with a ChatGPT account` → your default model is a `*-codex` variant. Set
   `model = "gpt-5.5"` in `~/.codex/config.toml` (or pass `codex -c model=gpt-5.5`), or switch to

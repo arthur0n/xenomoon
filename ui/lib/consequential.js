@@ -253,21 +253,237 @@ export function mutatesDependencies(cmd) {
 export const DEFAULT_SPEND_RE =
   /\b(api\.openai\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|api\.groq\.com|api\.mistral\.ai|api\.cohere\.ai|openrouter\.ai|api\.replicate\.com|api\.elevenlabs\.io)\b/i;
 
+/** Binaries that can actually RUN something (and therefore spend). Everything absent from this set
+ * — grep, rg, sed, awk, cat, echo, ls, git, jq, find, pgrep — only INSPECTS, whatever it is holding
+ * in its arguments. */
+const RUNNERS = new Set([
+  "pnpm",
+  "npm",
+  "npx",
+  "pnpx",
+  "yarn",
+  "bun",
+  "bunx",
+  "node",
+  "deno",
+  "tsx",
+  "ts-node",
+  "python",
+  "python3",
+  "bash",
+  "sh",
+  "zsh",
+  "curl",
+  "wget",
+  "make",
+  // Runners that reach a network the same way the ones above do. Named explicitly rather than
+  // left to the unknown-token path, because the hostname test below is now segment-scoped: an
+  // executor absent from this set reads as prose and stays silent.
+  "http",
+  "httpie",
+  "xh",
+  "docker",
+  "podman",
+  "uv",
+  "uvx",
+  "pipx",
+  "go",
+  "cargo",
+  "ruby",
+  "php",
+  "perl",
+]);
+
+/** Commands that PREFIX a real command without being one: the executable is further right. */
+const SPEND_WRAPPERS = new Set([
+  "rtk",
+  "command",
+  "env",
+  "time",
+  "nice",
+  "nohup",
+  "sudo",
+  "xargs",
+  "timeout",
+]);
+
 /**
- * Does this command spend real money? The project's own patterns are added to the defaults —
- * substrings, matched case-insensitively, because a project declares things like
- * `scripts/eval.ts` or `db:seed-images`, not regexes.
+ * The command split into what the shell would RUN and the bodies of heredocs fed to a runner.
+ *
+ * A quoted-delimiter heredoc (`<<'EOF'` / `<<"EOF"`) undergoes no expansion — it is literal bytes.
+ * When the line introducing it runs a non-executor (`cat > report.md`, `tee`, `mkdir -p x && cat >
+ * y`), those bytes are FILE CONTENT and the shell never runs a word of them. Scanning them for
+ * spend is scanning a document, and it produced the noisiest false positive of all: an issue report
+ * ABOUT this gate quoted `curl https://api.openai.com/...` as its own evidence, and writing the
+ * report asked for spend consent.
+ *
+ * The exemption is withheld exactly where the body IS executed. An UNQUOTED delimiter expands, so
+ * `$(…)` inside it runs — that body is left inline and segment-scoped like any other text. A body
+ * fed to a RUNNER (`bash <<'EOF'`, `python3 <<'EOF'` — stdin is a script) comes back separately in
+ * `executed`, because segment scoping cannot read it: a metered host inside a Python script sits on
+ * a line whose first word is `import` or `urllib`, not a binary. An executor was handed the whole
+ * body, so the whole body is the haystack.
+ * @param {string} cmd @returns {{ rest: string, executed: string }}
+ */
+function splitHeredocs(cmd) {
+  const lines = cmd.split("\n");
+  /** @type {string[]} */
+  const rest = [];
+  /** @type {string[]} */
+  const executed = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    rest.push(line);
+    const m = /<<-?\s*(['"])([A-Za-z_][A-Za-z0-9_]*)\1/.exec(line);
+    if (!m) continue;
+    const delim = m[2];
+    let j = i + 1;
+    while (j < lines.length && (lines[j] ?? "").trim() !== delim) j++;
+    const body = lines.slice(i + 1, j);
+    // The introducing line minus its redirection — what would actually run.
+    if (isRunner(segmentExecutable(line.split("<<")[0] ?? ""))) executed.push(...body);
+    // An unterminated heredoc means the rest of the string is body; it leaves `rest` either way.
+    i = Math.min(j, lines.length - 1);
+  }
+  return { rest: rest.join("\n"), executed: executed.join("\n") };
+}
+
+/**
+ * The command line split into the pieces the shell would run separately.
+ *
+ * Deliberately NOT `mutatesDependencies`' split (above): that gate has its own live-bite history
+ * and its own shape, and one shared splitter would make a fix for either one a change to both.
+ *
+ * Command substitution and grouping normalise to separators FIRST, before the split: without it
+ * `echo $(pnpm eval:test)` reads as an `echo` — an inspection command — while the shell really
+ * runs the paid one inside it.
+ * @param {string} cmd @returns {string[]}
+ */
+function splitSegments(cmd) {
+  return (
+    cmd
+      // ONLY the openers become separators. Closing `)` / `}` deliberately do NOT: normalising them
+      // too shredded a runner away from its own argument — `node -e "fetch('https://host/x')"` split
+      // at the paren, leaving the hostname in a segment whose "executable" was a quoted URL, and the
+      // one genuine spend in that shape went silent. The opener is what hides a command; the closer
+      // hides nothing. Grouping keeps working because `{ … ; }` and `( … ; )` carry real separators,
+      // and segmentExecutable strips a leading bracket from the first token.
+      .replace(/\$\(|`/g, ";")
+      .split(/&&|\|\||;|\||\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+  );
+}
+
+/**
+ * The token a segment would actually EXECUTE, or null if there is none.
+ *
+ * Consumes from the front repeatedly, because the prefixes stack: `rtk`, an env assignment, a
+ * global flag and a bare duration can all sit in front of the real binary
+ * (`timeout 300 pnpm eval:test` → `pnpm`).
+ * @param {string} seg @returns {string | null}
+ */
+function segmentExecutable(seg) {
+  // A markdown line is not a command. Reports written by heredoc are the ordinary traffic in a
+  // project that documents its own API usage, and their bullets/quotes otherwise parse as an
+  // executable: `- \`worker/src/ai.ts\`` skips the `-` as a flag and lands on a path-shaped token.
+  // Bailing here keeps prose out of BOTH tests below (live bite 2026-08-30).
+  if (/^\s*(?:[-*>#]\s|\d+[.)]\s|\|)/.test(seg)) return null;
+  const tokens = seg
+    .split(/\s+/)
+    .map((t) => t.replace(/^[({]+/, "")) // `( pnpm eval:test )` — the bracket is not the binary
+    .filter(Boolean);
+  for (const t of tokens) {
+    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) continue; // FOO=1
+    if (SPEND_WRAPPERS.has(t)) continue; // rtk / env / timeout …
+    if (t.startsWith("-")) continue; // a global flag
+    if (/^\d+[smh]?$/.test(t)) continue; // `timeout 300 …`
+    // A quoted or backticked token is being TALKED ABOUT, not run. The splitter already turned
+    // backticks into separators, so what survives here is a stray quote — prose, not a binary.
+    if (/["']/.test(t)) return null;
+    return t;
+  }
+  return null;
+}
+
+/** Does this segment's executable actually RUN something? A bare name in RUNNERS, or an explicit
+ * path/script the shell would execute (`./run.sh`, `/abs/bin/x`, `../x.mjs`,
+ * `./node_modules/.bin/promptfoo`). A path-shaped token that is NOT anchored — `worker/src/ai.ts`
+ * as it appears mid-sentence in a report — is prose.
+ * @param {string | null} exe @returns {boolean} */
+function isRunner(exe) {
+  if (exe === null) return false;
+  if (RUNNERS.has(exe)) return true;
+  if (/^(\.{1,2}\/|\/|~\/)/.test(exe)) return true;
+  return /\.(sh|bash|zsh|mjs|cjs)$/.test(exe);
+}
+
+/**
+ * Does this command spend real money?
+ *
+ * ONE test, applied per SEGMENT, and only to a segment whose EXECUTABLE is a runner (`pnpm`,
+ * `node`, `npx`, `curl`, `docker`, `./run.sh`, `./node_modules/.bin/promptfoo`, …). Within such a
+ * segment two things count as spend: a DEFAULT metered hostname, and any of the PROJECT's own
+ * declared patterns.
+ *
+ * The hostname test used to run against the FULL command string, on the reasoning that a billed
+ * endpoint anywhere is spend. That cost more than it bought. It bit live 2026-08-30 in a project
+ * whose whole subject IS the OpenAI API: an agent writing its review report with
+ * `cat > report.md <<'EOF' … https://api.openai.com/v1/images/edits …` was asked to confirm
+ * spend — for writing a file. So were `grep -rn api.openai.com worker/src/` and a commit whose
+ * MESSAGE named the endpoint. Every prompt was a false one, and the gate became noise on a
+ * project that names that hostname all day.
+ *
+ * Naming a metered host to `grep` / `rg` / `sed` / `cat` / `echo` / `jq` / `git` — or inside a
+ * heredoc body, or a markdown bullet — is INSPECTION or WRITING, never a call. Only an executor
+ * can spend.
+ *
+ * NARROWING, stated: an executor absent from RUNNERS and not written as an explicit path now
+ * reads as prose. RUNNERS therefore names the network-capable binaries explicitly; add to it
+ * rather than reverting to the full-string test.
+ *
+ * Why the runner rule exists: a gate that fires on inspection trains approve-by-reflex, and reflex
+ * approval is what lets the real spend through. That is not theory — it bit live. A pattern is
+ * still matched as a plain substring per token (a project declares `scripts/eval.ts` or
+ * `db:seed-images`, not regexes) and a multi-word pattern matches its words in order, so a pattern
+ * appearing as an ARGUMENT to a runner still flags: in `node scripts/gen-assets.ts` the file IS the
+ * thing being run.
+ *
+ * ACCEPTED OVER-ASK, stated rather than engineered away: `bash -c '…'`, `sh -c '…'` and `node -e
+ * '…'` are runners, so a paid token quoted inside them asks. That is the fail-safe direction, and
+ * it is consistent with the THREAT BOUNDARY note above — these gates are guardrails against drift,
+ * not a sandbox against deliberate evasion.
  *
  * An unusable pattern is SKIPPED rather than fatal: a typo in a hand-edited config must not take
  * the whole gate down with it, and the remaining patterns still hold.
  * @param {string} cmd @param {string[]} [patterns] @returns {boolean}
  */
 export function spendsMoney(cmd, patterns = []) {
-  if (DEFAULT_SPEND_RE.test(cmd)) return true;
-  const haystack = cmd.toLowerCase();
-  return patterns.some(
-    (p) => typeof p === "string" && p.length > 0 && haystack.includes(p.toLowerCase()),
-  );
+  const usable = patterns.filter((p) => typeof p === "string" && p.length > 0);
+  const { rest, executed } = splitHeredocs(cmd);
+  // A script handed to an executor on stdin: no segment scoping, the executor runs all of it.
+  if (executed) {
+    if (DEFAULT_SPEND_RE.test(executed)) return true;
+    const hay = executed.toLowerCase();
+    if (usable.some((p) => hay.includes(p.toLowerCase()))) return true;
+  }
+  return splitSegments(rest).some((seg) => {
+    if (!isRunner(segmentExecutable(seg))) return false;
+    if (DEFAULT_SPEND_RE.test(seg)) return true;
+    if (usable.length === 0) return false;
+    // The executable is INCLUDED in the haystack, so `pnpm diagnose` can match its own runner.
+    const tokens = seg.toLowerCase().split(/\s+/).filter(Boolean);
+    return usable.some((p) => {
+      const parts = p.toLowerCase().split(/\s+/).filter(Boolean);
+      let from = 0;
+      for (const part of parts) {
+        const hit = tokens.findIndex((t, k) => k >= from && t.includes(part));
+        if (hit === -1) return false;
+        from = hit + 1;
+      }
+      return parts.length > 0;
+    });
+  });
 }
 
 // ── branch creation ──────────────────────────────────────────────────────────

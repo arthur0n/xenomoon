@@ -14,6 +14,7 @@ import {
   pushDecision,
   mergeDecision,
   routinePushTarget,
+  spendsMoney,
 } from "./consequential.js";
 import { readBranchModel, deployReaching, branchCreationRoutine } from "./branch-doctrine.js";
 
@@ -189,4 +190,160 @@ test("readBranchModel + deployReaching: the setup choice draws the line, fail-cl
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ── spend ────────────────────────────────────────────────────────────────────
+// The live patterns of a project that actually spends, used verbatim below so these tests fail
+// the way the real gate would.
+const SPEND_PATTERNS = [
+  "gen:assets",
+  "gen-assets.ts",
+  "promptfoo eval",
+  "eval:test",
+  "eval:real-vision",
+  "eval:vision",
+  "gen-facts.ts",
+  "gen:facts",
+  "diagnose.ts",
+  "pnpm diagnose",
+];
+
+test("spendsMoney: metered hostnames spend from any RUNNER segment", () => {
+  for (const cmd of [
+    "curl https://api.openai.com/v1/chat",
+    "curl -s 'https://API.OPENAI.COM/v1'",
+    `node -e "fetch('https://generativelanguage.googleapis.com/x')"`,
+    "x && curl https://api.anthropic.com/v1",
+  ])
+    assert.equal(spendsMoney(cmd, []), true, cmd);
+  assert.equal(spendsMoney("curl https://example.com/api", []), false);
+});
+
+test("spendsMoney: project patterns need the RUNNER position — inspection never asks", () => {
+  for (const cmd of [
+    'grep -rn "eval:test" docs/',
+    "rtk grep eval:test .",
+    "rg gen-assets.ts src/",
+    'sed -i "" s/eval:test/eval:paid/g package.json',
+    "cat docs/gen-facts.ts.md",
+    "echo pnpm diagnose",
+    'pgrep -fl "gen-assets"',
+    "ls scripts/ | grep diagnose.ts",
+    'git log -S"eval:test"',
+    `jq '.scripts["eval:test"]' package.json`,
+  ])
+    assert.equal(spendsMoney(cmd, SPEND_PATTERNS), false, cmd);
+  for (const cmd of [
+    "pnpm -C worker eval:test",
+    "npm run eval:test",
+    "node scripts/gen-assets.ts",
+    "tsx gen-assets.ts",
+    "npx promptfoo eval -c f.yaml",
+    "pnpm diagnose",
+  ])
+    assert.equal(spendsMoney(cmd, SPEND_PATTERNS), true, cmd);
+});
+
+test("spendsMoney: the runner survives rtk, env prefixes, chains, subshells and redirects", () => {
+  for (const cmd of [
+    "rtk pnpm -C worker eval:test",
+    "FOO=1 pnpm eval:test",
+    "env FOO=1 pnpm eval:test",
+    "timeout 300 pnpm eval:test",
+    "cd worker && pnpm eval:test",
+    "(cd worker && pnpm eval:test)",
+    "echo $(pnpm eval:test)",
+    "pnpm eval:test 2>&1 | tee log",
+    "pnpm eval:test\npnpm gen:facts",
+  ])
+    assert.equal(spendsMoney(cmd, SPEND_PATTERNS), true, cmd);
+  for (const cmd of [
+    "pnpm ls | grep eval:test",
+    "git status && grep -rn eval:test docs/",
+    'cat a.md | rg "promptfoo eval"',
+  ])
+    assert.equal(spendsMoney(cmd, SPEND_PATTERNS), false, cmd);
+});
+
+test("spendsMoney: pattern shapes — script name, path-as-argument, multiword with workspace flags", () => {
+  assert.equal(spendsMoney("pnpm --filter web gen:assets", SPEND_PATTERNS), true);
+  assert.equal(spendsMoney("pnpm -C worker diagnose", ["pnpm diagnose"]), true);
+  assert.equal(spendsMoney("./node_modules/.bin/promptfoo eval", SPEND_PATTERNS), true);
+  assert.equal(spendsMoney("node ./scripts/gen-assets.ts", SPEND_PATTERNS), true);
+  assert.equal(spendsMoney('pnpm -C worker "eval:test"', SPEND_PATTERNS), true);
+  assert.equal(spendsMoney("pnpm run build", ["pnpm diagnose"]), false);
+  assert.equal(spendsMoney("pnpm install", SPEND_PATTERNS), false);
+});
+
+test("spendsMoney: unusable patterns are skipped, never fatal", () => {
+  // A hand-edited config can hold junk; the gate skips it and the good patterns still hold.
+  const junk = /** @type {string[]} */ (/** @type {unknown} */ (["", null, 42, "eval:test"]));
+  const allJunk = /** @type {string[]} */ (/** @type {unknown} */ ([null, 42]));
+  assert.equal(spendsMoney("pnpm eval:test", junk), true);
+  assert.equal(spendsMoney("pnpm build", allJunk), false);
+  assert.equal(spendsMoney("pnpm eval:test"), false);
+});
+
+test("spendsMoney: a metered hostname NAMED by an inspector is not a call", () => {
+  // Live bite 2026-08-30, on a project whose whole subject is the OpenAI API: the hostname test
+  // ran against the FULL command string, so reading, searching and describing the endpoint all
+  // asked for spend consent. Every one of these is a false prompt, and false prompts are how a
+  // human learns to approve without reading.
+  for (const cmd of [
+    'grep -rn "api.openai.com" worker/src/',
+    "rtk grep -rn api.openai.com docs/",
+    "rg openrouter.ai .",
+    "cat docs/api.openai.com.md",
+    'git commit -m "fix: drop the api.openai.com fallback"',
+    'git log -S"api.anthropic.com"',
+    "sed -n 1,40p vendor/api.openai.com.json",
+    'jq ".hosts[\\"api.openai.com\\"]" config.json',
+    "echo api.openai.com",
+  ])
+    assert.equal(spendsMoney(cmd, SPEND_PATTERNS), false, cmd);
+});
+
+test("spendsMoney: a DATA heredoc body is a document, not a command", () => {
+  // The report that documented this very bug quoted `curl https://api.openai.com/...` as its own
+  // evidence — and writing it asked for spend. A quoted-delimiter heredoc feeding a non-executor
+  // is file content; the shell runs none of it.
+  const report = [
+    "mkdir -p .xenomoon/handoffs && cat > .xenomoon/handoffs/review.md <<'EOF'",
+    "# Review",
+    "F2: the code falls back to https://api.openai.com/v1/images/edits",
+    "Reproduce with:",
+    "curl https://api.openai.com/v1/images/edits -d @p.json",
+    "EOF",
+  ].join("\n");
+  assert.equal(spendsMoney(report, SPEND_PATTERNS), false);
+  assert.equal(spendsMoney("tee r.md <<'EOF'\npnpm eval:test\nEOF", SPEND_PATTERNS), false);
+
+  // Withheld exactly where the body IS executed: stdin to a runner, or an unquoted delimiter
+  // (which expands, so a substitution inside it runs).
+  assert.equal(spendsMoney("bash <<'EOF'\ncurl https://api.openai.com/v1\nEOF", []), true);
+  assert.equal(spendsMoney("python3 <<'EOF'\nimport x  # api.openai.com\nEOF", []), true);
+  assert.equal(spendsMoney("cat > r.md <<EOF\n$(pnpm eval:test)\nEOF", SPEND_PATTERNS), true);
+});
+
+test("spendsMoney: markdown prose never reads as an executable", () => {
+  // Report bodies are bullets and backticked paths. `- \`worker/src/ai.ts\`` skipped the `-` as a
+  // flag and landed on a path-shaped token, which the old path-shape heuristic called a runner.
+  for (const cmd of [
+    "- `worker/src/ai/responses.ts:495` calls https://api.openai.com/v1",
+    "* see scripts/gen-assets.ts for the batch",
+    "3. the eval:test target hits openrouter.ai",
+    "> quoted: api.mistral.ai is the fallback",
+    "# api.groq.com notes",
+    "| host | api.cohere.ai |",
+  ])
+    assert.equal(spendsMoney(cmd, SPEND_PATTERNS), false, cmd);
+});
+
+test("spendsMoney: grouping and network runners still spend", () => {
+  assert.equal(spendsMoney("( pnpm eval:test )", SPEND_PATTERNS), true);
+  assert.equal(spendsMoney("{ pnpm diagnose; }", SPEND_PATTERNS), true);
+  assert.equal(spendsMoney("echo $(pnpm diagnose)", SPEND_PATTERNS), true);
+  assert.equal(spendsMoney("docker run img curl https://api.openai.com/v1", []), true);
+  assert.equal(spendsMoney("http POST https://api.openai.com/v1", []), true);
+  assert.equal(spendsMoney("timeout 300 rtk pnpm eval:test", SPEND_PATTERNS), true);
 });

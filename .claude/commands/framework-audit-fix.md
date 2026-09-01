@@ -108,6 +108,10 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
      a claimed enforcement doesn't exist, ALSO check the SDK permission layer (`ui-control.js`
      `orchestratorGate`/`canUseTool`, wired via `session-permissions.js` `preToolGate`) — a deny can
      live there instead of in `plugin/hooks/` or a `check:*` script; a hooks-only sweep will false-flag it.
+     A new/edited `plugin/hooks/*.mjs` hook sits outside eslint's node-globals group and tsconfig's
+     `include` — don't "fix" its resulting `process`-undefined lint by touching `eslint.config.js`
+     (wrong blast radius); match the sibling idiom instead: a `#!/usr/bin/env node` shebang plus a
+     `/* global process */` comment (see `plugin/hooks/consequential-gate.mjs`).
    - **D9 (harness simplification):** **strip** — apply the agreed removal/down-tier (edit the
      agent's `model:` / skill list, trim the scaffold, drop the dead gate step), then confirm the
      sample task + full verify still pass (a strip must not regress the gate). Deleting a WHOLE agent

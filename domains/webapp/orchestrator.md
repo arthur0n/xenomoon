@@ -155,8 +155,8 @@ Right-size the gate to the work:
 ## Background — domain specifics
 
 - A backgrounded implementer writes its full report to `.xenomoon/handoffs/<slug>.md`
-  (agent-report protocol) and the haiku `handoff-summarizer` distills it — you never load
-  the raw report.
+  and relays only `<path> — gate PASS|FAIL` (agent-report protocol — a SubagentStop hook
+  enforces the short form); you read the gate-first file directly, no summarizer hop.
 - A **Codex `audit`** goes through the **`mcp__ui__codex` tool** with `kind: "audit"` (the
   exhaustive enumeration — the native `review` kind is a mergeability headline, not an audit),
   never a background Bash whose output you read and post. Two reasons, both learned the hard way:

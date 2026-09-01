@@ -27,7 +27,7 @@ blocked: <exactly what is missing, or omit>
 
 (Refactor variant: `gate` carries BEFORE-baseline + AFTER output; `friction`/`caveats` collapse to a `stopped:` line for judgment calls you halted on.)
 
-**Your relayed result = just `<path> — gate PASS|FAIL`.** Nothing more. The path is short, so it survives even a clipped result; the file is the real handoff. Never dump the report into the result.
+**Your relayed result = just `<path> — gate PASS|FAIL`.** Nothing more. The path is short, so it survives even a clipped result; the file is the real handoff. Never dump the report into the result. Enforced mechanically: a SubagentStop hook blocks a prose result from any worker that wrote a handoff file, once, with this contract as the reason.
 
 ## Determinism ratchet — flag a tool-gap by DRAFTING it
 

@@ -77,14 +77,6 @@
       "pattern": "every fork-divergent surface is a named seam in SEAMS.md — sync and audit read the list, not the diff."
     },
     {
-      "id": "D8-result-contract-unenforced",
-      "dim": "D8",
-      "bucket": 5,
-      "verdict": "later",
-      "status": "open",
-      "finding": "agent-report/SKILL.md:31 contracts the relayed result to '<path> — gate PASS|FAIL' but nothing enforces it — no SubagentStop hook anywhere (verified 2026-07-08); review measured ~1.2k-char avg prose results vs the ~50-char contract; harden: SubagentStop regex validator + digest cap ≤6 lines (review P0B-3 merged schema)."
-    },
-    {
       "id": "D6-objective-not-durable",
       "dim": "D6",
       "bucket": 4,

@@ -85,15 +85,6 @@
       "finding": "agent-report/SKILL.md:31 contracts the relayed result to '<path> — gate PASS|FAIL' but nothing enforces it — no SubagentStop hook anywhere (verified 2026-07-08); review measured ~1.2k-char avg prose results vs the ~50-char contract; harden: SubagentStop regex validator + digest cap ≤6 lines (review P0B-3 merged schema)."
     },
     {
-      "id": "D9-session-dies-on-disconnect",
-      "dim": "D9",
-      "bucket": 5,
-      "verdict": "later",
-      "status": "open",
-      "finding": "The fork never pulled upstream 4a8b815 (`fix: keep subagents alive across browser disconnects`) or the 01e72a6 session refactor — `git log --all` shows ui/server/core/{registry,connection}.js have NO history here. So handleClose (session.js:306-312) calls inbox.close() + abort.abort(): a backgrounded tab, a laptop sleep or a network blip ABORTS the session and kills every in-flight sub-agent, and the reconnect builds a fresh inbox that cannot drain the old queue. Upstream instead DETACHES — swappable socket, outgoing messages buffered for replay (MAX_DETACHED_BUFFER), teardown only after 75s of IDLE and never while a turn or sub-agent runs (connection.js:53-63,154,195). Surfaced 2026-08-14 while hunting the Hermes no-ack bug; it was NOT that bug's cause (that was a degraded 21h-old process) but it is a real standing defect. Decide: port registry.js + connection.js + the onSessionId/onBusyChange hooks, or accept losing in-flight work on every blip. RE-VERIFIED 2026-08-17: all premises hold — `git log --all` returns ZERO commits for ui/server/core/{registry,connection}.js and both files are absent; handleClose still carries both inbox.close() and abort.abort(); upstream 4a8b815 is present there. PORT SIZE now measured: registry.js + connection.js = 286 LOC upstream, plus the onSessionId/onBusyChange hooks in stream.js (our copy has neither parameter). Measurement note: count via `rtk proxy`, not `rtk … | wc -l` — the wrapper's own status line inflated this by one on the first pass.",
-      "pattern": "an upstream FIX we never pulled is a silent regression — the sync surface should track upstream fixes, not only conflicts."
-    },
-    {
       "id": "D6-objective-not-durable",
       "dim": "D6",
       "bucket": 4,

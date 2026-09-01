@@ -43,7 +43,10 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
 
 1. **Resolve ids.** Parse `LEDGER.json` (a real JSON parse of `findings[]`). For each requested id
    find its object. If an id is missing (already resolved — applied findings are REMOVED, not kept),
-   or is `later`/`skip` (not `fix-now`), **skip it and say so** — do not apply.
+   **skip it and say so** — do not apply. If its verdict is `later`/`skip` (not `fix-now`): under
+   `all-agreed` this still means skip (that mode only ever means `fix-now`+`open`); but when the
+   human explicitly named the id in `$ARGUMENTS`, that IS the override — proceed, and note the
+   override in the report. Never apply an id the human didn't name.
 2. **Itemize before acting — and CHECK THE FINDING'S PREMISES against the repo.** List each id → the
    exact files it will change and the operation. A ledger row is an OLD claim about the repo, not a
    verified fact: before you edit, read the code it names and confirm each premise still holds (the

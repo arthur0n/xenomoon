@@ -1,21 +1,32 @@
-// One WebSocket connection == one Claude Code session. This file is the connection/
-// lifecycle orchestrator: it allocates the per-connection mutable state (inbox, pending,
-// session, abort) and drives the SDK stream. The layers with clean seams live beside it:
-// stream bookkeeping (session-stream-tracker.js), the permission layer
+// One WebSocket connection == one Claude Code session — but no longer one-to-one for its
+// LIFETIME: the browser socket is swappable (connection.js Conn), a disconnect DETACHES rather
+// than aborts, and a reconnecting client re-attaches to the same live session (registry.js), so
+// in-flight sub-agents survive a blip. This file allocates the per-connection state and drives
+// the SDK stream. The layers with clean seams live beside it: connection plumbing + detach/grace
+// lifecycle (connection.js), stream bookkeeping (session-stream-tracker.js), the permission layer
 // (session-permissions.js), browser-message dispatch (session-client-messages.js), and
 // plugin resolution (session-plugins.js).
-import { createWriteStream, existsSync } from "node:fs";
-import path from "node:path";
+import { existsSync } from "node:fs";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { sessionHistory } from "../features/transcripts/transcripts.js";
 import { buildUiServer } from "../mcp-tools/ui-server.js";
 import { maybeKickoffOnboarding } from "./first-boot.js";
-import { emitRunning, runWithRetry } from "./stream.js";
-import { readPromotions } from "../features/promotions/promotions-store.js";
+import { runWithRetry } from "./stream.js";
+import { getLive } from "./registry.js";
+import {
+  createLogger,
+  createInbox,
+  makeWaitFor,
+  buildSessionHooks,
+  teardown,
+  evaluateGrace,
+  flushBuffer,
+  replayPending,
+  onSocketDetach,
+} from "./connection.js";
 import { readAutonomous } from "../features/autonomous/autonomous-store.js";
 import { makeCheckLoop } from "../features/autonomous/autonomous-control.js";
-import { registerSession, unregisterSession } from "../features/pulse/pulse-control.js";
-import { readTasks } from "../features/tasks/tasks-store.js";
+import { registerSession } from "../features/pulse/pulse-control.js";
 import { resolveSessionSkills } from "../features/skills/skills.js";
 import { trackMessage, settleAllBackground } from "./session-stream-tracker.js";
 import { makeCanUseTool } from "./session-permissions.js";
@@ -40,7 +51,6 @@ import {
   CODEX_PLUGIN_DIR,
   getCodexConfig,
   AUTO_ALLOW_TOOLS,
-  LOG_DIR,
 } from "./config.js";
 
 /** @typedef {import("../../lib/types.js").OutMsg} OutMsg */
@@ -48,7 +58,9 @@ import {
 /** @typedef {import("../../lib/types.js").WaitFor} WaitFor */
 /** @typedef {import("../../lib/types.js").RunningAgentWire} RunningChip */
 /** @typedef {import("@anthropic-ai/claude-agent-sdk").SDKUserMessage} SDKUserMessage */
-/** @typedef {Map<number, { type: string, resolve: (value: Reply) => void }>} Pending */
+/** @typedef {import("./connection.js").Pending} Pending */
+/** @typedef {import("./connection.js").Conn} Conn */
+/** @typedef {import("./connection.js").LiveSession} LiveSession */
 /** Per-connection mutable session state, shared between runSession and the client-message
  * handlers. `autonomousLoop` is set by runSession once the check loop is built.
  * @typedef {{ policy: string, query?: { interrupt?: () => Promise<void>, stopTask?: (taskId: string) => Promise<void> }, autonomousLoop?: { arm: (fireNow?: boolean) => void, disarm: () => void }, autonomousActive?: boolean, pulseId?: number, fetchedDocs?: Set<string> }} SessionState */
@@ -62,84 +74,6 @@ const SESSION_ENV = {
   BASH_DEFAULT_TIMEOUT_MS: process.env.BASH_DEFAULT_TIMEOUT_MS ?? "600000",
   BASH_MAX_TIMEOUT_MS: process.env.BASH_MAX_TIMEOUT_MS ?? "3600000",
 };
-
-/** Per-connection NDJSON logger + the `send` that mirrors every outgoing
- * message into it. @param {import("ws").WebSocket} ws */
-function createLogger(ws) {
-  const sessionTag = new Date().toISOString().replace(/[:.]/g, "-");
-  const logFile = path.join(LOG_DIR, `session-${sessionTag}.ndjson`);
-  const logStream = createWriteStream(logFile, { flags: "a" });
-  /** @param {string} dir @param {OutMsg} obj */
-  const log = (dir, obj) => {
-    logStream.write(JSON.stringify({ ts: new Date().toISOString(), dir, ...obj }) + "\n");
-    const m = obj.message;
-    const brief =
-      obj.type === "event"
-        ? `${m?.type ?? ""}${m?.subtype ? "/" + m.subtype : ""}`
-        : (obj.type ?? "");
-    console.log(`[${sessionTag}] ${dir} ${brief}`);
-  };
-  /** @param {OutMsg} obj */
-  const send = (obj) => {
-    log("out", obj);
-    if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj));
-  };
-  console.log(`session log: ${logFile}`);
-  return { log, send, end: () => logStream.end() };
-}
-
-/** The user side of the session: an async iterable the SDK consumes, fed by
- * the browser's user_input messages. */
-function createInbox() {
-  /** @type {SDKUserMessage[]} */
-  const queue = [];
-  /** @type {(() => void) | null} */
-  let wake = null;
-  let closed = false;
-  // Re-iterable over a PERSISTENT queue: each [Symbol.asyncIterator]() mints a fresh
-  // generator, so a 529-retry's second query() gets a live iterator after the SDK called
-  // .return() on the first one at teardown. push/close and the `iterable` property are
-  // unchanged, so every other consumer (check loop, hermesPush, board turns) is untouched.
-  // Only one query() is ever live at a time, so two iterators never race on queue.shift().
-  async function* gen() {
-    while (!closed) {
-      let next;
-      while ((next = queue.shift())) yield next;
-      if (closed) return;
-      await new Promise((resolve) => {
-        wake = () => {
-          wake = null; // clear before resolving — a later push must never hit a stale resolver
-          resolve(undefined);
-        };
-      });
-    }
-  }
-  const iterable = { [Symbol.asyncIterator]: () => gen() };
-  return {
-    iterable,
-    /** @param {SDKUserMessage} msg */
-    push(msg) {
-      queue.push(msg);
-      wake?.();
-    },
-    close() {
-      closed = true;
-      wake?.();
-    },
-  };
-}
-
-/** @param {(obj: OutMsg) => void} send @param {Pending} pending @returns {WaitFor} */
-function makeWaitFor(send, pending) {
-  let nextId = 1;
-  return (type, payload) => {
-    const id = nextId++;
-    send({ type, id, ...payload });
-    return new Promise((resolve) => {
-      pending.set(id, { type, resolve });
-    });
-  };
-}
 
 /** Everything appended to Claude Code's own preset: the orchestrator role, then the blocks that
  * describe THIS session's actual team and tools. Hermes/Kimi/Codex appear only when those
@@ -164,11 +98,10 @@ function orchestratorAppend(codexOn) {
 
 /**
  * Drive the Claude Code session and stream its messages to the browser.
- * @param {{ resumeId: string | null, policy: string, inbox: ReturnType<typeof createInbox>, send: (obj: OutMsg) => void, canUseTool: import("@anthropic-ai/claude-agent-sdk").CanUseTool, abort: AbortController, waitFor: WaitFor, agentByTool: Map<string, string>, formAgentQueue: string[], session: SessionState }} deps
+ * @param {{ resumeId: string | null, inbox: ReturnType<typeof createInbox>, send: (obj: OutMsg) => void, canUseTool: import("@anthropic-ai/claude-agent-sdk").CanUseTool, abort: AbortController, waitFor: WaitFor, agentByTool: Map<string, string>, formAgentQueue: string[], session: SessionState, ls: LiveSession }} deps
  */
 function runSession({
   resumeId,
-  policy,
   inbox,
   send,
   canUseTool,
@@ -177,6 +110,7 @@ function runSession({
   agentByTool,
   formAgentQueue,
   session,
+  ls,
 }) {
   /** @type {Set<string>} */
   const bgSpawns = new Set(); // tool_use ids spawned with run_in_background
@@ -184,26 +118,23 @@ function runSession({
   const bgBoard = new Map(); // sdk task_id -> bridged board task id
   /** @type {Map<string, RunningChip>} */
   const runningByTask = new Map(); // sdk task_id -> live sub-agent chip (authoritative running set)
-  // `busy.value` lets the check loop skip ticks mid-turn; stash loop on session
-  // so the control handler + autonomous tool can arm/disarm it.
-  const busy = { value: false };
+  // `busy.value` lets the check loop skip ticks mid-turn AND drives the detach grace
+  // (connection.js evaluateGrace). It lives on the LiveSession so the grace policy can read it;
+  // stash loop on session so the control handler + autonomous tool can arm/disarm it.
+  const busy = ls.busy;
   const checkLoop = makeCheckLoop({ push: inbox.push, send, isBusy: () => busy.value });
+  const { onSessionId, onBusyChange } = buildSessionHooks({ ls, send, session, runningByTask });
   session.autonomousLoop = checkLoop;
   // Pulse is a PROCESS singleton (one timer for all connections), so a session only registers
   // itself as a possible delivery target — see features/pulse/pulse-control.js for why.
   session.pulseId = registerSession({ push: inbox.push, send, isBusy: () => busy.value });
   void (async () => {
     try {
-      send({ type: "policy", value: policy });
-      send({ type: "tasks", tasks: readTasks() });
-      emitRunning(runningByTask, send); // reset the strip on (re)connect — set starts empty
-      send({ type: "promotions", items: readPromotions() });
+      ls.resync(); // the same authoritative snapshots a re-attaching client gets
       maybeKickoffOnboarding(inbox.push);
-      // Repaint the Autonomous flag + re-arm the check loop if a goal survived the reconnect.
-      const autoState = readAutonomous();
-      send({ type: "autonomousMode", payload: autoState });
+      // Re-arm the check loop if a goal survived the reconnect (resync already sent the flag).
       // fireNow=true on resume: first interval tick is 5 min away
-      checkLoop.arm((session.autonomousActive = autoState.active));
+      checkLoop.arm((session.autonomousActive = readAutonomous().active));
       if (resumeId) {
         send({ type: "history", items: sessionHistory(resumeId) });
         send({ type: "status", text: `resumed session ${resumeId.slice(0, 8)}…` });
@@ -299,6 +230,8 @@ function runSession({
         session,
         inbox,
         resumeId,
+        onSessionId,
+        onBusyChange,
       });
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
@@ -309,32 +242,67 @@ function runSession({
       // none, so settle dead background workers and signal idle to unstick the UI.
       settleAllBackground({ bgBoard, runningByTask, send });
       send({ type: "idle" });
+      // The stream is over for good (it only ends via abort/inbox-close at teardown, or an SDK
+      // error). Tear down — drops it from the registry so a reconnect disk-resumes, not re-attaches
+      // to a dead session. Idempotent: a disconnect-driven teardown already ran the grace timer.
+      teardown(ls);
     }
   })();
 }
 
-/**
- * Settle every pending interaction so canUseTool / the form handler return and
- * the CLI can finish its turn — an unresolved promise here leaves an orphaned
- * process holding the session, and its transcript ends mid-tool_use (which
- * 400s any later resume). Then stop the session and close the log.
- * @param {{ inbox: ReturnType<typeof createInbox>, pending: Pending, abort: AbortController, endLog: () => void }} deps
- */
-function handleClose({ inbox, pending, abort, endLog }) {
-  inbox.close();
-  for (const { type, resolve } of pending.values()) {
-    resolve(type === "permission" ? { allow: false } : { cancelled: true });
-  }
-  pending.clear();
-  abort.abort();
-  endLog();
+/** Wire a socket's message + close handlers to a live session. The lifecycle helpers
+ * (onSocketDetach / evaluateGrace / teardown / buffer flush) live in connection.js — bindSocket and
+ * reattach stay here because they wire handleClientMessage (session-client-messages.js) with this
+ * session's captured deps. @param {import("ws").WebSocket} ws @param {LiveSession} ls */
+function bindSocket(ws, ls) {
+  ws.on("message", (raw) => {
+    handleClientMessage(raw, {
+      log: ls.log,
+      send: ls.send,
+      inbox: ls.inbox,
+      pending: ls.pending,
+      session: ls.session,
+    });
+  });
+  ws.on("close", () => {
+    onSocketDetach(ws, ls);
+  });
 }
 
-/** Wire up one browser connection as a Claude Code session.
+/** Re-bind a reconnecting browser to its still-running session: steal from any stale socket, swap
+ * in the new one, cancel the grace timer, flush the detached buffer, then re-sync snapshots and
+ * replay open approval cards — so the running sub-agents continue uninterrupted and a fully reloaded
+ * page rebuilds its view. No second query is started. @param {LiveSession} ls @param {import("ws").WebSocket} ws */
+function reattach(ls, ws) {
+  const old = ls.conn.socket;
+  if (old && old !== ws && old.readyState === old.OPEN) old.close(4000, "session re-attached");
+  ls.conn.socket = ws;
+  bindSocket(ws, ls);
+  evaluateGrace(ls); // attached now → cancels any pending teardown
+  ls.send({ type: "session", id: ls.id }); // (re)assert the client's reconnect key
+  flushBuffer(ls);
+  ls.resync();
+  replayPending(ls);
+  console.log(`[${ls.id ?? "pre-id"}] reattach — re-bound to live session`);
+}
+
+/** Wire up one browser connection. If it presents a `?resume=<id>` for a session still LIVE in the
+ * registry (brief disconnect / laptop wake / refresh within the grace window), re-attach to it — the
+ * sub-agents never died. Otherwise build a fresh session (disk-resume when `?resume` is set but the
+ * session is gone: grace expired or server restarted).
  * @param {import("ws").WebSocket} ws @param {import("node:http").IncomingMessage} req */
 export function handleConnection(ws, req) {
   const resumeId = new URL(req.url ?? "/", "http://localhost").searchParams.get("resume");
-  const { log, send, end } = createLogger(ws);
+
+  const existing = getLive(resumeId);
+  if (existing) {
+    reattach(existing, ws);
+    return;
+  }
+
+  /** @type {Conn} */
+  const conn = { socket: ws, buffer: [] };
+  const { log, send, end } = createLogger(conn);
   const inbox = createInbox();
   /** @type {Pending} */
   const pending = new Map();
@@ -342,7 +310,7 @@ export function handleConnection(ws, req) {
   const session = { policy: DEFAULT_POLICY };
   /** @type {Set<string>} */
   const sessionAllowed = new Set(); // tools approved with "Always" this session
-  const abort = new AbortController(); // tears the CLI down on disconnect
+  const abort = new AbortController(); // tears the CLI down at teardown (NOT on a mere disconnect)
   /** @type {Map<string, string>} */
   const agentByTool = new Map(); // tool_use id -> agent label (main | subagent_type)
   /** @type {string[]} */
@@ -357,9 +325,27 @@ export function handleConnection(ws, req) {
     formAgentQueue,
   });
 
+  /** @type {LiveSession} */
+  const ls = {
+    id: resumeId,
+    conn,
+    inbox,
+    pending,
+    abort,
+    session,
+    busy: { value: false },
+    send,
+    log,
+    endLog: end,
+    graceTimer: null,
+    announced: false,
+    done: false,
+    resync: () => {}, // replaced by runSession once its authoritative snapshots exist
+  };
+
+  bindSocket(ws, ls);
   runSession({
     resumeId,
-    policy: session.policy,
     inbox,
     send,
     canUseTool,
@@ -368,17 +354,6 @@ export function handleConnection(ws, req) {
     agentByTool,
     formAgentQueue,
     session,
-  });
-
-  ws.on("message", (raw) => {
-    handleClientMessage(raw, { log, send, inbox, pending, session });
-  });
-  ws.on("close", () => {
-    // Stop the check loop so it never pushes into a closed inbox or writes for a dead session.
-    session.autonomousLoop?.disarm();
-    // Drop this session as a Pulse delivery target; the singleton timer stops itself when the
-    // last connection goes (syncTimer), so a closed browser never leaves a beat looking for a home.
-    if (session.pulseId != null) unregisterSession(session.pulseId);
-    handleClose({ inbox, pending, abort, endLog: end });
+    ls,
   });
 }

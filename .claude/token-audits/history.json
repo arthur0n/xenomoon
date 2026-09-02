@@ -162,9 +162,9 @@
           "estSavingTok": 200000,
           "landed": true,
           "moved": true,
-          "deltaTok": 30800,
+          "deltaTok": 35000,
           "deltaCost": null,
-          "result": "Applied PreToolUse(Read) dedup hook plugin/hooks/read-dedup.sh: denies a byte-identical repeat read (same path+offset+limit, mtime unchanged, last real read within WINDOW=20 read-events) with a stub; emits policy:\"read-dedup\" per denial. Next audit tallies denials × ~1.4k tok. Safe-window scoped so post-compaction re-hydration passes."
+          "result": "Applied PreToolUse(Read) dedup hook plugin/hooks/read-dedup.sh (WINDOW=20), emits policy:read-dedup per denial. CORRECTED 2026-09-01: the 08-13 count (22) was string-doubled — real 11 lines; +14 lines this run (08-21 x2, 09-24 x3, 11-53 x9) = 25 denials x 1.4k = 35k tok cumulative hard actual. Count raw ndjson lines, not ..|strings."
         }
       ],
       "processNote": "PreToolUse Read-dedup hook: deny recent unchanged (mtime) repeat full-reads with a stub, log policy:read-dedup; per-event unit ≈1.4k tok"
@@ -204,22 +204,73 @@
           "id": "pr-plumb-cli",
           "estSavingTok": 14000000,
           "landed": true,
-          "moved": "pending",
-          "deltaTok": null,
-          "deltaCost": null,
-          "result": "AFTER re-check 2026-08-14: 0 fires across all session logs. No PR-plumbing work has happened since the fix landed, so there is nothing to credit — absence of traffic, not absence of effect. Same measurement path that shows read-dedup at 169 hits. Note the marker is emitted by issuekit itself (an external CLI), so it only reaches a session log when an issuekit op runs inside a logged UI session — a plumbing op run from a bare terminal is invisible to this tally. Related work landed 2026-08-13/14: the orchestrator PR-plumbing routing bullet existed ONLY in the installed plugin/orchestrator.md and was ported back to its pack source domains/expoapp/orchestrator.md (framework-audit D6-orchestrator-install-drift, commit 4299d2e) — before that, no fresh expo install would have routed plumbing to issuekit at all, which is itself a reason the marker could never have fired. Re-measure after the next PR-plumbing session."
+          "moved": true,
+          "deltaTok": 3290000,
+          "deltaCost": 231,
+          "result": "CONFIRMED 2026-09-01 across 4 sessions (08-21, 08-30 x3): merge/retarget/promote/prune Agent dispatches dropped from ~30/session (12-58) to 0; 9 issuekit ops ran in MAIN as ONE Bash call each (pr-merge x3, promote, branch-prune, pr-new, branch-sync, branch-new x2). Credited 7 (the previously-dispatched class; branch-new excluded) x 470k. Counted as RAW LINES with op=<verb> — the ..|strings path double-counts and doc mentions in orchestrator.md contaminate. Residual: 08-21 still dispatched a promote as two agents (FF development + push development)."
         },
         {
           "id": "graphify-first",
           "estSavingTok": 80000,
           "landed": true,
-          "moved": "pending",
-          "deltaTok": null,
+          "moved": false,
+          "deltaTok": 0,
           "deltaCost": null,
-          "result": "AFTER re-check 2026-08-14: 0 fires. NOT a failure — no qualifying traffic. Only one session ran post-fix (08-13T11-06, the applying session itself); this CLI session writes no session-*.ndjson (those come from the UI server). Hook VERIFIED WIRED by direct payload test through all 4 gates: graph-backed Grep -> deny + policy marker; same session again -> silent allow (one-shot holds); non-graph dir -> allow; non-Grep tool -> allow. Method is sound: read-dedup's marker shows 169 hits across logs by the same counting path. CAVEAT for next tally: the graph walk-up can resolve to an ANCESTOR workspace graph (searching in maggie-xm found /MRHEWBUC-LOCAL/graphify-out, not a repo-local one) — confirm the found graph actually indexes the searched repo before crediting a fire. Re-measure after the next graph-backed UI session."
+          "result": "NO MOVE 2026-09-01: 3 fires across 4 sessions, EVERY one on a literal-identifier Grep (proposedCombos|onReserveCombo, resetIfNewLook, verifier-(ios|android)) and the subagent re-ran the identical Grep next turn — net cost one wasted turn per fire. Zero graphify conversions; rawsearch counts 19-21/session, unchanged vs pre-fix (20-44). The hook cannot tell a where/how question from an identifier lookup. Retire, or re-scope to fire only on a Read fan-out (>=N distinct Reads with no Edit) rather than the first Grep."
         }
       ],
       "processNote": "read-dedup CONFIRMED (22 denials x1.4k=31k hard). New: ~30/57 agent dispatches in 12-58 are deterministic gh/git plumbing incl. retries; graph-backed maggie repo shows 44-20 rawsearch vs 0 graphify"
+    },
+    {
+      "date": "2026-09-01",
+      "sessions": [
+        "2026-08-21T10-37-30-313Z",
+        "2026-08-30T07-50-11-653Z",
+        "2026-08-30T09-24-50-919Z",
+        "2026-08-30T11-53-35-903Z"
+      ],
+      "covered": {
+        "input": 529,
+        "output": 204836,
+        "cacheCreate": 956966,
+        "cacheRead": 31198384,
+        "cost": 1057.7787,
+        "total": 32360715,
+        "turns": 56,
+        "hitRate": 97,
+        "costPerSession": 264.4447,
+        "costPerTurn": 18.8889,
+        "incompleteSessions": []
+      },
+      "global": {
+        "cost": 1057.7787,
+        "total": 32360715,
+        "hitRate": 97,
+        "sessionCount": 4,
+        "incompleteSessions": 0
+      },
+      "topOffender": "Agent dispatches for commit/push/branch-cleanup: 16 dispatches, ~16.3M subagent cache-read tok — push-method gate is 6 deterministic checks",
+      "opportunities": [
+        {
+          "id": "commit-push-cli",
+          "estSavingTok": 7500000,
+          "landed": true,
+          "moved": "pending",
+          "deltaTok": null,
+          "deltaCost": null,
+          "result": "APPLIED 2026-09-02: issuekit push-check (ui/server/cli/issuekit-push.js) = push-method §1 as one deterministic call (tree/model/upstream/ff/newest lane verdicts per (#N)/PR checks or last run), receipt + the exact bare git push to run; exit 1 STOP naming the owning stage. Emits policy:\"commit-push-cli\" op=push-check per run. Lane KEPT (orchestrator still dispatches senior-analyst — MAIN_PUSH_DENY is a deliberate design rule; a tool pushing from inside node would bypass both gates), so the fix shrinks the dispatch, not the count. Commit half = routing fix only: installed plugin/orchestrator.md + expoapp pack now say commit direct (no agent) — issuekit commit already existed. BEFORE: push dispatch subtree avg ~1.5M cache-read tok (1.15/1.14/1.28/1.54/1.72/2.12M), 13–37 tool calls; commit dispatch avg ~1.08M. AFTER = next audit: count op=push-check lines and re-measure push-dispatch subtree size (expect ~3 tool calls); credit min(count, push dispatches) × 470k conservative unit; commit-dispatch count should drop to 0."
+        },
+        {
+          "id": "issue-digest",
+          "estSavingTok": 40000,
+          "landed": false,
+          "moved": null,
+          "deltaTok": null,
+          "deltaCost": null,
+          "result": null
+        }
+      ],
+      "processNote": "pr-plumb-cli landed true (7 ops x 470k); graphify-first landed false (3 fires, all literal greps re-run); marker counts were 2x-inflated by ..|strings — count raw lines"
     }
   ]
 }

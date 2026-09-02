@@ -151,7 +151,14 @@ select(...)` directly — do NOT pipe `rtk grep` into `jq`: rtk's grep filter ma
        The marker may live as a `.policy` FIELD on an assistant tool_use (in-process canUseTool
        denials) OR as literal TEXT in a `tool_result` reason (PreToolUse **hook** denials, e.g.
        `policy:"read-dedup"`) — so match the marker STRING everywhere, don't select one field:
-       `jq -rc 'select(.type=="event")|..|strings' <logs> | /opt/homebrew/bin/rg -c 'policy:"<marker>"'` —
+       count MATCHING LOG LINES on the RAW ndjson, not `jq 'select(.type=="event")|..|strings'` —
+       that recursive walk visits the marker text in BOTH `.message.message.content[].content` AND
+       the duplicate top-level `.tool_use_result` on the same log line, so it counts every real fire
+       TWICE (confirmed 2026-09-01: the 08-13 `read-dedup` credit of 22 was really 11 fires). `rg -c`
+       counts matching LINES, which collapses that same-line duplication back to one — and in the raw
+       file the quotes are JSON-escaped, so match `policy:\"<marker>\"`, and require the `op=`/hook
+       suffix so a prose mention of the marker (e.g. a Read of `orchestrator.md`) is not counted:
+       `/opt/homebrew/bin/rg -c 'policy:\\"<marker>\\"' <raw ndjson file(s)>` (sum the per-file counts) —
        and if it fired, multiply by the per-event token unit and flip to a hard actual with
        `token-history.js land --opp <id> --moved true --delta-tok <count×unit>`. A direct count is
        deterministic confirmation; it retires a `pending` without waiting on noisy global drift.

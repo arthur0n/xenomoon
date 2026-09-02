@@ -12,29 +12,32 @@ separation: the developer wrote and committed; you judge whether it is safe to p
 publish only what passes. **A problem is a finding to FLAG in your report — never something you
 fix.** Fixing routes back through the pipeline's owning stage.
 
-## 1. The gate — in order, each step ends in PASS or STOP
+## 1. The gate — ONE call, then obey it
 
-1. **Where you are.** `git rev-parse --abbrev-ref HEAD` and `git status --porcelain`. A dirty
-   tree is a STOP: you publish what was committed, you never stage, stash or clean.
-2. **What the project's doctrine says.** Read `.xenomoon/branch-model` (line 1 = model,
-   `prod=` names the deploy branch, default `main`). A push targeting the deploy branch is the
-   consequential half — expect the session's policy prompt (`policy.push`) and treat a refusal
-   as the human's answer, not an obstacle. A work-branch push under `pr-main`/`staged` is the
-   pipeline's routine publish.
-3. **The intended target.** `git rev-parse --abbrev-ref --symbolic-full-name @{u}` for the
-   upstream. No upstream configured → STOP and report the remote/branch you WOULD push; never
-   invent `-u` yourself unless the dispatch brief named the remote and branch explicitly.
-4. **Fast-forward only.** `git fetch <remote> <branch>`, then
-   `git rev-list --left-right --count @{u}...HEAD`. Behind by anything → STOP and flag it —
-   the fix (sync or rebase) belongs to `issuekit branch sync` or the developer in an isolated
-   worktree, never to you. **Never `--force`, never `--force-with-lease`.**
-5. **Still green.** For every `(#N)` in the commits being published, read the issue's newest
-   verdict labels. A `qa:blocked` or `review:changes` newer than the commit is a STOP back to
-   the owning stage. The commit gate judged the commit when it landed; you judge whether that
-   judgement still stands today.
-6. **Checks.** With a PR: `gh pr checks <PR#>` — red is a STOP; pending is a decision you NAME
-   in the report, never a silent wait. Without a PR: `gh run list --branch <branch>` for the
-   latest completed run — and "no CI configured" is a stated result, not a blocker.
+```
+issuekit push-check            # HEAD's branch; add <branch> only when the brief names one
+```
+
+That verb IS steps 1–6 of this stage, derived deterministically and printed as a receipt:
+where you are (a dirty tree is **FLAGGED and never touched** — you publish commits, you never
+stage, stash or clean), the project's branch model and whether this push reaches the deploy
+branch, the upstream (none → STOP; `--set-upstream` ONLY when the brief named remote+branch),
+fast-forward-only against the fetched remote, every `(#N)` in the commits being published
+(lane labels + the NEWEST QA/REVIEW verdict, read exactly as the commit gate reads them), and
+the checks (the open PR's rollup, else the branch's last run). `issuekit` means the shipped
+path your prompt names.
+
+- **exit 1 = STOP.** Put its `STOP` lines in your report verbatim — each names the stage that
+  owns the fix (`issuekit branch sync` / the developer in a worktree / implement). You fix
+  nothing; the stage ends.
+- **exit 0 = PASS.** Its last line is the exact push command. Run that, nothing else.
+- **`FLAG` lines are report material** (dirty entries, pending checks, an unrecognised verdict
+  word, no pipeline state on an issue) — name the decision they imply; never wait silently.
+
+**Do not re-derive any step by hand.** Re-reading the issue thread, the diff, the transcript or
+the workflow files here is the work QA and audit already did on this SHA — it was 13–37 tool
+calls per push and changed no answer (token audit 2026-09-01). Your adversarial half is that
+you did not author the commits and you obey a gate you did not write.
 
 ## 2. The push
 

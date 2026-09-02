@@ -27,6 +27,7 @@ import {
 } from "./issuekit-lib.js";
 import { cmdBranch, cmdPr, cmdPromote, cmdDeployCheck } from "./issuekit-plumb.js";
 import { cmdCommit } from "./issuekit-commit.js";
+import { cmdPushCheck } from "./issuekit-push.js";
 import {
   PIPELINE_LABELS,
   ISSUEKIT_LABELS,
@@ -500,6 +501,12 @@ const HELP = `issuekit — searchable, deterministic GitHub-issue attempt log (s
   issuekit promote [--from A] [--to B]   server-side merge integration → prod lane
                                          (defaults: base → prodBranch from .issuekit.json);
                                          conflict → exit 1, resolve via PR
+  issuekit push-check [branch] [--remote R] [--set-upstream]
+                                         the push STAGE's gate in ONE call: tree (dirty = flagged,
+                                         untouched), upstream, fast-forward, each (#N)'s labels +
+                                         newest QA/REVIEW verdict, PR checks / last run, target.
+                                         STOP → exit 1 naming the owning stage; PASS → prints the
+                                         bare \`git push\` to run next. Never pushes (gates must see it).
   issuekit deploy-check [--workflow W] [--branch B]
                                          last COMPLETED deploy run's conclusion; fails on
                                          non-success; never polls in-flight. Merged ≠ done.
@@ -553,6 +560,9 @@ const COMMANDS = {
   },
   "deploy-check": (_pos, flags) => {
     cmdDeployCheck(flags);
+  },
+  "push-check": (pos, flags) => {
+    cmdPushCheck(pos, flags);
   },
   "labels-init": (_pos, flags) => {
     cmdLabelsInit(flags);

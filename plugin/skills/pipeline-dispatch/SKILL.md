@@ -65,7 +65,7 @@ skill they load, so a brief that omits the lane gets generic behaviour from the 
 The brief names the skill, the issue, the repo, and force:
 
 > _"Audit issue #42 in owner/repo — run the `adversarial-review` skill. focus=auth. force=false."_
-> _"Push the committed work on `fix/42` in owner/repo — run the `push-method` skill. issue=#42."_
+> _"Push the committed work on `fix/42` in owner/repo — run the `push-method` skill (`issuekit push-check`, then its one push). issue=#42."_
 
 Put the repo IN the brief. An agent that has to discover which repo it is working on will guess, and
 its first action is usually a label-only gate that must not open a project file to answer.

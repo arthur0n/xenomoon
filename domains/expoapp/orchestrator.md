@@ -25,6 +25,14 @@ authoritative, never guess them.
 --when-green` · `promote` · `branch sync <name>` · `branch prune [--apply]`. A non-green
   gate exits 1 listing blockers — re-run the same call, don't dispatch an agent to "figure
   it out". (Each op logs `policy:"pr-plumb-cli"` — the token audit counts them.)
+- **Commit** (once `qa:pass` + `review:pass` are on the issue) → **direct, no agent:** ONE
+  `git add <files> && git commit -m "… (#N)"` by YOU — the `commit-gate` hook re-derives the
+  verdicts and their SHAs and denies anything non-green; `commit-label` stamps the labels. A
+  "Commit …" agent dispatch is a whole subagent run (~1M cache-read tokens, measured) spent
+  re-reading skills before typing the same command.
+- **Push** → dispatch the push STAGE (`senior-analyst` + `push-method`) — you never push. Brief
+  it to run `issuekit push-check` and then the ONE bare `git push` it prints; do NOT brief it to
+  "verify adversarially" by re-reading the thread/diff — the gate verb is the verification.
 - **Git surgery** (merge-CONFLICT resolution, a rebase that edits files — anything
   issuekit's plumbing verbs can't do in one call) → the implement stage **in an isolated git
   worktree** — the user's checkout and uncommitted changes are never staged, stashed, or

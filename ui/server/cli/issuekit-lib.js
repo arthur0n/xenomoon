@@ -92,7 +92,16 @@ export function git(args) {
 }
 
 // ── arg parsing ──────────────────────────────────────────────────────────────
-export const BOOL = new Set(["close", "force", "full", "template", "help", "apply", "when-green"]);
+export const BOOL = new Set([
+  "close",
+  "force",
+  "full",
+  "template",
+  "help",
+  "apply",
+  "when-green",
+  "set-upstream",
+]);
 
 /** @param {string[]} argv @returns {{ pos: string[], flags: Flags }} */
 export function parseArgs(argv) {
@@ -220,9 +229,14 @@ export const slugify = (t) =>
     .slice(0, 40)
     .replace(/-+$/, "");
 
-// countable token-audit marker: one line per deterministic plumbing op that replaces
-// what used to be a whole agent dispatch (see xenomoon .claude/token-audits, id pr-plumb-cli)
+// Countable token-audit markers: one line per deterministic op that replaces what used to be a
+// whole agent dispatch (see xenomoon .claude/token-audits — ids pr-plumb-cli, commit-push-cli).
+// The `op=` suffix is what separates a real fire from a prose mention of the marker in a doc.
+/** @param {string} policy @param {string} op */
+export const mark = (policy, op) => {
+  console.log(`policy:"${policy}" op=${op}`);
+};
 /** @param {string} op */
 export const plumbMark = (op) => {
-  console.log(`policy:"pr-plumb-cli" op=${op}`);
+  mark("pr-plumb-cli", op);
 };

@@ -66,9 +66,9 @@ piece of work needs (small work skips most of it).
     the labels deterministically and denies any non-green commit. **The commit stage records;
     it does not publish — the push stage does.**
 11. **`push`** — **CORE stage; agent `senior-analyst`, skill `push-method`, adversarial to the
-    author.** It verifies (clean tree, fast-forward, branch-model target, verdicts and checks
-    still green), publishes with ONE `git push <remote> <branch>`, and FLAGS any problem instead
-    of fixing it. The branch model draws the line: a routine work-branch push just runs; a push
+    author.** It verifies with ONE `issuekit push-check` (clean tree, fast-forward, branch-model
+    target, verdicts and checks still green), publishes with the ONE `git push <remote> <branch>`
+    that verb prints, and FLAGS any problem instead of fixing it. The branch model draws the line: a routine work-branch push just runs; a push
     reaching the deploy branch rides `policy.push` (`ask` = a human approves, `allow` = the
     autonomous opt-in). You dispatch this stage; you never push.
 12. **Build / smoke** — run the project's own commands, and know which is which:

@@ -263,11 +263,11 @@
         {
           "id": "issue-digest",
           "estSavingTok": 40000,
-          "landed": false,
-          "moved": null,
-          "deltaTok": null,
+          "landed": true,
+          "moved": "pending",
+          "deltaTok": 0,
           "deltaCost": null,
-          "result": null
+          "result": "APPLIED 2026-09-02: (1) issuekit show <#> --digest [--lane triage|analysis|review|qa|prepr|attempts] [--cap N] [--full] (ui/server/cli/issuekit-show.js) — ONE deterministic thread view: labels, body, NEWEST comment per lane (review prints lane + external CODEX/INTERNAL), attempts flagged, head+tail caps (overview 1500/lane, analysis lane 8000, others 4000), elision named. Emits policy:\"issue-digest\" op=digest lane=<x>. (2) PreToolUse(Bash) hook plugin/hooks/issue-dedup.sh — denies an IDENTICAL repeat gh issue view N…comments / issuekit show N in the same session+agent context within 15 Bash events when updatedAt is unchanged; emits policy:\"issue-digest\" op=dedup. (3) implement-method/adversarial-review/qa-method recipes + orchestrator (plugin, expoapp) now point at the digest. BEFORE (live #295, chars): raw dump 37,479; implement-method jq recipe 28,158. AFTER: overview 10,751 (-71%); --lane analysis 8,907 (-68% vs recipe); qa/review lanes ~4.6k (≈ what the old last-comment jq returned — no gain there, the win is dumps + spec + repeats). Next audit: count op=digest and op=dedup lines × 2.5k tok conservative; expect gh issue view…comments Bash calls per session to fall (11-53 baseline: 62 on #295/#289, 136k chars)."
         }
       ],
       "processNote": "pr-plumb-cli landed true (7 ops x 470k); graphify-first landed false (3 fires, all literal greps re-run); marker counts were 2x-inflated by ..|strings — count raw lines"

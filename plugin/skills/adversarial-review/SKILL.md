@@ -19,13 +19,13 @@ Capture `git rev-parse HEAD`, then read the newest comment in the review lane **
 external review**, because a lane pass can be superseded by a reviewer that never got folded in:
 
 ```bash
-gh issue view <N> -R <repo> --json comments -q \
-  '[.comments[].body | select(test("🔎 REVIEW —|🔎 (CODEX|INTERNAL) REVIEW"))] | last'
+issuekit show <N> --digest --lane review
 ```
 
-That pattern is **the same one the commit gate uses** to spot unreconciled findings. Keep them
-identical: if this query is narrower than the gate's, the gate asks about evidence that a re-run of
-this skill cannot see, and the only way out is a human overriding a verdict nobody reconciled.
+That prints the newest `## 🔎 REVIEW —` AND the newest `## 🔎 CODEX|INTERNAL REVIEW` as two
+blocks (capped head+tail; `--full` lifts it). Its selectors are **the same ones the commit gate
+uses** to spot unreconciled findings — one definition, so a re-run of this skill can never see less
+than the gate does.
 
 - The newest of the two is a **`## 🔎 CODEX REVIEW`** (or `## 🔎 INTERNAL REVIEW`) → that is a
   reviewer's evidence with no reconciled verdict behind it. **Do not skip, whatever the lane verdict

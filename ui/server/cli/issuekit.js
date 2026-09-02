@@ -23,11 +23,11 @@ import {
   agentName,
   shortHead,
   nowIso,
-  indent,
 } from "./issuekit-lib.js";
 import { cmdBranch, cmdPr, cmdPromote, cmdDeployCheck } from "./issuekit-plumb.js";
 import { cmdCommit } from "./issuekit-commit.js";
 import { cmdPushCheck } from "./issuekit-push.js";
+import { cmdShow, printAttempts, ATTEMPT_RE } from "./issuekit-show.js";
 import {
   PIPELINE_LABELS,
   ISSUEKIT_LABELS,
@@ -51,14 +51,6 @@ const text = (v) => {
 
 /** @type {Record<string, string>} */
 const RESULT_EMOJI = { failed: "❌", fixed: "✅", partial: "⚠️", blocked: "🚫" };
-
-const ATTEMPT_RE = /<!--\s*issuekit:attempt\b[^>]*-->/;
-
-/** @param {string} body */
-const resultOf = (body) => {
-  const m = body.match(/<!--\s*issuekit:attempt\b[^>]*\bresult=([a-z]+)/);
-  return m ? m[1] : null;
-};
 
 /** @param {number} n @param {string} result @param {Record<string, unknown>} f */
 function renderAttempt(n, result, f) {
@@ -220,37 +212,6 @@ function cmdInit(flags) {
   console.log('done. Next: `issuekit search "<symptom>"` before touching code.');
 }
 
-// extract and print every issuekit attempt comment verbatim, flagged
-/** @param {GhNode} issue @param {{ full?: boolean }} [opts] */
-function printAttempts(issue, { full } = {}) {
-  const comments = issue.comments ?? [];
-  const attempts = comments.filter((c) => ATTEMPT_RE.test(c.body ?? ""));
-  if ((issue.body ?? "").includes("<!-- issuekit:issue")) {
-    if (full) {
-      console.log("  ── issue body (verbatim) ──");
-      console.log(indent(issue.body ?? ""));
-    }
-  }
-  if (!attempts.length) {
-    console.log("  (no issuekit attempts logged on this issue)");
-    return;
-  }
-  for (const c of attempts) {
-    const res = resultOf(c.body ?? "");
-    const flag =
-      res === "failed"
-        ? "  ⚠ DO-NOT-RETRY ↓"
-        : res === "fixed"
-          ? "  ✅ KNOWN FIX ↓"
-          : res === "blocked"
-            ? "  🚫 BLOCKED ↓"
-            : "";
-    if (flag) console.log(flag);
-    console.log(indent((c.body ?? "").trimEnd()));
-    console.log("");
-  }
-}
-
 /** @param {string[]} pos @param {Flags} flags */
 function cmdSearch(pos, flags) {
   maybeSwitchUser(flags, { mutating: false });
@@ -301,30 +262,6 @@ function cmdSearch(pos, flags) {
     console.log(`\n#${issue.number} [${issue.state}] ${issue.title}`);
     printAttempts(issue, { full: Boolean(flags.full) });
   }
-}
-
-/** @param {string[]} pos @param {Flags} flags */
-function cmdShow(pos, flags) {
-  maybeSwitchUser(flags, { mutating: false });
-  const repo = resolveRepo(flags);
-  const num = pos[0];
-  if (!num) throw new Error("show needs an issue number");
-  const issue = ghNode([
-    "issue",
-    "view",
-    String(num),
-    "-R",
-    repo,
-    "--json",
-    "number,title,state,body,labels,comments,url",
-  ]);
-  const labs = /** @type {({ name?: string } | string)[]} */ (issue.labels ?? [])
-    .map((l) => (typeof l === "string" ? l : l.name))
-    .join(", ");
-  console.log(
-    `#${issue.number} [${issue.state}] ${issue.title}${labs ? `  {${labs}}` : ""}\n${issue.url}`,
-  );
-  printAttempts(issue, { full: true });
 }
 
 /** @param {string} repo @param {string | number} num @param {string} result @param {Record<string, unknown>} fields */
@@ -477,7 +414,11 @@ const HELP = `issuekit — searchable, deterministic GitHub-issue attempt log (s
 
   issuekit resolve <#> --cause "…" [--fix "…"] [--close] [--label fixed-pending-deploy] [--repo R]
   issuekit new --title "…" [--body-file f|-] [--symptom-file f|-] [--label a,b] [--force] [--repo R]
-  issuekit show <#> [--repo R]
+  issuekit show <#> [--repo R] [--digest [--lane L] [--cap N] [--full]]
+      --digest = the thread as a stage reads it, ONE deterministic shape: labels, body, the
+      NEWEST comment per lane (triage/analysis/review+external review/qa/prepr), attempts
+      flagged — each capped head+tail (spec fields sit at the END). --lane picks one lane.
+      Use it instead of raw \`gh issue view … --json comments\` dumps (token-audit issue-digest).
   issuekit patch <#> [--title ..] [--body-file f|-] [--add-label a,b] [--remove-label a,b]
   issuekit close <#> [--comment "…"]
   issuekit labels-init [--repo R]

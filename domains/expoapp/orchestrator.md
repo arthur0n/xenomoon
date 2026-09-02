@@ -25,6 +25,10 @@ authoritative, never guess them.
 --when-green` · `promote` · `branch sync <name>` · `branch prune [--apply]`. A non-green
   gate exits 1 listing blockers — re-run the same call, don't dispatch an agent to "figure
   it out". (Each op logs `policy:"pr-plumb-cli"` — the token audit counts them.)
+- **Issue state** (what a stage said, which labels stand) → `issuekit show <#> --digest`
+  (`--lane qa|review|analysis|…` for one lane) — never a raw `gh issue view … --json comments`
+  dump piped through jq/python: the digest is the same shape every time, capped head+tail, and
+  a repeat of an identical fetch in one context is denied by the `issue-dedup` hook.
 - **Commit** (once `qa:pass` + `review:pass` are on the issue) → **direct, no agent:** ONE
   `git add <files> && git commit -m "… (#N)"` by YOU — the `commit-gate` hook re-derives the
   verdicts and their SHAs and denies anything non-green; `commit-label` stamps the labels. A

@@ -17,7 +17,7 @@ header is `## 🧪 QA —`. That comment is the verdict; labels are a summary of
 (a comment posts, its label edit fails, and the issue reads green while the verdict says otherwise).
 
 ```bash
-gh issue view <N> -R <repo> --json comments -q '[.comments[].body | select(test("🧪 QA —"))] | last'
+issuekit show <N> --digest --lane qa
 ```
 
 - Newest verdict is **PASS** and its `qa-verified: <sha>` equals HEAD → post nothing, report

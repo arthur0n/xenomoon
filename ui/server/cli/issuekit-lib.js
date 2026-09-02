@@ -20,7 +20,8 @@ import { tmpdir } from "node:os";
  * The slice of `gh --json` output this tool reads. Everything is optional: `gh` omits fields
  * that were not requested, and a partial object must never crash the CLI mid-write.
  * @typedef {{ number?: number, title?: string, state?: string, url?: string, body?: string,
- *   labels?: ({ name?: string } | string)[], comments?: { body?: string }[],
+ *   labels?: ({ name?: string } | string)[],
+ *   comments?: { body?: string, author?: { login?: string }, createdAt?: string }[],
  *   baseRefName?: string, headRefName?: string, mergeStateStatus?: string, mergeable?: string,
  *   statusCheckRollup?: { conclusion?: string, state?: string, status?: string, name?: string, context?: string }[],
  *   conclusion?: string, headSha?: string, displayTitle?: string, updatedAt?: string }} GhNode
@@ -101,6 +102,7 @@ export const BOOL = new Set([
   "apply",
   "when-green",
   "set-upstream",
+  "digest",
 ]);
 
 /** @param {string[]} argv @returns {{ pos: string[], flags: Flags }} */

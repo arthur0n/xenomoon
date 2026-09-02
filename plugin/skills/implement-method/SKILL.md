@@ -26,16 +26,13 @@ Trim deterministically and keep head+tail of long comments — the spec fields s
 analysis, so a head-only cap would delete exactly what you need:
 
 ```bash
-gh issue view <N> -R <repo> --json number,title,state,labels,body,comments | jq -r '
-  8000 as $cap | 2500 as $head | 4500 as $tail
-  | (.comments // []) as $all
-  | ([$all | to_entries[] | select(.value.body | test("🔬 ANALYSIS")) | .key] | last) as $h
-  | (if $h == null then $all else $all[$h:] end) as $keep
-  | "#\(.number) \(.title) [\(.state)]"
-  + (if (.labels // []) != [] then "\nlabels: " + ([.labels[].name]|join(", ")) else "" end)
-  + "\n\n" + (.body // "")
-  + ([$keep[] | "\n\n--- @\(.author.login // "?")\n" + ((.body // "") | if length > $cap then .[0:$head] + "\n\n[… mid-section elided — full: gh issue view --comments]\n\n" + .[(length-$tail):] else . end)] | join(""))'
+issuekit show <N> --digest --lane analysis
 ```
+
+(`issuekit` = the shipped path your prompt names.) That prints labels, the body and the NEWEST
+`## 🔬 ANALYSIS`, capped head+tail at 8000 chars (2500 head / 4500 tail) with the elision named —
+the same trim this skill used to do by hand with jq. `--full` lifts the cap if the elision took
+a field you need.
 
 **A linked PRD is also your spec.** If the issue carries a `**PRD:**` line, its **Acceptance**
 block is what you build to — unchanged, because the QA stage grades against that same text. Two

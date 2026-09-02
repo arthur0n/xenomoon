@@ -61,7 +61,8 @@ lines, which `rtk grep`/`jq` handle.)
 
 ## Steps
 
-1. **Read coverage + ledger.** Open `harvested-sessions.txt` (the covered tags) and parse `LEDGER.json`
+1. **Read coverage + ledger.** Open `harvested-sessions.txt` if it exists (absent = nothing covered
+   yet; step 8 creates it) and parse `LEDGER.json`
    (its `findings[]` still `open`/`later` + the `lastAudit` line). So you neither re-scan a covered
    session nor re-file a finding already recorded.
 

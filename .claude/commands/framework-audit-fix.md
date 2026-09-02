@@ -24,9 +24,9 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
   ids, fixes, status. `LEDGER.md` is a GENERATED VIEW — after any write run `npm run ledger`
   (never hand-edit it; the pre-commit hook regenerates too). Schema: `.claude/framework-audits/README.md`.
 - **Targets:** `plugin/skills/*/SKILL.md`, `plugin/agents/*.md`, `domains/*/orchestrator.md` (the
-  pack source; `plugin/orchestrator.md` once installed), `plugin/commands/*.md`, the forge-local
-  `.claude/commands/*.md` (the self-improvement commands — when a D7 finding targets an audit command
-  itself), `plugin/library/**/*.md` (records a domain pack installs; CORE ships only `README.md` +
+  pack source; `plugin/orchestrator.md` once installed), the forge-local `.claude/commands/*.md`
+  (the self-improvement commands — this fork ships NO `plugin/commands/` surface; a D7 finding
+  targets an audit command itself), `plugin/library/**/*.md` (records a domain pack installs; CORE ships only `README.md` +
   `token-audits/`).
 - Editing a plugin file directly **is** the sanctioned path for a general improvement
   (`plugin/docs/process/promotion.md`: "General improvement → edit the file directly in the
@@ -87,16 +87,22 @@ never deletes/overwrites beyond the recorded fix. Run it caveman.
      statement, KEEPING the fleet-standard intro + `## What you never do` scaffold (cut only the THIRD+
      echo, or the fleet's ~20 agents go inconsistent), and point the other mentions at the canonical
      one. "State each constraint once" means collapse the redundant echoes, not delete the scaffold.
-     A THIRD shape: a duplicated COMMAND FILE across the shipped/forge-local boundary (e.g. a
-     `plugin/commands/*.md` shadowing a `.claude/commands/*.md`) — delete the shipped copy (the
+     A THIRD shape: a duplicated COMMAND FILE across the shipped/forge-local boundary (a shipped
+     copy under `plugin/` shadowing a `.claude/commands/*.md`) — delete the shipped copy (the
      practice is forge-local only) and sweep refs with `rg`; also check each copy's data source
      (e.g. a ledger path) BEFORE deleting — if the copies point at DIFFERENT files, deleting one
      copy can orphan the other's CORE-tracked resource, so redirect or fold it in first.
+     A FOURTH shape: a deliberately-INLINE fleet-standard block (not a skill candidate — a terse
+     rule meant to live inline in every agent) that has DRIFTED into variants across agents —
+     re-unify to ONE canonical block, paste it verbatim into all N agents, then harden with a lint
+     assertion (`ui/server/cli/agents-lint.js`) so it can't drift again; this is NOT the same fix as
+     extract-to-skill (the block stays inline by design) or the within-one-agent trim (the
+     duplication is cross-agent, not repeated echoes in one file).
    - **D6 (orchestrator):** apply the recorded edit to the domain orchestrator
      `domains/*/orchestrator.md` (`plugin/orchestrator.md` once installed) — centralize a duplicated
      directive, move dense prose into a skill, or trim.
-   - **D7 (command):** edit the target command per the finding — a shipped `plugin/commands/*.md`
-     or a forge-local `.claude/commands/*.md` (the self-improvement commands audited under D7).
+   - **D7 (command):** edit the target command per the finding — a forge-local `.claude/commands/*.md`
+     (the self-improvement commands audited under D7; this fork ships no `plugin/commands/`).
    - **D8 (verification-flow gap):** apply the recorded edit at the named layer — add the missing
      `## Verification` block to a domain builder, wire the claimed check into the framework gate (the
      relevant `check:*` script — `ui/structure.check.js`, `gen-skill-scope.js`, `agents-lint.js`,

@@ -36,8 +36,8 @@ applied by the SAME `/framework-audit-fix`.
   `later` 5 · `skip` 6) and **status** (`open` · `skip` — applied findings are REMOVED, never stamped
   `done`). Reuse them exactly — `/framework-audit-fix` resolves by id. Schema: its `README.md`.
 - **Likely targets a finding points at:** `plugin/skills/*/SKILL.md`, `plugin/agents/*.md`,
-  `plugin/orchestrator.md` (source: `domains/*/orchestrator.md`), `plugin/commands/*.md`, and the
-  forge-local commands themselves.
+  `plugin/orchestrator.md` (source: `domains/*/orchestrator.md`), and the forge-local
+  `.claude/commands/*.md` themselves (this fork ships no `plugin/commands/`).
 - **Search with the Grep TOOL or `/opt/homebrew/bin/rg` (full path), NEVER bash `grep`** — the `rtk`
   hook silently drops/mangles matches, so a confirm-the-target sweep done with bash grep can miss the
   ref you're citing. Use the Grep tool / full-path `rg` / Read; don't slurp whole files.

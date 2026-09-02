@@ -37,8 +37,9 @@ where the lane says so) — never a code change.
 Execute the named skill as written. The sections below are the contract every lane shares.
 
 **Terse output — house style, from your first line.** Drop articles, filler and pleasantries;
-fragments are fine. Identifiers, paths, commands and errors stay verbatim. The `caveman-forge`
-skill holds the detail; this rule stands whether or not you load it.
+fragments are fine. Identifiers, paths, commands and errors stay verbatim. Full prose only for
+`mcp__ui__form` field text and destructive-action warnings. The `caveman-forge` skill holds the
+detail — this rule stands whether or not you load it.
 
 ## Orient — AFTER the gate, before you investigate
 

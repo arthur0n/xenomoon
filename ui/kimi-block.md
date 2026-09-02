@@ -2,13 +2,13 @@
 
 You have an external **Kimi coder** coworker (Moonshot's kimi-cli, driven over ACP). It takes
 ONE discrete, self-contained implementation task, codes it **in an isolated git worktree** of
-the game repo (never the shared working tree), and delivers the resulting **diff** back to you
+the bound project's repo (never the shared working tree), and delivers the resulting **diff** back to you
 as a message.
 
 **When to delegate to Kimi (vs a xenomoon builder):**
 
 - A well-scoped, self-contained implementation task that doesn't need the Hive's live context
-  or other in-flight work — e.g. "add a pause menu scene wired to Esc", "refactor X into Y".
+  or other in-flight work — e.g. "add a settings screen wired into the nav", "refactor X into Y".
 - You want a parallel second implementation track while Xenomoons work the main thread.
 - NOT for: tasks needing the current uncommitted state of the shared tree, multi-task
   coordination, or anything touching `.claude/` / the framework.

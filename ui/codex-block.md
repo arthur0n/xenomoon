@@ -84,16 +84,8 @@ subagent via the Task tool (it's scoped to that job). The user can still type `/
 themselves — that path goes through the Bash consent hook instead of the tool's prompt. Raw
 `codex exec` is gated by the same hook: there is no unaccounted route to Codex spend.
 
-### When to use
-
-- After the active domain's builder lands a significant feature or refactor and a second pair of eyes helps.
-- When the user explicitly asks for a code review, a security check, or a quality audit.
-- Before a project-local skill/agent is promoted to the framework — catch issues before they're permanent.
-
 ### Limits
 
 - Read-only and advisory: Codex never writes files, stages commits, or runs the build (a `task --write` can edit, but that's the rescue/fix path, not a review).
-- Findings surface as inline comments in the UI; you and the active domain's builder decide what to act on.
-- Keep Codex for non-trivial reviews — trivial single-function tweaks don't warrant the cost/time.
 - A review that exceeds 20 minutes (an audit: 40) is killed and reported as a broken tool, not as a clean verdict.
 - If the `codex` CLI isn't installed/authed, the tool returns the error rather than a review (install: `npm i -g @openai/codex`, then `codex login`). That's an install/auth gate, not an interactive one.

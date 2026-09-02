@@ -19,7 +19,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".
 const MODELS = new Set(["opus", "sonnet", "haiku"]);
 
 /** @typedef {{ name: string, file: string, model: string, effort: string,
- *              effortJustified: boolean, rosterJustified: boolean }} AgentMeta */
+ *              effortJustified: boolean, rosterJustified: boolean, body: string }} AgentMeta */
 
 /** Agent dirs to scan: CORE plus every domain pack. @returns {string[]} */
 function agentDirs() {
@@ -45,8 +45,12 @@ function readAgent(file) {
     effort: field("effort"),
     effortJustified: /effort-justification:/.test(text),
     rosterJustified: /roster-justification:/.test(text),
+    body: text.slice(fm.length),
   };
 }
+
+/** The first sentence of the one terse block every agent carries (the rest may wrap). */
+const TERSE_RULE = "**Terse output — house style, from your first line.**";
 
 /** @type {AgentMeta[]} */
 const all = [];
@@ -77,6 +81,13 @@ for (const a of all) {
     );
   if (a.model === "haiku" && a.effort && a.effort !== "low")
     warnings.push(`${a.file}: haiku above effort: low — haiku is for mechanical, no-judgment work`);
+  // The terse rule is INLINE and IDENTICAL in every agent (framework-audit D5-terse-rule-redrift:
+  // it re-diverged into three phrasings plus one agent with a runtime load step within three
+  // weeks of being unified). A lint holds what memory did not.
+  if (!a.body.includes(TERSE_RULE))
+    errors.push(
+      `${a.file}: missing the canonical terse block — paste verbatim: ${JSON.stringify(TERSE_RULE)}`,
+    );
 }
 
 // Same-model multiplicity: flag models carried by 2+ agents where any of them lacks a

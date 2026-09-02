@@ -652,7 +652,9 @@ const CODEX_COST_DOCTRINE = {
   metered:
     "It runs on OpenAI's own model with its **own METERED billing** (NOT the user's " +
     "Anthropic plan), and a real review takes time — dispatch deliberately at decision " +
-    "points, not habitually.",
+    "points, not habitually: a significant feature or refactor, an explicit ask for a review or " +
+    "audit, a capability about to be promoted. A single-function tweak does not warrant the " +
+    "cost.",
 };
 
 /** @returns {string} */

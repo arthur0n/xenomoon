@@ -40,7 +40,8 @@ properties the promotion rubric (`plugin/docs/process/promotion.md`) demands.
   They carry real routing + consent rules, so they are orchestrator surface and D6/D11 own them.
   Derive this list from `config.js`, not from memory: `getEconomicsBlock`/`getBranchModelBlock`
   are inline strings today, but a future block becomes a file and silently escapes the map.
-- **Commands:** `plugin/commands/*.md` and ALL forge-local self-improvement commands —
+- **Commands:** this fork ships NO `plugin/commands/` surface (see `docs/FRAMEWORK.md:60` and
+  `plugin/docs/process/promote-agent-to-core.md:60`) — the only commands are forge-local:
   glob `.claude/commands/*.md`, never a hardcoded list (it goes stale; token-audit.md was
   silently missed by one).
 - **Library (AGNOSTIC records only — ships to every project):** `plugin/library/**/*.md`. A domain
@@ -56,6 +57,9 @@ bash `grep`/`rg` through `rtk`, which silently DROPS and MANGLES matches (it rew
 `quick`→`n`, and missed `DiceOfFate` in files that contained it). Bash grep is unreliable for this
 audit — use the Grep tool, full-path `rg`, the Read tool, or a sub-agent that has the Grep tool. Use
 `wc` / `rg --files` for sizes/listings. Don't slurp every file into context.
+**`rg -h` is HELP, not "no filename":** ripgrep's no-filename flag is `-I` (or `--no-filename`); `-h`
+silently prints the help text instead of your search, so a sweep that used `-h` found nothing and
+looked clean when it never ran.
 
 **Grep vs graphify — pick by question shape.** This repo ships a knowledge graph (`graphify-out/`).
 For CONCEPTUAL gather — "how does routing connect", "how does the verify flow span agents" (D6/D8) —
@@ -185,9 +189,9 @@ plugin/orchestrator.md`, and the pack's agents/skills too): an edit made to the 
      is a build-artifact edit — the next install clobbers it and no other project ever gets it.
      Read one file and this is invisible; the diff is the only way it surfaces.
 
-   - **D7 — The framework's own commands.** Audit `plugin/commands/*.md` AND all forge-local
-     self-improvement commands (glob `.claude/commands/*.md` — never assume a fixed list) for
-     stale references
+   - **D7 — The framework's own commands.** This fork ships NO `plugin/commands/` surface — audit
+     all forge-local self-improvement commands (glob `.claude/commands/*.md` — never assume a fixed
+     list) for stale references
      (paths/files that moved), scope creep, dead steps, and whether each command still
      self-critiques. Apply D2/D3/D5 lenses to commands too. **Enumeration drift:** flag any command
      that hardcodes a list of sibling files where a glob (`.claude/commands/*.md`) would stay
@@ -299,10 +303,10 @@ plugin/orchestrator.md`, and the pack's agents/skills too): an edit made to the 
    to a one-line summary of what the pass did** — the fixes live in the files + git, not here. Don't
    let it accumulate done/skip history.
 
-6. **Present — the 6 buckets (skill-researcher convention).** Report like the **skill-researcher**
-   agent does (`plugin/agents/skill-researcher.md`): never gate a finding with a bare
-   fix/skip. Decompose the audit into the six buckets, put the verdict ON TOP, and let the
-   human decide per finding:
+6. **Present — the 6 buckets (research-presenting convention).** Report like the
+   `research-presenting` skill teaches (`plugin/skills/research-presenting/SKILL.md`): never gate a
+   finding with a bare fix/skip. Decompose the audit into the six buckets, put the verdict ON TOP, and
+   let the human decide per finding:
    1. **The ideal** (from the idea) — what this dimension should look like (domain-agnostic skills,
       lean agents, honest names, data-driven systems…).
    2. **Current state** (from the candidate) — what the audit actually found, with evidence

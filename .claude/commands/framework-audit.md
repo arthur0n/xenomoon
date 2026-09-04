@@ -126,7 +126,7 @@ status.
    - **D1 — Agents with too many skills.** Don't recount by hand — run `rtk npm run validate` (it
      runs `check:skills` = `gen-skill-scope.js`) and read the skill-scope warnings: its
      index-expansion count is authoritative (it caught over-cap agents a frontmatter-only count
-     missed). The soft cap is **~10** skills per agent (`INDEX_SOFT_CAP` in `gen-skill-scope.js`); in
+     missed). The soft cap is **12** skills per agent (`INDEX_SOFT_CAP` in `gen-skill-scope.js`; raised from 10 on 2026-09-04); in
      the CORE spine the `builders` audience is EMPTY (`BUILDERS = []` in `skill-registry.js` — a
      domain pack scopes its OWN builder cohort inside `domains/<name>/`, and may carry a heavier
      general builder its own scoping caps). For a flagged agent, judge whether its skills cluster into

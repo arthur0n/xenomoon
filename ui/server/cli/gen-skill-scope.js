@@ -161,8 +161,10 @@ for (const [id, want] of expected) {
 // Self-check: keep each context's tier-1 skill INDEX small. Past ~10–15 the always-listed description
 // budget bites and selection accuracy erodes as descriptions overlap (the index is the "these exist +
 // roughly what they do" signal; full skills load on demand). An over-cap agent is the signal to split
-// it into domain-specialized agents (core + domain).
-const INDEX_SOFT_CAP = 10;
+// it into domain-specialized agents (core + domain). 12, not 10 (owner, 2026-09-04): the
+// senior-analyst's four pipeline hats + investigation stack sit at 11 by design — one extra
+// description per dispatch is cheaper than a roster split.
+const INDEX_SOFT_CAP = 12;
 for (const [id, have] of actual) {
   if (have.size > INDEX_SOFT_CAP)
     warnings.push(

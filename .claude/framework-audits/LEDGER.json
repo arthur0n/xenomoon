@@ -52,15 +52,6 @@
       "pattern": "a contradiction between a post-mortem observation and the code is a measurement question first — find which session the observation came from before hardening anything."
     },
     {
-      "id": "D1-senior-analyst-four-hats",
-      "dim": "D1",
-      "bucket": 4,
-      "verdict": "fix-now",
-      "status": "open",
-      "finding": "check:skills: senior-analyst carries 11 skills (> INDEX_SOFT_CAP 10): four STAGE hats — solution-method, adversarial-review, pre-pr-review, push-method — plus the investigation stack (intent-guardrails, library-first, project-library, graphify, code-investigation) and the base pair. Two shapes of fix: (a) cheap — drop `project-library` from its index if the analyst only READS the library (library-first covers reads; project-library is the record-WRITER's skill — confirm solution-method does not write records first); (b) structural — split a `reviewer` agent owning adversarial-review + pre-pr-review (the code-judgement hats), leaving senior-analyst = solution + push. (b) touches pipeline-dispatch's stage table, agents-lint's roster, skill-scope and the tester's 'not the same agent as the reviewers' note; PUSH_AGENT stays. Recommend (a) now, (b) only if the fork wants a distinct review voice.",
-      "pattern": "an agent's index is the skills its LANES need at a known step — hats that never co-occur in one dispatch belong to different agents"
-    },
-    {
       "id": "D12-body-parser-qs-2026-09-05",
       "dim": "D12",
       "bucket": 5,

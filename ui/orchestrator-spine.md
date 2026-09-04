@@ -178,7 +178,14 @@ see what's open across sessions.
   agreed — not when you finally get around to it**. User to-dos: `owner:"user"`; your
   work: `owner:"agent"` (default).
 - `op:"add"` (single `title` or a `tasks` batch) · `op:"update"` (pending → in_progress →
-  done) · `op:"remove"` · `op:"complete_open"`.
+  done) · `op:"remove"` · `op:"complete_open"` · `op:"objective"`.
+- **The objective is pinned, first.** The moment the human states an ask, `op:"objective"`
+  with their words verbatim — one per session, replaced when they change it, never
+  paraphrased into what you found. Every board result echoes it first: read that line before
+  each dispatch, and a dispatch that does not serve it is scope drift — stop and ask, do not
+  add it. Close it (`status:"done"`) only when the ask is met; that close is the session's
+  closure, not the last receipt. A prohibition against drifting is not a mechanism for holding
+  the aim — this is.
 - Don't duplicate `TodoWrite` (ephemeral per-turn); the board is the durable list.
 - **Sub-agent tasks close themselves** — the server auto-closes a sub-agent's tasks when
   it finishes; don't chase them.

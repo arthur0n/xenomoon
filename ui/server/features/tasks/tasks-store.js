@@ -54,7 +54,7 @@ function nextId(list) {
   return `t${max + 1}`;
 }
 
-/** @param {Task[]} list @param {{ title?: string, owner?: string, note?: string, status?: string, agent?: string, kind?: "question", options?: string[], answer?: string }} spec @param {string} now @returns {Task} */
+/** @param {Task[]} list @param {{ title?: string, owner?: string, note?: string, status?: string, agent?: string, kind?: Task["kind"], options?: string[], answer?: string }} spec @param {string} now @returns {Task} */
 function makeTask(list, spec, now) {
   return {
     id: nextId(list),
@@ -70,7 +70,7 @@ function makeTask(list, spec, now) {
     // sub-agent's subagent_type. Internal — the client renderer ignores it.
     agent: spec.agent ? String(spec.agent).slice(0, 80) : undefined,
     // Async-question fields (mcp__ui__ask). Absent on ordinary tasks.
-    ...(spec.kind === "question" ? { kind: /** @type {const} */ ("question") } : {}),
+    ...(spec.kind === "question" || spec.kind === "objective" ? { kind: spec.kind } : {}),
     ...(Array.isArray(spec.options) && spec.options.length
       ? { options: spec.options.map((o) => String(o).slice(0, 120)).slice(0, 8) }
       : {}),
@@ -88,7 +88,9 @@ function makeTask(list, spec, now) {
  */
 export function applyOp(op, now) {
   let list = readTasks();
-  if (op.op === "add") {
+  if (op.op === "objective") {
+    list = setObjective(list, op, now);
+  } else if (op.op === "add") {
     const specs = Array.isArray(op.tasks) ? op.tasks : [op];
     for (const spec of specs) {
       // `_by` (the creating agent) rides on the top-level op — inject it into
@@ -126,14 +128,53 @@ export function applyOp(op, now) {
   return list;
 }
 
+/** The one open objective, if the session has one. @param {Task[]} list @returns {Task | undefined} */
+export const openObjective = (list) =>
+  list.find((t) => t.kind === "objective" && t.status !== "done");
+
+/**
+ * The human's OBJECTIVE for the session — the standing answer to "what are we here to do".
+ * Nothing else in the framework carried it across turns (framework-audit
+ * D6-objective-not-durable: each turn re-derived its goal from the freshest receipt, and
+ * "close these issues" drifted into three new PRs). It is a task because the board already
+ * persists across sessions, is re-read every turn, and is echoed in every tool result —
+ * `summarize` prints it FIRST, so the aim re-enters context on every board call without a
+ * new subsystem. At most one open: setting again REPLACES the title (same id); `status:"done"`
+ * closes it — that close is the session's closure, not the last receipt. owner:"user" keeps it
+ * clear of the pruner and every agent task-closer; only the human or the orchestrator ends it.
+ * @param {Task[]} list @param {{ title?: string, note?: string, status?: string, _by?: string }} op @param {string} now
+ * @returns {Task[]} */
+function setObjective(list, op, now) {
+  const open = openObjective(list);
+  if (op.status === "done") {
+    return open ? list.map((t) => (t.id === open.id ? { ...t, status: "done" } : t)) : list;
+  }
+  const title = op.title != null ? String(op.title).slice(0, 200) : open?.title;
+  if (!title) return list;
+  const note = op.note != null ? String(op.note).slice(0, 500) : open?.note;
+  if (open)
+    return list.map((t) => (t.id === open.id ? { ...t, title, ...(note ? { note } : {}) } : t));
+  return [
+    ...list,
+    makeTask(
+      list,
+      { title, note, owner: "user", status: "in_progress", agent: op._by, kind: "objective" },
+      now,
+    ),
+  ];
+}
+
 /** Drop agent-owned `done` tasks at a turn boundary so the board reflects live
  * work instead of a graveyard of completed items. Keeps open tasks and every
- * user-owned to-do (those are the user's to clear). Returns the new list, or
+ * user-owned to-do (those are the user's to clear) — except a CLOSED objective, which
+ * is the session's finished aim, not a to-do. Returns the new list, or
  * null when nothing was pruned (so the caller can skip a redundant broadcast).
  * @returns {Task[] | null} */
 export function pruneDoneTasks() {
   const list = readTasks();
-  const kept = list.filter((t) => !(t.owner === "agent" && t.status === "done"));
+  const kept = list.filter(
+    (t) => t.status !== "done" || (t.owner !== "agent" && t.kind !== "objective"),
+  );
   if (kept.length === list.length) return null;
   writeTasks(kept);
   return kept;
@@ -272,10 +313,14 @@ export function closeStragglerTasks(running, anyBackgroundLive = true) {
  * agent can tell at a glance whether its work is closed (not just a count).
  * @param {Task[]} list @returns {string} */
 export function summarize(list) {
-  const open = list.filter((t) => t.status !== "done");
-  const done = list.length - open.length;
-  const base = `${list.length} task${list.length === 1 ? "" : "s"} (${done} done).`;
-  if (!open.length) return list.length ? `${base} All closed.` : base;
+  // The objective leads every result — the aim re-enters context on every board call.
+  const aim = openObjective(list);
+  const head = aim ? `OBJECTIVE: ${aim.title}\n` : "";
+  const rest = aim ? list.filter((t) => t.id !== aim.id) : list;
+  const open = rest.filter((t) => t.status !== "done");
+  const done = rest.length - open.length;
+  const base = `${rest.length} task${rest.length === 1 ? "" : "s"} (${done} done).`;
+  if (!open.length) return head + (rest.length ? `${base} All closed.` : base);
   const items = open.map((t) => `${t.id} ${t.title} [${t.status}]`).join(", ");
-  return `${base} OPEN: ${items}`;
+  return `${head}${base} OPEN: ${items}`;
 }

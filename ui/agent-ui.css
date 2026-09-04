@@ -2595,6 +2595,16 @@ input.cmd::placeholder {
     transform 0.42s var(--ease-out);
 }
 
+/* The session objective — the human's standing ask, pinned first. Moon-Gold accent
+   (the identity token) so the aim reads apart from the work beneath it. */
+.task-row.kind-objective {
+  border-color: color-mix(in oklab, var(--green) 55%, var(--border));
+  box-shadow: inset 2px 0 0 var(--green);
+}
+.task-row.kind-objective .task-title {
+  font-weight: 600;
+}
+
 /* A done task retires: it slides off and clears 5s after completion (see
    tasks.js). Transform + opacity only — the gap closes when the row is
    removed at the end of the fade. */

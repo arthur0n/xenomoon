@@ -164,7 +164,8 @@ function updateOwnerChip(row, chip, t) {
     row.style.removeProperty("--agent-color");
     chip.className = "owner-chip owner-user";
     chip.title = "";
-    chip.append(el("span", "owner-label", "You"));
+    // The session objective is the human's standing ask — stamped as such, not as a to-do.
+    chip.append(el("span", "owner-label", t.kind === "objective" ? "Objective" : "You"));
   }
 }
 
@@ -180,6 +181,7 @@ function updateRow(row, t) {
   );
   const prevStatus = row.dataset.status;
   row.classList.add(`status-${t.status}`, `owner-${t.owner}`);
+  row.classList.toggle("kind-objective", t.kind === "objective");
   row.dataset.status = t.status;
   const tick = /** @type {HTMLElement | null} */ (row.querySelector(".task-tick"));
   if (tick) {
@@ -227,7 +229,10 @@ function render(tasks) {
       cancelRetire(t.id);
     }
   }
-  const visible = tasks.filter((t) => !dismissed.has(t.id));
+  // The objective is pinned first — the aim reads before the work (stable sort keeps the rest).
+  const visible = tasks
+    .filter((t) => !dismissed.has(t.id))
+    .sort((a, b) => Number(b.kind === "objective") - Number(a.kind === "objective"));
   reconcile($("tasks-list"), visible, { key: (t) => t.id, create: createRow, update: updateRow });
   // Live (not-done) count rides on the Tasks section badge; empty placeholder
   // shows when the board has nothing at all.

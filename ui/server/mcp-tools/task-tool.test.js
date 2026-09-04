@@ -93,3 +93,28 @@ test("complete_open: closes only the caller's own open agent tasks", async () =>
   assert.equal(byTitle.get("paint sky"), "pending"); // another agent's task is untouched
   assert.equal(byTitle.get("approve palette"), "pending"); // user-owned — never auto-closed
 });
+
+test("objective: pinned first in every result, survives complete_open, replaced not stacked, closed by status done", async () => {
+  const { t, lastTasks } = makeTool();
+  const obj = /** @param {Record<string, unknown>} extra */ (extra) =>
+    t.handler(/** @type {any} */ ({ ...args({ op: "add" }), ...extra, op: "objective" }), {});
+  let out = await obj({ title: "close the open issues", _by: "main" });
+  assert.match(textOf(out), /^OBJECTIVE: close the open issues\n0 tasks/);
+  const aim = lastTasks()[0];
+  assert.equal(aim?.kind, "objective");
+  assert.equal(aim?.owner, "user"); // clear of the pruner and every agent task-closer
+  assert.equal(aim?.status, "in_progress");
+
+  await t.handler(args({ op: "add", title: "fix #12", _by: "main" }), {});
+  out = await t.handler(args({ op: "complete_open", _by: "main" }), {});
+  assert.match(textOf(out), /^OBJECTIVE: close the open issues\n1 task \(1 done\)\. All closed\./);
+  assert.equal(lastTasks().filter((x) => x.kind === "objective").length, 1);
+
+  out = await obj({ title: "close the open issues in worker/", _by: "main" });
+  assert.equal(lastTasks().filter((x) => x.kind === "objective").length, 1); // replaced, same slot
+  assert.match(textOf(out), /^OBJECTIVE: close the open issues in worker\//);
+
+  out = await obj({ status: "done", _by: "main" });
+  assert.doesNotMatch(textOf(out), /^OBJECTIVE/);
+  assert.equal(lastTasks().find((x) => x.kind === "objective")?.status, "done");
+});

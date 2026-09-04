@@ -21,13 +21,22 @@ export function makeTaskTool(send) {
       '(owner "agent") and to hand explicit to-dos to the user (owner "user"). It does ' +
       "NOT pause the session. Keep tasks small and discrete. Every result lists the tasks " +
       "still OPEN, so you can always see what's unfinished. Before you hand off or end " +
-      'your run, call op "complete_open" once to close all your own open tasks.',
+      'your run, call op "complete_open" once to close all your own open tasks. ' +
+      'op "objective" pins the human\'s standing ask for the session (title = their words, ' +
+      "verbatim); every result echoes it first — read it before each dispatch, and close it " +
+      'with status "done" only when it is met.',
     {
       op: z
-        .enum(["add", "update", "remove", "complete_open"])
-        .describe('Mutation to apply. "complete_open" marks ALL your own open tasks done at once.'),
+        .enum(["add", "update", "remove", "complete_open", "objective"])
+        .describe(
+          'Mutation to apply. "complete_open" marks ALL your own open tasks done at once. ' +
+            '"objective" sets/replaces the session objective (title), or closes it (status "done").',
+        ),
       // add
-      title: z.string().optional().describe("add: the task title (or use `tasks` for a batch)"),
+      title: z
+        .string()
+        .optional()
+        .describe("add: the task title (or use `tasks` for a batch); objective: the ask, verbatim"),
       owner: z.enum(["agent", "user"]).optional().describe('add/update: owner (default "agent")'),
       note: z.string().optional().describe("add/update: optional one-line detail"),
       tasks: z.array(TASK_SPEC).optional().describe("add: several tasks at once"),

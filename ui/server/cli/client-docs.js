@@ -4,7 +4,10 @@
 // accepted or amended (ui/lib/records.js isClientShareable) are written to a static folder as
 // one markdown per record plus an index.md. No hosting, no external service — how client docs
 // are finally published is not decided yet.
-//   node ui/server/cli/client-docs.js --out <dir> [--root <library dir>]
+//   node ui/server/cli/client-docs.js --out <dir> [--root <library dir>] [--deny a,b]
+// After writing, the OUTPUT is scanned like the source (#49): scanClientDocs runs the shared
+// contamination scanner over every generated file with the known project names of this machine
+// (the install registry, as check:project-names reads it) plus any --deny terms. A hit exits 1.
 // --out is required and must sit OUTSIDE the framework repo; an existing non-empty folder is
 // refused (nothing is ever overwritten). --root defaults to plugin/library.
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -14,6 +17,8 @@ import { parseArgs } from "node:util";
 import { parseFrontmatter } from "../../lib/frontmatter.js";
 import { isClientShareable } from "../../lib/records.js";
 import { REPO, readLibrary } from "../features/library/library-io.js";
+import { scanPath } from "../features/promotions/contamination.js";
+import { knownProjectTerms, readInstallsMap } from "./known-projects.js";
 
 /**
  * @typedef {object} ClientDoc
@@ -75,9 +80,24 @@ export function writeClientDocs(root, out) {
   return docs;
 }
 
+/**
+ * Scan a generated output folder for forbidden terms (whole output, every hit). The seam for
+ * any term source: pass the list in, the scanner stays pure.
+ * @param {string} out @param {string[]} terms
+ * @returns {Array<{ file: string, signal: string, match: string }>}
+ */
+export function scanClientDocs(out, terms) {
+  const denylist = [...new Set(terms.map((t) => t.trim().toLowerCase()).filter(Boolean))];
+  return scanPath(out, { denylist, all: true }).map((h) => ({
+    file: path.relative(out, h.file),
+    signal: h.signal,
+    match: h.match,
+  }));
+}
+
 function main() {
   const { values: opt } = parseArgs({
-    options: { out: { type: "string" }, root: { type: "string" } },
+    options: { out: { type: "string" }, root: { type: "string" }, deny: { type: "string" } },
   });
   if (!opt.out) {
     console.error("✗ usage: client-docs.js --out <dir outside the repo> [--root <library dir>]");
@@ -91,6 +111,17 @@ function main() {
     process.exit(1);
   }
   const docs = writeClientDocs(root, out);
+  const terms = [
+    ...knownProjectTerms({ installs: readInstallsMap() }),
+    ...(opt.deny ?? "").split(","),
+  ];
+  const hits = scanClientDocs(out, terms);
+  if (hits.length > 0) {
+    console.error(`✗ client-docs: ${hits.length} hit(s) in the generated output ${out}:`);
+    for (const h of hits) console.error(`    ${h.file} — ${h.signal} "${h.match}"`);
+    console.error("  Fix the source record (or drop its audience: client) and regenerate.");
+    process.exit(1);
+  }
   console.log(`ok  client-docs: ${docs.length} record(s) → ${out}`);
 }
 

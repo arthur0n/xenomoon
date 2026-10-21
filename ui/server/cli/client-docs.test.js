@@ -7,7 +7,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { outProblem, selectClientDocs, writeClientDocs } from "./client-docs.js";
+import { outProblem, scanClientDocs, selectClientDocs, writeClientDocs } from "./client-docs.js";
+
+/** Run the CLI with an empty install registry so only --deny terms count. @param {string[]} args */
+const run = (args) =>
+  execFileSync("node", [CLI, ...args], {
+    stdio: "pipe",
+    env: { ...process.env, XENOMOON_REGISTRY: path.join(tmpdir(), "client-docs-no-registry.json") },
+  });
 
 const CLI = fileURLToPath(new URL("./client-docs.js", import.meta.url));
 
@@ -63,4 +70,38 @@ test("CLI: --out is required; a run inside the repo exits non-zero", () => {
   const inside = path.join(path.dirname(CLI), "client-docs-out");
   assert.throws(() => execFileSync("node", [CLI, "--out", inside], { stdio: "pipe" }));
   assert.ok(!existsSync(inside));
+});
+
+test("scanClientDocs finds a planted term in the output; clean output passes (#49)", () => {
+  const root = fakeLibrary();
+  writeFileSync(
+    path.join(root, "verdicts", "shared-ok.md"),
+    "---\ndescription: d\naudience: client\n---\n# Ok\n\nBuilt for Acme-Fake last spring.\n",
+  );
+  const out = path.join(mkdtempSync(path.join(tmpdir(), "client-docs-scan-")), "site");
+  writeClientDocs(root, out);
+  const hits = scanClientDocs(out, ["acme-fake"]);
+  assert.deepEqual(
+    hits.map((h) => [h.file, h.match]),
+    [[path.join("verdicts", "shared-ok.md"), "acme-fake"]],
+  );
+  assert.deepEqual(scanClientDocs(out, ["other-fake"]), []);
+});
+
+test("CLI exits non-zero on a planted term, zero when clean (#49)", () => {
+  const root = fakeLibrary();
+  writeFileSync(
+    path.join(root, "verdicts", "shared-amended.md"),
+    "---\ndescription: d\naudience: client\n---\nacme-fake inside.\n",
+  );
+  const base = mkdtempSync(path.join(tmpdir(), "client-docs-cli-"));
+  assert.throws(
+    () => run(["--root", root, "--out", path.join(base, "a"), "--deny", "acme-fake"]),
+    (/** @type {{ status?: number, stderr?: Buffer }} */ e) =>
+      e.status === 1 && String(e.stderr).includes("acme-fake"),
+  );
+  assert.match(
+    String(run(["--root", root, "--out", path.join(base, "b")])),
+    /ok {2}client-docs: 2/,
+  );
 });

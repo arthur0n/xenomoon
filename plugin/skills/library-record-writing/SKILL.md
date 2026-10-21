@@ -38,6 +38,15 @@ Each `library/<kind>/index.md` is generated from the records' frontmatter — ne
 - [<title>](<slug>.md) — <description> _(<status>)_
 ```
 
+## Conventions and guidelines — one rule, one place
+
+A convention ("how we name queues") or guideline ("prefer retries with a cap") is a record like any other, with one extra discipline:
+
+- **One rule per record.** Its slug names the rule (`verdicts/queue-naming`); `## Decision` states it once.
+- **Reference by slug, never restate.** A skill, agent or other record that depends on the rule writes `see verdicts/queue-naming` — a copy is a second home that will drift.
+- **Change it where it lives.** A refinement is an amend, a reversal is a supersede (`library-record-revise`); the record's `## Changes` and its `supersedes` chain ARE the history.
+- **No ledgers.** No running list of decisions, no changelog file, no "rules.md" collecting many rules — the kind index is generated from the records, and git holds the rest.
+
 ## One page, no more
 
 Keep the record under a page. A catalog/registry nobody reads is research nobody reuses.

@@ -10,12 +10,16 @@
 // This is the narrow complement: whole-word matches of known project names, across tracked
 // source. It scans `git ls-files`, so install output and node_modules are out of scope by
 // construction rather than by an exclude list that will drift.
+//
+// Terms: the install registry + bound project (known-projects.js) AND the local denylist
+// (denylist.js) — client names that never get an install.
 import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
 import { knownProjectTerms, readInstallsMap } from "./known-projects.js";
+import { loadDenylist, findTerms } from "./denylist.js";
 
 const FRAMEWORK_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const TREES = ["ui", "plugin", "domains", "scripts"];
@@ -34,15 +38,27 @@ function boundProjectDir() {
   }
 }
 
-const terms = knownProjectTerms({
-  installs: readInstallsMap(),
-  boundProjectDir: boundProjectDir(),
-});
+/** @type {string[]} */
+let denylisted;
+try {
+  denylisted = loadDenylist().terms;
+} catch (e) {
+  console.error(`✗ project-names: ${e instanceof Error ? e.message : String(e)}`);
+  process.exit(1);
+}
+const terms = [
+  ...new Set([
+    ...knownProjectTerms({ installs: readInstallsMap(), boundProjectDir: boundProjectDir() }),
+    ...denylisted,
+  ]),
+].sort();
 
 if (terms.length === 0) {
   // No registry and nothing bound — CI, or a fresh machine. Nothing to look for, and saying so
   // is the point: a gate that cannot see must not report as if it did.
-  console.log("ok  project-names: no known projects on this machine — nothing to check against.");
+  console.log(
+    "ok  project-names: no known projects and no denylist on this machine — nothing to check against.",
+  );
   process.exit(0);
 }
 
@@ -61,12 +77,7 @@ function trackedFiles() {
   }
 }
 
-const matchers = terms.map((t) => ({
-  term: t,
-  re: new RegExp(`(^|[^a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`, "i"),
-}));
-
-/** @type {{ file: string, line: number, term: string, text: string }[]} */
+/** @type {import("./denylist.js").TermHit[]} */
 const hits = [];
 for (const rel of trackedFiles()) {
   /** @type {string} */
@@ -76,18 +87,13 @@ for (const rel of trackedFiles()) {
   } catch {
     continue; // unreadable file — not evidence of anything
   }
-  const lines = text.split("\n");
-  for (const { term, re } of matchers) {
-    if (!re.test(text)) continue; // whole-file test first — most files match nothing
-    lines.forEach((line, i) => {
-      if (re.test(line))
-        hits.push({ file: rel, line: i + 1, term, text: line.trim().slice(0, 100) });
-    });
-  }
+  hits.push(...findTerms(text, rel, terms));
 }
 
 if (hits.length > 0) {
-  console.error(`✗ project-names: ${hits.length} reference(s) to a project this machine drives:`);
+  console.error(
+    `✗ project-names: ${hits.length} reference(s) to a known project or denylisted name:`,
+  );
   for (const h of hits) console.error(`    ${h.file}:${h.line} — "${h.term}"\n      ${h.text}`);
   console.error(
     "  The framework ships to every project. Use a neutral name (alpha/beta) in examples and\n" +
@@ -95,4 +101,6 @@ if (hits.length > 0) {
   );
   process.exit(1);
 }
-console.log(`ok  project-names: framework source names none of ${terms.length} known project(s).`);
+console.log(
+  `ok  project-names: framework source names none of ${terms.length} known project/denylisted term(s).`,
+);

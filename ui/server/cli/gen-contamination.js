@@ -13,12 +13,20 @@
 // (businessTermsFor) are derived from the BOUND project and passed in; without them the scanner
 // only sees the universal signals and a project name walks straight through. No bound project
 // (CI, a fresh clone) → those terms are empty and the universal signals still run.
+// The LOCAL denylist (denylist.js: ~/.xenomoon/denylist.txt, $XENOMOON_DENYLIST,
+// $XENOMOON_DENYLIST_TERMS) adds client names no install knows; those match whole-word.
 // Bare-node; wired into `npm run validate` and the pr-domain CI gate.
 //   node ui/server/cli/gen-contamination.js            # exits 1 on any hit
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { scanPath, denylistFor, businessTermsFor } from "../features/promotions/contamination.js";
+import {
+  scanPath,
+  filesUnder,
+  denylistFor,
+  businessTermsFor,
+} from "../features/promotions/contamination.js";
+import { loadDenylist, findTerms } from "./denylist.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
@@ -44,6 +52,15 @@ const projectDir = boundProjectDir();
 const denylist = projectDir ? denylistFor(projectDir) : [];
 const businessTerms = projectDir ? businessTermsFor(projectDir) : [];
 
+/** @type {string[]} */
+let localTerms;
+try {
+  localTerms = loadDenylist().terms;
+} catch (e) {
+  console.error(`✗ contamination: ${e instanceof Error ? e.message : String(e)}`);
+  process.exit(1);
+}
+
 /** Every capability tree this gate scans: [dir, isRecordsTree]. @type {Array<[string, boolean]>} */
 const targets = [];
 if (existsSync(DOMAINS_DIR))
@@ -61,6 +78,22 @@ for (const [p, isRecords] of targets) {
   if (!existsSync(p)) continue;
   // Library records get the records-only mapping check; skills the universal signals.
   hits.push(...scanPath(p, { checkMapping: isRecords, all: true, denylist, businessTerms }));
+  if (localTerms.length)
+    for (const f of filesUnder(p)) {
+      let text;
+      try {
+        text = readFileSync(f, "utf8");
+      } catch {
+        continue; // binary / unreadable — no typed name to find
+      }
+      for (const h of findTerms(text, f, localTerms))
+        hits.push({
+          file: f,
+          signal: "denylisted-name",
+          match: h.term,
+          hint: `line ${h.line}: a name from the local denylist — never ship it; use a neutral name.`,
+        });
+    }
 }
 
 if (hits.length) {
@@ -72,5 +105,5 @@ if (hits.length) {
   process.exit(1);
 }
 console.log(
-  `ok  contamination: pack + CORE skills/library are agnostic${denylist.length ? ` (project terms: ${denylist.join(", ")})` : ""}.`,
+  `ok  contamination: pack + CORE skills/library are agnostic${denylist.length ? ` (project terms: ${denylist.join(", ")})` : ""}${localTerms.length ? ` (+${localTerms.length} denylisted name(s))` : ""}.`,
 );

@@ -56,3 +56,17 @@ parent) is an error, not "no workspace": every reader stops and names the proble
   every guess. Pulse marks its sweep degraded (children's PRs/issues are not swept yet); the epic
   tool says its store is local. The commit-label hook resolves `cd <child> && git commit`, or says
   the labels were not stamped; the issue-dedup hook ignores a parent `.issuekit.json`.
+
+## Preparing a new workspace
+
+```
+node ui/server/cli/workspace-prepare.js --manifest <workspace.json> \
+  --target <new parent> --base git@github.com:acme-client [--apply]
+```
+
+Dry-run by default (prints the plan). With `--apply`, each repo is cloned from its `remote` into
+`<target>/<path>`; that source stays as the `upstream` remote, and `origin` becomes
+`<base>/<name>.git`. Nothing is pushed: creating the repos under the new base is a separate step.
+The new `<target>/.xenomoon/workspace.json` lists the new origins (`mirror` is not carried over).
+It refuses, before changing anything, a target inside the framework repo, a repo folder that
+already exists, or a target that already has a manifest.

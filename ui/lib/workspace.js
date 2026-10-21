@@ -87,13 +87,9 @@ export function validateManifest(m) {
   return errors;
 }
 
-/** Load and validate `<root>/.xenomoon/workspace.json`. Returns null when the file is absent;
- * THROWS (loud) when it is present but unreadable or invalid — a half-read manifest must never
- * silently degrade into "not a workspace".
- * @param {string} root @returns {Workspace | null} */
-export function loadWorkspace(root) {
-  const file = path.join(root, WORKSPACE_FILE);
-  if (!existsSync(file)) return null;
+/** Read and validate one manifest file wherever it lives. THROWS on bad JSON or a bad shape.
+ * @param {string} file @returns {WorkspaceManifest} */
+export function readManifest(file) {
   /** @type {unknown} */
   let parsed;
   try {
@@ -104,7 +100,17 @@ export function loadWorkspace(root) {
   const errors = validateManifest(parsed);
   if (errors.length)
     throw new Error(`workspace manifest ${file} is invalid:\n  - ${errors.join("\n  - ")}`);
-  const manifest = /** @type {WorkspaceManifest} */ (parsed);
+  return /** @type {WorkspaceManifest} */ (parsed);
+}
+
+/** Load and validate `<root>/.xenomoon/workspace.json`. Returns null when the file is absent;
+ * THROWS (loud) when it is present but unreadable or invalid — a half-read manifest must never
+ * silently degrade into "not a workspace".
+ * @param {string} root @returns {Workspace | null} */
+export function loadWorkspace(root) {
+  const file = path.join(root, WORKSPACE_FILE);
+  if (!existsSync(file)) return null;
+  const manifest = readManifest(file);
   return {
     root,
     file,

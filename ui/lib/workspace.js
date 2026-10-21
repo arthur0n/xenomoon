@@ -12,7 +12,7 @@
  * Node builtins only (same rule as branch-doctrine.js): issuekit, the hooks' node helpers and the
  * spine all load this, and none of them may drag in `config.js`.
  */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 export const WORKSPACE_FILE = path.join(".xenomoon", "workspace.json");
@@ -124,4 +124,32 @@ export function findWorkspace(start = process.cwd()) {
     if (parent === dir) return null;
     dir = parent;
   }
+}
+
+/** Resolve symlinks where the path exists (macOS /var → /private/var), else leave it.
+ * @param {string} p @returns {string} */
+function real(p) {
+  try {
+    return realpathSync(p);
+  } catch {
+    return path.resolve(p);
+  }
+}
+
+/** Which child repo of the workspace `p` belongs to, or null (the parent itself, or outside).
+ * @param {Workspace} ws @param {string} p @returns {(WorkspaceRepo & { dir: string }) | null} */
+export function repoFor(ws, p) {
+  const target = real(p);
+  for (const r of ws.repos) {
+    const dir = real(r.dir);
+    if (target === dir || target.startsWith(dir + path.sep)) return r;
+  }
+  return null;
+}
+
+/** `owner/name` from a GitHub remote URL (ssh or https), or null for any other host.
+ * @param {string} remote @returns {string | null} */
+export function githubSlug(remote) {
+  const m = /github\.com[:/]+([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/.exec(remote.trim());
+  return m ? `${m[1]}/${m[2]}` : null;
 }

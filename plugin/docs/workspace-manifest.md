@@ -48,3 +48,11 @@ parent) is an error, not "no workspace": every reader stops and names the proble
 
 - `ui/lib/workspace.js` — `loadWorkspace(root)` and `findWorkspace(start)` (walks up to the nearest
   parent holding the file).
+- `repoFor(ws, path)` (same file) — which child repo a path belongs to; `null` for the parent.
+- issuekit picks the child repo's GitHub repo from `remote` when run inside a child, instead of a
+  `.issuekit.json` sitting at the parent; at the parent itself it stops and asks for a child or
+  `--repo`. A child without its own `.xenomoon/branch-model` reads the parent's.
+- The installer (`new`) reads default branches and deploy workflows from the children, and prints
+  every guess. Pulse marks its sweep degraded (children's PRs/issues are not swept yet); the epic
+  tool says its store is local. The commit-label hook resolves `cd <child> && git commit`, or says
+  the labels were not stamped; the issue-dedup hook ignores a parent `.issuekit.json`.

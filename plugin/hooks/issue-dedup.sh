@@ -37,7 +37,15 @@ num="$(printf '%s' "$cmd" | grep -Eo '(view|show)[[:space:]]+[0-9]+' | head -1 |
 repo="$(printf '%s' "$cmd" | grep -Eo '(-R|--repo)[[:space:]]+[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+' | head -1 | awk '{print $2}')"
 if [ -z "$repo" ]; then
   # issuekit resolves the repo from .issuekit.json; gh from the cwd remote. Same lookup, else allow.
-  cfg="$(find_cfg() { d="$PWD"; while [ "$d" != "/" ]; do [ -f "$d/.issuekit.json" ] && { echo "$d/.issuekit.json"; return; }; d="$(dirname "$d")"; done; }; find_cfg)"
+  # A config at (or above) a multi-repo workspace parent (`.xenomoon/workspace.json`) does NOT name
+  # the child repo the fetch targets (probe #35 item 18) — ignore it, so the hook fails OPEN
+  # instead of checking updatedAt on the wrong repo. A child's own .issuekit.json still counts.
+  cfg="$(find_cfg() { d="$PWD"; ws=""; while [ "$d" != "/" ]; do
+    if [ -f "$d/.issuekit.json" ]; then
+      [ -n "$ws" ] || [ -f "$d/.xenomoon/workspace.json" ] || echo "$d/.issuekit.json"; return
+    fi
+    [ -f "$d/.xenomoon/workspace.json" ] && ws=1
+    d="$(dirname "$d")"; done; }; find_cfg)"
   [ -n "$cfg" ] && repo="$(jq -r '.repo // empty' "$cfg" 2>/dev/null)"
 fi
 [ -n "$num" ] && [ -n "$repo" ] || exit 0

@@ -12,6 +12,7 @@ import path from "node:path";
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { PROJECT_DIR } from "../core/config.js";
+import { loadWorkspace } from "../../lib/workspace.js";
 
 const SECTIONS = /** @type {const} */ ([
   "Goal",
@@ -39,6 +40,23 @@ function hasOrigin() {
     return true;
   } catch {
     return false;
+  }
+}
+
+/** A multi-repo workspace parent (ui/lib/workspace.js) has no origin, so hasOrigin() picks the
+ * LOCAL store — a correct-looking answer that is a silent choice (probe #35 item 5). Say it on
+ * every result instead. Empty when the project has an origin or is not a workspace.
+ * @returns {string} */
+function workspaceNote() {
+  if (hasOrigin()) return "";
+  try {
+    const ws = loadWorkspace(PROJECT_DIR);
+    return ws
+      ? `\n⚠ workspace parent (${ws.repos.length} repos, no origin): epics use the LOCAL store ` +
+          `(design/epics/ under the parent), not any child repo's GitHub issues.`
+      : "";
+  } catch (e) {
+    return `\n⚠ ${e instanceof Error ? e.message : String(e)}`;
   }
 }
 
@@ -295,7 +313,9 @@ export function makeEpicTool() {
     },
     async (input) => {
       /** @param {string} text */
-      const ok = (text) => ({ content: [{ type: /** @type {const} */ ("text"), text }] });
+      const ok = (text) => ({
+        content: [{ type: /** @type {const} */ ("text"), text: text + workspaceNote() }],
+      });
       try {
         if (input.op === "chart") return ok(opChart(input));
         if (input.op === "list") return ok(opList());

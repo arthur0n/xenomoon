@@ -5,7 +5,14 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { validateManifest, loadWorkspace, findWorkspace, WORKSPACE_FILE } from "./workspace.js";
+import {
+  validateManifest,
+  loadWorkspace,
+  findWorkspace,
+  repoFor,
+  githubSlug,
+  WORKSPACE_FILE,
+} from "./workspace.js";
 
 const GOOD = {
   version: 1,
@@ -82,4 +89,22 @@ test("findWorkspace walks up from a child folder to the parent", () => {
   const deep = path.join(root, "acme-api", "src", "lib");
   mkdirSync(deep, { recursive: true });
   assert.equal(findWorkspace(deep)?.root, root);
+});
+
+test("repoFor: a path inside a child resolves to that child; the parent itself to none", () => {
+  const root = parentWith(GOOD);
+  mkdirSync(path.join(root, "apps", "acme-web", "src"), { recursive: true });
+  const ws = loadWorkspace(root);
+  assert.ok(ws);
+  assert.equal(repoFor(ws, path.join(root, "apps", "acme-web", "src"))?.name, "acme-web");
+  assert.equal(repoFor(ws, path.join(root, "acme-api"))?.name, "acme-api");
+  assert.equal(repoFor(ws, root), null);
+  assert.equal(repoFor(ws, path.join(root, "acme-api-old")), null, "a prefix is not a child");
+});
+
+test("githubSlug reads ssh and https GitHub remotes, nothing else", () => {
+  assert.equal(githubSlug("git@github.com:acme-co/acme-api.git"), "acme-co/acme-api");
+  assert.equal(githubSlug("https://github.com/acme-co/acme-web"), "acme-co/acme-web");
+  assert.equal(githubSlug("ssh://git@github.com/acme-co/acme-ops.git"), "acme-co/acme-ops");
+  assert.equal(githubSlug("git@git.example.com:acme-co/acme-api.git"), null);
 });

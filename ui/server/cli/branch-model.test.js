@@ -2,7 +2,14 @@
 // answer without guessing. Both pure, so neither needs a repo or a terminal.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { deploysOnPush, order, prompt, choose, BRANCH_MODELS } from "./branch-model.js";
+import {
+  deploysOnPush,
+  order,
+  prompt,
+  choose,
+  BRANCH_MODELS,
+  workspaceBranchFacts,
+} from "./branch-model.js";
 
 /** @param {string} text */
 const wf = (text) => [{ name: "w.yml", text }];
@@ -74,4 +81,26 @@ test("the warning appears only when earned, and the guideline note always does",
   const without = prompt({ models: order(false), branch: "main", deployWorkflows: [] });
   assert.doesNotMatch(without, /ships to production/);
   assert.match(without, /push gates draw/);
+});
+
+test("workspace facts: children agree → their branch, deploys prefixed by child name", () => {
+  const deploy = "on:\n  push:\n    branches: [main]\n";
+  const f = workspaceBranchFacts([
+    { name: "acme-api", branch: "main", workflows: [{ name: "deploy.yml", text: deploy }] },
+    { name: "acme-web", branch: "main", workflows: [] },
+  ]);
+  assert.deepEqual(f, { branch: "main", deployWorkflows: ["acme-api/deploy.yml"], warnings: [] });
+});
+
+test("workspace facts: disagreement and unreadable children are WARNED, never silent", () => {
+  const f = workspaceBranchFacts([
+    { name: "acme-api", branch: "trunk", workflows: [] },
+    { name: "acme-web", branch: "main", workflows: [] },
+    { name: "acme-ops", branch: null, workflows: [] },
+  ]);
+  assert.equal(f.branch, "main");
+  assert.equal(f.warnings.length, 2);
+  assert.match(f.warnings.join("|"), /acme-ops: not a readable git repo/);
+  assert.match(f.warnings.join("|"), /disagree.*acme-api=trunk, acme-web=main/);
+  assert.match(workspaceBranchFacts([]).warnings[0] ?? "", /assuming "main"/);
 });

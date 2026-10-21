@@ -4,7 +4,13 @@ import { readFileSync, readdirSync, existsSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseFrontmatter } from "../../../lib/frontmatter.js";
-import { RESERVED, toRecord, fieldProblems, buildIndex } from "../../../lib/records.js";
+import {
+  RESERVED,
+  toRecord,
+  fieldProblems,
+  buildIndex,
+  linkProblems,
+} from "../../../lib/records.js";
 
 export const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 
@@ -81,8 +87,8 @@ export function syncIndex(kd, write) {
 }
 
 /**
- * The library gate for a set of roots: per-file problems + index drift (regenerated when
- * `write`). Shared by gen-library-index.js and `library-records.js check`.
+ * The library gate for a set of roots: per-file problems, broken supersedes/amends links and
+ * status disagreements (#28), index drift (regenerated when `write`). Shared by gen-library-index.js and `library-records.js check`.
  * @param {string[]} roots @param {boolean} write
  */
 export function checkRoots(roots, write) {
@@ -94,17 +100,21 @@ export function checkRoots(roots, write) {
   let records = 0;
   for (const root of roots) {
     const rel = root.startsWith(REPO) ? path.relative(REPO, root) : root;
+    /** @type {import("../../../lib/records.js").LibRecord[]} */
+    const all = [];
     for (const kd of readLibrary(root)) {
       // Only indexed kinds are records; a folder without index.md (e.g. a source list) is free-form.
       if (!kd.hasIndex) continue;
       indexes += 1;
       records += kd.records.length;
+      all.push(...kd.records);
       for (const p of kd.problems) errors.push(`${rel}/${p}`);
       if (syncIndex(kd, write)) {
         if (write) wrote.push(`${rel}/${kd.kind}/index.md`);
         else errors.push(`${rel}/${kd.kind}/index.md is stale — regenerate it (--write)`);
       }
     }
+    for (const p of linkProblems(all)) errors.push(`${rel}: ${p}`);
   }
   return { errors, wrote, indexes, records };
 }

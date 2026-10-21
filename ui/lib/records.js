@@ -109,3 +109,55 @@ export function buildIndex(current, records) {
   const entries = [...records].sort((a, b) => a.slug.localeCompare(b.slug)).map(indexLine);
   return entries.length ? `${header}\n\n${entries.join("\n")}\n` : `${header}\n`;
 }
+
+/**
+ * Resolve a reference (`slug` = same kind, or `kind/slug`) to a `kind/slug` key.
+ * @param {string} ref @param {string} fromKind
+ */
+export function refKey(ref, fromKind) {
+  return ref.includes("/") ? ref.replace(/\.md$/, "") : `${fromKind}/${ref.replace(/\.md$/, "")}`;
+}
+
+/** @type {["supersedes" | "amends", string[]][]} each link field → statuses its target may have */
+const LINKS = [
+  ["supersedes", ["superseded"]],
+  ["amends", ["amended", "superseded"]],
+];
+
+/**
+ * Cross-record problems (#28): a supersedes/amends target that does not exist, a supersedes
+ * target that is not `superseded`, a `superseded` record nothing supersedes, an amends target
+ * that is neither `amended` nor `superseded`.
+ * @param {LibRecord[]} records  every record of one library root
+ * @returns {string[]}
+ */
+export function linkProblems(records) {
+  /** @type {Map<string, LibRecord>} */
+  const byKey = new Map(records.map((r) => [`${r.kind}/${r.slug}`, r]));
+  /** @type {Set<string>} */
+  const supersededBy = new Set();
+  /** @type {string[]} */
+  const out = [];
+  for (const r of records) {
+    const me = `${r.kind}/${r.slug}`;
+    for (const [field, want] of LINKS) {
+      for (const ref of r[field]) {
+        const key = refKey(ref, r.kind);
+        const target = byKey.get(key);
+        if (key === me) out.push(`${me}: ${field} itself`);
+        else if (!target) out.push(`${me}: ${field} \`${ref}\`, which does not exist`);
+        else if (!want.includes(target.status))
+          out.push(
+            `${me}: ${field} \`${key}\`, whose status is \`${target.status}\` (expected ${want.join(" or ")})`,
+          );
+        if (field === "supersedes") supersededBy.add(key);
+      }
+    }
+  }
+  for (const r of records) {
+    const me = `${r.kind}/${r.slug}`;
+    if (r.status === "superseded" && !supersededBy.has(me))
+      out.push(`${me}: status is \`superseded\` but no record supersedes it`);
+  }
+  return out;
+}

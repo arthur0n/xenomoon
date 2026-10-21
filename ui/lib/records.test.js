@@ -3,7 +3,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseFrontmatter, setFrontmatterFields } from "./frontmatter.js";
-import { toRecord, fieldProblems, buildIndex, OKF_STATUS, RECORD_STATUSES } from "./records.js";
+import {
+  toRecord,
+  fieldProblems,
+  buildIndex,
+  linkProblems,
+  OKF_STATUS,
+  RECORD_STATUSES,
+} from "./records.js";
 
 const doc = `---
 name: pick-queue
@@ -72,4 +79,31 @@ test("buildIndex keeps the header, sorts by filename, marks non-accepted status"
   assert.equal(out, `${head}\n- [a-slug](a-slug.md) — da\n- [B](b-slug.md) — db _(superseded)_\n`);
   assert.equal(buildIndex(out, []), head);
   assert.equal(buildIndex(out, [a, b]), out);
+});
+
+test("linkProblems: clean chain passes", () => {
+  const recs = [
+    toRecord("old", "verdicts", { description: "d", status: "superseded" }),
+    toRecord("new", "verdicts", { description: "d", supersedes: ["old"] }),
+    toRecord("base", "verdicts", { description: "d", status: "amended" }),
+    toRecord("note", "findings", { description: "d", amends: ["verdicts/base"] }),
+  ];
+  assert.deepEqual(linkProblems(recs), []);
+});
+
+test("linkProblems: missing targets, status disagreements, orphan superseded, self link", () => {
+  const recs = [
+    toRecord("old", "verdicts", { description: "d" }),
+    toRecord("new", "verdicts", { description: "d", supersedes: ["old", "ghost"] }),
+    toRecord("note", "findings", { description: "d", amends: ["verdicts/old", "nope"] }),
+    toRecord("lonely", "verdicts", { description: "d", status: "superseded" }),
+    toRecord("me", "verdicts", { description: "d", supersedes: ["me"] }),
+  ];
+  const p = linkProblems(recs);
+  assert.ok(p.some((x) => x.includes("verdicts/new: supersedes `verdicts/old`, whose status")));
+  assert.ok(p.some((x) => x.includes("supersedes `ghost`, which does not exist")));
+  assert.ok(p.some((x) => x.includes("findings/note: amends `verdicts/old`, whose status")));
+  assert.ok(p.some((x) => x.includes("amends `nope`, which does not exist")));
+  assert.ok(p.some((x) => x.includes("verdicts/lonely: status is `superseded`")));
+  assert.ok(p.some((x) => x.includes("verdicts/me: supersedes itself")));
 });

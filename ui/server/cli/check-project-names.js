@@ -201,5 +201,5 @@ if (hits.length > 0) {
   process.exit(1);
 }
 console.log(
-  `ok  project-names: ${where} name none of ${terms.length} known project/denylisted term(s).`,
+  `ok  project-names: none of ${terms.length} known project/denylisted term(s) in ${where}.`,
 );

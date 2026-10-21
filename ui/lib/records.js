@@ -86,3 +86,26 @@ export function fieldProblems(data) {
       out.push(`\`${key}\` must be an inline list: ${key}: [a, b]`);
   return out;
 }
+
+/**
+ * One index line: `- [title](slug.md) — description`, plus `(status)` when not accepted.
+ * @param {LibRecord} r
+ */
+export function indexLine(r) {
+  const tail = r.status === "accepted" ? "" : ` _(${r.status})_`;
+  return `- [${r.title}](${r.slug}.md) — ${r.description}${tail}`;
+}
+
+/**
+ * Rebuild a kind's index.md: keep the hand-written header (everything above the first entry),
+ * replace the entries with one line per record sorted by filename.
+ * @param {string} current  the existing index.md text
+ * @param {LibRecord[]} records
+ */
+export function buildIndex(current, records) {
+  const lines = current.split("\n");
+  const first = lines.findIndex((l) => l.startsWith("- ["));
+  const header = (first === -1 ? lines : lines.slice(0, first)).join("\n").trimEnd();
+  const entries = [...records].sort((a, b) => a.slug.localeCompare(b.slug)).map(indexLine);
+  return entries.length ? `${header}\n\n${entries.join("\n")}\n` : `${header}\n`;
+}

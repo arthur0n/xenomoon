@@ -30,12 +30,12 @@ date: YYYY-MM-DD
 
 OKF v0.2 mapping: `kind` = `type`, `name` = filename / `title`; status `proposed`→`draft`, `accepted`/`amended`→`stable`, `superseded`→`deprecated`. `supersedes`/`amends` have no OKF field (allowed as extra keys); `date` has no OKF twin (nearest: `generated.at`).
 
-## Append to the kind index
+## Regenerate the kind index
 
-After writing the doc, append its line to that kind's `library/<kind>/index.md`, **sorted by filename**:
+Each `library/<kind>/index.md` is generated from the records' frontmatter — never edit it by hand. After writing or changing a record run `npm run library:index` (add a project root as an argument: `node ui/server/cli/gen-library-index.js --write <project>/.claude/library`). `npm run check:library` (part of `npm run validate`) fails when an index drifts. Line shape, sorted by filename, status shown when not `accepted`:
 
 ```
-- [<title>](<slug>.md) — <description>
+- [<title>](<slug>.md) — <description> _(<status>)_
 ```
 
 ## One page, no more

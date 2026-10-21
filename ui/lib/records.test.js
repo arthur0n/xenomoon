@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseFrontmatter, setFrontmatterFields } from "./frontmatter.js";
-import { toRecord, fieldProblems, OKF_STATUS, RECORD_STATUSES } from "./records.js";
+import { toRecord, fieldProblems, buildIndex, OKF_STATUS, RECORD_STATUSES } from "./records.js";
 
 const doc = `---
 name: pick-queue
@@ -62,4 +62,14 @@ test("setFrontmatterFields replaces, appends, keeps body; adds a block when none
   const fresh = parseFrontmatter(setFrontmatterFields("# T\n", { description: "d" }));
   assert.equal(fresh.data?.description, "d");
   assert.equal(fresh.body, "# T\n");
+});
+
+test("buildIndex keeps the header, sorts by filename, marks non-accepted status", () => {
+  const head = "# verdicts — index\n\nOne line per record.\n";
+  const a = toRecord("b-slug", "verdicts", { title: "B", description: "db", status: "superseded" });
+  const b = toRecord("a-slug", "verdicts", { description: "da" });
+  const out = buildIndex(`${head}\n- [stale](gone.md) — old\n`, [a, b]);
+  assert.equal(out, `${head}\n- [a-slug](a-slug.md) — da\n- [B](b-slug.md) — db _(superseded)_\n`);
+  assert.equal(buildIndex(out, []), head);
+  assert.equal(buildIndex(out, [a, b]), out);
 });

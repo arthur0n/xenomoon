@@ -25,8 +25,11 @@ supersedes: [<slug>] # records this one replaces; bare slug = same kind, else ki
 amends: [<slug>] # records this one changes without replacing
 tags: [<tag>, <tag>]
 date: YYYY-MM-DD
+audience: client # optional; internal | client (absent = internal)
 ---
 ```
+
+`audience: client` marks a record a client may read. Sharing is opt-in: absent means internal. Only a `client` record whose status is `accepted` or `amended` reaches the generated client docs (`node ui/server/cli/client-docs.js`); `proposed` and `superseded` never do.
 
 OKF v0.2 mapping: `kind` = `type`, `name` = filename / `title`; status `proposed`→`draft`, `accepted`/`amended`→`stable`, `superseded`→`deprecated`. `supersedes`/`amends` have no OKF field (allowed as extra keys); `date` has no OKF twin (nearest: `generated.at`).
 

@@ -8,6 +8,7 @@ skills:
   - research-presenting
   - library-record-writing
   - library-record-create
+  - library-record-search
   - tasks-mcp
   - research-skill-gap
   - research-tooling

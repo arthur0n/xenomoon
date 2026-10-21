@@ -2,6 +2,7 @@
 // the words; this writes the frontmatter and regenerates the kind index so both stay exact.
 //   node ui/server/cli/library-records.js new <kind> <slug> --description "<verdict>"
 //        [--title "<title>"] [--tags a,b] [--status proposed|accepted] [--root <library dir>]
+//   node ui/server/cli/library-records.js search [--tag t] [--status s] [--kind k] [--text word]
 //   node ui/server/cli/library-records.js check [--root <library dir>]
 // --root defaults to plugin/library; a project passes its own <project>/.claude/library.
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -19,6 +20,9 @@ const { values: opt, positionals } = parseArgs({
     description: { type: "string" },
     tags: { type: "string" },
     status: { type: "string" },
+    tag: { type: "string" },
+    kind: { type: "string" },
+    text: { type: "string" },
   },
 });
 const root = path.resolve(opt.root ?? path.join(REPO, "plugin", "library"));
@@ -83,6 +87,27 @@ function cmdNew() {
   console.log(`wrote ${shown(file)} (index regenerated)`);
 }
 
+/** `search` — filter records by tag / status / kind / text; meaning is the agent reading the lines. */
+function cmdSearch() {
+  const text = opt.text?.toLowerCase();
+  let hits = 0;
+  for (const kd of readLibrary(root)) {
+    if (opt.kind && kd.kind !== opt.kind) continue;
+    for (const r of kd.records) {
+      if (opt.tag && !r.tags.includes(opt.tag)) continue;
+      if (opt.status && r.status !== opt.status) continue;
+      const hay = [r.slug, r.title, r.description, ...r.tags, ...r.supersedes, ...r.amends]
+        .join(" ")
+        .toLowerCase();
+      if (text && !hay.includes(text)) continue;
+      hits += 1;
+      const tags = r.tags.length ? ` [${r.tags.join(", ")}]` : "";
+      console.log(`${kd.kind}/${r.slug} (${r.status})${tags} — ${r.description}`);
+    }
+  }
+  if (!hits) console.log("no records match");
+}
+
 /** `check` — the library gate for --root (field shapes, index drift). */
 function cmdCheck() {
   const { errors, indexes, records } = checkRoots([root], false);
@@ -92,7 +117,7 @@ function cmdCheck() {
 }
 
 /** @type {Record<string, () => void>} */
-const COMMANDS = { new: cmdNew, check: cmdCheck };
+const COMMANDS = { new: cmdNew, search: cmdSearch, check: cmdCheck };
 const run = COMMANDS[positionals[0] ?? ""];
 if (!run) fail(`commands: ${Object.keys(COMMANDS).join(", ")}`);
 else run();

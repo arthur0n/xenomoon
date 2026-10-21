@@ -13,6 +13,23 @@ A researcher's durable artifact is a `library/<kind>/<slug>.md` record — writt
 
 The frontmatter is the record's machine face (OKF-style — the UI sidebar and the kind index read it; `library/README.md` documents the convention). Keep `description` a **one-line verdict** (adopt/reject/park + the deciding reason), not a summary of the body.
 
+**Basic format, not final** — the owner has not fixed it. Field names, status values and the OKF mapping live in one place, `ui/lib/records.js`; change them there. Flat keys and inline `[a, b]` lists only:
+
+```yaml
+---
+name: <slug> # matches the filename
+kind: verdicts # = OKF `type`
+description: <one-line verdict>
+status: accepted # proposed | accepted | amended | superseded (absent = accepted)
+supersedes: [<slug>] # records this one replaces; bare slug = same kind, else kind/slug
+amends: [<slug>] # records this one changes without replacing
+tags: [<tag>, <tag>]
+date: YYYY-MM-DD
+---
+```
+
+OKF v0.2 mapping: `kind` = `type`, `name` = filename / `title`; status `proposed`→`draft`, `accepted`/`amended`→`stable`, `superseded`→`deprecated`. `supersedes`/`amends` have no OKF field (allowed as extra keys); `date` has no OKF twin (nearest: `generated.at`).
+
 ## Append to the kind index
 
 After writing the doc, append its line to that kind's `library/<kind>/index.md`, **sorted by filename**:

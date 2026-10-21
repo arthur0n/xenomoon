@@ -79,3 +79,32 @@ export function syncIndex(kd, write) {
   if (write) writeFileSync(file, next);
   return true;
 }
+
+/**
+ * The library gate for a set of roots: per-file problems + index drift (regenerated when
+ * `write`). Shared by gen-library-index.js and `library-records.js check`.
+ * @param {string[]} roots @param {boolean} write
+ */
+export function checkRoots(roots, write) {
+  /** @type {string[]} */
+  const errors = [];
+  /** @type {string[]} */
+  const wrote = [];
+  let indexes = 0;
+  let records = 0;
+  for (const root of roots) {
+    const rel = root.startsWith(REPO) ? path.relative(REPO, root) : root;
+    for (const kd of readLibrary(root)) {
+      // Only indexed kinds are records; a folder without index.md (e.g. a source list) is free-form.
+      if (!kd.hasIndex) continue;
+      indexes += 1;
+      records += kd.records.length;
+      for (const p of kd.problems) errors.push(`${rel}/${p}`);
+      if (syncIndex(kd, write)) {
+        if (write) wrote.push(`${rel}/${kd.kind}/index.md`);
+        else errors.push(`${rel}/${kd.kind}/index.md is stale — regenerate it (--write)`);
+      }
+    }
+  }
+  return { errors, wrote, indexes, records };
+}

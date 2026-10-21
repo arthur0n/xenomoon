@@ -1,0 +1,8 @@
+{
+  "name": "xenomoon-coghatch",
+  "description": "Stack knowledge pack: decision-first loop over library records (verdicts, findings, tools, sources) for a multi-repo tech stack. No code pipeline.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Xenomoon Forge"
+  }
+}

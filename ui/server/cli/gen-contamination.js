@@ -17,6 +17,8 @@
 // $XENOMOON_DENYLIST_TERMS) adds client names no install knows; those match whole-word.
 // Bare-node; wired into `npm run validate` and the pr-domain CI gate.
 //   node ui/server/cli/gen-contamination.js            # exits 1 on any hit
+//   node ui/server/cli/gen-contamination.js --require-terms
+//                                  # CI: also exits 1 when there are NO project/denylisted terms
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -58,6 +60,15 @@ try {
   localTerms = loadDenylist().terms;
 } catch (e) {
   console.error(`✗ contamination: ${e instanceof Error ? e.message : String(e)}`);
+  process.exit(1);
+}
+
+if (process.argv.includes("--require-terms") && denylist.length + localTerms.length === 0) {
+  // A gate with no names to look for passes by seeing nothing — in CI that is a failure.
+  console.error(
+    "✗ contamination: --require-terms: the term list is EMPTY, so names cannot be checked.\n" +
+      "  In CI set the XENOMOON_DENYLIST_TERMS secret (docs/process/denylist.md).",
+  );
   process.exit(1);
 }
 

@@ -175,7 +175,11 @@ let domainName = domainFlag ?? existingLock;
 // with its evidence — a recommendation you can check beats a default you cannot.
 if (!domainName && rl) {
   const avail = availableDomains(FRAMEWORK_DIR);
-  const detected = detectDomain(projectPkg(target), projectFiles(target));
+  const detected = detectDomain(
+    projectPkg(target),
+    projectFiles(target),
+    existsSync(path.join(target, ".xenomoon", "workspace.json")),
+  );
   const domainItems = orderDomains(
     avail.map((name) => ({ id: name, summary: summarize(packDescriptor(name)) })),
     detected,

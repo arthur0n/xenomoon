@@ -13,15 +13,23 @@
 
 /** @typedef {{ id: string, why: string } | null} Detection */
 
+/** The knowledge pack's id — a working name, kept in this one constant so a rename is one edit. */
+export const KNOWLEDGE_PACK = "coghatch";
+
 /** The pack a project's manifest points at, with the evidence for it.
  *
+ * A workspace first: a parent folder holding `.xenomoon/workspace.json` groups a stack's repos
+ * and is the knowledge pack's project, whatever manifest also sits there.
  * Expo before web on purpose: an Expo app IS a React app, so react/react-dom prove nothing on
  * their own, while `expo` or `react-native` is decisive. Checking web first would claim every
  * Expo project.
  * @param {{ dependencies?: Record<string, string>, devDependencies?: Record<string, string> }} pkg
  * @param {string[]} files names in the project root
+ * @param {boolean} [workspace] the project root holds `.xenomoon/workspace.json`
  * @returns {Detection} */
-export function detect(pkg, files) {
+export function detect(pkg, files, workspace = false) {
+  if (workspace)
+    return { id: KNOWLEDGE_PACK, why: "`.xenomoon/workspace.json` in the project root" };
   const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
   const has = /** @param {string} d */ (d) => Object.hasOwn(deps, d);
 

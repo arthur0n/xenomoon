@@ -2,7 +2,7 @@
 // a wrong install. What it must never do is claim an Expo project for the web pack.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { detect, order, summarize } from "./domain-pick.js";
+import { detect, order, summarize, KNOWLEDGE_PACK } from "./domain-pick.js";
 import { render, choose, question } from "./picklist.js";
 
 const ITEMS = [
@@ -33,6 +33,13 @@ test("app.json counts as Expo evidence when the manifest is silent", () => {
   const d = detect({}, ["app.json", "README.md"]);
   assert.equal(d?.id, "expoapp");
   assert.match(String(d?.why), /app\.json/);
+});
+
+test("a workspace marker picks the knowledge pack, even over an app manifest", () => {
+  const d = detect({ dependencies: { react: "19" } }, [".xenomoon"], true);
+  assert.equal(d?.id, KNOWLEDGE_PACK);
+  assert.match(String(d?.why), /workspace\.json/);
+  assert.equal(detect({ dependencies: { react: "19" } }, [".xenomoon"])?.id, "webapp");
 });
 
 test("nothing recognisable detects nothing rather than guessing", () => {

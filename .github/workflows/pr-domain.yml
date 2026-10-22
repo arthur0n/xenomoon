@@ -16,7 +16,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - name: Path scope (learning PRs touch domains/** + docs only)
         if: ${{ !contains(github.event.pull_request.labels.*.name, 'spine') }}
         run: |
@@ -30,7 +30,14 @@ jobs:
             exit 1
           fi
       - run: npm ci
-      - run: npm run check:contamination
+      # Name gates read client names from the XENOMOON_DENYLIST_TERMS secret and FAIL when it is
+      # empty (--require-terms) — no secret means no names to look for (docs/process/denylist.md).
+      - run: npm run check:contamination -- --require-terms
+        env:
+          XENOMOON_DENYLIST_TERMS: ${{ secrets.XENOMOON_DENYLIST_TERMS }}
+      - run: npm run check:project-names -- --require-terms
+        env:
+          XENOMOON_DENYLIST_TERMS: ${{ secrets.XENOMOON_DENYLIST_TERMS }}
       - run: npm run check:agnostic
       - run: npm run validate
         env:

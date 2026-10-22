@@ -1,3 +1,12 @@
+---
+name: mobile-app-production-launch
+kind: findings
+title: Mobile app production launch — traps that cost real time
+description: Clerk dev→prod, DNS/Cloudflare, SSM cutover, EAS and store gotchas hit for real during an Expo + Clerk production launch; includes the two Clerk settings invisible to `config pull`.
+status: accepted
+tags: [launch, mobile]
+---
+
 # Mobile app production launch — traps that cost real time
 
 **Source:** a production launch of an Expo + Clerk mobile app, 2026-08-02 → 2026-08-06. Every entry

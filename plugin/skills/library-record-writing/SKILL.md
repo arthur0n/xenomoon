@@ -13,13 +13,39 @@ A researcher's durable artifact is a `library/<kind>/<slug>.md` record — writt
 
 The frontmatter is the record's machine face (OKF-style — the UI sidebar and the kind index read it; `library/README.md` documents the convention). Keep `description` a **one-line verdict** (adopt/reject/park + the deciding reason), not a summary of the body.
 
-## Append to the kind index
+**Basic format, not final** — the owner has not fixed it. Field names, status values and the OKF mapping live in one place, `ui/lib/records.js`; change them there. Flat keys and inline `[a, b]` lists only:
 
-After writing the doc, append its line to that kind's `library/<kind>/index.md`, **sorted by filename**:
+```yaml
+---
+name: <slug> # matches the filename
+kind: verdicts # = OKF `type`
+description: <one-line verdict>
+status: accepted # proposed | accepted | amended | superseded (absent = accepted)
+supersedes: [<slug>] # records this one replaces; bare slug = same kind, else kind/slug
+amends: [<slug>] # records this one changes without replacing
+tags: [<tag>, <tag>]
+date: YYYY-MM-DD
+---
+```
+
+OKF v0.2 mapping: `kind` = `type`, `name` = filename / `title`; status `proposed`→`draft`, `accepted`/`amended`→`stable`, `superseded`→`deprecated`. `supersedes`/`amends` have no OKF field (allowed as extra keys); `date` has no OKF twin (nearest: `generated.at`).
+
+## Regenerate the kind index
+
+Each `library/<kind>/index.md` is generated from the records' frontmatter — never edit it by hand. After writing or changing a record run `npm run library:index` (add a project root as an argument: `node ui/server/cli/gen-library-index.js --write <project>/.claude/library`). `npm run check:library` (part of `npm run validate`) fails when an index drifts. Line shape, sorted by filename, status shown when not `accepted`:
 
 ```
-- [<title>](<slug>.md) — <description>
+- [<title>](<slug>.md) — <description> _(<status>)_
 ```
+
+## Conventions and guidelines — one rule, one place
+
+A convention ("how we name queues") or guideline ("prefer retries with a cap") is a record like any other, with one extra discipline:
+
+- **One rule per record.** Its slug names the rule (`verdicts/queue-naming`); `## Decision` states it once.
+- **Reference by slug, never restate.** A skill, agent or other record that depends on the rule writes `see verdicts/queue-naming` — a copy is a second home that will drift.
+- **Change it where it lives.** A refinement is an amend, a reversal is a supersede (`library-record-revise`); the record's `## Changes` and its `supersedes` chain ARE the history.
+- **No ledgers.** No running list of decisions, no changelog file, no "rules.md" collecting many rules — the kind index is generated from the records, and git holds the rest.
 
 ## One page, no more
 

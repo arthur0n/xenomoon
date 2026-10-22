@@ -7,6 +7,9 @@ skills:
   - caveman-forge
   - research-presenting
   - library-record-writing
+  - library-record-create
+  - library-record-search
+  - library-record-revise
   - tasks-mcp
   - research-skill-gap
   - research-tooling

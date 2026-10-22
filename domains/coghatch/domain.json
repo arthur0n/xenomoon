@@ -1,0 +1,21 @@
+{
+  "name": "coghatch",
+  "formerNames": [],
+  "label": "Stack Knowledge (multi-repo)",
+  "description": "Knowledge pack for a multi-repo tech stack: decisions, conventions, guidelines and client-shareable docs, kept as library records, not code. Search records before deciding, record each decision once, reference it by slug.",
+  "populated": true,
+  "engine": {
+    "name": "workspace",
+    "projectFile": ".xenomoon/workspace.json"
+  },
+  "inventory": {
+    "scenes": [],
+    "scripts": [".md"],
+    "ignore": ["node_modules", ".git", "dist", "build", "coverage"]
+  },
+  "materializeIntoProject": false,
+  "builders": ["developer"],
+  "plugin": "domains/coghatch/plugin",
+  "orchestrator": "domains/coghatch/orchestrator.md",
+  "commands": {}
+}

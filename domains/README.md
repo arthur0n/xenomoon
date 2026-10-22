@@ -57,6 +57,12 @@ them. See
 - **`expoapp`** — a populated React Native / Expo pack (one pack, both platforms — platform is a
   UAT/launch concern, not a domain boundary): the acceptance lanes for the CORE `uat-runner`, and
   Android/iOS local-run, local-UAT, identity and Play-ship skills.
+- **`coghatch`** (working name) — a KNOWLEDGE pack for a multi-repo tech stack: decisions,
+  conventions, guidelines and client-shareable docs kept as library records, not code. The project
+  is a workspace folder holding the repos and `.xenomoon/workspace.json` (its `engine.projectFile`;
+  `inventory` lists `.md`). It ships the decision-first orchestrator block, a `stack-conventions`
+  skill and empty record kinds, and uses the CORE `library-record-*` skills. Technology is a record
+  `tags` value, so one stack pack vs. one per tech is still open.
 
 Future native-toolchain domains (Swift, Kotlin) would be new packs (`iosapp`, `androidapp`) — created
 when a real project needs them, never as empty placeholders. An empty starter pack existed once

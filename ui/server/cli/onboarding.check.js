@@ -26,6 +26,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
+import { loadDomain } from "../core/domain-resolver.js";
+import { KNOWLEDGE_PACK } from "./domain-pick.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
@@ -84,6 +86,20 @@ try {
       existsSync(path.join(fw, ".claude-plugin", "marketplace.json")),
       "marketplace.json must ship (terminal install)",
     );
+  });
+
+  // The knowledge pack ships too, and its descriptor (code-shaped fields filled for a workspace,
+  // #30) is accepted by the same resolver a real install uses.
+  check(`the ${KNOWLEDGE_PACK} knowledge pack ships and its descriptor loads`, () => {
+    const pack = path.join(fw, "domains", KNOWLEDGE_PACK);
+    assert.ok(
+      existsSync(path.join(pack, "orchestrator.md")) &&
+        existsSync(path.join(pack, "templates", "CLAUDE.md")) &&
+        existsSync(path.join(pack, "plugin", ".claude-plugin", "plugin.json")),
+      `the ${KNOWLEDGE_PACK} pack (orchestrator.md + templates/CLAUDE.md + plugin) must ship`,
+    );
+    const d = loadDomain(KNOWLEDGE_PACK, fw);
+    assert.equal(d.engine.projectFile, ".xenomoon/workspace.json");
   });
 
   check("the shipped fork is Godot-free (no godot domain / starter / Hive)", () => {

@@ -17,7 +17,7 @@
       },
       "source": "./plugin",
       "category": "development",
-      "tags": ["agents", "skills", "framework", "expoapp", "webapp"]
+      "tags": ["agents", "skills", "framework", "coghatch", "expoapp", "webapp"]
     }
   ]
 }

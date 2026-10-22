@@ -1,9 +1,13 @@
-# Secret scan (defense-in-depth). Skips gracefully when gitleaks isn't installed
-# locally so it never blocks a contributor who lacks the binary — CI
-# (.github/workflows/gitleaks.yml) is the authoritative, always-on gate.
-if command -v gitleaks >/dev/null 2>&1; then
-  gitleaks git --staged --redact --no-banner
+# Secret scan. REQUIRED: a missing gitleaks binary fails the commit instead of skipping
+# silently — a gate that is not there must not look green. CI
+# (.github/workflows/gitleaks.yml) runs it too.
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "✖ pre-commit: gitleaks is not installed, so staged secrets cannot be scanned." >&2
+  echo "  Install it (macOS: brew install gitleaks; others: https://github.com/gitleaks/gitleaks)" >&2
+  echo "  and commit again." >&2
+  exit 1
 fi
+gitleaks git --staged --redact --no-banner || exit 1
 
 # Interactive release prompt — terminal commits only (skipped for non-TTY such
 # as CI or agent commits). Choosing a type bumps package.json and stages a tag
@@ -29,3 +33,8 @@ npx lint-staged
 
 # Enforce the by-domain layout: no loose modules at the top of ui/server or ui/client.
 node ui/structure.check.js
+
+# Name gate: no known project or locally denylisted client name in the staged changes
+# (added lines + paths). Terms: docs/process/denylist.md. Runs last so it sees everything the
+# steps above staged. Non-interactive, so agent/CI commits work the same as terminal ones.
+node ui/server/cli/check-project-names.js --staged || exit 1

@@ -21,4 +21,9 @@ if [ "$remote_name" = "upstream" ]; then
   exit 1
 fi
 
+# Name gate: scan the added lines of every commit being pushed (not just the working tree) for a
+# known project or locally denylisted client name. git hands the refs on stdin, which the
+# check reads. Terms: docs/process/denylist.md.
+node ui/server/cli/check-project-names.js --push || exit 1
+
 exit 0

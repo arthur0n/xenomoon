@@ -18,6 +18,7 @@ import { promisify } from "node:util";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PROJECT_DIR } from "../../core/config.js";
+import { loadWorkspace } from "../../../lib/workspace.js";
 
 /** @typedef {import("../../../lib/types.js").PulseItem} PulseItem */
 
@@ -325,6 +326,24 @@ export async function runChecks(scope) {
   return mine;
 }
 
+/** No origin is a legitimate answer for a local-only REPO — but a multi-repo workspace parent
+ * (ui/lib/workspace.js) has no origin either, and its children's PRs and issues are never swept
+ * (probe #35 item 4). That is a blind spot, not an answer: the sweep is DEGRADED so the LED says so.
+ * @param {string} cwd */
+function workspaceBlindSpot(cwd) {
+  let ws;
+  try {
+    ws = loadWorkspace(cwd);
+  } catch (e) {
+    failures.push(e instanceof Error ? e.message : String(e));
+    return;
+  }
+  if (ws)
+    failures.push(
+      `workspace parent (${ws.repos.length} repos): open-PR/stalled-issue checks are not swept per child repo yet`,
+    );
+}
+
 /** One sweep. Only ever entered via runChecks()'s queue. @param {"project" | "forge" | "both"} scope
  * @returns {Promise<{ items: PulseItem[], error: string | null, degraded: boolean }>} */
 async function sweep(scope) {
@@ -350,7 +369,7 @@ async function sweep(scope) {
       // gh === "broken" already pushed a failure in ghState(), so the sweep is degraded and the
       // LED says so. It must NOT also emit a note: the note would be suppressed as unchanged
       // after beat 1, and Pulse would go quiet with half its eyes shut.
-    }
+    } else workspaceBlindSpot(cwd);
   }
 
   // The forge itself: this session's own lesson — framework commits sat unpushed for hours and

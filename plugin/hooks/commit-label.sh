@@ -31,6 +31,22 @@ n="$(commit_issue "$cmd")"
 # Confirm the commit actually landed: HEAD's subject must cite the same (#N). Guards against a
 # failed/empty commit (nothing staged, hook-denied, pre-commit failure) where HEAD didn't move.
 cdir="$(commit_dir "$cmd")"
+# Multi-repo workspace (ui/lib/workspace.js, probe #35 item 17): `cd <child> && git commit` leaves
+# the hook's cwd at the workspace PARENT, which is not a repo — `git log` was empty and the labels
+# were silently never stamped. Resolve the child from the leading `cd`; if that still finds no
+# repo inside a workspace, say so to the agent instead of a silent no-op.
+ws_root() { d="$PWD"; while [ "$d" != "/" ]; do [ -f "$d/.xenomoon/workspace.json" ] && { echo "$d"; return; }; d="$(dirname "$d")"; done; }
+if [ -z "$cdir" ] && ! git rev-parse --git-dir >/dev/null 2>&1; then
+  cdir="$(printf '%s' "$cmd" | sed -nE "s/^[[:space:]]*cd[[:space:]]+(\"([^\"]*)\"|'([^']*)'|([^[:space:]&;]+))[[:space:]]*(&&|;).*/\2\3\4/p")"
+  if [ -z "$cdir" ] || ! git -C "$cdir" rev-parse --git-dir >/dev/null 2>&1; then
+    ws="$(ws_root)"
+    if [ -n "$ws" ]; then
+      msg="commit-label: deploy-gate labels for #$n were NOT stamped — the hook runs at the workspace parent ($ws), not in a repo, and could not tell which child repo committed. Stamp them with \`issuekit commit\`, or commit as \`git -C <child> commit\`."
+      jq -cn --arg m "$msg" '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$m}}'
+    fi
+    exit 0
+  fi
+fi
 if [ -n "$cdir" ]; then
   head_subject="$(git -C "$cdir" log -1 --pretty=%s 2>/dev/null || true)"
 else

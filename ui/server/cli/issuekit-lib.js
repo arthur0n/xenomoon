@@ -9,6 +9,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
+import { findWorkspace, repoFor, githubSlug } from "../../lib/workspace.js";
 
 /**
  * Flags parsed off argv. A flag is a string when it took a value and `true` when it is one of
@@ -155,13 +156,39 @@ export function findConfig(start = process.cwd()) {
   }
 }
 
-// repo: --repo > .issuekit.json > current repo (gh resolves from cwd remote)
-/** @param {Flags} flags @returns {string} */
-export function resolveRepo(flags) {
+/** Inside a multi-repo workspace (ui/lib/workspace.js), a `.issuekit.json` at or above the
+ * workspace PARENT must not pin every child to one repo (probe #35 item 7).
+ *   - cwd in a child whose OWN config was found → workspace does not apply (`config` is right);
+ *   - cwd in a child, config at the parent / none → the child's repo from the manifest `remote`
+ *     (GitHub), else `ignoreConfig` so gh resolves from the child's own origin;
+ *   - cwd at the parent with a config there → THROW: nothing names a child, and guessing is the bug.
+ * @param {string} cwd @param {{ dir: string } | null} c
+ * @returns {{ repo: string | null, ignoreConfig: boolean }} */
+export function workspaceRepo(cwd, c) {
+  const none = { repo: null, ignoreConfig: false };
+  const ws = findWorkspace(cwd);
+  if (!ws) return none;
+  const child = repoFor(ws, cwd);
+  if (!child) {
+    if (!c) return none; // no pin to misapply — gh in cwd answers, or fails loudly
+    throw new Error(
+      `cwd ${cwd} is the workspace parent (${ws.file}), not a child repo — ` +
+        `cd into one of [${ws.repos.map((r) => r.name).join(", ")}] or pass --repo owner/name.`,
+    );
+  }
+  if (c && repoFor(ws, c.dir) === child) return none;
+  return { repo: githubSlug(child.remote), ignoreConfig: true };
+}
+
+// repo: --repo > workspace child (manifest) > .issuekit.json > current repo (gh resolves from cwd)
+/** @param {Flags} flags @param {string} [cwd] @returns {string} */
+export function resolveRepo(flags, cwd = process.cwd()) {
   const flagRepo = str(flags.repo);
   if (flagRepo) return flagRepo;
-  const c = findConfig();
-  if (c?.cfg?.repo) return c.cfg.repo;
+  const c = findConfig(cwd);
+  const w = workspaceRepo(cwd, c);
+  if (w.repo) return w.repo;
+  if (c?.cfg?.repo && !w.ignoreConfig) return c.cfg.repo;
   const r = gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"], {
     allowFail: true,
   });

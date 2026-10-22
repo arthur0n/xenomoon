@@ -37,7 +37,8 @@ import {
   availableDomains,
 } from "../core/domain-resolver.js";
 import { installCapabilities } from "./install-capabilities.js";
-import { deploysOnPush, order, promptOpts } from "./branch-model.js";
+import { deploysOnPush, order, promptOpts, workspaceBranchFacts } from "./branch-model.js";
+import { loadWorkspace } from "../../lib/workspace.js";
 import { pickList } from "./picklist.js";
 import { detect as detectDomain, order as orderDomains, summarize } from "./domain-pick.js";
 import { DEFAULT_PORT, savedPort, otherInstallPorts, firstFreePort } from "./port-pick.js";
@@ -89,8 +90,9 @@ if (!targetInput && rl) {
 }
 const target = path.resolve(targetInput ?? path.join(FRAMEWORK_DIR, "..", "game"));
 
-/** The project's own default branch — what "lands on main" actually means here.
- * @param {string} dir @returns {string} */
+/** The project's own default branch — what "lands on main" actually means here — or null when
+ * `dir` is not a readable repo (the caller decides, and says so).
+ * @param {string} dir @returns {string | null} */
 function projectDefaultBranch(dir) {
   for (const args of [
     ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
@@ -106,7 +108,38 @@ function projectDefaultBranch(dir) {
       /* not a repo, or no origin — try the next form */
     }
   }
-  return "main";
+  return null;
+}
+
+/** Default branch + deploy-on-push workflows of the install target. A multi-repo workspace
+ * parent (ui/lib/workspace.js) is not a repo: its facts come from the children, and every guess
+ * is printed (probe #35 item 6) — a non-repo target no longer falls back to "main" silently.
+ * @param {string} dir @returns {{ branch: string, deployWorkflows: string[] }} */
+function branchFacts(dir) {
+  let ws;
+  try {
+    ws = loadWorkspace(dir);
+  } catch (e) {
+    console.error(`new: ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(1);
+  }
+  if (!ws) {
+    const own = projectDefaultBranch(dir);
+    if (!own)
+      console.warn(`new: ${dir} is not a readable git repo — assuming default branch "main".`);
+    const branch = own ?? "main";
+    return { branch, deployWorkflows: deploysOnPush(projectWorkflows(dir), branch) };
+  }
+  const facts = workspaceBranchFacts(
+    ws.repos.map((r) => ({
+      name: r.name,
+      branch: projectDefaultBranch(r.dir),
+      workflows: projectWorkflows(r.dir),
+    })),
+  );
+  console.log(`  Workspace parent: ${ws.repos.length} repos (${ws.file}).`);
+  for (const w of facts.warnings) console.warn(`new: workspace — ${w}`);
+  return { branch: facts.branch, deployWorkflows: facts.deployWorkflows };
 }
 
 /** A pack's RAW descriptor. `loadDomain` normalises into the runtime shape and drops
@@ -230,8 +263,7 @@ portAnswer ??= String(suggestedPort);
 // source every session reads); the .xenomoon.json copy is provenance only. The options and
 // their ordering live in ./branch-model.js — asked as a picklist, ordered by what the PROJECT
 // does, because "land directly on main" is the wrong default on a repo that deploys from it.
-const defaultBranch = projectDefaultBranch(target);
-const deployWorkflows = deploysOnPush(projectWorkflows(target), defaultBranch);
+const { branch: defaultBranch, deployWorkflows } = branchFacts(target);
 const branchModels = order(deployWorkflows.length > 0);
 let branchModel = null;
 if (rl) {

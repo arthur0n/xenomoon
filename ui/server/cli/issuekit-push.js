@@ -20,6 +20,7 @@
 import { readBranchModel, deployReaching } from "../../lib/branch-doctrine.js";
 import { run, gh, git, resolveRepo, maybeSwitchUser, mark, str } from "./issuekit-lib.js";
 import { prGreenGate } from "./issuekit-plumb.js";
+import { findWorkspace, repoFor } from "../../lib/workspace.js";
 
 /** @typedef {import("./issuekit-lib.js").Flags} Flags */
 /** @typedef {import("./issuekit-lib.js").GhNode} GhNode */
@@ -284,6 +285,17 @@ function collectIssue(repo, num) {
   };
 }
 
+/** The branch doctrine for the repo at `top`. In a multi-repo workspace the toplevel is the CHILD
+ * repo, but `.xenomoon/branch-model` lives in the bound PARENT (probe #35 item 11) — so a child
+ * with no file of its own reads the workspace parent's, resolved via the manifest.
+ * @param {string} top @returns {Doctrine} */
+export function branchDoctrine(top) {
+  const own = readBranchModel(top);
+  if (own || !top) return own;
+  const ws = findWorkspace(top);
+  return ws && repoFor(ws, top) ? readBranchModel(ws.root) : null;
+}
+
 /** Gather every fact the verdict reads, in the order push-method lists them.
  * @param {string} askedBranch @param {Flags} flags @returns {{ repo: string, facts: PushFacts }} */
 function collectFacts(askedBranch, flags) {
@@ -316,7 +328,7 @@ function collectFacts(askedBranch, flags) {
       return { sha: sha ?? "", subject: rest.join("\t") };
     });
 
-  const doctrine = readBranchModel(git(["rev-parse", "--show-toplevel"]));
+  const doctrine = branchDoctrine(git(["rev-parse", "--show-toplevel"]));
   const reaches = deployReaching(branch, doctrine);
   const issues = citedIssues(commits).map((n) => collectIssue(repo, n));
   const checks = collectChecks(repo, remote, branch);

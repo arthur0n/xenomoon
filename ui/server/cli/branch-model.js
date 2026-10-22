@@ -117,3 +117,41 @@ export function prompt(opts) {
 /** The model an answer selects. @param {string} answer @param {BranchModel[]} models
  * @returns {string | null} */
 export const choose = (answer, models) => pick(answer, items(models, ""));
+
+/** The branch facts of a multi-repo workspace parent (ui/lib/workspace.js), from its children —
+ * the parent itself is not a repo, so reading IT gave "main, nothing deploys" (probe #35 item 6).
+ * Pure: the caller reads each child's default branch (null = unreadable) and workflow files.
+ * Every guess is returned as a warning line for the installer to print — never silent.
+ * @param {{ name: string, branch: string | null, workflows: { name: string, text: string }[] }[]} children
+ * @returns {{ branch: string, deployWorkflows: string[], warnings: string[] }} */
+export function workspaceBranchFacts(children) {
+  /** @type {string[]} */
+  const warnings = [];
+  /** @type {string[]} */
+  const deployWorkflows = [];
+  /** @type {Set<string>} */
+  const branches = new Set();
+  for (const c of children) {
+    if (!c.branch) {
+      warnings.push(
+        `${c.name}: not a readable git repo — its default branch and deploys are unknown`,
+      );
+      continue;
+    }
+    branches.add(c.branch);
+    deployWorkflows.push(...deploysOnPush(c.workflows, c.branch).map((w) => `${c.name}/${w}`));
+  }
+  const all = [...branches];
+  let branch = all[0] ?? "main";
+  if (all.length === 0) warnings.push(`no child repo was readable — assuming "main"`);
+  if (all.length > 1) {
+    branch = branches.has("main") ? "main" : branch;
+    warnings.push(
+      `children disagree on the default branch (${children
+        .filter((c) => c.branch)
+        .map((c) => `${c.name}=${c.branch}`)
+        .join(", ")}) — the branch model uses "${branch}"; re-check per repo`,
+    );
+  }
+  return { branch, deployWorkflows, warnings };
+}

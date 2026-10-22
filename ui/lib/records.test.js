@@ -8,6 +8,7 @@ import {
   fieldProblems,
   buildIndex,
   linkProblems,
+  isClientShareable,
   OKF_STATUS,
   RECORD_STATUSES,
 } from "./records.js";
@@ -106,4 +107,22 @@ test("linkProblems: missing targets, status disagreements, orphan superseded, se
   assert.ok(p.some((x) => x.includes("amends `nope`, which does not exist")));
   assert.ok(p.some((x) => x.includes("verdicts/lonely: status is `superseded`")));
   assert.ok(p.some((x) => x.includes("verdicts/me: supersedes itself")));
+});
+
+test("audience: absent = internal, `client` parses, bad value flagged (#47)", () => {
+  const { data } = parseFrontmatter("---\ndescription: d\naudience: client\n---\n");
+  assert.equal(toRecord("s", "verdicts", data ?? {}).audience, "client");
+  assert.equal(toRecord("s", "verdicts", { description: "d" }).audience, "internal");
+  assert.deepEqual(fieldProblems({ description: "d", audience: "client" }), []);
+  assert.ok(fieldProblems({ description: "d", audience: "public" })[0]?.includes("audience"));
+});
+
+test("isClientShareable: client AND accepted/amended only (#47)", () => {
+  /** @param {Record<string, string>} f */
+  const r = (f) => toRecord("s", "verdicts", { description: "d", ...f });
+  assert.equal(isClientShareable(r({ audience: "client" })), true);
+  assert.equal(isClientShareable(r({ audience: "client", status: "amended" })), true);
+  assert.equal(isClientShareable(r({ audience: "client", status: "superseded" })), false);
+  assert.equal(isClientShareable(r({ audience: "client", status: "proposed" })), false);
+  assert.equal(isClientShareable(r({})), false);
 });

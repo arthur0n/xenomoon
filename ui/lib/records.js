@@ -8,6 +8,7 @@
 //   status: proposed|accepted|amended|superseded   (absent = accepted, like OKF absent = stable)
 //   supersedes: [slug, ...]  amends: [slug, ...]   (bare slug = same kind, or `kind/slug`)
 //   tags: [a, b]   date: YYYY-MM-DD
+//   audience: internal|client   (absent = internal; `client` = a client may read it, #47)
 
 /** Record lifecycle values, in order. */
 export const RECORD_STATUSES = /** @type {const} */ ([
@@ -25,6 +26,12 @@ export const OKF_STATUS = {
   superseded: "deprecated",
 };
 
+/** Who may read a record (#47). Absent = internal: sharing is opt-in, never the default. */
+export const AUDIENCES = /** @type {const} */ (["internal", "client"]);
+
+/** Statuses a client-facing publish keeps: current records only (no drafts, nothing replaced). */
+export const CLIENT_STATUSES = ["accepted", "amended"];
+
 /** Files in a kind folder that are never records (OKF reserves index.md and log.md). */
 export const RESERVED = new Set(["index.md", "log.md", "README.md"]);
 
@@ -39,6 +46,7 @@ export const RESERVED = new Set(["index.md", "log.md", "README.md"]);
  * @property {string[]} amends
  * @property {string[]} tags
  * @property {string} date        "" when absent
+ * @property {string} audience    as written; "internal" when absent
  */
 
 /** @param {string | string[] | undefined} v */
@@ -64,6 +72,7 @@ export function toRecord(slug, folderKind, data) {
     amends: list(data.amends),
     tags: list(data.tags),
     date: str(data.date),
+    audience: str(data.audience) || "internal",
   };
 }
 
@@ -81,10 +90,21 @@ export function fieldProblems(data) {
     out.push(`status \`${status}\` is not one of ${RECORD_STATUSES.join("|")}`);
   const date = str(data.date);
   if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) out.push(`date \`${date}\` is not YYYY-MM-DD`);
+  const audience = str(data.audience);
+  if (audience && !AUDIENCES.includes(/** @type {any} */ (audience)))
+    out.push(`audience \`${audience}\` is not one of ${AUDIENCES.join("|")}`);
   for (const key of ["supersedes", "amends", "tags"])
     if (typeof data[key] === "string" && data[key] !== "")
       out.push(`\`${key}\` must be an inline list: ${key}: [a, b]`);
   return out;
+}
+
+/**
+ * A record a client may read: marked `audience: client` AND current (accepted or amended).
+ * @param {LibRecord} r
+ */
+export function isClientShareable(r) {
+  return r.audience === "client" && CLIENT_STATUSES.includes(r.status);
 }
 
 /**

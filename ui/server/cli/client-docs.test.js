@@ -9,12 +9,20 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { outProblem, scanClientDocs, selectClientDocs, writeClientDocs } from "./client-docs.js";
 
-/** Run the CLI with an empty install registry so only --deny terms count. @param {string[]} args */
-const run = (args) =>
-  execFileSync("node", [CLI, ...args], {
+/** Run the CLI with an empty install registry and no local denylist file, so only --deny and
+ * the given env terms count. @param {string[]} args @param {NodeJS.ProcessEnv} [env] */
+const run = (args, env = {}) => {
+  const { XENOMOON_DENYLIST: _f, XENOMOON_DENYLIST_TERMS: _t, ...base } = process.env;
+  return execFileSync("node", [CLI, ...args], {
     stdio: "pipe",
-    env: { ...process.env, XENOMOON_REGISTRY: path.join(tmpdir(), "client-docs-no-registry.json") },
+    env: {
+      ...base,
+      HOME: mkdtempSync(path.join(tmpdir(), "client-docs-home-")),
+      XENOMOON_REGISTRY: path.join(tmpdir(), "client-docs-no-registry.json"),
+      ...env,
+    },
   });
+};
 
 const CLI = fileURLToPath(new URL("./client-docs.js", import.meta.url));
 
@@ -97,6 +105,27 @@ test("CLI exits non-zero on a planted term, zero when clean (#49)", () => {
   const base = mkdtempSync(path.join(tmpdir(), "client-docs-cli-"));
   assert.throws(
     () => run(["--root", root, "--out", path.join(base, "a"), "--deny", "acme-fake"]),
+    (/** @type {{ status?: number, stderr?: Buffer }} */ e) =>
+      e.status === 1 && String(e.stderr).includes("acme-fake"),
+  );
+  assert.match(
+    String(run(["--root", root, "--out", path.join(base, "b")])),
+    /ok {2}client-docs: 2/,
+  );
+});
+
+test("CLI reads the local denylist: an XENOMOON_DENYLIST_TERMS term fails the run (#56)", () => {
+  const root = fakeLibrary();
+  writeFileSync(
+    path.join(root, "verdicts", "shared-ok.md"),
+    "---\ndescription: d\naudience: client\n---\nMade for acme-fake.\n",
+  );
+  const base = mkdtempSync(path.join(tmpdir(), "client-docs-deny-"));
+  assert.throws(
+    () =>
+      run(["--root", root, "--out", path.join(base, "a")], {
+        XENOMOON_DENYLIST_TERMS: "acme-fake",
+      }),
     (/** @type {{ status?: number, stderr?: Buffer }} */ e) =>
       e.status === 1 && String(e.stderr).includes("acme-fake"),
   );

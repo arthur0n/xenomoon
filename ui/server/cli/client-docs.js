@@ -7,7 +7,8 @@
 //   node ui/server/cli/client-docs.js --out <dir> [--root <library dir>] [--deny a,b]
 // After writing, the OUTPUT is scanned like the source (#49): scanClientDocs runs the shared
 // contamination scanner over every generated file with the known project names of this machine
-// (the install registry, as check:project-names reads it) plus any --deny terms. A hit exits 1.
+// (the install registry, as check:project-names reads it), the local denylist (denylist.js) plus
+// any --deny terms. A hit exits 1.
 // --out is required and must sit OUTSIDE the framework repo; an existing non-empty folder is
 // refused (nothing is ever overwritten). --root defaults to plugin/library.
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -18,6 +19,7 @@ import { parseFrontmatter } from "../../lib/frontmatter.js";
 import { isClientShareable } from "../../lib/records.js";
 import { REPO, readLibrary } from "../features/library/library-io.js";
 import { scanPath } from "../features/promotions/contamination.js";
+import { loadDenylist } from "./denylist.js";
 import { knownProjectTerms, readInstallsMap } from "./known-projects.js";
 
 /**
@@ -113,6 +115,7 @@ function main() {
   const docs = writeClientDocs(root, out);
   const terms = [
     ...knownProjectTerms({ installs: readInstallsMap() }),
+    ...loadDenylist().terms,
     ...(opt.deny ?? "").split(","),
   ];
   const hits = scanClientDocs(out, terms);

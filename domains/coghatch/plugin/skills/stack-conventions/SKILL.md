@@ -17,3 +17,18 @@ description: The floor for knowledge work across a multi-repo stack — a standi
 - **Shareable means scrubbed.** No client, company or private project names; use `acme-*`
   placeholders. No credentials, hostnames or internal URLs.
 - **No ledgers.** No change logs or decision tables beside the records; git holds the history.
+
+## Standing conventions (one record each — cite the slug, never restate)
+
+- Process: `verdicts/no-workaround-without-approval`, `verdicts/decisions-reopened-on-evidence`,
+  `verdicts/third-party-plans-not-authority`, `verdicts/questions-answered-not-acted-on`,
+  `verdicts/working-rhythm`, `verdicts/issue-format`.
+- Evidence: `verdicts/no-invented-numbers`, `verdicts/verify-against-source-not-memory`,
+  `verdicts/documents-timeless-evidence-on-issue`.
+- Git: `verdicts/commit-message-format`, `verdicts/branches-and-pull-requests`.
+- Dependencies: `verdicts/exact-version-pins`, `verdicts/dependency-boundary`.
+- Testing: `verdicts/test-layout`.
+- Infra and security: `verdicts/infra-mutation-one-approved-command`, `verdicts/cloud-resource-labels`,
+  `verdicts/secrets-handling`, `verdicts/identity-key-is-object-id`,
+  `verdicts/adversarial-review-security-diffs`.
+- Agents and MCP: `verdicts/mcp-tool-contracts`.

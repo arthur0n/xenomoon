@@ -21,6 +21,8 @@ import { recentSessions, deleteSession } from "../features/transcripts/transcrip
 import { writeTranscript } from "../features/transcripts/transcript-write.js";
 import { readTasks, reapHandoffs } from "../features/tasks/tasks-store.js";
 import { serveStatic } from "./http/static.js";
+import { makeRequestHandler } from "./http/request-handler.js";
+import { currentStatus } from "./http/status.js";
 import { reclaimPortIfBusy } from "./http/port.js";
 import { handleConnection } from "./session.js";
 import { prepareGame } from "../cli/materialize.js";
@@ -290,32 +292,16 @@ function handleRestartPost(_req, res) {
   }, 150);
 }
 
-const server = http.createServer((req, res) => {
-  const url = req.url ?? "";
-  const getRoute = GET_ROUTES[url];
-  if (getRoute) {
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify(getRoute()));
-    return;
-  }
-  if (req.method === "DELETE" && url.startsWith("/api/sessions/")) {
-    const id = decodeURIComponent(url.slice("/api/sessions/".length));
-    const ok = deleteSession(id);
-    res.writeHead(ok ? 200 : 404, { "content-type": "application/json" });
-    res.end(JSON.stringify({ deleted: ok }));
-    return;
-  }
-  if (req.method === "POST" && url.startsWith("/api/agents/")) {
-    handleAgentApi(req, res, url);
-    return;
-  }
-  const postRoute = POST_ROUTES[url];
-  if (req.method === "POST" && postRoute) {
-    postRoute(req, res);
-    return;
-  }
-  serveStatic(req, res);
-});
+const server = http.createServer(
+  makeRequestHandler({
+    getRoutes: GET_ROUTES,
+    postRoutes: POST_ROUTES,
+    deleteSession,
+    handleAgentApi,
+    serveStatic,
+    status: { path: "/api/status", payload: currentStatus },
+  }),
+);
 
 const wss = new WebSocketServer({ server });
 wss.on("connection", (ws, req) => {

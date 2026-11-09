@@ -3,6 +3,8 @@
 // session registers itself once its SDK session id is known (mid-stream, see connection.js
 // buildSessionHooks' onSessionId) and removes itself on teardown. The map is empty after a server
 // restart, so a reconnect then falls through to the disk-resume path in handleConnection.
+// Two structures on purpose: `live` is keyed by SDK id and only filled mid-stream, while `tracked`
+// holds every session by identity from start to teardown, for the status endpoint (issue #60).
 
 /** @typedef {import("./connection.js").LiveSession} LiveSession */
 
@@ -23,4 +25,30 @@ export function registerLive(id, ls) {
 /** @param {string} id */
 export function dropLive(id) {
   live.delete(id);
+}
+
+/** Every LiveSession from session start to teardown, by identity (independent of `live`).
+ * @type {Set<LiveSession>} */
+const tracked = new Set();
+
+/** @param {LiveSession} ls */
+export function trackSession(ls) {
+  tracked.add(ls);
+}
+
+/** @param {LiveSession} ls */
+export function untrackSession(ls) {
+  tracked.delete(ls);
+}
+
+/** @returns {LiveSession[]} */
+export function liveSessions() {
+  return [...tracked];
+}
+
+let activity = 0;
+
+/** A process-wide strictly increasing activity stamp (first call returns 1). @returns {number} */
+export function nextActivity() {
+  return ++activity;
 }

@@ -12,7 +12,7 @@ import { sessionHistory } from "../features/transcripts/transcripts.js";
 import { buildUiServer } from "../mcp-tools/ui-server.js";
 import { maybeKickoffOnboarding } from "./first-boot.js";
 import { runWithRetry } from "./stream.js";
-import { getLive } from "./registry.js";
+import { getLive, trackSession } from "./registry.js";
 import {
   createLogger,
   createInbox,
@@ -232,6 +232,7 @@ function runSession({
         resumeId,
         onSessionId,
         onBusyChange,
+        activity: ls, // the status endpoint's lastLine/runningAgents/activitySeq (issue #60)
       });
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
@@ -260,7 +261,7 @@ function bindSocket(ws, ls) {
       log: ls.log,
       send: ls.send,
       inbox: ls.inbox,
-      pending: ls.pending,
+      holder: ls,
       session: ls.session,
     });
   });
@@ -315,16 +316,6 @@ export function handleConnection(ws, req) {
   const agentByTool = new Map(); // tool_use id -> agent label (main | subagent_type)
   /** @type {string[]} */
   const formAgentQueue = []; // FIFO: agent label per pending mcp__ui__form call
-  const waitFor = makeWaitFor(send, pending);
-  const canUseTool = makeCanUseTool({
-    session,
-    sessionAllowed,
-    waitFor,
-    log,
-    agentByTool,
-    formAgentQueue,
-  });
-
   /** @type {LiveSession} */
   const ls = {
     id: resumeId,
@@ -341,7 +332,20 @@ export function handleConnection(ws, req) {
     announced: false,
     done: false,
     resync: () => {}, // replaced by runSession once its authoritative snapshots exist
+    lastLine: "",
+    runningAgents: 0,
+    activitySeq: 0,
   };
+  trackSession(ls); // the status endpoint sees it from start (before the SDK id exists) to teardown
+  const waitFor = makeWaitFor(send, ls);
+  const canUseTool = makeCanUseTool({
+    session,
+    sessionAllowed,
+    waitFor,
+    log,
+    agentByTool,
+    formAgentQueue,
+  });
 
   bindSocket(ws, ls);
   runSession({

@@ -1,6 +1,8 @@
 // Best-effort context-meter helper for the session message stream. Split out of
 // session.js to keep that file under its length cap.
 
+import { nextActivity } from "./registry.js";
+
 /** @typedef {import("../../lib/types.js").OutMsg} OutMsg */
 /** @typedef {import("../../lib/types.js").RunningAgentWire} RunningChip */
 
@@ -62,7 +64,9 @@ export async function emitContextUsage(q, send) {
 /** @typedef {import("@anthropic-ai/claude-agent-sdk").SDKMessage} SDKMessage */
 /** @typedef {import("@anthropic-ai/claude-agent-sdk").SDKUserMessage} SDKUserMessage */
 /** @typedef {{ agentByTool: Map<string, string>, bgSpawns: Set<string>, bgBoard: Map<string, string>, runningByTask: Map<string, RunningChip>, send: (obj: OutMsg) => void }} TrackDeps */
-/** @typedef {{ send: (obj: OutMsg) => void, trackMessage: (m: SDKMessage, deps: TrackDeps) => void, trackDeps: TrackDeps, busy: { value: boolean }, sid: { value: string | null }, overload: { value: boolean }, onSessionId?: (id: string) => void, onBusyChange?: () => void }} StreamDeps */
+/** @typedef {{ send: (obj: OutMsg) => void, trackMessage: (m: SDKMessage, deps: TrackDeps) => void, trackDeps: TrackDeps, busy: { value: boolean }, sid: { value: string | null }, overload: { value: boolean }, onSessionId?: (id: string) => void, onBusyChange?: () => void, activity: Activity }} StreamDeps */
+/** The status-endpoint activity fields streamQuery keeps current (a LiveSession satisfies it).
+ * @typedef {{ lastLine: string, runningAgents: number, activitySeq: number }} Activity */
 
 const RETRY_DELAY_MS = 5 * 60 * 1000; // 5 min between API-529 retries
 const MAX_529_RETRIES = 3; // cap so a sustained outage can't loop forever
@@ -128,13 +132,31 @@ function retryTurn(attempt, max) {
   };
 }
 
+/** The last non-empty line (trimmed) across an assistant message's `text` content items, cut to
+ * `max` characters; null when the message has no text item (the caller then keeps its old line).
+ * Shape: SDKAssistantMessage.message is a BetaMessage whose `content` is BetaContentBlock[].
+ * @param {SDKMessage} message @param {number} [max] @returns {string | null} */
+export function lastTextLine(message, max = 200) {
+  if (message.type !== "assistant") return null;
+  const texts = (message.message?.content ?? []).flatMap((b) =>
+    b.type === "text" ? [b.text] : [],
+  );
+  if (texts.length === 0) return null;
+  const lines = texts
+    .join("\n")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return (lines.at(-1) ?? "").slice(0, max);
+}
+
 /** Stream one query's messages to the browser: capture the live session id (for resume),
  * flag a sustained overload (so runWithRetry can act on it), keep the autonomous turn-busy
  * flag in sync, and refresh the context meter at each turn end. @param {Query} q
  * @param {StreamDeps} deps */
 async function streamQuery(
   q,
-  { send, trackMessage, trackDeps, busy, sid, overload, onSessionId, onBusyChange },
+  { send, trackMessage, trackDeps, busy, sid, overload, onSessionId, onBusyChange, activity },
 ) {
   for await (const message of q) {
     const sessionId = /** @type {{ session_id?: string }} */ (message).session_id;
@@ -144,14 +166,23 @@ async function streamQuery(
     }
     if (isOverloadMessage(message)) overload.value = true; // sustained 529 surfaces here, not a throw
     trackMessage(message, trackDeps);
+    const running = trackDeps.runningByTask.size;
+    if (running !== activity.runningAgents) {
+      activity.runningAgents = running;
+      activity.activitySeq = nextActivity();
+    }
     send({ type: "event", message });
     // busy flips drive the detach grace policy (onBusyChange): keep a detached session alive while
     // a turn runs, start the idle window the moment it goes quiet.
     if (message.type === "assistant") {
+      const line = lastTextLine(message);
+      if (line !== null) activity.lastLine = line;
+      activity.activitySeq = nextActivity(); // every assistant message is activity, text or not
       busy.value = true;
       onBusyChange?.();
     }
     if (message.type === "result") {
+      activity.activitySeq = nextActivity();
       busy.value = false;
       onBusyChange?.();
       void emitContextUsage(q, send);
@@ -177,6 +208,7 @@ async function streamQuery(
  *   resumeId: string | null,
  *   onSessionId?: (id: string) => void,
  *   onBusyChange?: () => void,
+ *   activity: Activity,
  * }} deps */
 export async function runWithRetry({
   makeQuery,
@@ -190,6 +222,7 @@ export async function runWithRetry({
   resumeId,
   onSessionId,
   onBusyChange,
+  activity,
 }) {
   const sid = { value: resumeId };
   let retries = 0;
@@ -207,6 +240,7 @@ export async function runWithRetry({
         overload,
         onSessionId,
         onBusyChange,
+        activity,
       });
     } catch (err) {
       if (isOverloadError(err)) overload.value = true;

@@ -12,16 +12,16 @@ import { armPulse, disarmPulse } from "../features/pulse/pulse-store.js";
 import { beatNow, publish, noteHumanActivity } from "../features/pulse/pulse-control.js";
 import { applyOp, pruneDoneTasks } from "../features/tasks/tasks-store.js";
 import { POLICIES, PROJECT_DIR } from "./config.js";
+import { removePending } from "./connection.js";
 
 /** @typedef {import("../../lib/types.js").OutMsg} OutMsg */
 /** @typedef {import("../../lib/types.js").ClientMsg} ClientMsg */
-/** @typedef {import("../../lib/types.js").Reply} Reply */
 /** @typedef {import("../../lib/types.js").Task} Task */
 /** @typedef {import("./session.js").SessionState} SessionState */
 /** @typedef {import("@anthropic-ai/claude-agent-sdk").SDKUserMessage} SDKUserMessage */
 /** The inbox surface this dispatcher needs (the full inbox lives in session.js).
  * @typedef {{ push: (msg: SDKUserMessage) => void }} InboxLike */
-/** @typedef {Map<number, { type: string, resolve: (value: Reply) => void }>} Pending */
+/** @typedef {import("./connection.js").PendingHolder} PendingHolder */
 /** @typedef {(obj: OutMsg) => void} Send */
 
 /** Execute an approved promotion: move the capability project→plugin and mark it
@@ -162,9 +162,9 @@ function handleControlMessage(msg, { send, inbox, session }) {
 
 /**
  * @param {import("ws").RawData} raw
- * @param {{ log: (dir: string, obj: OutMsg) => void, send: Send, inbox: InboxLike, pending: Pending, session: SessionState }} deps
+ * @param {{ log: (dir: string, obj: OutMsg) => void, send: Send, inbox: InboxLike, holder: PendingHolder, session: SessionState }} deps
  */
-export function handleClientMessage(raw, { log, send, inbox, pending, session }) {
+export function handleClientMessage(raw, { log, send, inbox, holder, session }) {
   /** @type {ClientMsg} */
   let msg;
   try {
@@ -184,10 +184,12 @@ export function handleClientMessage(raw, { log, send, inbox, pending, session })
     // Pulse — sleep is not off, so nobody has to remember to switch it back on.
     if (session.pulseId != null) noteHumanActivity(session.pulseId);
   } else if (msg.type === "reply") {
-    const entry = pending.get(msg.id);
+    // Removal goes through removePending so a browser reply stamps activity (status endpoint, #60);
+    // an unknown id resolves nothing and changes nothing.
+    const entry = holder.pending.get(msg.id);
     if (entry) {
       entry.resolve(msg.payload);
-      pending.delete(msg.id);
+      removePending(holder, msg.id);
     }
   } else if (msg.type === "policy" && POLICIES.includes(msg.value)) {
     session.policy = msg.value;

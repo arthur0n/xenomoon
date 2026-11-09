@@ -1,21 +1,23 @@
 ---
-name: idp-assurance-claims-additive
-kind: verdicts
+type: verdicts
+title: Identity assurance from the identity provider is additive
 description: Conditional Access in Entra decides who reaches consent, and the access hub records amr and auth_time into each grant; this is additive assurance, not a gate, and needs no new redirect URIs at the identity provider.
-status: accepted
+status: stable
 tags: [auth, oauth, security]
-date: 2026-09-03
 source: hub M8
+generated: { by: human:migrate, at: 2026-09-03T00:00:00Z }
 ---
 
-# Identity assurance from the identity provider is additive
+Conditional Access in Entra decides who reaches consent, and the access hub records amr and auth_time into each grant; this is additive assurance, not a gate, and needs no new redirect URIs at the identity provider.
+
+## Why
+
+The core OAuth work then has no IT dependency and can be built while the claims request is open.
+
+Unverified: whether Entra emits usable `amr` values for the tenant's real sign-in methods; the portal's
+optional-claim picker did not offer `amr`. Confirm against a real token.
 
 ## Context
-
-The access hub is its own authorization server, with Entra federated behind it for sign-in only. An
-earlier assumption said IT must add MCP redirect URIs and an Application ID URI to the Entra app.
-
-## Decision
 
 - Conditional Access in Entra (MFA, phishing-resistant methods, device compliance, location, risk)
   decides who reaches consent.
@@ -25,9 +27,5 @@ earlier assumption said IT must add MCP redirect URIs and an Application ID URI 
   Conditional Access policy. No MCP redirect URIs and no Application ID URI: MCP clients redirect to the
   access hub, which validates them through CIMD; Entra only sees the access hub's own callback.
 
-## Why
-
-The core OAuth work then has no IT dependency and can be built while the claims request is open.
-
-Unverified: whether Entra emits usable `amr` values for the tenant's real sign-in methods; the portal's
-optional-claim picker did not offer `amr`. Confirm against a real token.
+The access hub is its own authorization server, with Entra federated behind it for sign-in only. An
+earlier assumption said IT must add MCP redirect URIs and an Application ID URI to the Entra app.

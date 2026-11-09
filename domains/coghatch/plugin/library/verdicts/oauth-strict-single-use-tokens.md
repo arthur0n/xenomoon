@@ -1,22 +1,21 @@
 ---
-name: oauth-strict-single-use-tokens
-kind: verdicts
+type: verdicts
+title: Strict single-use tokens, the loser's family dies
 description: Each consumable OAuth token (code, refresh token) is claimed by one serialisable transaction; the loser is a replay and its whole grant family is revoked, with no reuse grace window.
-status: accepted
+status: stable
 tags: [oauth, security]
-date: 2026-09-15
 source: hub M18
+generated: { by: human:migrate, at: 2026-09-15T00:00:00Z }
 ---
 
-# Strict single-use tokens, the loser's family dies
+Each consumable OAuth token (code, refresh token) is claimed by one serialisable transaction; the loser is a replay and its whole grant family is revoked, with no reuse grace window.
+
+## Why
+
+No reuse-tolerance window: a parallel refresh is the replay the RFC asks to detect. Known outcome: both
+parallel requests can fail and the session ends; that is intended, not a defect.
 
 ## Context
-
-Clients sometimes refresh in parallel. The library's consume step had no atomic claim, so two concurrent
-redemptions of one code or refresh token could both succeed. RFC 9700 4.14.2 requires replay detection
-for public clients.
-
-## Decision
 
 - A consumable token is claimed in one Firestore transaction: write `consumedAt` only if unset. Exactly one
   claim commits.
@@ -28,7 +27,6 @@ for public clients.
 - A failed delete mid-sweep surfaces as a 500; leftovers cannot be renewed because the Grant is gone, and
   only an already-issued access token survives, until its 300 s TTL.
 
-## Why
-
-No reuse-tolerance window: a parallel refresh is the replay the RFC asks to detect. Known outcome: both
-parallel requests can fail and the session ends; that is intended, not a defect.
+Clients sometimes refresh in parallel. The library's consume step had no atomic claim, so two concurrent
+redemptions of one code or refresh token could both succeed. RFC 9700 4.14.2 requires replay detection
+for public clients.

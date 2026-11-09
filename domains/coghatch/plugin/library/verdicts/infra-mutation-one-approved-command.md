@@ -1,19 +1,19 @@
 ---
-name: infra-mutation-one-approved-command
-kind: verdicts
+type: verdicts
+title: Infra: an issue first, then one approved command, then its output
 description: Every cloud or server mutation is written into an issue first, approved per command, run once exactly as printed, and its output pasted back; read-only checks may run first.
-status: accepted
+status: stable
 tags: [convention, infra]
-date: 2026-09-03
+generated: { by: human:migrate, at: 2026-09-03T00:00:00Z }
 ---
 
-# Infra: an issue first, then one approved command, then its output
+Every cloud or server mutation is written into an issue first, approved per command, run once exactly as printed, and its output pasted back; read-only checks may run first.
+
+## Why
+
+The issue becomes the audit trail; running first and pasting after is the order this rule forbids.
 
 ## Context
-
-Infra changes made first and documented after left claims about cloud state with no output behind them.
-
-## Decision
 
 - Any command that creates, changes or deletes infrastructure or a running service (cloud CLI, secret writes,
   remote shell changes, compose rolls, settings calls) is printed in the issue with every flag before it runs.
@@ -23,6 +23,4 @@ Infra changes made first and documented after left claims about cloud state with
   pasted too.
 - A claim about infra state with no pasted output behind it is not a fact.
 
-## Why
-
-The issue becomes the audit trail; running first and pasting after is the order this rule forbids.
+Infra changes made first and documented after left claims about cloud state with no output behind them.

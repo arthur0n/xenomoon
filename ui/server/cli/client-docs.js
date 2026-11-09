@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Client docs (#48, parent #13) — the BASIC generator. One source (the library records), a
 // generated output, no second copy: the records marked `audience: client` whose status is
-// accepted or amended (ui/lib/records.js isClientShareable) are written to a static folder as
+// stable (ui/lib/records.js isClientShareable) are written to a static folder as
 // one markdown per record plus an index.md. No hosting, no external service — how client docs
 // are finally published is not decided yet.
 //   node ui/server/cli/client-docs.js --out <dir> [--root <library dir>] [--deny a,b]

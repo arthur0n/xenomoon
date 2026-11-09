@@ -1,20 +1,21 @@
 ---
-name: agent-per-email-address
-kind: verdicts
+type: verdicts
+title: Every agent has its own address
 description: Every agent gets its own email address served by one generic ask-agent function per agent; an email-triggered agent never lives inside another pipeline, and the agent contract stays trigger-neutral.
-status: amended
+status: stable
 tags: [agent-forge, email, workflow-engine]
-date: 2026-09-10
 source: platform D21
+generated: { by: human:migrate, at: 2026-09-10T00:00:00Z }
 ---
 
-# Every agent has its own address
+Every agent gets its own email address served by one generic ask-agent function per agent; an email-triggered agent never lives inside another pipeline, and the agent contract stays trigger-neutral.
+
+## Why
+
+- "NEVER" a branch inside another pipeline: no classifier exists, and it would couple two agents in one function.
+- Every piece copies a pattern already live and adds no dependency.
 
 ## Context
-
-Users wanted to talk to agents by mail. One option was a classifier branch inside an existing pipeline.
-
-## Decision
 
 Each agent has an address; mail to it is routed by `to`, sent to the agent, and answered with the thread
 marker, From = Reply-To = the agent's address. One generic `ask-agent` pipeline, one workflow function per
@@ -24,7 +25,4 @@ agent is never forwarded to another; agents orchestrate each other directly. Not
 agent contract or adapter, so agent-by-agent and agent-by-API triggers can reuse them later. Refusals of the
 payload are non-retriable before any step; transport errors stay retriable inside their step.
 
-## Why
-
-- "NEVER" a branch inside another pipeline: no classifier exists, and it would couple two agents in one function.
-- Every piece copies a pattern already live and adds no dependency.
+Users wanted to talk to agents by mail. One option was a classifier branch inside an existing pipeline.

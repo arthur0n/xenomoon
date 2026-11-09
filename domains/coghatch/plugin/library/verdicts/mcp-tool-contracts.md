@@ -1,15 +1,19 @@
 ---
-name: mcp-tool-contracts
-kind: verdicts
+type: verdicts
+title: MCP tool contracts
 description: Each MCP tool is a curated contract — snake_case verb_object name, a description of at most three sentences, a flat required-only input with no model-chosen enum, a small fixed output, and every limit from config.
-status: accepted
+status: stable
 tags: [convention, mcp, agents]
-date: 2026-09-11
+generated: { by: human:migrate, at: 2026-09-11T00:00:00Z }
 ---
 
-# MCP tool contracts
+Each MCP tool is a curated contract — snake_case verb_object name, a description of at most three sentences, a flat required-only input with no model-chosen enum, a small fixed output, and every limit from config.
 
-## Decision
+## Why
+
+The calling model should never have to reason about how a tool works, only whether to call it.
+
+## Context
 
 1. **Name:** `snake_case` verb_object, one purpose (`ask_agent`, `get_result`, `read_file`).
 2. **Description:** what it does, what comes back, one hard limit; at most three sentences. No usage advice, no data
@@ -22,7 +26,3 @@ date: 2026-09-11
    (`no-invented-numbers`).
 
 A tool that needs an option is two tools.
-
-## Why
-
-The calling model should never have to reason about how a tool works, only whether to call it.

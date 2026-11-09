@@ -15,18 +15,23 @@ description: Change a decision record that already exists — amend it (same rec
 - **Amend** — the decision stands, a detail changes (a number, a scope, a caveat). One record.
 - **Supersede** — the decision itself changes. A new record replaces the old one.
 
+## The tool asks first
+
+`amend` and `supersede` refuse to finish until you answer two questions: what was rejected and
+what follows. Answer with `--rejected "<text>"`, `--consequences "<text>"` or `--keep-sections`
+(both sections stay as they are). The tool asks; do not rely on remembering. The change note goes
+to the kind's `log.md`, never the body. Rules: `plugin/docs/library-record-standard.md`.
+
 ## Amend
 
-1. Edit the record body in place so it states the current rule.
-2. Log it: `$REC amend <kind/slug> --note "<what changed and why>"` — sets `status: amended`,
-   bumps `date`, adds a dated line under `## Changes`. When another record carries the reason,
-   add `--by <kind/slug>`; that record gets `amends: [<slug>]`.
+1. Edit the body so it states the current rule.
+2. `$REC amend <kind/slug> --note "<what changed and why>" (--rejected "…" | --consequences "…" | --keep-sections)`.
+   When another record carries the reason, add `--via <kind/slug>`; that record gets `amends`.
 
 ## Supersede
 
 1. Write the replacement with `library-record-create`.
-2. Link both: `$REC supersede <kind/old> <kind/new>` — old gets `status: superseded`, new gets
-   `supersedes: [<old>]`. Leave the old body as history.
+2. `$REC supersede <kind/old> <kind/new> [--note "…"] (--rejected "…" | --consequences "…" | --keep-sections)`
+   — old becomes deprecated, new gets `supersedes`. Leave the old body as history.
 
-Done when: `$REC check` passes (it also fails on a broken `supersedes`/`amends` link or a status
-that disagrees with one).
+Done when: `$REC check` passes (it also fails on a broken `supersedes`/`amends` link).

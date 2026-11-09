@@ -1,22 +1,21 @@
 ---
-name: idp-guest-accounts-refused
-kind: verdicts
+type: verdicts
+title: Guest accounts are refused
 description: Guest (B2B) accounts are refused at sign-in using Entra's acct claim, because a guest carries the home tenant's tid and passes a tenant check; an absent claim fails closed.
-status: accepted
+status: stable
 tags: [auth, security]
-date: 2026-09-03
 source: hub M12
+generated: { by: human:migrate, at: 2026-09-03T00:00:00Z }
 ---
 
-# Guest accounts are refused
+Guest (B2B) accounts are refused at sign-in using Entra's acct claim, because a guest carries the home tenant's tid and passes a tenant check; an absent claim fails closed.
+
+## Why
+
+Absence fails closed because the claim is configured on the registration: a token without it is a
+misconfiguration, not a member.
 
 ## Context
-
-Entra documents `tid` as the tenant the user is signing in to. A B2B guest signing into the
-organisation's tenant therefore carries that tenant's `tid` and passes a tenant check. The rule is
-"members only", so the tenant check alone is not enough.
-
-## Decision
 
 - Configure the `acct` optional claim on the app registration (`0` = member, `1` = guest).
 - Read it after the `oid`, `tid` and token-age checks: numeric or string `0` is a member; `1` is refused as
@@ -25,7 +24,6 @@ organisation's tenant therefore carries that tenant's `tid` and passes a tenant 
 - Every refusal is the same opaque 401 with a fixed log line naming the reason, never a claim value.
 - The ACL stays the second gate.
 
-## Why
-
-Absence fails closed because the claim is configured on the registration: a token without it is a
-misconfiguration, not a member.
+Entra documents `tid` as the tenant the user is signing in to. A B2B guest signing into the
+organisation's tenant therefore carries that tenant's `tid` and passes a tenant check. The rule is
+"members only", so the tenant check alone is not enough.

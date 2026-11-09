@@ -53,9 +53,9 @@ following the `write-a-skill` method (trigger-rich description, steps, verificat
 `mcp__ui__promote` `{ kind: "skills", name: "<name>", reason: "<one line>" }`.
 
 **DOMAIN library record** (a verdict, finding or footgun) → write
-`<project>/.claude/library/<kind>/<slug>.md` — kinds are `findings` · `verdicts` · `tools` — in the
-`library-record-writing` format: machine-face frontmatter `name`, a one-line verdict as the
-`description`, one page, a four-field Lesson. Then `mcp__ui__promote`
+`<project>/.claude/library/<kind>/<slug>.md` — kinds are `findings` · `verdicts` · `tools` — with
+`library-record-create` (format: `plugin/docs/library-record-standard.md`; words:
+`library-record-writing`), then `mcp__ui__promote`
 `{ kind: "library", name: "<kind>/<slug>.md", reason: "…" }`.
 
 **PROJECT convention** → propose the exact line(s) for the project's

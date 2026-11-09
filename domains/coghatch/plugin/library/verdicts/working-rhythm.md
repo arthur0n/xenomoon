@@ -1,19 +1,19 @@
 ---
-name: working-rhythm
-kind: verdicts
+type: verdicts
+title: Working rhythm — one step per turn
 description: Change work runs one step per turn and stops for the owner's reply; a subagent gets exactly one step with an allow-list and a do-not-touch list; at most two subagents at once, one builder and one reviewer.
-status: accepted
+status: stable
 tags: [convention, process, agents]
-date: 2026-09-03
+generated: { by: human:migrate, at: 2026-09-03T00:00:00Z }
 ---
 
-# Working rhythm — one step per turn
+Change work runs one step per turn and stops for the owner's reply; a subagent gets exactly one step with an allow-list and a do-not-touch list; at most two subagents at once, one builder and one reviewer.
+
+## Why
+
+Small, reviewed steps keep a wrong turn cheap to undo.
 
 ## Context
-
-The "working rhythm" section was copied into every repo's conventions file.
-
-## Decision
 
 - The change workflow is interactive, never one-shot: the main agent runs one step and stops; the next step starts
   on the owner's reply.
@@ -21,6 +21,4 @@ The "working rhythm" section was copied into every repo's conventions file.
 - At most two subagents at a time: one builder, one reviewer.
 - Infra steps follow `infra-mutation-one-approved-command`.
 
-## Why
-
-Small, reviewed steps keep a wrong turn cheap to undo.
+The "working rhythm" section was copied into every repo's conventions file.

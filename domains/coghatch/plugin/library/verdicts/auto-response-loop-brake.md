@@ -1,8 +1,8 @@
 ---
-name: auto-response-loop-brake
-kind: verdicts
+type: verdicts
+title: Mail loop brake
 description: An automatic response is never answered, an address never answers itself, and every outbound mail declares itself automatic; the inbound refusal ends the run as completed before any step, so no alert mail is sent.
-status: accepted
+status: stable
 amends:
   [
     inbound-routing-by-address-in-pipeline,
@@ -10,18 +10,18 @@ amends:
     one-message-one-run-agent-owns-thread,
   ]
 tags: [email, security]
-date: 2026-09-16
 source: platform D26
+generated: { by: human:migrate, at: 2026-09-16T00:00:00Z }
 ---
 
-# Mail loop brake
+An automatic response is never answered, an address never answers itself, and every outbound mail declares itself automatic; the inbound refusal ends the run as completed before any step, so no alert mail is sent.
+
+## Why
+
+- The agent's judgement is not a brake. A per-sender rate cap was not built: its number would be invented, and
+  rate-limited events are dropped, not queued.
 
 ## Context
-
-An out-of-office auto-reply answered a pipeline's question mail and triggered a second run, which mailed
-again. The agent had classified it as not an order, and the mail went out anyway.
-
-## Decision
 
 (1) The inbound event carries six loop-relevant headers raw, folding whitespace collapsed: `Auto-Submitted`,
 `X-Auto-Response-Suppress`, `Precedence`, `List-Id`, `In-Reply-To`, `References`; the receiver decides nothing.
@@ -32,7 +32,5 @@ pipeline's own address. It is a result, not a throw, because a throw would trigg
 (3) Every outbound mail sends `Auto-Submitted: auto-replied`, `X-Auto-Response-Suppress: All`, and threading
 headers. Deploy order: receiver first, app second.
 
-## Why
-
-- The agent's judgement is not a brake. A per-sender rate cap was not built: its number would be invented, and
-  rate-limited events are dropped, not queued.
+An out-of-office auto-reply answered a pipeline's question mail and triggered a second run, which mailed
+again. The agent had classified it as not an order, and the mail went out anyway.

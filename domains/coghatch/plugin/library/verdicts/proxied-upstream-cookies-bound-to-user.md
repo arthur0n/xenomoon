@@ -1,22 +1,22 @@
 ---
-name: proxied-upstream-cookies-bound-to-user
-kind: verdicts
+type: verdicts
+title: Proxied upstream cookies, path-scoped and bound to the user
 description: Cookies from a proxied upstream on the same origin are accepted only by name, forced onto the upstream's path with Secure and HttpOnly, and bound to the front-door user by an HMAC tag that is verified before any cookie goes back upstream.
-status: amended
+status: stable
 tags: [auth, security, network]
-date: 2026-10-02
 source: hub M21
+generated: { by: human:migrate, at: 2026-10-02T00:00:00Z }
 ---
 
-# Proxied upstream cookies, path-scoped and bound to the user
+Cookies from a proxied upstream on the same origin are accepted only by name, forced onto the upstream's path with Secure and HttpOnly, and bound to the front-door user by an HMAC tag that is verified before any cookie goes back upstream.
+
+## Why
+
+A path rewrite alone stops replacement but not shadowing or `Domain` reach; the name list and `Domain`
+refusal close those, and the tag makes account switches and delayed responses safe.
+Accepted: the access hub sees every carried cookie in clear, the trust it already holds as the front door.
 
 ## Context
-
-The access hub and the proxied agent app share one origin. The app needs its own cookies (`oauth_state`,
-`id_token`) to cross the proxy both ways, without colliding with or shadowing the access hub's cookies,
-and without one user's cookie being replayed for another.
-
-## Decision
 
 - Upstream `Set-Cookie` is dropped unless its name is on the entry's list (validated at boot, never an
   access hub cookie name, no `__Host-`/`__Secure-` prefix). Refused if it carries `Domain`, lacks `Secure` or
@@ -32,8 +32,4 @@ HttpOnly` first.
 - Login and logout clear the listed cookies with expired `Set-Cookie`s. Clearing is hygiene; the tag
   check is the guarantee. Not `Clear-Site-Data`, which cannot scope by path or name.
 
-## Why
-
-A path rewrite alone stops replacement but not shadowing or `Domain` reach; the name list and `Domain`
-refusal close those, and the tag makes account switches and delayed responses safe.
-Accepted: the access hub sees every carried cookie in clear, the trust it already holds as the front door.
+The access hub and the proxied agent app share one origin. The app needs its own cookies (`oauth_state`,

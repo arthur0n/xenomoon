@@ -1,21 +1,21 @@
 ---
-name: portal-strict-csp-boot-assets
-kind: verdicts
+type: verdicts
+title: Portal assets from a boot-time list, strict CSP
 description: The portal's assets are a fixed list read at boot and served by the access hub itself with no-cache plus a strong ETag, and both pages carry a strict self-only CSP with no inline script or style.
-status: accepted
+status: stable
 tags: [security, auth]
-date: 2026-10-07
 source: hub M24
+generated: { by: human:migrate, at: 2026-10-07T00:00:00Z }
 ---
 
-# Portal assets from a boot-time list, strict CSP
+The portal's assets are a fixed list read at boot and served by the access hub itself with no-cache plus a strong ETag, and both pages carry a strict self-only CSP with no inline script or style.
+
+## Why
+
+Not adopted: data-URI assets (re-downloaded on every no-store page load), hosted web fonts (a third-party
+request per visit), a hash-based CSP (every edit must match its hash).
 
 ## Context
-
-The portal grew from one self-contained page into a page plus brand assets (logo, favicon, fonts, CSS,
-JS). The rules were no framework, no build step, and no external asset.
-
-## Decision
 
 - Every asset is copied into the repo with its source recorded; fonts are self-hosted with their licence
   beside them. Nothing is fetched from a font CDN or another site at runtime.
@@ -30,7 +30,5 @@ JS). The rules were no framework, no build step, and no external asset.
 img-src 'self'; font-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none';
 base-uri 'none'`. Proxied upstream responses are not touched.
 
-## Why
-
-Not adopted: data-URI assets (re-downloaded on every no-store page load), hosted web fonts (a third-party
-request per visit), a hash-based CSP (every edit must match its hash).
+The portal grew from one self-contained page into a page plus brand assets (logo, favicon, fonts, CSS,
+JS). The rules were no framework, no build step, and no external asset.

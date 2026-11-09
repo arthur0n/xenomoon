@@ -1,22 +1,21 @@
 ---
-name: agent-harness-serves-every-agent
-kind: verdicts
+type: verdicts
+title: The agent harness serves every agent
 description: One agent harness serves every agent; a single Agent adapter is composed over the harness caller contract, and which saved agent serves which address is a code table, never env.
-status: amended
+status: stable
 supersedes: [agent-layer-existing-service-not-agentkit]
 tags: [agent-forge, workflow-engine]
-date: 2026-09-29
 source: platform D33
+generated: { by: human:migrate, at: 2026-09-29T00:00:00Z }
 ---
 
-# The agent harness serves every agent
+One agent harness serves every agent; a single Agent adapter is composed over the harness caller contract, and which saved agent serves which address is a code table, never env.
+
+## Why
+
+- One runtime, one adapter, one auth path for every agent.
 
 ## Context
-
-Agents were spread over an earlier agent service. A forked agent harness (based on the upstream TrueForge)
-now hosts saved agents by name.
-
-## Decision
 
 Every agent (mail-answering and pipeline-called) is served by the agent harness through one adapter over the
 harness caller contract; adapters never import each other. A code table maps each agent to its saved agent
@@ -25,6 +24,5 @@ an operator knob that could point a mail agent at an agent with write tools. A f
 reaches the user only as a URL in its answer. The earlier service, its keys and its adapter were deleted;
 its repo was kept briefly as the rollback source.
 
-## Why
-
-- One runtime, one adapter, one auth path for every agent.
+Agents were spread over an earlier agent service. A forked agent harness (based on the upstream TrueForge)
+now hosts saved agents by name.

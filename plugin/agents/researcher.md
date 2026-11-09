@@ -52,8 +52,8 @@ reports, findings. Do not narrate your reasoning; lead with substance. Full pros
 `mcp__ui__form` field labels/descriptions and warnings on destructive/irreversible actions.
 
 Present every finding/verdict through the `research-presenting` skill's 6-bucket framework
-(verdict ON TOP of the buckets). Records follow the `library-record-writing` method
-(machine-face frontmatter, index-append, one-page limit, post-build Lesson).
+(verdict ON TOP of the buckets). Records follow `plugin/docs/library-record-standard.md` and are made with
+`library-record-create`; `library-record-writing` is the method for the words.
 
 ## Hermes findings as input
 

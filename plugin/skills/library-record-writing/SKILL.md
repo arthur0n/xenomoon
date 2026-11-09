@@ -2,57 +2,33 @@
 name: library-record-writing
 agents: [researcher]
 domain: universal
-description: How the researcher writes a durable `library/<kind>/` record — the machine-face frontmatter rule, the index-append step, the one-page limit, and the post-adopt/post-build 4-field Lesson section. Use whenever the researcher writes a verdict doc (`library/tools/<slug>.md`, `library/transcripts/<slug>.md`, …) so the record is queryable, indexed, and agnostic. Owns the shared record-writing METHOD; each mode skill still owns its own per-kind template (frontmatter fields + doc structure).
+description: How the researcher writes the words of a durable `library/<kind>/` record — decision first, why in three lines, one rule per record, and the post-adopt/post-build 4-field Lesson. Use whenever the researcher writes a verdict doc (`library/tools/<slug>.md`, …) so the record is queryable and agnostic. Fields, caps and the change rule live in `plugin/docs/library-record-standard.md`; the CLI writes them.
 ---
 
 # Writing a library record (the shared method)
 
-A researcher's durable artifact is a `library/<kind>/<slug>.md` record — written on EVERY verdict, including "build it ourselves" / "build thin", so the next session doesn't re-research. Your agent prompt owns the per-kind template (its `type:`, frontmatter fields, and doc body). This skill owns the method that is the SAME across kinds.
+A researcher's durable artifact is a `library/<kind>/<slug>.md` record — written on EVERY verdict, including "build it ourselves" / "build thin", so the next session doesn't re-research. The format is `plugin/docs/library-record-standard.md`; `library-record-create` runs the CLI. This skill owns how to write the words.
 
-## Machine-face frontmatter
+## Write the words
 
-The frontmatter is the record's machine face (OKF-style — the UI sidebar and the kind index read it; `library/README.md` documents the convention). Keep `description` a **one-line verdict** (adopt/reject/park + the deciding reason), not a summary of the body.
+Fields, body caps and the change rule are in `plugin/docs/library-record-standard.md`; do not copy them here or into a record.
 
-**Basic format, not final** — the owner has not fixed it. Field names, status values and the OKF mapping live in one place, `ui/lib/records.js`; change them there. Flat keys and inline `[a, b]` lists only:
-
-```yaml
----
-name: <slug> # matches the filename
-kind: verdicts # = OKF `type`
-description: <one-line verdict>
-status: accepted # proposed | accepted | amended | superseded (absent = accepted)
-supersedes: [<slug>] # records this one replaces; bare slug = same kind, else kind/slug
-amends: [<slug>] # records this one changes without replacing
-tags: [<tag>, <tag>]
-date: YYYY-MM-DD
-audience: client # optional; internal | client (absent = internal)
----
-```
-
-`audience: client` marks a record a client may read. Sharing is opt-in: absent means internal. Only a `client` record whose status is `accepted` or `amended` reaches the generated client docs (`node ui/server/cli/client-docs.js`); `proposed` and `superseded` never do.
-
-OKF v0.2 mapping: `kind` = `type`, `name` = filename / `title`; status `proposed`→`draft`, `accepted`/`amended`→`stable`, `superseded`→`deprecated`. `supersedes`/`amends` have no OKF field (allowed as extra keys); `date` has no OKF twin (nearest: `generated.at`).
-
-## Regenerate the kind index
-
-Each `library/<kind>/index.md` is generated from the records' frontmatter — never edit it by hand. After writing or changing a record run `npm run library:index` (add a project root as an argument: `node ui/server/cli/gen-library-index.js --write <project>/.claude/library`). `npm run check:library` (part of `npm run validate`) fails when an index drifts. Line shape, sorted by filename, status shown when not `accepted`:
-
-```
-- [<title>](<slug>.md) — <description> _(<status>)_
-```
+- **Decision first.** The first line is the verdict (adopt/reject/park + the deciding reason). `description` carries the same one line, not a summary of the body.
+- **Why in three lines.** The deciding reason only; the options you turned down go one per line under `## Rejected`.
+- **Run the tool, then the words.** `new` writes the frontmatter and regenerates `index.md`; `check` (part of `npm run validate`) fails on drift. Never edit `index.md` or `log.md` by hand.
 
 ## Conventions and guidelines — one rule, one place
 
 A convention ("how we name queues") or guideline ("prefer retries with a cap") is a record like any other, with one extra discipline:
 
-- **One rule per record.** Its slug names the rule (`verdicts/queue-naming`); `## Decision` states it once.
+- **One rule per record.** Its slug names the rule (`verdicts/queue-naming`); the decision line states it once.
 - **Reference by slug, never restate.** A skill, agent or other record that depends on the rule writes `see verdicts/queue-naming` — a copy is a second home that will drift.
-- **Change it where it lives.** A refinement is an amend, a reversal is a supersede (`library-record-revise`); the record's `## Changes` and its `supersedes` chain ARE the history.
+- **Change it where it lives.** A refinement is an amend, a reversal is a supersede (`library-record-revise`); the kind's `log.md` and the `supersedes` chain ARE the history.
 - **No ledgers.** No running list of decisions, no changelog file, no "rules.md" collecting many rules — the kind index is generated from the records, and git holds the rest.
 
 ## One page, no more
 
-Keep the record under a page. A catalog/registry nobody reads is research nobody reuses.
+The body caps are in the standard. A catalog/registry nobody reads is research nobody reuses.
 When the record IS a capability (a skill/agent you authored or rewrote), it also meets
 the skill-writing doctrine — `plugin/docs/process/skill-writing.md` (checkable
 completion criteria, no no-ops, description = triggers, positive form).

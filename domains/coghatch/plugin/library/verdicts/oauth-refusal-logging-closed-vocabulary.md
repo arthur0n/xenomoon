@@ -1,22 +1,22 @@
 ---
-name: oauth-refusal-logging-closed-vocabulary
-kind: verdicts
+type: verdicts
+title: OAuth refusals logged with a closed reason word
 description: Every token-endpoint and authorize refusal is logged as a closed RFC code plus a closed reason word mapped from the library's own literal, never a raw library string or token, so failures are diagnosable without leaking.
-status: accepted
+status: stable
 tags: [oauth, observability, security]
-date: 2026-09-05
 source: hub M16
+generated: { by: human:migrate, at: 2026-09-05T00:00:00Z }
 ---
 
-# OAuth refusals logged with a closed reason word
+Every token-endpoint and authorize refusal is logged as a closed RFC code plus a closed reason word mapped from the library's own literal, never a raw library string or token, so failures are diagnosable without leaking.
+
+## Why
+
+Log messages are fixed text and reason words, never upstream messages. Read which error field carries the
+literal per error class from the installed library, not by assumption: reading the wrong field collapsed
+every `invalid_grant` onto one constant.
 
 ## Context
-
-Token-endpoint refusals logged only `POST /oauth/token 400`. The reason existed only inside the OAuth
-library's `grant.error` event, which nothing subscribed to. A consent that "did nothing" left no trace of
-where its redirect pointed.
-
-## Decision
 
 - Subscribe to the library's `grant.error`, `server_error`, `grant.revoked`, `authorization.success` and
   `authorization.error` events from the composition root, through one exported wiring function.
@@ -28,8 +28,6 @@ where its redirect pointed.
 - Each listener runs inside a try/catch, because the library emits synchronously before responding: a
   throwing listener would turn a 400 into a 500.
 
-## Why
-
-Log messages are fixed text and reason words, never upstream messages. Read which error field carries the
-literal per error class from the installed library, not by assumption: reading the wrong field collapsed
-every `invalid_grant` onto one constant.
+Token-endpoint refusals logged only `POST /oauth/token 400`. The reason existed only inside the OAuth
+library's `grant.error` event, which nothing subscribed to. A consent that "did nothing" left no trace of
+where its redirect pointed.

@@ -1,23 +1,22 @@
 ---
-name: access-hub-fronts-agent-harness-ui
-kind: verdicts
+type: verdicts
+title: One upstream, the agent harness; MCP unmounted until ported
 description: The access hub has one upstream, the agent harness, and its portal opens that app's own UI; the OAuth and MCP surfaces stay built but unmounted until the agent tools are ported, so nothing serves tokens for a resource that serves nothing.
-status: accepted
+status: stable
 amends: [mcp-one-server-per-resource]
 tags: [auth, mcp, agent-forge, infra]
-date: 2026-09-30
 source: hub M19
+generated: { by: human:migrate, at: 2026-09-30T00:00:00Z }
 ---
 
-# One upstream, the agent harness; MCP unmounted until ported
+The access hub has one upstream, the agent harness, and its portal opens that app's own UI; the OAuth and MCP surfaces stay built but unmounted until the agent tools are ported, so nothing serves tokens for a resource that serves nothing.
+
+## Why
+
+Move once, run one runtime, build nothing that is thrown away later. A selector keeping two upstream
+shapes would protect no user. The harness's pages run on the access hub's origin and are trusted as its own.
 
 ## Context
-
-The access hub first fronted a custom agent app and exposed its agents as MCP tools. The organisation
-moved to the agent harness (a fork of the upstream agent harness), which has its own UI and
-agent picker. The portal is the main surface; MCP tools proved the idea but nobody depends on them yet.
-
-## Decision
 
 - The registry has one entry, the agent harness, reached through the private VM proxy with the access
   hub's own cloud identity token; no caller token goes upstream. The proxy's private CA is added to the
@@ -31,7 +30,6 @@ agent picker. The portal is the main surface; MCP tools proved the idea but nobo
   or with a pending action, is a failed job.
 - Switch-back is a redeploy of the previous image, not a config selector.
 
-## Why
-
-Move once, run one runtime, build nothing that is thrown away later. A selector keeping two upstream
-shapes would protect no user. The harness's pages run on the access hub's origin and are trusted as its own.
+The access hub first fronted a custom agent app and exposed its agents as MCP tools. The organisation
+moved to the agent harness (a fork of the upstream agent harness), which has its own UI and
+agent picker. The portal is the main surface; MCP tools proved the idea but nobody depends on them yet.

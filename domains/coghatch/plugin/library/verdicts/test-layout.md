@@ -1,20 +1,19 @@
 ---
-name: test-layout
-kind: verdicts
+type: verdicts
+title: Test layout — one convention for every repo
 description: Tests live in a __tests__ folder beside the code, one file per exported name; shared test support is one fixtures file per folder; none of it ships, and one guard test proves that.
-status: accepted
+status: stable
 tags: [convention, testing]
-date: 2026-09-14
+generated: { by: human:migrate, at: 2026-09-14T00:00:00Z }
 ---
 
-# Test layout — one convention for every repo
+Tests live in a **tests** folder beside the code, one file per exported name; shared test support is one fixtures file per folder; none of it ships, and one guard test proves that.
+
+## Why
+
+One shape across repos; test code can never reach production.
 
 ## Context
-
-The same test-layout rule was copied into the guidelines or conventions of every repo, each copy saying "a change
-is made in all of them". That is the drift this record replaces.
-
-## Decision
 
 1. Tests sit in a `__tests__/` folder beside the code they cover, one file per exported name: `<name>.test.ts`, or
    `<name>.<concern>.test.ts` when split by concern (a size cap is met by a split, never a trim). No `*.test.ts`
@@ -31,6 +30,5 @@ is made in all of them". That is the drift this record replaces.
 
 A fork of an upstream project follows the upstream's own test layout instead.
 
-## Why
-
-One shape across repos; test code can never reach production.
+The same test-layout rule was copied into the guidelines or conventions of every repo, each copy saying "a change
+is made in all of them". That is the drift this record replaces.

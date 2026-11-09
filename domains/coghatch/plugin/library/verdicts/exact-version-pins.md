@@ -1,19 +1,20 @@
 ---
-name: exact-version-pins
-kind: verdicts
+type: verdicts
+title: Exact version pins, researched on the day
 description: Third-party dependencies, image tags and CI actions are exact pins researched on the day with the date recorded; only the team's own internal packages take a caret range.
-status: accepted
+status: stable
 tags: [convention, deps, supply-chain]
-date: 2026-09-03
+generated: { by: human:migrate, at: 2026-09-03T00:00:00Z }
 ---
 
-# Exact version pins, researched on the day
+Third-party dependencies, image tags and CI actions are exact pins researched on the day with the date recorded; only the team's own internal packages take a caret range.
+
+## Why
+
+The manifest states the reviewed version; the lockfile is not a substitute. Internal packages are the team's own
+code from its own CI, so the supply-chain rule does not apply to them.
 
 ## Context
-
-Ranges let a new third-party release reach production without review. Remembered versions were often stale.
-
-## Decision
 
 - Every third-party dependency (`dependencies`, `devDependencies`, `optionalDependencies`, `peerDependencies`) is an
   exact version: no `^`, `~`, `>=`, `x`, `*`, tag, URL or git spec. `.npmrc` sets `save-exact=true`, and the gate
@@ -26,7 +27,4 @@ Ranges let a new third-party release reach production without review. Remembered
   the package manager's release-age exclusion; a third-party pin waits out the window instead.
 - The lockfile is committed and CI installs frozen.
 
-## Why
-
-The manifest states the reviewed version; the lockfile is not a substitute. Internal packages are the team's own
-code from its own CI, so the supply-chain rule does not apply to them.
+Ranges let a new third-party release reach production without review. Remembered versions were often stale.

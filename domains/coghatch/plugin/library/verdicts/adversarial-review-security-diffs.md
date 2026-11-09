@@ -1,15 +1,19 @@
 ---
-name: adversarial-review-security-diffs
-kind: verdicts
+type: verdicts
+title: Adversarial review of every security-relevant diff
 description: Every diff touching authentication, authorization, sessions, HTML rendering or an HTTP boundary gets an independent read-only reviewer before commit, driven by a five-part attack prompt; every finding is folded or rejected with a written reason.
-status: accepted
+status: stable
 tags: [convention, security, review]
-date: 2026-09-04
+generated: { by: human:migrate, at: 2026-09-04T00:00:00Z }
 ---
 
-# Adversarial review of every security-relevant diff
+Every diff touching authentication, authorization, sessions, HTML rendering or an HTTP boundary gets an independent read-only reviewer before commit, driven by a five-part attack prompt; every finding is folded or rejected with a written reason.
 
-## Decision
+## Why
+
+"Review the ACL code" produces prose; "any way past the ACL gate" produces findings.
+
+## Context
 
 - Scope: any diff touching authentication, authorization, session handling, HTML rendering or an HTTP boundary.
 - Reviewer: a second model run as a CLI in a **read-only sandbox** — the builder writes, the reviewer judges; a
@@ -21,7 +25,3 @@ date: 2026-09-04
   input and consequence; one line per clean category; no style comments".
 - Every finding is folded or escalated with a reason, never explained away and never folded by the reviewer. A
   rejected finding is written down where accepted risks live, so it reads as a decision.
-
-## Why
-
-"Review the ACL code" produces prose; "any way past the ACL gate" produces findings.

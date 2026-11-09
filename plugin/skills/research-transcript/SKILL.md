@@ -47,7 +47,7 @@ reading our own skills and docs.
 5. **Check "already learned?"** For each valid point: glob `.claude/skills/`, read relevant
    `description:` frontmatter, the `CLAUDE.md` "## Skills" list, project docs, `library/`.
    Classify: _covered_ · _partial_ · _gap_.
-6. **Write the digest** to `library/transcripts/<slug>.md` (template below) — distil once so
+6. **Write the digest** to `library/transcripts/<slug>.md` (see Digest record below) — distil once so
    nobody re-reads 40KB next time.
 7. **Archive the consumed raw**: `mkdir -p transcripts/archive && mv transcripts/<file>
 transcripts/archive/<file>` (no rtk filter for mkdir/mv — plain is fine). Never delete.
@@ -58,23 +58,14 @@ transcripts/archive/<file>` (no rtk filter for mkdir/mv — plain is fine). Neve
    design/build decision → the orchestrator. Park everything valid-but-not-needed-now under
    **Later**. Cutting is the default.
 
-## Digest template
+## Digest record
 
-One doc per transcript: `library/transcripts/<slug>.md`
+One record per transcript, created with `library-record-create` (`$REC` is defined there):
+`$REC new transcripts <slug> --description "<what the video teaches and the verdict>" --by agent:researcher`
+(format: `plugin/docs/library-record-standard.md`; words: `library-record-writing`).
 
-```markdown
-# <Video title> — transcript digest
-
-**Source** — `<file>` (the raw, now in `transcripts/archive/<file>`) (+ video title/URL if known).
-**Why harvested** — the thing we're about to build that prompted this (one line).
-**Points**
-| # | Point (technique/claim) | Valid for our stack? | Already learned? | Where / gap | Verdict |
-|---|---|---|---|---|---|
-**Recommended next** — gaps to act on now, one line each → which mode/agent.
-**Later** — valid points parked (not needed for the current build), one line each.
-```
-
-Keep it under a page. A digest nobody reads is a transcript re-read for nothing.
+- Subject: a digest record is what we take from one video, with each point's verdict (holds, caveat, conflicts, out of scope; covered, partial, gap), the recommended next move and **Later**. Add `--tags` for the video's topic. Name the raw file and the video title or URL in the body.
+- Body shape and field rules: `plugin/docs/library-record-standard.md` and the `library-record-writing` skill.
 
 ## Mode-specific never-do
 

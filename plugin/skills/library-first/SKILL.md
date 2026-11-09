@@ -2,7 +2,7 @@
 name: library-first
 agents: [junior-analyst, senior-analyst]
 domain: universal
-description: Check the written record BEFORE investigating — search the project library (authoritative product intent) then the framework library (findings/verdicts/tools/sources indexes), and only then the code or the graph. Covers the OKF frontmatter subset that makes a record findable, and the "nothing covers this → propose the record" output line. Load at the START of any investigation, triage or research task.
+description: Check the written record BEFORE investigating — search the project library (authoritative product intent) then the framework library (findings/verdicts/tools/sources indexes), and only then the code or the graph. Points at the record standard that makes a record findable, and the "nothing covers this → propose the record" output line. Load at the START of any investigation, triage or research task.
 ---
 
 # Library first — read the record before you re-derive it
@@ -33,8 +33,7 @@ Read the project's `CLAUDE.md` index first when one exists — it points at the 
 
 **2. The framework library — `plugin/library/<kind>/`.** Kinds: `findings` (traps met for real),
 `verdicts` (a decision kept so it is not re-researched), `tools`, `sources` (where to fetch raw
-material). Each kind has an `index.md` holding one line per record —
-`- [<title>](<slug>.md) — <description>`. **Read the index, not the directory:** it is one cheap
+material). Each kind has a generated `index.md` holding one line per record. **Read the index, not the directory:** it is one cheap
 read and its `description` is a one-line verdict, so you can tell from the index alone whether
 the record is worth opening.
 
@@ -61,20 +60,11 @@ repeating an investigation; writing after is what stops the NEXT one repeating y
 task finishes, `project-library` says what earns an entry, who writes which kind, and why a
 revision beats a second record that contradicts the first.
 
-## OKF — what makes a record findable
+## What makes a record findable
 
 Records carry frontmatter as their **machine face**: the UI sidebar and the kind index read it.
-The parser (`ui/lib/frontmatter.js`) accepts a deliberate subset — flat `key: value` scalars plus
-inline `[a, b]` arrays. **Nested YAML is out of scope**; a record that needs structure puts it in
-the body.
-
-```yaml
----
-name: <slug> # matches the filename
-kind: findings | verdicts | tools | sources
-description: <ONE-LINE VERDICT — adopt / reject / park + the deciding reason, not a summary>
----
-```
+Fields and caps: `plugin/docs/library-record-standard.md`. Find by tag, status or word with
+`library-record-search`.
 
 The `description` is the line that shows up in the index, so it must carry the verdict itself —
 "rejected: needs a paid plan for the only feature we wanted" beats "notes about tool X".

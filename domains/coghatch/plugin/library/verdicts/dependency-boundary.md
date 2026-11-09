@@ -1,20 +1,19 @@
 ---
-name: dependency-boundary
-kind: verdicts
+type: verdicts
+title: Dependency boundary = real controls, one list
 description: Each repo enforces what its code may depend on with real controls — an eslint import wall and a dependency allow-list checked by a script, both reading one list — and a new dependency arrives with its reason in the same diff.
-status: accepted
+status: stable
 tags: [convention, deps, architecture]
-date: 2026-09-04
+generated: { by: human:migrate, at: 2026-09-04T00:00:00Z }
 ---
 
-# Dependency boundary = real controls, one list
+Each repo enforces what its code may depend on with real controls — an eslint import wall and a dependency allow-list checked by a script, both reading one list — and a new dependency arrives with its reason in the same diff.
+
+## Why
+
+A rule nobody enforces drifts; a boundary that is a lint failure is visible in the diff.
 
 ## Context
-
-Repos that should talk to outside systems only through a shared connections package kept growing direct vendor
-SDK imports.
-
-## Decision
 
 - **Import wall:** eslint `no-restricted-imports` on the runtime folders refuses the restricted vendor SDKs (or,
   inverted, allows only an allow-list plus `node:*` and in-repo files).
@@ -26,6 +25,5 @@ SDK imports.
 - A new runtime dependency lands with its reason in the decision record and its name in the list, in one diff.
 - A fake-dependency test proves the core logic needs nothing domain-specific.
 
-## Why
-
-A rule nobody enforces drifts; a boundary that is a lint failure is visible in the diff.
+Repos that should talk to outside systems only through a shared connections package kept growing direct vendor
+SDK imports.

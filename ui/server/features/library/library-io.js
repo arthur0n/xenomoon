@@ -8,6 +8,7 @@ import {
   RESERVED,
   toRecord,
   fieldProblems,
+  bodyProblems,
   buildIndex,
   linkProblems,
 } from "../../../lib/records.js";
@@ -32,15 +33,20 @@ export function defaultRoots() {
  * @property {string} dir
  * @property {boolean} hasIndex
  * @property {import("../../../lib/records.js").LibRecord[]} records
- * @property {string[]} problems   per-file problems (no frontmatter, bad field shapes)
+ * @property {string[]} problems   per-file problems (no frontmatter, bad field shapes; strict
+ *                                  adds legacy fields and body shape)
+ * @property {Map<string, string>} bodies  slug → body (Markdown after the frontmatter; the whole
+ *                                  text when there is none) for every record file in the folder
  */
 
 /**
- * Read every kind folder under one library root.
+ * Read every kind folder under one library root. `strict` (#73) also reports legacy fields and
+ * body-shape problems per file.
  * @param {string} root
+ * @param {{ strict?: boolean }} [opts]
  * @returns {KindDir[]}
  */
-export function readLibrary(root) {
+export function readLibrary(root, { strict = true } = {}) {
   /** @type {KindDir[]} */
   const out = [];
   if (!existsSync(root)) return out;
@@ -54,17 +60,23 @@ export function readLibrary(root) {
       hasIndex: existsSync(path.join(dir, "index.md")),
       records: [],
       problems: [],
+      bodies: new Map(),
     };
     for (const f of readdirSync(dir).sort()) {
       if (!f.endsWith(".md") || RESERVED.has(f)) continue;
       const rel = `${e.name}/${f}`;
-      const { data } = parseFrontmatter(readFileSync(path.join(dir, f), "utf8"));
+      const slug = f.slice(0, -3);
+      const { data, body } = parseFrontmatter(readFileSync(path.join(dir, f), "utf8"));
+      kd.bodies.set(slug, body);
       if (!data) {
         kd.problems.push(`${rel}: no frontmatter`);
         continue;
       }
-      for (const p of fieldProblems(data)) kd.problems.push(`${rel}: ${p}`);
-      kd.records.push(toRecord(f.slice(0, -3), e.name, data));
+      const problems = strict
+        ? [...fieldProblems(data, { strict: true, folder: e.name }), ...bodyProblems(body)]
+        : fieldProblems(data);
+      for (const p of problems) kd.problems.push(`${rel}: ${p}`);
+      kd.records.push(toRecord(slug, e.name, data));
     }
     out.push(kd);
   }
@@ -89,9 +101,11 @@ export function syncIndex(kd, write) {
 /**
  * The library gate for a set of roots: per-file problems, broken supersedes/amends links and
  * status disagreements (#28), index drift (regenerated when `write`). Shared by gen-library-index.js and `library-records.js check`.
- * @param {string[]} roots @param {boolean} write
+ * `strict` (#73) passes through to readLibrary and also checks every folder holding a record file,
+ * reporting a missing index.md.
+ * @param {string[]} roots @param {boolean} write @param {{ strict?: boolean }} [opts]
  */
-export function checkRoots(roots, write) {
+export function checkRoots(roots, write, { strict = true } = {}) {
   /** @type {string[]} */
   const errors = [];
   /** @type {string[]} */
@@ -102,10 +116,13 @@ export function checkRoots(roots, write) {
     const rel = root.startsWith(REPO) ? path.relative(REPO, root) : root;
     /** @type {import("../../../lib/records.js").LibRecord[]} */
     const all = [];
-    for (const kd of readLibrary(root)) {
-      // Only indexed kinds are records; a folder without index.md (e.g. a source list) is free-form.
-      if (!kd.hasIndex) continue;
-      indexes += 1;
+    for (const kd of readLibrary(root, { strict })) {
+      // Non-strict: only indexed kinds are records; a folder without index.md (e.g. a source list)
+      // is free-form. Strict: a folder with any record file is a kind and must have index.md.
+      if (!kd.hasIndex) {
+        if (!strict || kd.bodies.size === 0) continue;
+        errors.push(`${rel}/${kd.kind}/index.md is missing`);
+      } else indexes += 1;
       records += kd.records.length;
       all.push(...kd.records);
       for (const p of kd.problems) errors.push(`${rel}/${p}`);

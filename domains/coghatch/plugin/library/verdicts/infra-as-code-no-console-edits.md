@@ -1,23 +1,21 @@
 ---
-name: infra-as-code-no-console-edits
-kind: verdicts
+type: verdicts
+title: Everything as code, no console edits
 description: Schemas, view SQL, deploy scripts and docs live in a private repo with no manual console edits; view SQL uses project and dataset placeholders so it deploys to any project.
-status: accepted
+status: stable
 tags: [infra, data-warehouse]
-date: 2026-08-18
 source: warehouse convention
+generated: { by: human:migrate, at: 2026-08-18T00:00:00Z }
 ---
 
-# Everything as code, no console edits
-
-## Context
-
-The warehouse is a template meant to be copied to other clients.
-
-## Decision
-
-All warehouse objects and deploy steps are files in a private repo. View SQL uses placeholders, not real ids. No changes in the web console.
+Schemas, view SQL, deploy scripts and docs live in a private repo with no manual console edits; view SQL uses project and dataset placeholders so it deploys to any project.
 
 ## Why
 
 Reproducible per client and reviewable.
+
+## Context
+
+All warehouse objects and deploy steps are files in a private repo. View SQL uses placeholders, not real ids. No changes in the web console.
+
+The warehouse is a template meant to be copied to other clients.

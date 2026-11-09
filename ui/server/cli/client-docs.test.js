@@ -1,5 +1,5 @@
-// Client docs generator (#48): only `audience: client` records that are accepted or amended
-// reach the output; the output never lands inside the repo. Fake records only.
+// Client docs generator (#48): only `audience: client` records whose status is stable (absent
+// counts as stable) reach the output; the output never lands inside the repo. Fake records only.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -26,6 +26,10 @@ const run = (args, env = {}) => {
 
 const CLI = fileURLToPath(new URL("./client-docs.js", import.meta.url));
 
+/** One record in the #73 shape. @param {string} slug @param {string} extra @param {string} [body] */
+const record = (slug, extra, body = `Decision of ${slug}.\n\n## Why\n\nWhy of ${slug}.\n`) =>
+  `---\ntype: verdicts\ntitle: ${slug}\ndescription: verdict ${slug}\n${extra}generated: { by: human:test, at: 2026-11-07T10:00:00Z }\n---\n${body}`;
+
 /** A fake library: one record per case. @returns {string} the library root */
 function fakeLibrary() {
   const root = mkdtempSync(path.join(tmpdir(), "client-docs-lib-"));
@@ -33,34 +37,33 @@ function fakeLibrary() {
   mkdirSync(dir);
   /** @param {string} slug @param {string} extra */
   const rec = (slug, extra) => {
-    writeFileSync(
-      path.join(dir, `${slug}.md`),
-      `---\nname: ${slug}\ndescription: verdict ${slug}\n${extra}---\n# ${slug}\n\nBody of ${slug}.\n`,
-    );
+    writeFileSync(path.join(dir, `${slug}.md`), record(slug, extra));
   };
   rec("shared-ok", "audience: client\n");
-  rec("shared-amended", "audience: client\nstatus: amended\n");
-  rec("shared-old", "audience: client\nstatus: superseded\n");
-  rec("shared-draft", "audience: client\nstatus: proposed\n");
+  rec("shared-stable", "audience: client\nstatus: stable\n");
+  rec("shared-old", "audience: client\nstatus: deprecated\n");
+  rec("shared-draft", "audience: client\nstatus: draft\n");
   rec("internal-one", "");
   writeFileSync(path.join(dir, "index.md"), "# verdicts — index\n");
   return root;
 }
 
-test("selectClientDocs keeps client + accepted/amended, nothing else", () => {
+test("selectClientDocs keeps client + stable (absent or explicit); drops deprecated, draft, internal", () => {
   const files = selectClientDocs(fakeLibrary()).map((d) => d.file);
-  assert.deepEqual(files, ["verdicts/shared-amended.md", "verdicts/shared-ok.md"]);
+  assert.deepEqual(files, ["verdicts/shared-ok.md", "verdicts/shared-stable.md"]);
 });
 
 test("writeClientDocs writes bodies without frontmatter plus an index", () => {
   const out = path.join(mkdtempSync(path.join(tmpdir(), "client-docs-out-")), "site");
   writeClientDocs(fakeLibrary(), out);
   const page = readFileSync(path.join(out, "verdicts", "shared-ok.md"), "utf8");
-  assert.equal(page, "# shared-ok\n\nBody of shared-ok.\n");
+  assert.equal(page, "Decision of shared-ok.\n\n## Why\n\nWhy of shared-ok.\n");
   const index = readFileSync(path.join(out, "index.md"), "utf8");
   assert.ok(index.includes("- [shared-ok](verdicts/shared-ok.md) — verdict shared-ok"));
-  assert.ok(!index.includes("shared-old") && !index.includes("internal-one"));
-  assert.ok(!existsSync(path.join(out, "verdicts", "shared-old.md")));
+  for (const gone of ["shared-old", "shared-draft", "internal-one"]) {
+    assert.ok(!index.includes(gone), gone);
+    assert.ok(!existsSync(path.join(out, "verdicts", `${gone}.md`)), gone);
+  }
 });
 
 test("outProblem refuses the repo and a non-empty folder", () => {
@@ -84,7 +87,7 @@ test("scanClientDocs finds a planted term in the output; clean output passes (#4
   const root = fakeLibrary();
   writeFileSync(
     path.join(root, "verdicts", "shared-ok.md"),
-    "---\ndescription: d\naudience: client\n---\n# Ok\n\nBuilt for Acme-Fake last spring.\n",
+    record("shared-ok", "audience: client\n", "Built for Acme-Fake last spring.\n\n## Why\n\nW.\n"),
   );
   const out = path.join(mkdtempSync(path.join(tmpdir(), "client-docs-scan-")), "site");
   writeClientDocs(root, out);
@@ -99,8 +102,12 @@ test("scanClientDocs finds a planted term in the output; clean output passes (#4
 test("CLI exits non-zero on a planted term, zero when clean (#49)", () => {
   const root = fakeLibrary();
   writeFileSync(
-    path.join(root, "verdicts", "shared-amended.md"),
-    "---\ndescription: d\naudience: client\n---\nacme-fake inside.\n",
+    path.join(root, "verdicts", "shared-stable.md"),
+    record(
+      "shared-stable",
+      "audience: client\nstatus: stable\n",
+      "acme-fake inside.\n\n## Why\n\nW.\n",
+    ),
   );
   const base = mkdtempSync(path.join(tmpdir(), "client-docs-cli-"));
   assert.throws(
@@ -118,7 +125,7 @@ test("CLI reads the local denylist: an XENOMOON_DENYLIST_TERMS term fails the ru
   const root = fakeLibrary();
   writeFileSync(
     path.join(root, "verdicts", "shared-ok.md"),
-    "---\ndescription: d\naudience: client\n---\nMade for acme-fake.\n",
+    record("shared-ok", "audience: client\n", "Made for acme-fake.\n\n## Why\n\nW.\n"),
   );
   const base = mkdtempSync(path.join(tmpdir(), "client-docs-deny-"));
   assert.throws(

@@ -82,22 +82,15 @@ A stale record is worse than a missing one: it is believed. When work contradict
 updating it is **part of that work**, not a follow-up — a follow-up is a thing that does not
 happen.
 
-Correct it in place and say what changed. Keep the entry short enough that rewriting it is
+Correct it in place and say what changed (`library-record-revise`; the note goes to the kind's `log.md`). Keep the entry short enough that rewriting it is
 cheap; a page nobody dares edit is a page that rots.
 
 ## 6. Shape of a record
 
-One page. A reader who needs three pages needs three records.
-
-```markdown
-# <what this answers, as a statement>
-
-**Holds when:** <the scope — which part of the product, which conditions>
-
-<the facts, in whatever structure fits: prose, a table, a list of rules>
-
-**Watch out:** <the trap, if there is one — what looks true and is not>
-```
+One page. A reader who needs three pages needs three records. Where the project uses the
+framework's record format (frontmatter, body caps, `log.md`), it is
+`plugin/docs/library-record-standard.md`, written with `library-record-create`; the facts
+go in whatever structure fits, and the trap goes under `## Context` or `## Why`.
 
 Name the file after the question it answers, not the issue that prompted it.
 

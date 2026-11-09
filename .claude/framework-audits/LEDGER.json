@@ -2,7 +2,7 @@
   "_source_of_truth": "EDIT THIS FILE. `LEDGER.md` and `ledger.html` are GENERATED views — never hand-edit them; run `npm run ledger` (pre-commit also regenerates). Schema + workflow: README.md in this folder.",
   "ledgerPhilosophy": "EPHEMERAL working state, not history. Applied findings are DELETED (git + the commit message are the fix record), never stamped done. Keep only open/later rows + skip-tombstones.",
   "_findingSchema": "each finding: { id, dim, bucket, verdict, status, finding } + optional `pattern` — a one-line positive exemplar (the good pattern to follow), not just the problem. The loop's own anti-negative-instruction principle: state the target behavior, not only the prohibition. Full schema: README.md.",
-  "lastAudit": "2026-09-02 full pass (D1–D12), scope all, ultrathink. Preflight: validate GREEN (8 checks; one skill-scope warning), check:deps 4 advisories (2 ready, 2 held). Two stale refs in this suite's own map (plugin/commands/*.md — no such surface in this fork; plugin/agents/skill-researcher.md — deleted) → filed D7-suite-map-stale and continued under the corrected map rather than aborting an `all` pass. Installed expoapp orchestrator IDENTICAL to source (the 08-13 drift is closed). D2 clean of project nouns (check:agnostic/contamination hold); only engine-heritage vocabulary in kimi-block. D11 research loop wired end-to-end (spine:113-115 routing, hermes-block Dispatch/Compound/Feedback, sources registry installed, research-* scoped to researcher, consumer paragraph in researcher.md) — no finding. NEW: 8 no-brainers, 1 improvement, 2 held deps; D9-caveman-gate updated with a real measurement (post-change verbose 0.6%; the before/after it asked for is impossible — no timestamps, old logs rotated). DELETED D7-contribute-two-tree: plugin/commands/contribute.md no longer exists — resolved by deletion. Process note: critic patched this command's own map (no plugin/commands surface; step-6 exemplar → research-presenting) and added the `rg -h` = help warning; the D12 'check the candidate's dependency ranges' lesson is carried by the D12-body-parser row's pattern line. | PRIOR: 2026-08-17 targeted re-verify (D5-token-audit-two-copies + D9-session-dies-on-disconnect, both since applied: 29d1d51 landed the disconnect detach).",
+  "lastAudit": "2026-11-09 /harvest-sessions over the two bound installs (install-a 43 logs, install-b 16; forge logs/ holds 2 stubs): 141 human turns, 37 boot-only logs, no promotions.json / qa-divergence.md in either project. 7 findings filed (D6 ×2, D7, D8 ×2, D9 ×2); hub evidence posted on epic #59 instead of the ledger. Process note: triage logs by human-turn count (skip 0-turn boot-only files regardless of size), enumerate logs via ~/.xenomoon/installs.json, coverage lines carry the install. | PRIOR: 2026-09-02 full pass (D1–D12), scope all, ultrathink. Preflight: validate GREEN (8 checks; one skill-scope warning), check:deps 4 advisories (2 ready, 2 held). Two stale refs in this suite's own map (plugin/commands/*.md — no such surface in this fork; plugin/agents/skill-researcher.md — deleted) → filed D7-suite-map-stale and continued under the corrected map rather than aborting an `all` pass. Installed expoapp orchestrator IDENTICAL to source (the 08-13 drift is closed). D2 clean of project nouns (check:agnostic/contamination hold); only engine-heritage vocabulary in kimi-block. D11 research loop wired end-to-end (spine:113-115 routing, hermes-block Dispatch/Compound/Feedback, sources registry installed, research-* scoped to researcher, consumer paragraph in researcher.md) — no finding. NEW: 8 no-brainers, 1 improvement, 2 held deps; D9-caveman-gate updated with a real measurement (post-change verbose 0.6%; the before/after it asked for is impossible — no timestamps, old logs rotated). DELETED D7-contribute-two-tree: plugin/commands/contribute.md no longer exists — resolved by deletion. Process note: critic patched this command's own map (no plugin/commands surface; step-6 exemplar → research-presenting) and added the `rg -h` = help warning; the D12 'check the candidate's dependency ranges' lesson is carried by the D12-body-parser row's pattern line. | PRIOR: 2026-08-17 targeted re-verify (D5-token-audit-two-copies + D9-session-dies-on-disconnect, both since applied: 29d1d51 landed the disconnect detach).",
   "parking": [
     "skill-content-gap dimension — a skill missing a known technique/caveat maps to no clean D1–D9",
     "D11 'seam integrity' dimension — do the framework's own gates (promote/materialize/validate) enforce the conventions its docs state? [renumbered D10→D11 when abstraction-level/domain-layering took D10]"
@@ -113,6 +113,69 @@
       "status": "open",
       "finding": "Xenomoon now diverges from xenodot on more than identity: renamed roster (product-owner), fork-only tools (mcp__ui__epic), fork-only skills (grill, xeno-epic), fork-only process docs (skill-writing). No systematic check that these divergent surfaces are wired everywhere xenodot's originals were (hooks matchers, skill-catalog derivations, templates, first-boot copy, /sync-upstream seam list) — each landed by hand-grep. Add the fork-divergent surfaces to docs/fork/SEAMS.md so /sync-upstream and the audit suite treat them as first-class seams instead of rediscovering them per session. FIRST LIVE BITE (2026-07-30, fixed 376c614): trunk tracked plugin/library/sources/skill-sources.md — a path webapp-pack installs WRITE untracked — breaking `xenomoon update` in every bound clone; invariant extracted: the trunk never tracks a path a domain-pack install writes (audit should CHECK trunk-tracked paths against every pack's install file list).",
       "pattern": "every fork-divergent surface is a named seam in SEAMS.md — sync and audit read the list, not the diff."
+    },
+    {
+      "id": "D6-ask-reopens-settled-decisions",
+      "dim": "D6",
+      "bucket": 4,
+      "verdict": "fix-now",
+      "status": "open",
+      "finding": "HARVEST 2026-11-09 (alpha 29T18-42, 30T09-24, 30T11-53; beta 08-21, 08-30T09-24, 08-30T11-53): asks re-open what a convention, the PRD or an earlier interview already settled — 'why are you asking me? what is the convention?', 'have I not decide to bump to luna?', 'we had a interview for that already', 'WHAT IS PENDING???' asked twice; one ask sent twice (pt + en). orchestrator.md ask rule: before any ask, read the conventions and the decision records; ask only for a fact only the owner holds, say why, send it once in one language.",
+      "pattern": "an ask names the doc it checked and the gap it found: 'conventions.md and the PRD do not say X; only you know X.'"
+    },
+    {
+      "id": "D8-done-means-merged-and-cleaned",
+      "dim": "D8",
+      "bucket": 4,
+      "verdict": "fix-now",
+      "status": "open",
+      "finding": "HARVEST 2026-11-09 (alpha 21T08-49, 26T12-55, 27T18-45, 30T11-53; beta 08-21, 08-30T09-24): 'done' is undefined and the close stage is missing — 'why do we have so many open branches?', 'done is when is merged on main, and every branch is deleted', 'verify FIRST!!! WE SHOULD HAVE THAT ALREADY', 'I want to only start a next task, when is everything clean'; rm -rf blocked 41 times in 12 sessions, most likely worktree cleanup. Orchestrator gets one close stage after merge (delete local + remote branch and the worktree via git worktree remove / issuekit) and one preflight before a new issue (tree clean, dev synced, pending tasks verified).",
+      "pattern": "done = merged on main + branches and worktree deleted + tree clean; the next issue starts only after that line prints."
+    },
+    {
+      "id": "D7-status-report-fixed-ladder",
+      "dim": "D7",
+      "bucket": 4,
+      "verdict": "fix-now",
+      "status": "open",
+      "finding": "HARVEST 2026-11-09 (alpha 21T08-49, 26T11-41, 30T11-53; beta 08-30T11-53): status replies mix stages and the human re-asks state after every reconnect — 'ready do deploy, ready to merge, ready to pr, ready to qa.. you are mixing', 'WHY I WOULD PICK ANYTHING, IF YOU SAID IT WAS ALREADY SHIPPED?', 'recap', 'status?', 'any updates?', 'what is really need from me?'. agent-report skill: one fixed WIP table (issue · stage from a fixed ladder · next owner · what waits on the human), nothing else.",
+      "pattern": "every status reply is the same table with the same stage words, so two replies can be compared line by line."
+    },
+    {
+      "id": "D6-orchestrator-lifecycle-one-ladder",
+      "dim": "D6",
+      "bucket": 4,
+      "verdict": "fix-now",
+      "status": "open",
+      "finding": "HARVEST 2026-11-09 (alpha 20T13-07, 20T15-48, 21T08-49, 26T12-55): the main loop keeps trying git work the hooks deny — 'Orchestrator never touches the working tree' 8× in 5 sessions, 'Publishing belongs to the push STAGE' 6× in 3, deploy-push gate 12× in 2; human: 'WHY YOU keep trying to do git changes and not following the instructions with the agent', 'you were trying to push branch direct to main instead of a pr'. The denies work; the lifecycle is not stated once. orchestrator.md states one ladder (issuekit branch → dev commit → push stage → pr → merge → close) and every deny message names the exact next dispatch. Related: D8-main-loop-git-deny-observed-bypassed (the bypass case).",
+      "pattern": "a deny says who does it next: 'denied for main loop — dispatch senior-analyst push for issue N'."
+    },
+    {
+      "id": "D9-spend-gate-substring-false-positive",
+      "dim": "D9",
+      "bucket": 3,
+      "verdict": "fix-now",
+      "status": "open",
+      "finding": "HARVEST 2026-11-09 (beta 08-21 ×3, 08-30T09-24 ×5): the spend gate (spendsMoney / policy.spend substring match) fires on commands that cost nothing — a heredoc writing a handoff file that mentions api.openai.com, cat/grep arguments; human: 'the last command, asked me that would paid, so, is already wrong', 'this dont spent real money, open a issue for that, it's framework related'. Match only the executable segment; never heredoc bodies, file-write content or read-only commands' arguments. Proposed by the agent on 08-21, never done.",
+      "pattern": "a spend ask quotes the executable that spends and the token that matched."
+    },
+    {
+      "id": "D9-agent-shell-forms-and-replacements",
+      "dim": "D9",
+      "bucket": 3,
+      "verdict": "fix-now",
+      "status": "open",
+      "finding": "HARVEST 2026-11-09 (both installs, 13+ sessions): the same shell failures recur — zsh '== not found' 5×/3 sessions, 'no matches found: --include=*.ts' 11×/3, rg regex errors on unescaped '(' ~7×/5, 'File has not been read yet' 34×/8, read-dedup nudges 150×/13 + 15×/3, bare issuekit blocked by the permission rule 8×/3 (install PATH). Agent prompts (developer and the dispatch block) carry a short table: blocked or failing form → sanctioned replacement (quote globs, '=' in tests, rg -F for literals, Read before Edit, git worktree remove instead of rm -rf, the install's issuekit path on the session PATH).",
+      "pattern": "one table of shell forms in one shared block every agent loads, not a sentence per agent."
+    },
+    {
+      "id": "D8-codex-rounds-contradict",
+      "dim": "D8",
+      "bucket": 5,
+      "verdict": "later",
+      "status": "open",
+      "finding": "HARVEST 2026-11-09 (alpha 26T11-41, 26T12-55, 27T18-45): the installed Codex adversarial review is distrusted — 'why codex is not giving all? how do you know is edge case?', round 2 contradicts round 1, 'adjudication falsified the harm'; the human pasted the recipe himself: codex exec --sandbox read-only -C <repo-root> -o <output.md> with an explicit diff file against fetched origin/main. ui/server/integrations/codex: one brief shape (files, system, numbered attacks), one run per diff group, output to a file, no re-run on unchanged input. Check against the forge-local codex-attack wrapper before designing a second one.",
+      "pattern": "one Codex run = one stage, one brief, one JSON; a second run only after the tree changed."
     }
   ]
 }

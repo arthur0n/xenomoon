@@ -7,8 +7,17 @@ process.env.XENOMOON_DOMAIN ??= "webapp";
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { parseJSON } from "../../lib/json.js";
-const { evaluateGrace, teardown, onSocketDetach, replayPending, flushBuffer, makeWaitFor } =
-  await import("./connection.js");
+const {
+  evaluateGrace,
+  teardown,
+  onSocketDetach,
+  replayPending,
+  flushBuffer,
+  makeWaitFor,
+  addPending,
+  removePending,
+} = await import("./connection.js");
+const { trackSession, liveSessions } = await import("./registry.js");
 
 /** @typedef {import("./connection.js").LiveSession} LiveSession */
 /** @typedef {import("../../lib/types.js").OutMsg} OutMsg */
@@ -35,6 +44,9 @@ function makeLs() {
       announced: true,
       done: false,
       resync: () => {},
+      lastLine: "",
+      runningAgents: 0,
+      activitySeq: 0,
     })
   );
   return { ls, closeInbox, endLog };
@@ -116,7 +128,7 @@ test("waitFor keeps the wire message; replayPending re-sends open cards", async 
   const pending = new Map();
   /** @type {OutMsg[]} */
   const out = [];
-  const waitFor = makeWaitFor((o) => out.push(o), pending);
+  const waitFor = makeWaitFor((o) => out.push(o), { pending, activitySeq: 0 });
   const p = waitFor("permission", { toolName: "Bash" });
   assert.equal(out.length, 1);
   const { ls } = makeLs();
@@ -141,4 +153,70 @@ test("flushBuffer: drains in order to an OPEN socket, else leaves the buffer", (
     ["a", "b"],
   );
   assert.equal(ls.conn.buffer.length, 0);
+});
+
+/** A pending entry whose resolve records nothing. @returns {import("./connection.js").PendingEntry} */
+const entry = () => ({ type: "ask", resolve: () => {}, msg: /** @type {OutMsg} */ ({}) });
+
+test("addPending stores the entry and bumps activitySeq", () => {
+  const target = {
+    pending: /** @type {import("./connection.js").Pending} */ (new Map()),
+    activitySeq: 0,
+  };
+  const e = entry();
+  addPending(target, 7, e);
+  assert.equal(target.pending.get(7), e);
+  const first = target.activitySeq;
+  assert.ok(first > 0);
+  addPending(target, 8, entry());
+  assert.ok(target.activitySeq > first);
+});
+
+test("removePending removes the entry and bumps activitySeq", () => {
+  const target = {
+    pending: /** @type {import("./connection.js").Pending} */ (new Map()),
+    activitySeq: 0,
+  };
+  addPending(target, 1, entry());
+  const before = target.activitySeq;
+  removePending(target, 1);
+  assert.equal(target.pending.size, 0);
+  assert.ok(target.activitySeq > before);
+});
+
+test("removePending of an unknown id changes nothing, activitySeq included", () => {
+  const target = {
+    pending: /** @type {import("./connection.js").Pending} */ (new Map()),
+    activitySeq: 0,
+  };
+  addPending(target, 1, entry());
+  const before = target.activitySeq;
+  removePending(target, 99);
+  assert.equal(target.pending.size, 1);
+  assert.equal(target.activitySeq, before);
+});
+
+test("makeWaitFor sends the wire message and registers it through addPending", () => {
+  const target = {
+    pending: /** @type {import("./connection.js").Pending} */ (new Map()),
+    activitySeq: 0,
+  };
+  /** @type {OutMsg[]} */
+  const out = [];
+  void makeWaitFor((o) => out.push(o), target)("form", { title: "x" });
+  assert.deepEqual(out, [{ type: "form", id: 1, title: "x" }]);
+  assert.deepEqual(target.pending.get(1)?.msg, out[0]);
+  assert.ok(target.activitySeq > 0);
+});
+
+test("teardown untracks the session, empties pending and bumps activitySeq", () => {
+  const { ls } = makeLs();
+  trackSession(ls);
+  assert.equal(liveSessions().includes(ls), true);
+  addPending(ls, 1, entry());
+  const before = ls.activitySeq;
+  teardown(ls);
+  assert.equal(liveSessions().includes(ls), false);
+  assert.equal(ls.pending.size, 0);
+  assert.ok(ls.activitySeq > before);
 });

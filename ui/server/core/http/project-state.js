@@ -81,9 +81,10 @@ function collectSkills(dirs) {
   return [...seen];
 }
 
-/** @returns {import("../../../lib/types.js").ProjectState} */
-export function projectState() {
-  const dir = PROJECT_DIR;
+/** The project's display name: the engine project file's name (package.json `name`, or the INI
+ * `config/name="…"`), else the directory basename. Shared by /api/state and /api/status.
+ * @param {string} [dir] @returns {string} */
+export function projectName(dir = PROJECT_DIR) {
   let name = path.basename(dir);
   try {
     const raw = readFileSync(path.join(dir, ENGINE.projectFile), "utf8");
@@ -96,6 +97,13 @@ export function projectState() {
       if (m) name = m;
     }
   } catch {}
+  return name;
+}
+
+/** @returns {import("../../../lib/types.js").ProjectState} */
+export function projectState() {
+  const dir = PROJECT_DIR;
+  const name = projectName(dir);
   // Directory names to skip while scanning the project tree (node_modules, dist, …) — keeps a real
   // Node/webapp repo's inventory from drowning in dependency files. A domain may declare none for a
   // whole-tree scan.

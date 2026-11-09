@@ -9,7 +9,7 @@ import { createWriteStream } from "node:fs";
 import path from "node:path";
 import { LOG_DIR } from "./config.js";
 import { redactImages } from "./user-input.js";
-import { registerLive, dropLive } from "./registry.js";
+import { registerLive, dropLive, untrackSession, nextActivity } from "./registry.js";
 import { emitRunning } from "./stream.js";
 import { unregisterSession } from "../features/pulse/pulse-control.js";
 import { readTasks } from "../features/tasks/tasks-store.js";
@@ -22,7 +22,8 @@ import { readAutonomous } from "../features/autonomous/autonomous-store.js";
 /** @typedef {import("../../lib/types.js").RunningAgentWire} RunningChip */
 /** @typedef {import("./session.js").SessionState} SessionState */
 /** @typedef {import("@anthropic-ai/claude-agent-sdk").SDKUserMessage} SDKUserMessage */
-/** @typedef {Map<number, { type: string, resolve: (value: Reply) => void, msg: OutMsg }>} Pending */
+/** @typedef {{ type: string, resolve: (value: Reply) => void, msg: OutMsg }} PendingEntry */
+/** @typedef {Map<number, PendingEntry>} Pending */
 /** @typedef {ReturnType<typeof createInbox>} Inbox */
 /** A swappable browser connection: the live socket (null while detached) plus the queue of
  * outgoing messages buffered while detached, replayed on re-attach. `send` targets this, not a
@@ -46,7 +47,12 @@ import { readAutonomous } from "../features/autonomous/autonomous-store.js";
  *   announced: boolean,
  *   done: boolean,
  *   resync: () => void,
+ *   lastLine: string,
+ *   runningAgents: number,
+ *   activitySeq: number,
  * }} LiveSession */
+/** What the pending writers need: the Map plus the activity stamp they bump (a LiveSession fits).
+ * @typedef {{ pending: Pending, activitySeq: number }} PendingHolder */
 
 // While detached, buffer at most this many outgoing messages for replay on re-attach. A session
 // that works for a long time with no client (autonomous mode) would otherwise grow the buffer
@@ -134,8 +140,21 @@ export function createInbox() {
   };
 }
 
-/** @param {(obj: OutMsg) => void} send @param {Pending} pending @returns {WaitFor} */
-export function makeWaitFor(send, pending) {
+/** Register an open interaction and stamp the holder's activity (the status endpoint, #60).
+ * @param {PendingHolder} target @param {number} id @param {PendingEntry} entry */
+export function addPending(target, id, entry) {
+  target.pending.set(id, entry);
+  target.activitySeq = nextActivity();
+}
+
+/** Drop an open interaction; stamps activity only when an entry was actually removed, so a
+ * duplicate or stale reply does not read as activity. @param {PendingHolder} target @param {number} id */
+export function removePending(target, id) {
+  if (target.pending.delete(id)) target.activitySeq = nextActivity();
+}
+
+/** @param {(obj: OutMsg) => void} send @param {PendingHolder} target @returns {WaitFor} */
+export function makeWaitFor(send, target) {
   let nextId = 1;
   return (type, payload) => {
     const id = nextId++;
@@ -144,7 +163,7 @@ export function makeWaitFor(send, pending) {
     const msg = { type, id, ...payload };
     send(msg);
     return new Promise((resolve) => {
-      pending.set(id, { type, resolve, msg });
+      addPending(target, id, { type, resolve, msg });
     });
   };
 }
@@ -184,10 +203,11 @@ export function teardown(ls) {
   // detached one keeps receiving beats (its inbox is alive and the turn output buffers for replay).
   if (ls.session.pulseId != null) unregisterSession(ls.session.pulseId);
   ls.inbox.close();
-  for (const { type, resolve } of ls.pending.values()) {
+  for (const [id, { type, resolve }] of ls.pending) {
     resolve(type === "permission" ? { allow: false } : { cancelled: true });
+    removePending(ls, id);
   }
-  ls.pending.clear();
+  untrackSession(ls);
   ls.abort.abort();
   ls.endLog();
   console.log(`[${ls.id ?? "pre-id"}] teardown — session ended`);

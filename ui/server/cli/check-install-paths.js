@@ -12,6 +12,7 @@
 //   - CAP_SUBDIRS (agents/skills/library) are copied WHOLESALE          -> collision if tracked
 //   - hooks/*.sh are copied file-by-file                                 -> collision if tracked
 //   - hooks.json is MERGED, never copied (mergeHooks)                    -> sanctioned, see below
+//   - library/<kind>/index.md is REBUILT from CORE + pack records         -> sanctioned, see below
 //   - .claude-plugin/, templates/ are NOT installed at all               -> never a collision
 //
 // Bare-node, no deps; wired into `npm run validate`. Mirrors gen-skill-scope.js.
@@ -36,6 +37,13 @@ const FORBIDDEN_SUBDIRS = ["commands"];
 // rather than overwrites. Keep this list tiny and justified — each entry is a file whose CORE
 // content survives an install.
 const SANCTIONED_MERGE = new Set(["plugin/hooks/hooks.json"]);
+// A kind index is DERIVED: the installer keeps CORE's copy and regenerates it from CORE + pack
+// records after the copy (install-capabilities.js step 3c, checkRoots), so CORE's entries survive.
+// Exactly one directory between library/ and index.md — a deeper index.md or any RECORD file is
+// copied wholesale and still collides.
+const KIND_INDEX = /^plugin\/library\/[^/]+\/index\.md$/;
+/** @param {string} target plugin-rooted path */
+const isSanctioned = (target) => SANCTIONED_MERGE.has(target) || KIND_INDEX.test(target);
 
 /** Mirrors install-capabilities.js UNSAFE_NAME — names that cannot be declared as install output
  * without changing what the manifest matches. */
@@ -134,6 +142,8 @@ if (unclaimedRenames.length) {
 
 /** @type {string[]} */
 const collisions = [];
+/** Tracked targets a pack writes that the installer merges. @type {Set<string>} */
+const sanctionedHits = new Set();
 /** Packs shipping a capability class that is no longer installable. @type {string[]} */
 const forbiddenDirs = [];
 /** A pack shipping ignore semantics — see the check below. @type {string[]} */
@@ -168,7 +178,11 @@ if (existsSync(DOMAINS_DIR))
         continue;
       }
       const target = `plugin/${rel}`;
-      if (!tracked.has(target) || SANCTIONED_MERGE.has(target)) continue;
+      if (!tracked.has(target)) continue;
+      if (isSanctioned(target)) {
+        sanctionedHits.add(target);
+        continue;
+      }
       collisions.push(
         `    domains/${d.name}/plugin/${rel}\n      installs over TRACKED ${target} — CORE content is lost on \`forge new --domain ${d.name}\``,
       );
@@ -211,5 +225,5 @@ if (collisions.length) {
   process.exit(1);
 }
 console.log(
-  `ok  install-paths: no pack clobbers tracked CORE${SANCTIONED_MERGE.size ? ` (${SANCTIONED_MERGE.size} sanctioned merge target)` : ""}.`,
+  `ok  install-paths: no pack clobbers tracked CORE${sanctionedHits.size ? ` (${sanctionedHits.size} sanctioned merge target(s): ${[...sanctionedHits].sort().join(", ")})` : ""}.`,
 );

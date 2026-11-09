@@ -14,7 +14,10 @@ import {
   writeFileSync,
   copyFileSync,
   chmodSync,
+  mkdtempSync,
+  rmSync,
 } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseJSON } from "../../lib/json.js";
@@ -25,8 +28,9 @@ import {
   writeProjectLock,
   PROJECT_LOCK_FILE,
 } from "../core/domain-resolver.js";
-import { writeInstallOutput } from "../core/install-output.js";
+import { writeInstallOutput, isInstallOutput } from "../core/install-output.js";
 import { ensureDomainLibrary } from "../features/promotions/ensure-library.js";
+import { checkRoots } from "../features/library/library-io.js";
 
 /** Capability subdirs copied from the pack's plugin into the framework plugin. `.claude-plugin/`
  * (the pack's own manifest) is deliberately NOT copied — the base `plugin/.claude-plugin/plugin.json`
@@ -44,15 +48,24 @@ const UNSAFE_NAME = /[\n\r\0*?[\]!#\\]|^\s|\s$/;
 
 /** Recursively copy srcDir → dstDir, overwriting on every run (the pack is the source of truth for
  * what it installs). Executable `.sh` scripts keep their bit. Every destination file is pushed to
- * `written` so the installer can DECLARE its own output (see core/install-output.js).
- * @param {string} srcDir @param {string} dstDir @param {string[]} written */
-function copyTree(srcDir, dstDir, written) {
+ * `written` so the installer can DECLARE its own output (see core/install-output.js) — except a
+ * `merged` one: copied only when the target has none, and declared only when it is install output
+ * (this run created it, or `ownedBefore` says an earlier install did). A merged file that was
+ * already there and not ours is CORE's tracked file.
+ * @param {string} srcDir @param {string} dstDir @param {string[]} written
+ * @param {(dst: string) => boolean} [merged] @param {(dst: string) => boolean} [ownedBefore] */
+function copyTree(srcDir, dstDir, written, merged = () => false, ownedBefore = () => false) {
   mkdirSync(dstDir, { recursive: true });
   for (const e of readdirSync(srcDir, { withFileTypes: true })) {
     const s = path.join(srcDir, e.name);
     const d = path.join(dstDir, e.name);
-    if (e.isDirectory()) copyTree(s, d, written);
-    else if (e.isFile()) {
+    if (e.isDirectory()) copyTree(s, d, written, merged, ownedBefore);
+    else if (e.isFile() && merged(d)) {
+      if (!existsSync(d)) {
+        copyFileSync(s, d);
+        written.push(d);
+      } else if (ownedBefore(d)) written.push(d);
+    } else if (e.isFile()) {
       copyFileSync(s, d);
       if (e.name.endsWith(".sh")) chmodSync(d, 0o755);
       written.push(d);
@@ -96,6 +109,38 @@ function preflightPack(packDir, domainName) {
         "subtree) nor a filename containing gitignore syntax or control characters (it would " +
         "become an extra ignore rule). Both can hide framework files that are not install output.",
     );
+}
+
+/** The one shape of a strict-library refusal. @param {string} domainName @param {string[]} errors */
+function libraryError(domainName, errors) {
+  return new Error(
+    `domain pack "${domainName}": the installed library fails the strict check:\n` +
+      errors.map((e) => `  ${e}`).join("\n"),
+  );
+}
+
+/** A kind index of the library rooted at `libDir`. @param {string} libDir @param {string} d */
+const isKindIndexOf = (libDir, d) =>
+  path.basename(d) === "index.md" && path.dirname(path.dirname(d)) === libDir;
+
+/** Refuse BEFORE any write when the library the install would produce fails the strict check. The
+ * merge (CORE library, then the pack's, kind indexes kept) is staged in a temp dir and checked with
+ * `write` on — the exact state step 3c checks — so an index that is merely stale (rebuilt anyway)
+ * and links between CORE and pack records are judged as installed, not per root.
+ * @param {string} pluginDir @param {string} packDir @param {string} domainName */
+function preflightLibrary(pluginDir, packDir, domainName) {
+  const packLib = path.join(packDir, "library");
+  if (!existsSync(packLib)) return;
+  const stage = mkdtempSync(path.join(os.tmpdir(), "xenomoon-install-library-"));
+  try {
+    const coreLib = path.join(pluginDir, "library");
+    if (existsSync(coreLib)) copyTree(coreLib, stage, []);
+    copyTree(packLib, stage, [], (d) => isKindIndexOf(stage, d));
+    const { errors } = checkRoots([stage], true);
+    if (errors.length) throw libraryError(domainName, errors);
+  } finally {
+    rmSync(stage, { recursive: true, force: true });
+  }
 }
 
 /** Merge a domain pack's hooks.json into the framework's, concatenating per-event hook lists. The
@@ -142,15 +187,23 @@ export function installCapabilities(frameworkDir, domainName) {
   // is regenerated at the END), which is the exact publish/hide hazard this module exists to
   // remove. Refuse the install as a whole, or perform it as a whole.
   preflightPack(packDir, domainName);
+  preflightLibrary(pluginDir, packDir, domainName);
   const copied = [];
   /** Every file this run writes into `plugin/` — the input to `plugin/.gitignore`. @type {string[]} */
   const written = [];
 
   // 1. Capabilities: agents / skills / library → the single plugin tree.
+  //    A kind index (`library/<kind>/index.md`) is DERIVED from that kind's records, and CORE
+  //    tracks some of them — so, like hooks.json in step 2, it is merged, not overwritten: the pack's
+  //    copy lands only where CORE has none, and step 3c regenerates every index from CORE + pack
+  //    records. Only a pack-only index is install output: one this run creates, or one the previous
+  //    manifest already declared (a re-install finds it present — it is still ours, not CORE's).
+  const libDir = path.join(pluginDir, "library");
+  const ownedBefore = (/** @type {string} */ d) => isInstallOutput(pluginDir, d);
   for (const sub of CAP_SUBDIRS) {
     const src = path.join(packDir, sub);
     if (!existsSync(src)) continue;
-    copyTree(src, path.join(pluginDir, sub), written);
+    copyTree(src, path.join(pluginDir, sub), written, (d) => isKindIndexOf(libDir, d), ownedBefore);
     copied.push(sub);
   }
 
@@ -210,6 +263,12 @@ export function installCapabilities(frameworkDir, domainName) {
   //     this the scaffolds stay undeclared until doctor/promote next runs.
   writeInstallOutput(pluginDir, domainName, written);
   ensureDomainLibrary(pluginDir);
+
+  // 3c. Rebuild every kind index of the installed library from its records (CORE's and the pack's),
+  //     with the same strict gate `check:library` runs. preflightLibrary already refused a pack
+  //     that fails it; this is the final guard on what actually landed.
+  const { errors } = checkRoots([libDir], true);
+  if (errors.length) throw libraryError(domainName, errors);
 
   // 4. Bake the pack's runtime descriptor into the framework config, so the runtime never resolves a
   //    live domain.json. `domain` (the name) is written by new.js; this adds the resolved values.

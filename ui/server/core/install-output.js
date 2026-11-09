@@ -59,6 +59,16 @@ export function writeInstallOutput(pluginDir, domainName, absPaths) {
   writeFileSync(path.join(pluginDir, MANIFEST), [...HEADER(domainName), ...entries, ""].join("\n"));
 }
 
+/** Whether the CURRENT manifest declares `absPath` as install output — false when there is no
+ * manifest (the framework trunk). Read it before `writeInstallOutput` replaces it.
+ * @param {string} pluginDir @param {string} absPath @returns {boolean} */
+export function isInstallOutput(pluginDir, absPath) {
+  const file = path.join(pluginDir, MANIFEST);
+  if (!existsSync(file)) return false;
+  const lines = readFileSync(file, "utf8").split("\n");
+  return toRelative(pluginDir, [absPath]).every((entry) => lines.includes(entry));
+}
+
 /** Add paths to an EXISTING manifest — for output written after the install (learning scaffolds).
  * No manifest means no pack is installed here (the framework trunk), so this is a no-op and the
  * paths stay visible for committing. Idempotent.

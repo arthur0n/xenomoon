@@ -4,13 +4,17 @@
 // usage.js/parseSession. The token loop must be able to evolve its own metrics without touching
 // framework http internals — the trivial parse duplication buys zero cross-domain coupling, so
 // a D5 dedup sweep should leave it alone. This is the token domain, not the framework.
+// Its only framework imports are pure helpers (json.js, profiles.js, project-paths.js): no config.js.
 //
 // Source of truth = .claude/token-audits/history.json (append-only; NEVER pruned — it is history,
 // the opposite lifecycle to the ephemeral framework-audit ledger). history.md is a generated view.
 //
-//   node ui/server/cli/token-history.js append   --sessions a,b --offender "…" --opp id:55000 --note "…" [--date YYYY-MM-DD]
-//   node ui/server/cli/token-history.js snapshot  --sessions a,b            # print metrics JSON, write nothing (fix-arm BEFORE/AFTER)
-//   node ui/server/cli/token-history.js snapshot  --global                  # print the global snapshot
+// Logs are read from <project>/.xenomoon/logs (snapshot + append only). The project is
+// `--project <dir>`, else the root `projectDir` of <install>/.xenomoon.json; neither → exit 1.
+//
+//   node ui/server/cli/token-history.js append   [--project <dir>] --sessions a,b --offender "…" --opp id:55000 --note "…" [--date YYYY-MM-DD]
+//   node ui/server/cli/token-history.js snapshot  [--project <dir>] --sessions a,b            # print metrics JSON, write nothing (fix-arm BEFORE/AFTER)
+//   node ui/server/cli/token-history.js snapshot  [--project <dir>] --global                  # print the global snapshot
 //   node ui/server/cli/token-history.js land      --opp id --moved true|false|pending [--delta-tok N] [--delta-cost N] [--result "…"]
 //   node ui/server/cli/token-history.js pending   [--json]                # list opportunities awaiting confirmation
 //   node ui/server/cli/token-history.js render                           # regenerate history.md + history.html (the daily dashboard)
@@ -20,9 +24,10 @@ import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
+import { projectLogDir } from "../../lib/project-paths.js";
+import { readProfiles } from "./profiles.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-const LOG_DIR = path.join(ROOT, "logs");
 const DIR = path.join(ROOT, ".claude/token-audits");
 const JSON_PATH = path.join(DIR, "history.json");
 const MD_PATH = path.join(DIR, "history.md");
@@ -125,7 +130,7 @@ function measure(tags) {
   /** @type {string[]} */
   const incompleteSessions = [];
   for (const tag of tags) {
-    const s = parseSession(path.join(LOG_DIR, `session-${tag}.ndjson`));
+    const s = parseSession(path.join(logDir(), `session-${tag}.ndjson`));
     if (s.incomplete) incompleteSessions.push(tag);
     input += s.input;
     output += s.output;
@@ -157,7 +162,7 @@ function measure(tags) {
 function globalSnapshot() {
   let files = /** @type {string[]} */ ([]);
   try {
-    files = readdirSync(LOG_DIR).filter((f) => f.endsWith(".ndjson"));
+    files = readdirSync(logDir()).filter((f) => f.endsWith(".ndjson"));
   } catch {}
   let cost = 0,
     total = 0,
@@ -166,7 +171,7 @@ function globalSnapshot() {
     sessionCount = 0,
     incompleteSessions = 0;
   for (const f of files) {
-    const s = parseSession(path.join(LOG_DIR, f));
+    const s = parseSession(path.join(logDir(), f));
     const t = s.input + s.output + s.cacheCreate + s.cacheRead;
     if (t <= 0) continue;
     sessionCount += 1;
@@ -401,7 +406,7 @@ for (let i = 1; i < argv.length; i++) {
   if (nxt !== undefined && !nxt.startsWith("--")) {
     val = nxt;
     i++;
-  }
+  } else if (key === "project") die("--project needs a directory");
   if (key === "opp") opps.push(val);
   else flags[key] = val;
 }
@@ -427,7 +432,24 @@ function die(msg) {
  * @param {string[]} tags @returns {string[]} tags whose session log is missing
  */
 function missingLogs(tags) {
-  return tags.filter((t) => !existsSync(path.join(LOG_DIR, `session-${t}.ndjson`)));
+  return tags.filter((t) => !existsSync(path.join(logDir(), `session-${t}.ndjson`)));
+}
+
+/** The bound project's log dir, resolved on first use so only log-reading commands need a
+ * project: `--project` wins, else the install's saved `projectDir`, else exit 1.
+ * @type {string | undefined} */
+let logDirCache;
+/** @returns {string} */
+function logDir() {
+  if (logDirCache) return logDirCache;
+  const saved = readProfiles(ROOT);
+  const project = flags.project ?? (saved.ok ? saved.projectDir : null);
+  if (!project)
+    die(
+      `no project: pass --project <dir> or save "projectDir" in ${path.join(ROOT, ".xenomoon.json")}`,
+    );
+  logDirCache = projectLogDir(project);
+  return logDirCache;
 }
 
 if (cmd === "snapshot") {

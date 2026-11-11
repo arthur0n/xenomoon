@@ -9,7 +9,7 @@ import { parseJSON } from "../../lib/json.js";
 /** @typedef {{ dir: string, port?: number, domain?: string }} Profile */
 
 /**
- * @typedef {{ ok: true, projects: Record<string, Profile>, port: number | null }
+ * @typedef {{ ok: true, projects: Record<string, Profile>, port: number | null, projectDir: string | null }
  *   | { ok: false, reason: string }} ProfilesParse
  */
 
@@ -31,8 +31,10 @@ function profileProblem(name, p) {
   return null;
 }
 
-/** Validate .xenomoon.json text; only the `projects` map is checked. The root `port` is carried
- * through when it is a positive integer, else null; other root fields are ignored.
+/** Validate .xenomoon.json text; only the `projects` map and the root `projectDir` are checked.
+ * The root `port` is carried through when it is a positive integer, else null. The root
+ * `projectDir` (the bound project of a single-project install) is a non-empty string or absent
+ * (null); any other value is refused. Other root fields are ignored.
  * @param {string} text @returns {ProfilesParse} */
 export function parseProfiles(text) {
   /** @type {unknown} */
@@ -48,16 +50,26 @@ export function parseProfiles(text) {
     Number.isInteger(data.port) && /** @type {number} */ (data.port) > 0
       ? /** @type {number} */ (data.port)
       : null;
-  if (projects === undefined) return { ok: true, projects: {}, port };
+  if (data.projectDir !== undefined && (typeof data.projectDir !== "string" || !data.projectDir)) {
+    return { ok: false, reason: "projectDir is not a non-empty string" };
+  }
+  const projectDir = /** @type {string | undefined} */ (data.projectDir) ?? null;
+  if (projects === undefined) return { ok: true, projects: {}, port, projectDir };
   if (!isObject(projects)) return { ok: false, reason: "projects is not an object" };
   for (const [name, p] of Object.entries(projects)) {
     const problem = profileProblem(name, p);
     if (problem) return { ok: false, reason: problem };
   }
-  return { ok: true, projects: /** @type {Record<string, Profile>} */ (projects), port };
+  return {
+    ok: true,
+    projects: /** @type {Record<string, Profile>} */ (projects),
+    port,
+    projectDir,
+  };
 }
 
-/** Read and validate `<installDir>/.xenomoon.json`. A missing file is an empty map and no port.
+/** Read and validate `<installDir>/.xenomoon.json`. A missing file is an empty map, no port and
+ * no projectDir.
  * @param {string} installDir
  * @param {{ readFile?: (file: string) => string }} [deps]
  * @returns {ProfilesParse} */
@@ -68,7 +80,7 @@ export function readProfiles(installDir, { readFile = (f) => readFileSync(f, "ut
     text = readFile(path.join(installDir, ".xenomoon.json"));
   } catch (err) {
     const e = /** @type {{ code?: unknown, message?: unknown }} */ (err);
-    if (e?.code === "ENOENT") return { ok: true, projects: {}, port: null };
+    if (e?.code === "ENOENT") return { ok: true, projects: {}, port: null, projectDir: null };
     return { ok: false, reason: String(e?.code ?? e?.message ?? err) };
   }
   return parseProfiles(text);

@@ -142,7 +142,7 @@ A single case-preserving `/xenodot/gi` pass covers every form above.
   clone/marketplace instructions). Rewriting these would break the `upstream` remote
   references and point forkers at a repo that doesn't exist.
 - **Untracked / gitignored files** — the codemod runs over `git ls-files` only, so local
-  state (`.xenodot.json`, `logs/`, `node_modules/`, `vendor/`, a nested game dir, materialized
+  state (`.xenodot.json`, the legacy `logs/` (pre-#62 logs stay there, gitignored; live logs are project-side), `node_modules/`, `vendor/`, a nested game dir, materialized
   `tools/`) is never read or rewritten.
 - The codemod's **own machinery** — `scripts/rebrand.mjs`, `.claude/commands/sync-upstream.md`
   (the up-sync command, which re-runs the codemod as one of its steps), and everything under the

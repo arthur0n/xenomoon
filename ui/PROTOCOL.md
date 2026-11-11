@@ -116,7 +116,7 @@ Server default for all new sessions: `node ui/server/core/index.js <project> --a
 
 ## Logs
 
-- One NDJSON file per session in `logs/` (gitignored): every message in both directions plus auto-allowed permissions, timestamped. `{ts, dir: "in"|"out"|"auto", ...message}`.
+- One NDJSON file per session in the project's `.xenomoon/logs/` (the `.xenomoon/` ignore line is written by `forge new` at install and by the server at boot when the project is found): every message in both directions plus auto-allowed permissions, timestamped. `{ts, dir: "in"|"out"|"auto", ...message}`.
 - Compact per-event lines on the server's stdout.
 - Full agent transcripts: UI sessions are real Claude Code sessions — `claude --resume` in the project dir lists them.
 

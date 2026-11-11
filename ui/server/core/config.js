@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
 import { shq } from "../../lib/shell.js";
+import { projectLogDir } from "../../lib/project-paths.js";
 import { resolveActiveDomain } from "./domain-resolver.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -129,13 +130,12 @@ export const ASSET_LIBRARY = path.resolve(
 // regardless of the project cwd — they read/write via these paths, granted by
 // `additionalDirectories` (see session.js). Inherited by the Claude Code subprocess.
 process.env.XENOMOON_PLUGIN = FRAMEWORK_PLUGIN_DIR;
-/** The framework-root logs dir (compliance/usage traces: caveman-gate.log, rtk-usage.log).
- * Anchored to FRAMEWORK_DIR (not derived from XENOMOON_PLUGIN, so the anchor survives any future
- * plugin-path move). Exported into the environment so the plugin's observe-only hooks
- * (caveman-reminder, rtk-usage-log), which run in the spawned session's subprocess, write to the
- * one framework-root dir. */
-export const XENOMOON_LOG_DIR = path.join(FRAMEWORK_DIR, "logs");
-process.env.XENOMOON_LOG_DIR = XENOMOON_LOG_DIR;
+/** The project-side logs dir, `<project>/.xenomoon/logs`. It holds the session NDJSON,
+ * hermes-gateway.log and the hook logs (caveman-gate.log, rtk-usage.log). Exported into the
+ * environment so the plugin's observe-only hooks, which run in the spawned session's
+ * subprocess, write to the same dir. */
+export const LOG_DIR = projectLogDir(PROJECT_DIR);
+process.env.XENOMOON_LOG_DIR = LOG_DIR;
 process.env.XENOMOON_LIBRARY = path.join(FRAMEWORK_PLUGIN_DIR, "library");
 // The external shared-asset library (see ASSET_LIBRARY). Exported so the spawned session,
 // its agents (asset-advisor reads/verifies the sourced file here) and validate.sh can locate
@@ -763,5 +763,3 @@ export const TRANSCRIPT_DIR = path.join(
   "projects",
   PROJECT_DIR.replace(/[/.]/g, "-"),
 );
-
-export const LOG_DIR = path.join(UI_DIR, "..", "logs");

@@ -12,7 +12,7 @@
 # Scoped to sub-agents ONLY via `agent_id` (present only inside an AgentTool worker, absent on
 # the main thread). The main orchestrator session is never nudged — not a caveman context.
 #
-# The log (logs/caveman-gate.log under the framework dir) is the evaluation record: per-call
+# The log (caveman-gate.log in the bound project's .xenomoon/logs/) is the evaluation record: per-call
 # rows of terseness scores so the user can judge whether the nudge alone is
 # enough before considering anything stronger. Heuristic is deterministic — no LLM.
 payload="$(cat)"
@@ -87,9 +87,8 @@ EOF
 fi
 
 # --- log the evaluation record (best-effort; never fail the hook) ---
-# Framework-root logs dir, exported by config.js. NOT derived from XENOMOON_PLUGIN — that points
-# inside the active domain pack now, so the old `${XENOMOON_PLUGIN%/plugin}/logs` landed the log in
-# domains/<name>/logs/ instead of the framework root. Fall back to TMPDIR when unset.
+# The bound project's .xenomoon/logs/ dir, exported as XENOMOON_LOG_DIR by config.js. Fall back
+# to TMPDIR when unset (a terminal session without the server).
 log_dir="${XENOMOON_LOG_DIR:-${TMPDIR:-/tmp}}"
 {
   mkdir -p "$log_dir" 2>/dev/null && \

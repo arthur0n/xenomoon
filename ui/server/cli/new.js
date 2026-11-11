@@ -13,15 +13,7 @@
 //
 // The chosen domain is written as a project-owned lock (.xenomoon-project.json), committed with
 // the project so the binding travels and the framework can't later drive it as the wrong domain.
-import {
-  existsSync,
-  mkdirSync,
-  cpSync,
-  readdirSync,
-  readFileSync,
-  appendFileSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, cpSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import readline from "node:readline/promises";
 import path from "node:path";
@@ -37,6 +29,7 @@ import {
   availableDomains,
 } from "../core/domain-resolver.js";
 import { installCapabilities } from "./install-capabilities.js";
+import { ensureIgnores } from "../core/project-side.js";
 import { deploysOnPush, order, promptOpts, workspaceBranchFacts } from "./branch-model.js";
 import { loadWorkspace } from "../../lib/workspace.js";
 import { pickList } from "./picklist.js";
@@ -357,33 +350,6 @@ process.env.XENOMOON_DOMAIN = domainName;
 
 /** Run a child step, inheriting stdio so its output streams through. @param {string[]} args */
 const node = (...args) => execFileSync("node", args, { stdio: "inherit" });
-
-/** Make sure the project ignores the framework's generated/working paths, so they're never
- * committed. `.xenomoon/` (the per-project task board / autonomous / skill-setup state the framework
- * writes for EVERY domain) is ALWAYS ignored — so temp tasks never land in the project's repo;
- * materialize domains add their working dirs too. The domain lock itself is intentionally NOT
- * ignored — it is committed with the project. @param {string} dir @param {boolean} materializes */
-function ensureIgnores(dir, materializes) {
-  const file = path.join(dir, ".gitignore");
-  // Always ignored — every domain writes session/task/autonomous state into <project>/.xenomoon/.
-  const need = [".xenomoon/", ".claude/projects/"];
-  // Materialize domains also drop working files (tools/, library/, …) into the project tree.
-  if (materializes) need.push("/tools/", "/library", "/x-shared-assets", "/transcripts/");
-  let cur = "";
-  try {
-    cur = readFileSync(file, "utf8");
-  } catch {
-    /* no .gitignore yet */
-  }
-  const lines = cur.split(/\r?\n/);
-  const missing = need.filter((p) => !lines.includes(p));
-  if (!missing.length) return;
-  const block =
-    "\n# Xenomoon Forge generated/working files — not repo content\n" + missing.join("\n") + "\n";
-  if (cur) appendFileSync(file, block);
-  else writeFileSync(file, block.trimStart());
-  console.log(`new: added ${missing.length} ignore rule(s) to ${file}`);
-}
 
 // 0. Ensure the target exists. How the binding is remembered depends on the domain:
 //    - materialize domains (the kind a binary-backed engine needs; a deferred seam) write a

@@ -22,7 +22,9 @@ and critiques itself. You won't get it right the first time — that's expected.
 
 ## Where the data lives
 
-- Session logs: `logs/session-*.ndjson` (this forge's `logs/` dir; cwd = forge root).
+- Session logs: `<project>/.xenomoon/logs/session-*.ndjson`, where `<project>` is the bound project (the
+  install's `.xenomoon.json` `projectDir`, or the profile's `dir`). The install's own `logs/` holds only
+  pre-#62 files.
   Filenames are ISO timestamps, so a lexical sort is chronological. The tag is the part
   between `session-` and `.ndjson`.
 - Each line is `{ts, dir, type, message, ...}`. The signals you want:
@@ -75,7 +77,7 @@ sessions`) and say so in the entry, so a later run re-checks it once it has a re
      payload re-entering context. Only counts in a graph-backed repo (no `graphify-out/` → nothing
      to bypass), and edit-driven reads belong to Read churn above, not here.
 
-   Example sweep (adapt; `$LOGS` = `logs`). Filter the ndjson with `jq
+   Example sweep (adapt; `$LOGS` = `<project>/.xenomoon/logs`). Filter the ndjson with `jq
 select(...)` directly — do NOT pipe `rtk grep` into `jq`: rtk's grep filter mangles JSON and breaks
    the `jq` parse. Each log line is `{type:"event", message:{…}}`, so select on `.message.type`:
    - costliest turns: `jq -c 'select(.type=="event" and .message.type=="result") | .message | {cost:.total_cost_usd, u:.usage}' "$LOGS/<file>"`
@@ -125,7 +127,7 @@ select(...)` directly — do NOT pipe `rtk grep` into `jq`: rtk's grep filter ma
      analyzed tag to `Covered sessions`. Most-important offenders only; scannable; no essays.
    - Numbers: capture the run in the PERMANENT time-series — the numbers come from the SCRIPT,
      not a prose guess:
-     `node ui/server/cli/token-history.js append --sessions <tag,tag,…> --offender "<top offender>" --opp <opp-id>:<estTok> --note "<one line>"`
+     `node ui/server/cli/token-history.js append [--project <dir>] --sessions <tag,tag,…> --offender "<top offender>" --opp <opp-id>:<estTok> --note "<one line>"`
      (repeat `--opp` per opportunity; `--date` defaults to today). This writes `history.json` and
      regenerates `history.md`. See `.claude/token-audits/README.md` for the loop + file roles.
 

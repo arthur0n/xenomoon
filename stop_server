@@ -23,7 +23,7 @@ cd "$(dirname "$0")"
 stopped_any=""
 pid_was_stale=""
 
-PIDFILE=".xm-run/ui.pid"
+# PIDFILE (per port) comes from server-port.sh. A legacy .xm-run/ui.pid is ignored, not migrated: the port scan below finds and stops that server by ownership.
 
 # Every "I could not check" exit goes through here, so the pid file is kept and the caller is told,
 # in one place. Losing the hint after a check that never ran is what makes the next stop blinder
@@ -42,7 +42,9 @@ if [ -f "$PIDFILE" ]; then
   # PROVE it is ours before signalling. The file is a number we wrote hours ago, and the OS reuses
   # numbers — an unproven kill here would land on whatever inherited it. Nothing about the port scan
   # below can undo a signal already sent, which is why the proof comes first.
-  if [ -n "$pid" ] && is_our_server_process "$pid"; then
+  # And prove it holds THIS port: the entry and cwd proof would also pass for a reused pid that is
+  # another server of this install on another port.
+  if [ -n "$pid" ] && is_our_server_process "$pid" && pid_listens_on_port "$pid" "$PORT"; then
     # Wait for it to actually die. "Signal sent" is not "stopped": a server that is SIGSTOPped or
     # stuck in shutdown keeps the port, and saying otherwise while deleting the pid file is how a
     # restart ends up starting a sibling on a port that was never freed.
@@ -58,6 +60,8 @@ if [ -f "$PIDFILE" ]; then
     pid_was_stale=1
     if [ -z "$pid" ]; then
       : # an empty pid file says nothing; the port check is the whole answer
+    elif is_our_server_process "$pid"; then
+      echo "PID $pid (from $PIDFILE) is this install's server but not on port $PORT — left alone. Checking the port."
     elif kill -0 "$pid" 2>/dev/null; then
       echo "PID $pid (from $PIDFILE) is alive but is not this install's server — left alone. Checking the port."
     else

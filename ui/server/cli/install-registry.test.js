@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
-import { isInstallDir } from "./install-registry.js";
+import { isInstallDir, parseRegistry } from "./install-registry.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const pkg = /** @type {{ name: string, bin?: Record<string, string> }} */ (
@@ -48,4 +48,40 @@ test("an unrelated package directory is not an install", () => {
   assert.equal(isInstallDir(dirNamed("some-other-app")), false);
   assert.equal(isInstallDir(dirNamed(undefined)), false);
   assert.equal(isInstallDir(mkdtempSync(path.join(tmpdir(), "xm-empty-"))), false);
+});
+
+/** Expect a refusal whose reason names `field`.
+ * @param {string} text @param {string} field */
+function assertRefused(text, field) {
+  const r = parseRegistry(text);
+  assert.equal(r.ok, false);
+  assert.ok(
+    !r.ok && r.reason.includes(field),
+    `reason should name "${field}": ${JSON.stringify(r)}`,
+  );
+}
+
+test("a registry with two installs, one without a project, parses to its installs", () => {
+  const installs = { "/tmp/install-a": "/tmp/project-a", "/tmp/install-b": null };
+  assert.deepEqual(parseRegistry(JSON.stringify({ version: 1, installs })), { ok: true, installs });
+});
+
+test("a registry with no installs parses to an empty map", () => {
+  assert.deepEqual(parseRegistry('{"version":1,"installs":{}}'), { ok: true, installs: {} });
+});
+
+test("text that is not JSON is refused as invalid JSON", () => {
+  assertRefused("{ not json", "JSON");
+});
+
+test("a registry at version 2 is refused on version", () => {
+  assertRefused('{"version":2,"installs":{}}', "version");
+});
+
+test("a registry whose installs is an array is refused on installs", () => {
+  assertRefused('{"version":1,"installs":["/tmp/install-a"]}', "installs");
+});
+
+test("an install whose project is a number is refused on that install", () => {
+  assertRefused('{"version":1,"installs":{"/tmp/install-a":42}}', "/tmp/install-a");
 });

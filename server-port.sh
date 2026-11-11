@@ -14,6 +14,12 @@
 CONFIGURED_PORT="$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync(".xenomoon.json","utf8")).port??"")}catch{console.log("")}' 2>/dev/null || true)"
 PORT="${PORT:-${CONFIGURED_PORT:-3117}}"
 
+# Run files carry the port: two servers of one install (one per client, each on its own port) must
+# not share a pid file, or starting the second overwrites the record that lets us stop the first.
+RUN_DIR=".xm-run"
+PIDFILE="$RUN_DIR/ui.$PORT.pid"
+LOG="$RUN_DIR/ui.$PORT.log"
+
 # PHYSICAL path. `cd` keeps the logical spelling (symlinks intact) while lsof reports the kernel's
 # canonical cwd, so comparing raw strings would call this install's own server a stranger.
 INSTALL_DIR="$(pwd -P)"
@@ -44,6 +50,13 @@ belongs_to_this_install() {
 # $1 = pid
 listener_cwd() {
   lsof -p "$1" -a -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1
+}
+
+# Does this PID hold a LISTEN socket on this port? A recorded pid is a number the OS reuses, so
+# before signalling it the scripts prove it holds the selected port.
+# $1 = pid, $2 = port
+pid_listens_on_port() {
+  lsof -a -p "$1" -i "tcp:$2" -sTCP:LISTEN >/dev/null 2>&1
 }
 
 # The entry point every UI server runs. Recorded here because "is this our server?" must be asked

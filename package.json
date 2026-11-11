@@ -15,6 +15,7 @@
     "materialize": "node ui/server/cli/materialize.js",
     "doctor": "node ui/server/cli/doctor.js",
     "start": "node ui/server/core/index.js",
+    "hub": "node ui/server/cli/hub.js",
     "badges": "node ui/server/cli/update-badges.js",
     "ledger": "node ui/server/cli/gen-ledger.js",
     "release": "node ui/server/cli/release-stage.js",

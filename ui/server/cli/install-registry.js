@@ -64,6 +64,38 @@ function contains(parent, child) {
   return c === p || c.startsWith(p + path.sep);
 }
 
+/**
+ * @typedef {{ ok: true, installs: Record<string, string|null> }
+ *   | { ok: false, reason: string }} RegistryParse
+ */
+
+/** Validate registry file text against `{ version: 1, installs: { [dir]: string|null } }`.
+ * Pure and total: a bad shape is an `ok:false` with a one-line reason naming the field.
+ * @param {string} text @returns {RegistryParse} */
+export function parseRegistry(text) {
+  /** @type {unknown} */
+  let data;
+  try {
+    data = parseJSON(text);
+  } catch {
+    return { ok: false, reason: "invalid JSON" };
+  }
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
+    return { ok: false, reason: "root is not an object" };
+  }
+  const { version, installs } = /** @type {{ version?: unknown, installs?: unknown }} */ (data);
+  if (version !== 1) return { ok: false, reason: "version is missing or not 1" };
+  if (typeof installs !== "object" || installs === null || Array.isArray(installs)) {
+    return { ok: false, reason: "installs is missing or not an object" };
+  }
+  for (const [dir, project] of Object.entries(installs)) {
+    if (project !== null && typeof project !== "string") {
+      return { ok: false, reason: `installs["${dir}"] is neither a string nor null` };
+    }
+  }
+  return { ok: true, installs: /** @type {Record<string, string|null>} */ (installs) };
+}
+
 /** The registry as { installDir: projectDir|null }, with vanished installs pruned. Any read
  * problem yields {} — an unreadable registry must never break a verb.
  * @returns {Record<string, string|null>} */

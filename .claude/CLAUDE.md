@@ -18,16 +18,16 @@ framework loads into every project session.
 - Prefix shell commands with `rtk` (a PreToolUse hook enforces it; see `.claude/settings.json`).
 - Plain JS + JSDoc only — no `.ts` files. Types are checked via tsconfig `checkJs`.
 - Node/CLI scripts live in `ui/server/` so eslint's node group + tsconfig type-check them.
-- **Identity — never revert to upstream's look.** Keep the bronze "lunar" identity: the ringed-planet
+- Identity: keep the bronze "lunar" identity, never upstream's look: the ringed-planet
   emblem (mark/logo/favicon), the Lunar-Bronze / Moon-Gold palette in `ui/agent-ui.css` (the `--green`
-  token is Moon Gold, NOT green), and the brand word "XenomoonForge". NEVER reintroduce upstream's
-  green alien-head emblem or alien-green palette. When a sync touches `ui/index.html`,
+  token is Moon Gold, not green), and the brand word "XenomoonForge". Upstream's green alien-head
+  emblem and alien-green palette do not come back. When a sync touches `ui/index.html`,
   `ui/agent-ui.css`, or emblem/favicon assets, take upstream's behavior/structure only and resolve
   every color/identity/branding hunk as OURS. Sync runbook: `docs/fork/SEAMS.md`.
-- **Sync is ONE-WAY — fetch from upstream, publish only to OUR repo.** This is a domain-focused fork of
-  the godot source `arthur0n/xenodot-forge` (the `upstream` and `origin` remotes). We **only ever
-  fetch** curated, domain-agnostic updates from it (via `/sync-upstream`) and **NEVER push to any
-  `xenodot-forge` repo** — the committed `.husky/pre-push` hook hard-blocks it; never route around it.
+- Sync is one-way: fetch from upstream, publish only to our repo. This is a domain-focused fork of
+  the godot source `arthur0n/xenodot-forge` (the `upstream` and `origin` remotes). We only ever
+  fetch curated, domain-agnostic updates from it (via `/sync-upstream`) and never push to any
+  `xenodot-forge` repo; the committed `.husky/pre-push` hook blocks it, and nothing routes around it.
   Our **sole publish target is the `xenomoon` remote** (`arthur0n/xenomoon`): publish with
   `git push xenomoon main`, which goes out as **arthur0n** (the repo owner; the repo-local
   `.git/config` credential pin). See `docs/fork/SYNC.md`.

@@ -5,14 +5,13 @@
 #   ./start_server                 # the configured project (see .xenomoon.json / config.js)
 #   ./start_server /path/to/project   # a specific project
 #   PORT=9000 ./start_server       # a different port
+#   The pid file and log are per port: .xm-run/ui.<port>.pid and .xm-run/ui.<port>.log.
 set -euo pipefail
 cd "$(dirname "$0")"
 # Port resolution and the ownership rule are SHARED with stop_server — see the file's header.
 . ./server-port.sh
 
-RUN_DIR=".xm-run"
-LOG="$RUN_DIR/ui.log"
-PIDFILE="$RUN_DIR/ui.pid"
+# RUN_DIR, PIDFILE and LOG (per port) come from server-port.sh.
 mkdir -p "$RUN_DIR"
 
 # Reclaim OUR OWN stale server, and only that. This used to kill whatever held the port, no
@@ -28,7 +27,7 @@ refuse() {
   exit "${2:-1}"
 }
 
-# No scan, no start. Launching on an unchecked port puts the collision in .xm-run/ui.log — where
+# No scan, no start. Launching on an unchecked port puts the collision in the log — where
 # nobody looks — behind a PID file for a server that never came up.
 command -v lsof >/dev/null 2>&1 ||
   refuse "lsof not available — cannot tell whether port $PORT is already held." 3
@@ -55,7 +54,7 @@ done
 # Reclaim, then PROVE the port is free. The wait used to be best-effort: an owned server that
 # ignored SIGTERM or was slow to exit left the port held, node failed to bind, and the script still
 # printed a URL and wrote a PID file for a process that was already dying — turning a working stale
-# server into an apparently-successful dead start, with the only evidence buried in ui.log.
+# server into an apparently-successful dead start, with the only evidence buried in the log.
 #
 # SIGKILL is escalated to only for PIDs already PROVEN to be ours. A stranger is never signalled,
 # whatever it is doing to the port.
@@ -94,7 +93,7 @@ disown "$pid" 2>/dev/null || true
 listening=""
 for _ in $(seq 1 50); do
   if ! kill -0 "$pid" 2>/dev/null; then break; fi # died during startup
-  if lsof -a -p "$pid" -i "tcp:$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  if pid_listens_on_port "$pid" "$PORT"; then
     listening=1
     break
   fi

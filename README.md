@@ -78,6 +78,7 @@ Already have the framework checked out? Same flow, minus step zero:
 npm ci
 npm run install-project  # the questionnaire (or pass flags: -- <PATH> --domain=webapp)
 npm start                # http://localhost:3117 (or your chosen port)
+npm run hub              # http://127.0.0.1:3110, every client project in one place (JSON API; the page comes later)
 ```
 
 Optional: with the `rtk` (Rust Token Killer) token-saving proxy on PATH, the framework detects

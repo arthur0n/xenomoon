@@ -7,7 +7,7 @@
 # sub-agents is instruction-only (no enforcing hook ships in the plugin); this hook just tells
 # you whether that instruction is actually being followed.
 #
-# Log: logs/rtk-usage.log under the framework dir. Per row: rtk-prefixed?, exempt?, command head.
+# Log: rtk-usage.log in the bound project's .xenomoon/logs/. Per row: rtk-prefixed?, exempt?, command head.
 payload="$(cat)"
 agent_id="$(printf '%s' "$payload" | jq -r '.agent_id // empty' 2>/dev/null)"
 [ -z "$agent_id" ] && exit 0
@@ -33,9 +33,8 @@ esac
 # Command head for context (first 80 chars, single line).
 head="$(printf '%s' "$cmd" | tr '\n' ' ' | cut -c1-80)"
 
-# Framework-root logs dir, exported by config.js. NOT derived from XENOMOON_PLUGIN — that points
-# inside the active domain pack now, so the old `${XENOMOON_PLUGIN%/plugin}/logs` landed the log in
-# domains/<name>/logs/ instead of the framework root. Fall back to TMPDIR when unset.
+# The bound project's .xenomoon/logs/ dir, exported as XENOMOON_LOG_DIR by config.js. Fall back
+# to TMPDIR when unset (a terminal session without the server).
 log_dir="${XENOMOON_LOG_DIR:-${TMPDIR:-/tmp}}"
 {
   mkdir -p "$log_dir" 2>/dev/null && \

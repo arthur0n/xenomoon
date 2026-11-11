@@ -27,3 +27,6 @@ Logs kept in the install and tagged by project: every reader filters, and a shar
 ## Consequences
 
 Every reader follows the path (recentSessions, usage, harvest-sessions, token-audit); promotions stay install-level because they are domain-level by design.
+
+- Every log a project's session or server writes moves together under <project>/.xenomoon/logs/: the session NDJSON, the Hermes gateway log, the caveman gate log and the rtk usage log; the install keeps no per-project log; a hook in a terminal session without the server has no XENOMOON_LOG_DIR and falls back to TMPDIR, so only server-spawned sessions are co-located. Owner, 2026-11-11, on the four logs moving together: "yes" (confirmed "1 yes" at gate 1 of /change 62).
+- `.xm-run/` stays in the install: it holds a pid and the server stdout per port (`.xm-run/ui.<port>.pid`, `.log`, #63), owned by start_server, stop_server and the hub, and it is not project data.

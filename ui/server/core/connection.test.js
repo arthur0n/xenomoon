@@ -6,8 +6,14 @@
 process.env.XENOMOON_DOMAIN ??= "webapp";
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
+import os from "node:os";
+import path from "node:path";
+// A project dir that does not exist (never created), so LOG_DIR has no parent and the session log
+// stream's open fails: the createLogger tests below need that, the lifecycle tests ignore it.
+process.env.GAME_DIR = path.join(os.tmpdir(), `xenomoon-no-project-${process.pid}-${Date.now()}`);
 import { parseJSON } from "../../lib/json.js";
 const {
+  createLogger,
   evaluateGrace,
   teardown,
   onSocketDetach,
@@ -219,4 +225,51 @@ test("teardown untracks the session, empties pending and bumps activitySeq", () 
   assert.equal(liveSessions().includes(ls), false);
   assert.equal(ls.pending.size, 0);
   assert.ok(ls.activitySeq > before);
+});
+
+/** A logger on a detached conn whose stream cannot open, plus a promise for its first warn. */
+function failingLogger(/** @type {import("node:test").TestContext} */ t) {
+  t.mock.method(console, "log", () => {});
+  /** @type {(v?: unknown) => void} */
+  let warnedOnce = () => {};
+  const warned = new Promise((resolve) => (warnedOnce = resolve));
+  const warn = t.mock.method(console, "warn", () => {
+    warnedOnce();
+  });
+  const conn = { socket: null, buffer: /** @type {OutMsg[]} */ ([]) };
+  return { logger: createLogger(conn), conn, warn, warned };
+}
+
+test("createLogger: a log stream that cannot open warns once and the connection keeps working", async (t) => {
+  const { logger, conn, warn, warned } = failingLogger(t);
+  logger.send({ type: "status" });
+  await warned;
+  assert.doesNotThrow(() => {
+    logger.log("in", { type: "user_input" });
+    logger.send({ type: "status" });
+    logger.end();
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(warn.mock.callCount(), 1);
+  assert.match(String(warn.mock.calls[0]?.arguments[0]), /session-.*\.ndjson.*ENOENT/);
+  assert.equal(conn.buffer.length, 2);
+});
+
+test("createLogger: each logger owns its stream, a second one after a failure warns and works too", async (t) => {
+  const first = failingLogger(t);
+  first.logger.send({ type: "status" });
+  await first.warned;
+  /** @type {(v?: unknown) => void} */
+  let secondWarned = () => {};
+  const warned2 = new Promise((resolve) => (secondWarned = resolve));
+  first.warn.mock.mockImplementation(() => {
+    secondWarned();
+  });
+  const conn = { socket: null, buffer: /** @type {OutMsg[]} */ ([]) };
+  const second = createLogger(conn);
+  second.send({ type: "status" });
+  await warned2;
+  assert.doesNotThrow(() => second.end());
+  assert.equal(first.warn.mock.callCount(), 2);
+  assert.equal(conn.buffer.length, 1);
 });

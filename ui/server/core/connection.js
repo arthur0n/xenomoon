@@ -73,6 +73,15 @@ export function createLogger(conn) {
   const sessionTag = new Date().toISOString().replace(/[:.]/g, "-");
   const logFile = path.join(LOG_DIR, `session-${sessionTag}.ndjson`);
   const logStream = createWriteStream(logFile, { flags: "a" });
+  // An open failure (log dir missing or unwritable) is an `error` event: unhandled, it would crash
+  // the server on the first connection. Warn once and keep the connection: a write or end on the
+  // now-destroyed stream reports ERR_STREAM_DESTROYED through its callback, it does not throw.
+  let warned = false;
+  logStream.on("error", (/** @type {NodeJS.ErrnoException} */ err) => {
+    if (warned) return;
+    warned = true;
+    console.warn(`session log disabled: ${logFile} (${err.code ?? err.message})`);
+  });
   /** @param {string} dir @param {OutMsg} obj */
   const log = (dir, obj) => {
     logStream.write(

@@ -22,6 +22,7 @@ test("two valid profiles parse into a map", () => {
       beta: { dir: "/tmp/project-b" },
     },
     port: null,
+    projectDir: null,
   });
 });
 
@@ -30,6 +31,7 @@ test("a config without projects gives an empty map", () => {
     ok: true,
     projects: {},
     port: null,
+    projectDir: null,
   });
 });
 
@@ -64,6 +66,7 @@ test("a missing config file gives an empty map", () => {
     ok: true,
     projects: {},
     port: null,
+    projectDir: null,
   });
 });
 
@@ -72,6 +75,7 @@ test("a positive integer root port is carried through, any other value is null",
     ok: true,
     projects: {},
     port: 4100,
+    projectDir: null,
   });
   assert.equal(
     /** @type {{ port: unknown }} */ (parseProfiles(JSON.stringify({ port: "4100" }))).port,
@@ -87,4 +91,19 @@ test("an unreadable config file is refused with the error code", () => {
   const r = readProfiles("/tmp/project-a", { readFile: failWith("EACCES") });
   assert.equal(r.ok, false);
   assert.ok(!r.ok && r.reason.includes("EACCES"), JSON.stringify(r));
+});
+
+test("a saved root projectDir is carried through", () => {
+  assert.deepEqual(parseProfiles(JSON.stringify({ projectDir: "/tmp/project-a" })), {
+    ok: true,
+    projects: {},
+    port: null,
+    projectDir: "/tmp/project-a",
+  });
+});
+
+test("a non-string projectDir is refused on projectDir", () => {
+  const r = parseProfiles(JSON.stringify({ projectDir: 42 }));
+  assert.equal(r.ok, false);
+  assert.ok(!r.ok && r.reason.includes("projectDir"), JSON.stringify(r));
 });

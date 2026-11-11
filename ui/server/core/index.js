@@ -7,10 +7,10 @@
 // drives the same local Claude Code the terminal uses.
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { mkdirSync } from "node:fs";
 import { WebSocketServer } from "ws";
 import { parseJSON } from "../../lib/json.js";
-import { PORT, PROJECT_DIR, PROJECT_FOUND, CONFIG_FILE, LOG_DIR, ENGINE_LABEL } from "./config.js";
+import { PORT, PROJECT_DIR, PROJECT_FOUND, CONFIG_FILE, DOMAIN, ENGINE_LABEL } from "./config.js";
+import { tryEnsureIgnores, ensureLogDir } from "./project-side.js";
 import { AGENT_REGISTRY } from "../agents/registry.js";
 import { listAgentsWithHealth, startHealthSweeps } from "../agents/agents-health.js";
 import { handleAgentApi } from "../agents/agents-http.js";
@@ -105,11 +105,14 @@ function handleSettingsPost(req, res) {
   });
 }
 
-mkdirSync(LOG_DIR, { recursive: true });
+ensureLogDir(PROJECT_DIR);
 
 // Materialize the framework's per-project files (only domains that opt in — gitignored):
 // tools copied, library symlinked. The plugin is the single source; the project stays pure.
 if (PROJECT_FOUND) {
+  const ign = tryEnsureIgnores(PROJECT_DIR, DOMAIN.materializeIntoProject);
+  if (!ign.ok)
+    console.warn(`gitignore: could not update (${ign.reason}); add ${ign.rules.join(" ")}`);
   const { tools, lib } = prepareGame(PROJECT_DIR);
   if (tools.copied) console.log(`tools: refreshed ${tools.copied} file(s) in ${PROJECT_DIR}/tools`);
   if (lib.linked && lib.reason === "created") console.log(`library: linked → plugin/library`);

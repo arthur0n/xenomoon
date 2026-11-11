@@ -1,5 +1,5 @@
 ---
-description: Harvest past session logs for recurring framework friction — mine logs/session-*.ndjson (human corrections, agent errors, ask-storms) plus the human's recorded NOs (.xenomoon/promotions.json rejects, qa-divergence.md overrides), distil into framework findings, append to the audit ledger as open findings. The automated sibling of /framework-feedback. Never auto-applies; the human applies via /framework-audit-fix. Manual, human-run. Forge-local (not shipped).
+description: Harvest past session logs for recurring framework friction — mine the bound project's .xenomoon/logs/session-*.ndjson (human corrections, agent errors, ask-storms) plus the human's recorded NOs (.xenomoon/promotions.json rejects, qa-divergence.md overrides), distil into framework findings, append to the audit ledger as open findings. The automated sibling of /framework-feedback. Never auto-applies; the human applies via /framework-audit-fix. Manual, human-run. Forge-local (not shipped).
 argument-hint: "[N | session-tag]"
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, mcp__ui__ask
 model: opus
@@ -28,7 +28,8 @@ is applied by the SAME `/framework-audit-fix`.
 
 ## Where the data lives (repo-relative; cwd = forge root)
 
-- **Logs:** `"$CLAUDE_PLUGIN_ROOT/../logs"/session-*.ndjson` (the forge's `logs/` dir — same source
+- **Logs:** `<project>/.xenomoon/logs/session-*.ndjson` (`<project>` = the `projectDir` in the install's
+  `.xenomoon.json`; same source
   `/token-audit` mines). Filenames are ISO timestamps → a lexical sort is chronological; the **tag**
   is the part between `session-` and `.ndjson`. Sizes run 650 B → 16 MB — **never slurp one into
   context.**
@@ -66,7 +67,7 @@ lines, which `rtk grep`/`jq` handle.)
    (its `findings[]` still `open`/`later` + the `lastAudit` line). So you neither re-scan a covered
    session nor re-file a finding already recorded.
 
-2. **Pick scope.** List `logs/session-*.ndjson`, drop tags already in the coverage file, take the
+2. **Pick scope.** List `<project>/.xenomoon/logs/session-*.ndjson`, drop tags already in the coverage file, take the
    newest **2** of what remains. `$ARGUMENTS` overrides: a bare number sets the count (e.g. `4`); a
    session-tag harvests exactly that session. Skip the tiny stub logs (a few hundred bytes = a session
    that opened and closed with no work). If nothing uncovered remains, say so and stop — don't invent.

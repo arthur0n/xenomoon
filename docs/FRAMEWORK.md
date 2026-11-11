@@ -128,7 +128,7 @@ Forge-local (in `.claude/commands/`, run on the trunk by the human, never shippe
 - **/framework-audit → /framework-audit-fix** — score agents/skills/orchestrator across
   quality dimensions into a ledger; apply agreed fixes by finding-id.
 - **/framework-feedback** — distil THIS conversation into ledger findings.
-- **/harvest-sessions** — mine `logs/session-*.ndjson` + recorded human NOs for
+- **/harvest-sessions** — mine the bound project's `.xenomoon/logs/session-*.ndjson` + recorded human NOs for
   recurring friction; append findings to the ledger.
 - **/token-audit → /token-audit-fix** — find agent/LLM turns that could be
   deterministic; apply and record the token delta.

@@ -1,5 +1,5 @@
-// First-boot onboarding kickoff — one-shot. The install leaves `onboarded:false` in
-// .xenomoon.json; the first session to connect (when the bound project already has a Claude
+// First-boot onboarding kickoff — one-shot, per project. The flag lives in the project's
+// `.xenomoon/settings.json` (missing = not onboarded); the first session to connect (when the bound project already has a Claude
 // life) gets ONE injected turn telling the orchestrator to load the `project-onboarding`
 // skill — the UI session has
 // the plugins loaded, so the command exists there with full tooling (forms + the promotions

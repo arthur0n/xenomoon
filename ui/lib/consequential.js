@@ -85,7 +85,7 @@ export const TOP_LEVEL_PUSH_ASK =
  * @param {string | null} agent exact identity ("main" or an agent name), or null where the surface
  *   cannot name it (the PreToolUse hook sees only whether an `agent_id` is present)
  * @param {boolean} isSubagent did a sub-agent raise this call at all
- * @param {"ask" | "allow"} policy `.xenomoon.json` → policy.push
+ * @param {"ask" | "allow"} policy the project's `.xenomoon/settings.json` → policy.push
  * @param {boolean | null} deployReaching does this push land on a deploy branch — null when the
  *   target could not be determined (bare `git push`, unknown refspec), which gates like true
  * @returns {LaneDecision} */

@@ -8,6 +8,11 @@ import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
 import { shq } from "../../lib/shell.js";
 import { projectLogDir } from "../../lib/project-paths.js";
+import {
+  readActionPolicy,
+  readProjectSettings,
+  writeProjectSettings,
+} from "../../lib/project-settings.js";
 import { resolveActiveDomain } from "./domain-resolver.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -258,35 +263,18 @@ export const HERMES_DEFAULT_ROLES = ["researcher", "critic"];
 export const CODEX_DEFAULT_ROLES = ["reviewer"];
 export const KIMI_DEFAULT_ROLES = ["coder"];
 
-/** First-boot onboarding flag — false until the server has injected the /onboard kickoff
- * into a session. Read per call (fresh) so the flip needs no restart.
- * @returns {boolean} true when onboarding was already kicked off (or the field is absent
- * on a pre-flag install — treat legacy installs as onboarded). */
+/** First-boot onboarding flag, per project in `<project>/.xenomoon/settings.json` — false
+ * until the server has injected the /onboard kickoff into a session. Read per call (fresh) so
+ * the flip needs no restart. A missing file reads as not onboarded.
+ * @returns {boolean} */
 export function getOnboarded() {
-  try {
-    const saved = /** @type {{ onboarded?: boolean }} */ (
-      parseJSON(readFileSync(CONFIG_FILE, "utf8"))
-    );
-    return saved.onboarded !== false;
-  } catch {
-    return true;
-  }
+  return readProjectSettings(PROJECT_DIR).onboarded;
 }
 
-/** Flip the onboarded flag (one-shot kickoff guard), preserving every other field. */
+/** Flip the project's onboarded flag (one-shot kickoff guard), preserving every other field.
+ * Best-effort: a failed write just re-offers onboarding next boot. */
 export function markOnboarded() {
-  /** @type {Record<string, unknown>} */
-  let saved = {};
-  try {
-    saved = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8")));
-  } catch {
-    /* absent — nothing to preserve */
-  }
-  try {
-    writeFileSync(CONFIG_FILE, JSON.stringify({ ...saved, onboarded: true }, null, 2) + "\n");
-  } catch {
-    /* best-effort — a failed write just re-offers onboarding next boot */
-  }
+  writeProjectSettings(PROJECT_DIR, { onboarded: true });
 }
 
 /** Effective Hermes config, resolved fresh on every call (env overrides → `.xenomoon.json`
@@ -372,74 +360,17 @@ export function saveHermesConfig(patch) {
  * `costBasis` is auto-detected by codex-check from the login mode (ChatGPT account =
  * "subscription" → zero marginal cost, use freely; API key = "metered" → deliberate).
  * @returns {{ enabled: boolean, roles: string[], costBasis: "subscription" | "metered" }} */
+/** @typedef {import("../../lib/project-settings.js").ActionPolicy} ActionPolicy */
 /**
- * Consequential-action policy, per project, in `.xenomoon.json`.
- *
- * These started as shell hooks. They are judgement calls, not deterministic verifications — "is
- * this dependency worth adding", "is this the moment to publish" — so they belong where the human
- * can actually be asked, and where a project can set its own answer once instead of arguing with a
- * hook every time.
- *
- * `push` does not answer "may an agent publish" — a LANE answers that (see PUSH_AGENT in
- * ui/lib/consequential.js: only the push stage publishes, whatever this says). It answers "does
- * the sanctioned push stage ask a human first". `merge` is the same gate on `gh pr merge` /
- * `issuekit pr merge|promote`. `ask` is the default; `allow` is the per-project opt-in an
- * autonomous pipeline needs, because an unattended run cannot answer a prompt and is refused.
- *
- * KNOWN BOUNDARY, stated rather than implied: this layer governs sessions THIS server drives. A
- * plain `claude` session in the project does not pass through it. The framework accepted that
- * trade deliberately — the alternative was a second copy of each rule in a hook, and two copies of
- * a rule is how they drift.
- *
- * @typedef {{ push?: "ask" | "allow", merge?: "ask" | "allow", dependencies?: "ask" | "allow", branchCreate?: "ask" | "allow", spend?: "ask" | "allow", spendPatterns?: string[], migrationPush?: "ask" | "allow", migrationsPending?: string, codexReview?: "ask" | "allow" }} ActionPolicy
+ * Consequential-action policy, per project, in `<project>/.xenomoon/settings.json` (`policy`).
+ * Judgement calls, not verifications — "is this dependency worth adding", "is this the moment to
+ * publish" — so they live where a human can be asked and a project sets its answer once. A
+ * `policy` block left in the install's `.xenomoon.json` is ignored. Normalisation and the key
+ * semantics: normalizeActionPolicy in ui/lib/project-settings.js.
  * @returns {Required<ActionPolicy>}
  */
 export function getActionPolicy() {
-  /** @type {ActionPolicy} */
-  let saved = {};
-  try {
-    saved =
-      /** @type {{ policy?: ActionPolicy }} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8")))
-        .policy ?? {};
-  } catch {
-    /* absent/invalid — defaults below */
-  }
-  // ASK is the default AND the fallback for anything unrecognised. `.xenomoon.json` is hand-edited,
-  // so a typo, a stale schema value or a boolean must not read as "not ask" and silently switch the
-  // prompt off — only the exact string "allow" allows. Each of these publishes, mutates a lockfile,
-  // or forks history; failing open on a corrupted config is the one direction that cannot be undone.
-  /** @param {unknown} v @returns {"ask" | "allow"} */
-  const mode = (v) => (v === "allow" ? "allow" : "ask");
-  return {
-    push: mode(saved.push),
-    merge: mode(saved.merge),
-    dependencies: mode(saved.dependencies),
-    branchCreate: mode(saved.branchCreate),
-    spend: mode(saved.spend),
-    migrationPush: mode(saved.migrationPush),
-    // Codex review consent (require-codex-consent.sh reads the same key): `ask` is today's
-    // one-prompt-per-review; `allow` lets an unattended run fire reviews — the opt-in an
-    // autonomous "merge when Codex approves" goal needs. A knob, never billing-derived: that
-    // costBasis "subscription" makes `allow` cheap is documentation, not logic.
-    codexReview: mode(saved.codexReview),
-    // The NAME of one of the bound project's own npm scripts, which answers "are there unapplied
-    // migrations?" by its exit code. A name, never a command line: an arbitrary shell string from
-    // config would be executed at push time, before the human sees the prompt, so anything able to
-    // edit this file could run code at a high-trust moment. A script name points at code that lives
-    // in the project's repository and is reviewed like the rest of it.
-    //
-    // INSTALL-LOCAL only, never a pack default — a domain pack is shared code, and letting one
-    // declare this would run it in every project that installs the pack. Whether an unapplied
-    // migration is a hazard at all is a property of THIS project's deployment (who applies
-    // migrations, and when), not of its stack.
-    migrationsPending: typeof saved.migrationsPending === "string" ? saved.migrationsPending : "",
-    // The project's own paid commands. CORE recognises the well-known model endpoints without any
-    // config; what a project's OWN scripts cost is a project fact — no framework can know that an
-    // eval script bills per row. Non-strings are dropped rather than trusted into a matcher.
-    spendPatterns: Array.isArray(saved.spendPatterns)
-      ? saved.spendPatterns.filter((p) => typeof p === "string" && p.length > 0)
-      : [],
-  };
+  return readActionPolicy(PROJECT_DIR);
 }
 
 export function getCodexConfig() {

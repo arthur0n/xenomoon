@@ -13,7 +13,7 @@
 #   main loop + mutating git      → DENY   (dispatch the owning agent; conflicts go to a worktree;
 #                                           push included — the push STAGE publishes, never you)
 #   main loop + merge/promote     → policy (moved to consequential-gate.mjs beside this file: it
-#                                           reads `.xenomoon.json` policy.merge, which a role hook
+#                                           reads the project's policy.merge, which a role hook
 #                                           deliberately cannot — ask by default, allow by opt-in)
 #   main loop + read-only git     → allow  (status/log/diff/show/fetch/ls-remote/rev-parse,
 #                                           `branch`/`worktree list` — investigation IS its job)

@@ -42,6 +42,13 @@ What a change must never weaken:
 - **The framework never writes to your game without a gate.** It reads the game
   in place; materialized per-game files (`tools/`, `library/`) are gitignored and
   regenerated on demand, so the committed game stays pure.
+- **Projects stay separate; a hostile person on the owner's machine is out of scope.** Each
+  project has its own settings (`<project>/.xenomoon/settings.json`: the `onboarded` mark and
+  the approvals), its own client data and its own names, and one project does not reach into
+  another; the framework and what is learned for it are shared. The framework runs locally as
+  the owner, and whoever can write inside a project folder can already write that project's own
+  settings, so code against deliberate symlinks, hard links or races between project folders is
+  not built. Owner, 2026-11-13: "in that point is not attacker."
 - **Secret scanning.** gitleaks scans staged changes pre-commit
   (`.husky/pre-commit`) and the full history in CI
   (`.github/workflows/gitleaks.yml`); config + allowlist in `.gitleaks.toml`.

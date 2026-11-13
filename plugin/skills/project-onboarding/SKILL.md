@@ -51,8 +51,8 @@ in `CLAUDE.md`.
 
 The spend gate (`policy.spend`) always covers the well-known model endpoints; what it CANNOT know
 is which of this project's own scripts spend real money — an image-gen script, an eval that bills
-per row. That list is `policy.spendPatterns` in the install's `.xenomoon.json`, and onboarding is
-where it gets confirmed:
+per row. That list is `policy.spendPatterns` in the bound project's `.xenomoon/settings.json`,
+and onboarding is where it gets confirmed:
 
 1. **Inventory as facts**: `package.json` scripts whose names or files suggest paid calls
    (eval / gen / diagnose / anything invoking a model SDK), and any pre-existing spend-guard hook
@@ -62,10 +62,11 @@ where it gets confirmed:
    DISTINCTIVE substrings (`gen-assets.ts`, `eval:real-vision`) over generic words (`run`, `test`)
    — matching is substring, and a pattern that fires on inspection commands trains reflexive
    approval, which is worse than no gate.
-3. **Write it, foreground and human-gated**: merge `spendPatterns` into the `policy` block of the
-   install's `.xenomoon.json` (the FRAMEWORK dir, not the project — and merge, never rewrite: that
-   file carries other blocks). Already configured → report the current list, change only if the
-   human says so.
+3. **Write it, foreground and human-gated**: set `policy.spendPatterns` in the bound project's
+   `.xenomoon/settings.json` (not the install's `.xenomoon.json`). Read the file first and change
+   that one key only: every other top-level key (such as `onboarded`) and every other key inside
+   `policy` (`push`, `merge`, …) stays exactly as it is — never write a new `policy` object over
+   the old one. Already configured → report the current list, change only if the human says so.
 
 ## Step 2 — the judgement half goes to the product-owner
 

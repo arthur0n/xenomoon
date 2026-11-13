@@ -11,3 +11,12 @@ import path from "node:path";
 export function projectLogDir(projectDir) {
   return path.join(projectDir, ".xenomoon", "logs");
 }
+
+/**
+ * The project's settings file: `<project>/.xenomoon/settings.json`. Joined, never resolved.
+ * @param {string} projectDir
+ * @returns {string}
+ */
+export function projectSettingsFile(projectDir) {
+  return path.join(projectDir, ".xenomoon", "settings.json");
+}

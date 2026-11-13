@@ -28,37 +28,144 @@
 // nuisance, a silent allow is the failure both layers exist to prevent.
 //
 // Matchers are IMPORTED, never restated: ui/lib/consequential.js is the single definition both
-// layers read. Policy is the same `.xenomoon.json` block `getActionPolicy()` reads.
+// layers read. Policy is the SESSION's project's (#84): project-policy.mjs resolves the project
+// from the payload's `cwd` and reads `<project>/.xenomoon/settings.json` through
+// ui/lib/project-settings.js — never the install's `.xenomoon.json`, which one install shares
+// between several projects.
 //
 // Fail-OPEN on its own errors. A guard that wedges every Bash call on its own bug is a worse
 // failure than the one it prevents, and this matches block-destructive-git.sh and both projects'
 // guards.
-import { readFileSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const HERE = path.dirname(fileURLToPath(import.meta.url)); // <plugin>/hooks
-
-/** Where the framework actually is.
- *
- * FIRST the absolute path the installer recorded, because it lives inside the plugin tree and
- * therefore travels with a COPY of it. Deriving the root from the plugin's parent assumes the
- * plugin is loaded where it was built — an install route that copies the directory breaks that
- * silently, and a silent break here means this gate stops existing on the one surface it was
- * written for. Same failure the issuekit path hit, same fix.
- * @returns {string} */
-function frameworkDir() {
+/** The project-policy helper beside this file, loaded so that a missing or broken copy cannot kill
+ * the gate. A STATIC import of it aborted this module before stdin was read: no decision was
+ * printed and the command ran unasked. Shape-checked like consequential.js below; when unusable,
+ * `why` names the cause and the gate judges on shape alone (the blind path needs no framework root).
+ * @returns {Promise<{ helper: typeof import("./project-policy.mjs") | null, why: string }>} */
+async function loadPolicyHelper() {
   try {
-    const recorded = readFileSync(path.join(HERE, "framework-root.generated"), "utf8")
-      .split("\n")[0]
-      .trim();
-    if (recorded) return recorded;
+    const h = await import("./project-policy.mjs");
+    const missing = [
+      ["FRAMEWORK_DIR", typeof h.FRAMEWORK_DIR === "string" && h.FRAMEWORK_DIR.length > 0],
+      ["projectPolicy", typeof h.projectPolicy === "function"],
+    ]
+      .filter(([, ok]) => !ok)
+      .map(([name]) => name);
+    if (missing.length)
+      return {
+        helper: null,
+        why: `plugin/hooks/project-policy.mjs loaded but is missing: ${missing.join(", ")} (version-skewed install)`,
+      };
+    return { helper: h, why: "" };
   } catch {
-    /* not installed through the CLI yet — fall back to the in-place layout */
+    return {
+      helper: null,
+      why: "plugin/hooks/project-policy.mjs could not be loaded (the file is absent, or it failed at load)",
+    };
   }
-  return path.join(HERE, "..", "..");
 }
-const FRAMEWORK_DIR = frameworkDir();
+
+/** The approval keys this gate reads. Each must be exactly "allow" or "ask". */
+const MODE_KEYS = ["push", "merge", "dependencies", "branchCreate", "spend", "migrationPush"];
+/** Every action asks — the gate's OWN fallback, because it is needed precisely when the helper
+ * (which holds the canonical one) is unusable or answered nonsense. */
+const ALL_ASK = Object.freeze({
+  ...Object.fromEntries(MODE_KEYS.map((k) => [k, "ask"])),
+  spendPatterns: /** @type {string[]} */ ([]),
+  migrationsPending: "",
+});
+/** @typedef {{ policy: Record<string, unknown> & { spendPatterns: string[], migrationsPending: string }, projectDir: string, why: string }} PolicyResult */
+
+const INVALID_RESULT =
+  "plugin/hooks/project-policy.mjs returned an invalid result (or failed) for this session";
+
+/** The ONE place the helper's answer is checked. Anything but the exact shape — null, a
+ * non-object, a policy missing or not an object, a mode other than "allow"/"ask", non-string
+ * patterns, a non-string checker or directory — is replaced whole by all-ask with no project: a
+ * missing mode must ask, never skip its question.
+ * @param {unknown} r @returns {PolicyResult} */
+function checkedPolicy(r) {
+  const res = /** @type {{ policy?: unknown, projectDir?: unknown, why?: unknown } | null} */ (r);
+  const p = /** @type {Record<string, unknown> | null} */ (
+    res && typeof res === "object" && res.policy && typeof res.policy === "object"
+      ? res.policy
+      : null
+  );
+  const ok =
+    p !== null &&
+    typeof res?.projectDir === "string" &&
+    MODE_KEYS.every((k) => p[k] === "allow" || p[k] === "ask") &&
+    Array.isArray(p.spendPatterns) &&
+    p.spendPatterns.every((s) => typeof s === "string") &&
+    typeof p.migrationsPending === "string";
+  if (!ok || !res) return { policy: ALL_ASK, projectDir: "", why: INVALID_RESULT };
+  return {
+    policy: /** @type {PolicyResult["policy"]} */ (p),
+    projectDir: /** @type {string} */ (res.projectDir),
+    why: typeof res.why === "string" ? res.why : "",
+  };
+}
+
+/** The helper's answer for this cwd, never a throw or a rejection. Without a helper: all-ask, and
+ * the helper's own failure is the reason.
+ * @param {{ projectPolicy: (cwd: unknown) => unknown } | null} helper @param {string} cwd
+ * @param {string} helperWhy @returns {Promise<PolicyResult>} */
+async function sessionPolicy(helper, cwd, helperWhy) {
+  if (!helper) return { policy: ALL_ASK, projectDir: "", why: helperWhy };
+  try {
+    return checkedPolicy(await helper.projectPolicy(cwd));
+  } catch {
+    return { policy: ALL_ASK, projectDir: "", why: INVALID_RESULT };
+  }
+}
+
+const MATCHER_EXPORTS = /** @type {const} */ ([
+  ["PUSH_RE", (/** @type {any} */ x) => x instanceof RegExp],
+  ["MERGE_RE", (/** @type {any} */ x) => x instanceof RegExp],
+  ["BRANCH_CREATE_RE", (/** @type {any} */ x) => x instanceof RegExp],
+  ["pushDecision", (/** @type {any} */ x) => typeof x === "function"],
+  ["mergeDecision", (/** @type {any} */ x) => typeof x === "function"],
+  ["routinePushTarget", (/** @type {any} */ x) => typeof x === "function"],
+  ["mutatesDependencies", (/** @type {any} */ x) => typeof x === "function"],
+  ["spendsMoney", (/** @type {any} */ x) => typeof x === "function"],
+]);
+
+/** The real matchers, LOADED and the right shape. An import that merely succeeds is not enough: a
+ * stale install can hold a consequential.js that predates one of these exports, and calling it
+ * would throw mid-decision. The root is the helper's recorded one; only when the helper is
+ * unusable is the in-place layout (`<plugin>/hooks/../..`) tried, as a last attempt, so a broken
+ * helper does not throw the real classifiers away. A copied plugin fails that import (or the
+ * shape check) and goes blind, exactly as before.
+ * @param {{ FRAMEWORK_DIR: string } | null} helper @param {string} helperWhy
+ * @returns {Promise<{ m: any, root: string, why: string }>} */
+async function loadMatchers(helper, helperWhy) {
+  const root = helper
+    ? helper.FRAMEWORK_DIR
+    : path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+  let mod;
+  try {
+    mod = await import(path.join(root, "ui", "lib", "consequential.js"));
+  } catch {
+    // The path is deliberately RELATIVE: this string lands in approval prompts that get pasted
+    // into issues, and an absolute one carries the operator's username for no diagnostic gain.
+    return {
+      m: null,
+      root,
+      why:
+        helperWhy ||
+        "ui/lib/consequential.js could not be loaded at all (wrong framework root, or the file is absent)",
+    };
+  }
+  const missing = MATCHER_EXPORTS.filter(([name, ok]) => !ok(mod[name])).map(([name]) => name);
+  if (missing.length) {
+    const skew = `ui/lib/consequential.js loaded but is missing: ${missing.join(", ")} (version-skewed install)`;
+    return { m: null, root, why: helperWhy ? `${helperWhy}; ${skew}` : skew };
+  }
+  return { m: mod, root, why: helperWhy };
+}
 
 // Last-resort tripwires for when the real matchers cannot be loaded. Deliberately CRUDE and
 // deliberately not classifiers: their only job is to notice that something consequential-SHAPED
@@ -68,7 +175,8 @@ const FRAMEWORK_DIR = frameworkDir();
 // would block the sanctioned stage on exactly the degraded installs where a human is watching
 // anyway. The deps deny stays a deny: it names no lane, it is the same for every worker.
 const BLIND_PUSH_RE = /\bgit\s+([^&|;]*\s)?push\b/;
-const BLIND_MERGE_RE = /\bgh\s+pr\s+merge\b|\bissuekit(\.js)?\s+(pr\s+merge|promote)\b/;
+const BLIND_MERGE_RE =
+  /\bgh\s+pr\s+merge\b|\bissuekit(\.js)?\s+(pr\s+merge\b|promote\b|branch\s+prune\s+[^&|;]*--apply\b)/;
 const BLIND_DEPS_RE =
   /\b(npm|pnpm|yarn|bun)\s+([^&|;]*\s)?(add|install|i|remove|uninstall|rm|update|upgrade|up|dedupe)\b/;
 const BLIND_BRANCH_RE = /\bgit\s+(-C\s+\S+\s+)?(branch|worktree)\b|\bgit\s+(checkout|switch)\s+-/;
@@ -103,53 +211,53 @@ const deny = (reason) => emit("deny", reason);
  * deciding on the first match let a human approve a prompt about one consequence while a second
  * one rode along unnamed. Denials win outright; nothing runs, so the questions are moot.
  * Returns only when there was nothing to say.
- * @param {string[]} denials @param {string[]} questions */
-function decide(denials, questions) {
+ * `note`, when given, is appended to the question (never counted as one).
+ * @param {string[]} denials @param {string[]} questions @param {string} [note] */
+function decide(denials, questions, note = "") {
   if (denials.length) deny(denials.join("\n\n"));
-  if (questions.length === 1) ask(questions[0] ?? "");
+  const tail = note ? `\n\n${note}` : "";
+  if (questions.length === 1) ask((questions[0] ?? "") + tail);
   if (questions.length > 1)
     ask(
       `This ONE command does ${questions.length} consequential things — approving it approves all of them:\n\n` +
-        questions.map((q) => `• ${q}`).join("\n\n"),
+        questions.map((q) => `• ${q}`).join("\n\n") +
+        tail,
     );
 }
 
-/** The policy block, read exactly as config.js reads it — ASK is the default AND the fallback, and
- * only the literal "allow" allows. A typo or a stale value must never silently switch a prompt off.
- * @returns {{ push: string, merge: string, dependencies: string, branchCreate: string, spend: string, spendPatterns: string[], migrationPush: string, migrationsPending: string, projectDir: string }} */
-function policy() {
-  /** @type {Record<string, unknown>} */
-  let saved = {};
-  /** The bound project — where a migration checker has to run. */
-  let projectDir = "";
-  try {
-    const raw = /** @type {unknown} */ (
-      JSON.parse(readFileSync(path.join(FRAMEWORK_DIR, ".xenomoon.json"), "utf8"))
+/** Judging on shape alone: the real matchers could not be loaded. Returns only when silent.
+ * @param {string} cmd @param {boolean} isSubagent @param {string} why */
+function blindDecide(cmd, isSubagent, why) {
+  const blind = `The consequential-action gate is judging on shape alone: ${why}. Reinstall the framework.`;
+  /** @type {string[]} */ const blindDenials = [];
+  /** @type {string[]} */ const blindQuestions = [];
+  const pushShaped = BLIND_PUSH_RE.test(cmd);
+  const depsShaped = BLIND_DEPS_RE.test(cmd);
+  const mergeShaped = BLIND_MERGE_RE.test(cmd);
+
+  if (isSubagent && depsShaped)
+    blindDenials.push(
+      `Agents never add, remove or re-pin packages. ${blind} A dependency-shaped command from a worker is refused.`,
     );
-    const cfg = /** @type {{ policy?: Record<string, unknown>, projectDir?: unknown }} */ (raw);
-    saved = cfg.policy ?? {};
-    if (typeof cfg.projectDir === "string") projectDir = cfg.projectDir;
-  } catch {
-    /* absent or unreadable — every action falls back to ask below */
-  }
-  const mode = (/** @type {unknown} */ v) => (v === "allow" ? "allow" : "ask");
-  const patterns = saved["spendPatterns"];
-  return {
-    push: mode(saved["push"]),
-    merge: mode(saved["merge"]),
-    dependencies: mode(saved["dependencies"]),
-    branchCreate: mode(saved["branchCreate"]),
-    spend: mode(saved["spend"]),
-    migrationPush: mode(saved["migrationPush"]),
-    // INSTALL-LOCAL only — no pack default. See config.js: a pack declaring this would run its
-    // shell in every project that installs it, at push time.
-    migrationsPending:
-      typeof saved["migrationsPending"] === "string" ? saved["migrationsPending"] : "",
-    projectDir,
-    spendPatterns: Array.isArray(patterns)
-      ? patterns.filter((p) => typeof p === "string" && p.length > 0)
-      : [],
-  };
+  if (isSubagent && mergeShaped)
+    blindDenials.push(
+      `Merging and promoting are the orchestrator's plumbing, never a worker's. ${blind} A merge-shaped command from a worker is refused.`,
+    );
+
+  if (BLIND_SPEND_RE.test(cmd))
+    blindQuestions.push(
+      `This calls a metered API endpoint and SPENDS real credits. ${blind} Confirm the scope before approving.`,
+    );
+  if (pushShaped)
+    blindQuestions.push(
+      `This looks like a push. The push lane is \`senior-analyst\` running \`push-method\`; every other lane reports ready-to-push instead of pushing. ${blind} Approve only if that lane is what is running.`,
+    );
+  if (!isSubagent && mergeShaped) blindQuestions.push(`This looks like a merge/promote. ${blind}`);
+  if (!isSubagent && depsShaped)
+    blindQuestions.push(`This looks like a dependency change. ${blind}`);
+  if (BLIND_BRANCH_RE.test(cmd)) blindQuestions.push(`This looks like a branch creation. ${blind}`);
+
+  decide(blindDenials, blindQuestions);
 }
 
 let input = "";
@@ -159,11 +267,18 @@ process.stdin.on("end", () => {
   void (async () => {
     let cmd = "";
     let isSubagent = false;
+    /** @type {unknown} the session's folder — it, not the install, names the project */
+    let cwd;
     try {
-      const payload = /** @type {{ tool_input?: { command?: string }, agent_id?: string }} */ (
-        JSON.parse(input)
-      );
+      const payload =
+        /** @type {{ tool_input?: { command?: string }, agent_id?: string, cwd?: unknown }} */ (
+          JSON.parse(input)
+        );
       cmd = payload.tool_input?.command;
+      // Only a JSON string names a folder; anything else is "no project" → every action asks.
+      // A NUL cannot be part of a real path, and a C-string API would cut the value at it — the
+      // cut prefix could name a real project that allows. It is "no project" too.
+      cwd = typeof payload.cwd === "string" && !payload.cwd.includes("\0") ? payload.cwd : "";
       // The ROLE rules below are the layer's, and they must hold on this surface too — this is the
       // surface with no layer behind it. Reading agent_id here is not the sub-agent EXEMPTION the
       // role gate beside this file applies; it is the opposite, the thing that keeps a worker's
@@ -174,80 +289,19 @@ process.stdin.on("end", () => {
     }
     if (typeof cmd !== "string" || !cmd) process.exit(0);
 
-    // LOADED, and the right shape. An import that merely succeeds is not enough: a stale install can
-    // hold a consequential.js that predates one of these exports, in which case calling it throws
-    // mid-decision and the hook dies instead of deciding — the worst outcome for the one gate that
-    // exists to cover stale installs. Shape-checked, and anything unexpected routes to the blind
-    // classifier below, which is exactly what that path is for.
-    let m = null;
     // The reason is tracked, not just the failure. "Unreachable" and "loaded but missing an export"
-    // are different repairs — one is a path problem, the other a version-skewed hook/module pair —
-    // and reporting both as unreachable sends an operator hunting the filesystem while the real
-    // cause is stale contents.
-    let why = "";
-    const modulePath = path.join(FRAMEWORK_DIR, "ui", "lib", "consequential.js");
-    try {
-      const mod = await import(modulePath);
-      const missing = [
-        ["PUSH_RE", mod.PUSH_RE instanceof RegExp],
-        ["MERGE_RE", mod.MERGE_RE instanceof RegExp],
-        ["BRANCH_CREATE_RE", mod.BRANCH_CREATE_RE instanceof RegExp],
-        ["pushDecision", typeof mod.pushDecision === "function"],
-        ["mergeDecision", typeof mod.mergeDecision === "function"],
-        ["routinePushTarget", typeof mod.routinePushTarget === "function"],
-        ["mutatesDependencies", typeof mod.mutatesDependencies === "function"],
-        ["spendsMoney", typeof mod.spendsMoney === "function"],
-      ]
-        .filter(([, ok]) => !ok)
-        .map(([name]) => name);
-      // The path is deliberately RELATIVE. This string lands in an approval prompt that gets
-      // screenshotted and pasted into issues, and an absolute one carries the operator's username
-      // and workspace layout for no diagnostic gain — the failure CLASS is what tells them what to
-      // repair.
-      if (missing.length)
-        why = `ui/lib/consequential.js loaded but is missing: ${missing.join(", ")} (version-skewed install)`;
-      else m = mod;
-    } catch {
-      why =
-        "ui/lib/consequential.js could not be loaded at all (wrong framework root, or the file is absent)";
-    }
-
+    // are different repairs — one is a path problem, the other a version-skewed hook/module pair.
+    const { helper, why: helperWhy } = await loadPolicyHelper();
+    const { m, root: FRAMEWORK_DIR, why } = await loadMatchers(helper, helperWhy);
     if (!m) {
-      const blind = `The consequential-action gate is judging on shape alone: ${why}. Reinstall the framework.`;
-      /** @type {string[]} */ const blindDenials = [];
-      /** @type {string[]} */ const blindQuestions = [];
-      const pushShaped = BLIND_PUSH_RE.test(cmd);
-      const depsShaped = BLIND_DEPS_RE.test(cmd);
-
-      if (isSubagent && depsShaped)
-        blindDenials.push(
-          `Agents never add, remove or re-pin packages. ${blind} A dependency-shaped command from a worker is refused.`,
-        );
-      if (isSubagent && BLIND_MERGE_RE.test(cmd))
-        blindDenials.push(
-          `Merging and promoting are the orchestrator's plumbing, never a worker's. ${blind} A merge-shaped command from a worker is refused.`,
-        );
-
-      if (BLIND_SPEND_RE.test(cmd))
-        blindQuestions.push(
-          `This calls a metered API endpoint and SPENDS real credits. ${blind} Confirm the scope before approving.`,
-        );
-      if (pushShaped)
-        blindQuestions.push(
-          `This looks like a push. The push lane is \`senior-analyst\` running \`push-method\`; every other lane reports ready-to-push instead of pushing. ${blind} Approve only if that lane is what is running.`,
-        );
-      if (!isSubagent && BLIND_MERGE_RE.test(cmd))
-        blindQuestions.push(`This looks like a merge/promote. ${blind}`);
-      if (!isSubagent && depsShaped)
-        blindQuestions.push(`This looks like a dependency change. ${blind}`);
-      if (BLIND_BRANCH_RE.test(cmd))
-        blindQuestions.push(`This looks like a branch creation. ${blind}`);
-
-      decide(blindDenials, blindQuestions);
+      blindDecide(cmd, isSubagent, why);
       process.exit(0);
     }
 
-    const p = policy();
+    // The session's project and its policy, checked in ONE place. No project found, the shared
+    // settings module unusable, the helper unusable, throwing or answering nonsense → every action
+    // asks; `noProject` names the cause and rides along on the question.
+    const { policy: p, projectDir, why: noProject } = await sessionPolicy(helper, cwd, why);
 
     // Classify EVERYTHING before deciding. Returning on the first match meant a command like
     // `curl <metered endpoint> && git checkout -b x` asked only about the spend, and approving that
@@ -266,7 +320,7 @@ process.stdin.on("end", () => {
     try {
       const bd = await import(path.join(FRAMEWORK_DIR, "ui", "lib", "branch-doctrine.js"));
       if (typeof bd.readBranchModel === "function") {
-        const doctrine = bd.readBranchModel(p.projectDir);
+        const doctrine = bd.readBranchModel(projectDir);
         if (doctrine && typeof doctrine.prod === "string" && doctrine.prod) prod = doctrine.prod;
         if (typeof bd.branchCreationRoutine === "function")
           branchesRoutine = bd.branchCreationRoutine(doctrine) === true;
@@ -307,23 +361,23 @@ process.stdin.on("end", () => {
         // tree would answer confidently about a repository that has no migrations. Say so instead.
         const cwdOk = (() => {
           try {
-            return statSync(p.projectDir).isDirectory();
+            return statSync(projectDir).isDirectory();
           } catch {
             return false;
           }
         })();
         if (!cwdOk)
           questions.push(
-            "A migration check is configured but the bound project directory could not be resolved, " +
-              "so nobody has verified whether this push ships code ahead of its schema. Fix " +
-              "`projectDir` in .xenomoon.json.",
+            "A migration check is configured but the project directory could not be resolved " +
+              `(${noProject || "it is not a directory"}), so nobody has verified whether this push ` +
+              "ships code ahead of its schema.",
           );
         // Only with a VALID directory. existsSync says yes to a file, and a cwd that is not a
         // directory makes execSync throw before the checker runs — which this module reads as "no
         // verdict", so a broken binding would have looked exactly like a clean bill of health.
         const result =
           cwdOk && typeof checker === "function"
-            ? checker(p.migrationsPending, p.projectDir)
+            ? checker(p.migrationsPending, projectDir)
             : {
                 state: /** @type {const} */ ("broken"),
                 detail: cwdOk ? "its checker module could not be loaded" : "",
@@ -384,7 +438,8 @@ process.stdin.on("end", () => {
           "Listing, switching to an existing branch and deleting are untouched.",
       );
 
-    decide(denials, questions);
+    // Why every action asked, when it did for a reason other than the project's own choice.
+    decide(denials, questions, noProject && `Every action asks here: ${noProject}.`);
 
     process.exit(0);
   })();

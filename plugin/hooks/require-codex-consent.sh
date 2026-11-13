@@ -6,8 +6,12 @@
 # session with zero consent). Mechanism over prose: nobody offers in chat, nobody asks
 # twice — dispatching the review raises this one prompt, the human clicks, done.
 #
-# POLICY-AWARE (2026-08-21): `.xenomoon.json` policy.codexReview governs the prompt.
-#   ask   (default, and the fallback on ANY read error) → this prompt, exactly as before.
+# POLICY-AWARE (2026-08-21; per project since #84): the SESSION's project's policy.codexReview,
+# in `<project>/.xenomoon/settings.json`, governs the prompt. The project is resolved from the
+# payload's `cwd` by project-policy.mjs (beside this file) through ui/lib/project-settings.js —
+# the same resolution consequential-gate.mjs uses, never a second walk-up in bash, and never
+# the install's `.xenomoon.json`, which one install shares between several projects.
+#   ask   (default, and the fallback on ANY failure) → this prompt, exactly as before.
 #   allow (the literal string, per-project opt-in)      → the hook stays silent and the
 #         review runs — what an unattended run needs, since a backgrounded/headless
 #         caller has no approver and the SDK auto-denies the ask. The opt-in is a human
@@ -22,17 +26,28 @@
 # Ignores: companion status/result/cancel (they spend nothing), `codex login|logout`,
 #          `codex --version|--help`, `codex app-server` (the companion's own child),
 #          and all non-Codex commands.
-cmd="$(jq -r '.tool_input.command // empty' 2>/dev/null)"
+payload="$(cat)" # stdin is read ONCE; the command and the cwd both come from this copy
+cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 if printf '%s' "$cmd" | grep -q 'codex-companion\.mjs' &&
   printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]-])(adversarial-)?review([[:space:]]|"|$)'; then
-  # The framework root travels with the plugin (framework-root.generated, written at install) —
-  # same resolution consequential-gate.mjs uses. Fail toward ASK: an unreadable root, config or
-  # key is today's behavior, never a silent allow.
-  root="$(head -n1 "$(dirname "$0")/framework-root.generated" 2>/dev/null | tr -d '[:space:]')"
+  # Fail toward ASK: no cwd, no node, no framework root, an import error or an unreadable
+  # settings file all leave mode empty or "ask" — never a silent allow.
+  # Only a JSON STRING is a cwd: `jq -r` prints a number or an object as text, so the type is
+  # checked in jq. `-j` and the trailing `x` keep the value byte-exact (command substitution strips
+  # trailing newlines). `--` ends node's own options, and the cwd is one quoted argument after the
+  # script, so whatever it holds (`-e`, `--eval=…`, spaces, quotes) reaches the script as data.
+  # A missing node, a non-zero exit or any output but `allow` asks.
+  # A cwd holding a NUL (`\u0000`) is no project: bash cannot carry the byte, so command
+  # substitution drops it and `/proj/a\u0000` would arrive as `/proj/a`, a real project. It is
+  # rejected in jq, by codepoint (`explode`), before it reaches the shell.
+  cwd="$(printf '%s' "$payload" | jq -j 'if (.cwd | type) == "string" and (.cwd | explode | any(. == 0) | not) then .cwd else empty end' 2>/dev/null; printf x)"
+  cwd="${cwd%x}"
   mode=""
-  [ -n "$root" ] && mode="$(jq -r '.policy.codexReview // empty' "$root/.xenomoon.json" 2>/dev/null)"
+  if [ -n "$cwd" ]; then
+    mode="$(node -- "$(dirname "$0")/project-policy.mjs" codexReview "$cwd" 2>/dev/null)" || mode=""
+  fi
   [ "$mode" = "allow" ] && exit 0
-  printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"Codex review runs on external OpenAI billing and takes real time. This prompt IS the consent gate — approve to run this one review. One review round per slice is the default; further rounds should come back through this prompt, never fire silently. (Per-project opt-out: policy.codexReview: allow in .xenomoon.json.)"}}'
+  printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"Codex review runs on external OpenAI billing and takes real time. This prompt IS the consent gate — approve to run this one review. One review round per slice is the default; further rounds should come back through this prompt, never fire silently. (Per-project opt-out: policy.codexReview: allow in <project>/.xenomoon/settings.json.)"}}'
   exit 0
 fi
 # Companion `task` — same billing, no template, and the verb reviews hid behind (codex-rescue

@@ -191,6 +191,36 @@ try {
     });
   });
 
+  // #84: the onboarded flag and the approvals policy are per PROJECT, seeded into its own
+  // .xenomoon/settings.json; the install's .xenomoon.json carries neither (nor branchModel).
+  const settingsFile = path.join(project, ".xenomoon", "settings.json");
+  const MODES = ["push", "merge", "dependencies", "branchCreate", "spend", "codexReview"];
+
+  check(
+    "install seeds the project's .xenomoon/settings.json: not onboarded, all-ask policy",
+    () => {
+      assert.ok(existsSync(settingsFile), ".xenomoon/settings.json must be seeded in the project");
+      const s = /** @type {{ onboarded?: unknown, policy?: Record<string, unknown> }} */ (
+        parseJSON(readFileSync(settingsFile, "utf8"))
+      );
+      assert.equal(s.onboarded, false, "onboarded must be seeded false");
+      for (const k of MODES) assert.equal(s.policy?.[k], "ask", `policy.${k} must be "ask"`);
+    },
+  );
+
+  check(
+    "the install's .xenomoon.json carries no onboarded/policy/branchModel, keeps domain+port",
+    () => {
+      const cfg = /** @type {Record<string, unknown>} */ (
+        parseJSON(readFileSync(path.join(fw, ".xenomoon.json"), "utf8"))
+      );
+      for (const k of ["onboarded", "policy", "branchModel"])
+        assert.ok(!Object.hasOwn(cfg, k), `framework .xenomoon.json must not hold "${k}"`);
+      assert.equal(cfg.domain, "webapp", "domain must stay");
+      assert.equal(typeof cfg.port, "number", "port must stay");
+    },
+  );
+
   console.log(`\nonboarding: ${passed} checks passed.`);
 } finally {
   rmSync(work, { recursive: true, force: true });

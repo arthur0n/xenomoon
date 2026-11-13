@@ -32,6 +32,7 @@ import { installCapabilities } from "./install-capabilities.js";
 import { ensureIgnores } from "../core/project-side.js";
 import { deploysOnPush, order, promptOpts, workspaceBranchFacts } from "./branch-model.js";
 import { loadWorkspace } from "../../lib/workspace.js";
+import { hasProjectSetting, writeProjectSettings } from "../../lib/project-settings.js";
 import { pickList } from "./picklist.js";
 import { detect as detectDomain, order as orderDomains, summarize } from "./domain-pick.js";
 import { DEFAULT_PORT, savedPort, otherInstallPorts, firstFreePort } from "./port-pick.js";
@@ -70,7 +71,7 @@ if (portFlag !== null && !/^\d+$/.test(portFlag)) {
 // each asked ONLY when its value is missing — scripted/CI invocations that pass flags stay
 // byte-identical): project folder → domain → port (empty = default) → hermes/codex/kimi.
 // The AI half of onboarding happens in the FIRST UI SESSION: the server sees the
-// `onboarded:false` flag (written below) and kicks off onboarding there — full tooling,
+// project's `onboarded:false` flag (written below, in <project>/.xenomoon/settings.json) and kicks off onboarding there — full tooling,
 // no terminal plugin install needed.
 const interactive = process.stdin.isTTY && process.stdout.isTTY;
 const rl = interactive
@@ -253,7 +254,7 @@ if (!portAnswer && rl) {
 portAnswer ??= String(suggestedPort);
 // Branch model — the project's branch & merge convention, decided by the human here and
 // re-confirmable during onboarding. Written to <project>/.xenomoon/branch-model (the runtime
-// source every session reads); the .xenomoon.json copy is provenance only. The options and
+// source every session reads); the install's .xenomoon.json gets no copy (#84). The options and
 // their ordering live in ./branch-model.js — asked as a picklist, ordered by what the PROJECT
 // does, because "land directly on main" is the wrong default on a repo that deploys from it.
 const { branch: defaultBranch, deployWorkflows } = branchFacts(target);
@@ -287,19 +288,11 @@ if (!rl)
 // script costs is a fact only its human has, and 2026-07-14 proved what an unasked one costs (a
 // prepay balance drained in one session). Asked here because setup is the one moment guaranteed
 // to happen per project; onboarding re-confirms it on projects with an existing Claude life.
-// Fresh installs only — an existing policy block is the human's, edited by hand, never re-asked.
+// Fresh projects only — an existing policy block in the PROJECT's .xenomoon/settings.json is the
+// human's, edited by hand, never re-asked (#84: the install's .xenomoon.json no longer counts).
 /** @type {string[]} */
 let spendPatterns = [];
-const hasPolicyBlock = (() => {
-  try {
-    const cfg = /** @type {{ policy?: unknown }} */ (
-      parseJSON(readFileSync(path.join(FRAMEWORK_DIR, ".xenomoon.json"), "utf8"))
-    );
-    return cfg.policy !== undefined;
-  } catch {
-    return false;
-  }
-})();
+const hasPolicyBlock = hasProjectSetting(target, "policy");
 if (rl && !hasPolicyBlock) {
   const spendAnswer = (
     await rl.question(
@@ -468,7 +461,6 @@ if (!DOMAIN.materializeIntoProject) {
       {
         ...cfg,
         domain: domainName,
-        branchModel,
         // ALWAYS written. An absent port is not "the default" — it is two installs silently
         // resolving to the same one, and the server that starts first serving the other's UI.
         port: Number(portAnswer),
@@ -511,26 +503,19 @@ if (rl) {
 // 6. First-boot flag: the SERVER kicks off onboarding in the first UI session (the session
 //    has the plugin loaded, so the command exists with full tooling — forms + board). Only
 //    set on a fresh install; a re-install of an already-onboarded project keeps its flag.
+//    Both live in the PROJECT's .xenomoon/settings.json (#84), never the install's .xenomoon.json.
 //    The consequential-action policy block is seeded here too, create-only: the knobs exist
-//    whether or not this writes them (config.js defaults every absent key to "ask"), but an
-//    invisible knob is an undiscoverable one — the 2026-08 live test parked for days on gates
-//    whose `allow` opt-in nothing had ever surfaced. Only the literal "allow" allows; `ask`
+//    whether or not this writes them (normalizeActionPolicy defaults every absent key to "ask"),
+//    but an invisible knob is an undiscoverable one — the 2026-08 live test parked for days on
+//    gates whose `allow` opt-in nothing had ever surfaced. Only the literal "allow" allows; `ask`
 //    prompts a human, and an AUTONOMOUS run cannot answer a prompt, so a goal that orders a
 //    deploy-reaching push/merge (or an unattended Codex review) needs its key set to "allow".
 {
-  const cfgFile = path.join(FRAMEWORK_DIR, ".xenomoon.json");
   /** @type {Record<string, unknown>} */
-  let cfg = {};
-  try {
-    cfg = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(cfgFile, "utf8")));
-  } catch {
-    /* absent — fresh */
-  }
-  /** @type {Record<string, unknown>} */
-  const next = { ...cfg };
-  if (next.onboarded === undefined) next.onboarded = false;
-  if (next.policy === undefined)
-    next.policy = {
+  const seed = {};
+  if (!hasProjectSetting(target, "onboarded")) seed.onboarded = false;
+  if (!hasPolicyBlock)
+    seed.policy = {
       push: "ask",
       merge: "ask",
       dependencies: "ask",
@@ -539,9 +524,7 @@ if (rl) {
       spendPatterns,
       codexReview: "ask",
     };
-  if (next.onboarded !== cfg.onboarded || next.policy !== cfg.policy) {
-    writeFileSync(cfgFile, JSON.stringify(next, null, 2) + "\n");
-  }
+  if (Object.keys(seed).length > 0) writeProjectSettings(target, seed);
 }
 rl?.close();
 

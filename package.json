@@ -50,7 +50,7 @@
     "ws": "^8.18.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

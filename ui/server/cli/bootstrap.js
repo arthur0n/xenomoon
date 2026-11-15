@@ -172,10 +172,12 @@ if (target.reuse) {
   console.log(`No "${domain}" install is registered — creating it at ${dest}.`);
   mkdirSync(dest, { recursive: true });
   // Hard timeouts + one retry: a stalled connection must never wedge the install.
-  const fetchOnce = () => {
+  // The retry clones over HTTP/1.1: an HTTP/2 pack download was seen to stall for minutes where
+  // the same clone over HTTP/1.1 finished (#65, 2026-11-15).
+  const fetchOnce = (/** @type {string[]} */ gitOptions = []) => {
     if (has("git")) {
       console.log(`Cloning into ${dest} …`);
-      execFileSync("git", ["clone", "--depth", "1", REPO, dest], {
+      execFileSync("git", [...gitOptions, "clone", "--depth", "1", REPO, dest], {
         stdio: "inherit",
         timeout: 180_000,
       });
@@ -189,10 +191,10 @@ if (target.reuse) {
   try {
     fetchOnce();
   } catch {
-    console.warn("Fetch stalled/failed — clearing and retrying once …");
+    console.warn("Fetch stalled/failed — clearing and retrying once, over HTTP/1.1 …");
     rmSync(dest, { recursive: true, force: true });
     mkdirSync(dest, { recursive: true });
-    fetchOnce(); // a second failure throws loudly — network is genuinely down
+    fetchOnce(["-c", "http.version=HTTP/1.1"]); // a second failure throws loudly — network is genuinely down
   }
 }
 

@@ -47,15 +47,15 @@ function countDirs(dir) {
   }
 }
 
-/** The engines.node floor from package.json, e.g. ">=18". @returns {string} */
+/** The engines.node floor from package.json, e.g. ">=24". @returns {string} */
 function enginesNode() {
   try {
     const pkg = /** @type {{ engines?: { node?: string } }} */ (
       parseJSON(readFileSync(path.join(FRAMEWORK_DIR, "package.json"), "utf8"))
     );
-    return pkg.engines?.node ?? ">=18";
+    return pkg.engines?.node ?? ">=24";
   } catch {
-    return ">=18";
+    return ">=24";
   }
 }
 
@@ -64,7 +64,7 @@ function nodeOk() {
   const major = enginesNode()
     .replace(/[^0-9.]/g, "")
     .split(".")[0];
-  const floor = major ? Number(major) : 18;
+  const floor = major ? Number(major) : 24;
   return Number(process.versions.node.split(".")[0]) >= floor;
 }
 
@@ -160,7 +160,9 @@ function findUp(dir, name) {
  * @param {string} name @returns {string | null} */
 function resolveCommand(name) {
   try {
-    const found = execFileSync("command", ["-v", name], { encoding: "utf8", shell: true }).trim();
+    const found = execFileSync("sh", ["-c", 'command -v "$1"', "sh", name], {
+      encoding: "utf8",
+    }).trim();
     return found ? realpathSync(found) : null;
   } catch {
     return null;

@@ -307,9 +307,12 @@ test("probe: no webapp install registered → clones into <cwd>/webapp-xm (stub 
   const r = runBootstrap(box, ["app", "--domain=webapp"]);
   assert.notEqual(r.status, 0);
   const calls = readFileSync(box.gitLog, "utf8").trim().split("\n");
-  assert.ok(calls.length >= 1);
-  for (const c of calls)
-    assert.match(c, new RegExp(`^clone .* ${path.join(realpathSync(box.root), "webapp-xm")}$`));
+  const dest = path.join(realpathSync(box.root), "webapp-xm");
+  // The first attempt is a plain clone; the one retry clones over HTTP/1.1.
+  assert.deepEqual(calls, [
+    `clone --depth 1 https://github.com/arthur0n/xenomoon.git ${dest}`,
+    `-c http.version=HTTP/1.1 clone --depth 1 https://github.com/arthur0n/xenomoon.git ${dest}`,
+  ]);
 });
 
 test("probe: `xenomoon install --install=<path>` reaches that install — no registry, no clone", () => {

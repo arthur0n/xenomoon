@@ -8,6 +8,8 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { REGISTRY_FILE, isInstallDir, parseRegistry } from "../../cli/install-registry.js";
 import { projectsOf, readProfiles } from "../../cli/profiles.js";
+import { installedDomain } from "../../cli/project-entry.js";
+import { parseJSON } from "../../../lib/json.js";
 
 /** @typedef {import("../../cli/profiles.js").ProjectEntry} ProjectEntry */
 
@@ -79,6 +81,16 @@ export function buildRows(projects) {
 function readFailure(err) {
   const e = /** @type {{ code?: unknown, message?: unknown }} */ (err);
   return String(e?.code ?? e?.message ?? err);
+}
+
+/** The domain an install file says is installed (one install carries one domain), or null.
+ * @param {string} text @returns {string | null} */
+function installDomain(text) {
+  try {
+    return installedDomain(/** @type {Record<string, unknown>} */ (parseJSON(text)));
+  } catch {
+    return null;
+  }
 }
 
 /** A loader whose `load()` re-reads the registry and every install's projects map.
@@ -165,9 +177,11 @@ export function makeRowLoader({
     );
     const goodText = good.text;
     if (typeof goodText !== "string") return [];
+    // A project entry names a domain only when it differs from the install's; else the install's.
+    const ofInstall = installDomain(goodText);
     return projectsOf(install, { readFile: () => goodText }).map((entry) => ({
       ...entry,
-      domain: good.projects?.[entry.name]?.domain ?? null,
+      domain: good.projects?.[entry.name]?.domain ?? ofInstall,
       ...(stale ? { stale } : {}),
     }));
   }

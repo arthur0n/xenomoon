@@ -42,7 +42,7 @@ export function prepareProject({ target, domainName, DOMAIN, branchModel, framew
     console.log(`new: locked ${target} to domain "${domainName}" (${PROJECT_LOCK_FILE}).`);
   } else {
     console.log(
-      `new: domain "${domainName}" writes nothing into ${target} — bound via the framework's .xenomoon.json.`,
+      `new: domain "${domainName}" writes no domain lock into ${target} — the domain is remembered in the framework's .xenomoon.json.`,
     );
   }
 

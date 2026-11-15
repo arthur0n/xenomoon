@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-const { statusPayload, statusEnv } = await import("./status.js");
+const { statusPayload, statusEnv, statusName } = await import("./status.js");
 const { projectName } = await import("./project-state.js");
 
 /** @typedef {import("./status.js").StatusSession} StatusSession */
@@ -129,4 +129,23 @@ test("projectName reads package.json name, else falls back to the dir basename",
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("statusName is the project's name in the install's projects map, else the display name", () => {
+  /** @type {import("../../cli/profiles.js").ProfilesParse} */
+  const profiles = {
+    ok: true,
+    port: null,
+    projectDir: null,
+    projects: { shop: { dir: "/tmp/xm-status-shop", port: 4001 } },
+  };
+  assert.equal(statusName(profiles, "/tmp/xm-status-shop", "/tmp/xm-install", "pkg-name"), "shop");
+  assert.equal(
+    statusName(profiles, "/tmp/xm-status-other", "/tmp/xm-install", "pkg-name"),
+    "pkg-name",
+  );
+  assert.equal(
+    statusName({ ok: false, reason: "bad" }, "/tmp/xm-status-shop", "/tmp/xm-install", "pkg-name"),
+    "pkg-name",
+  );
 });

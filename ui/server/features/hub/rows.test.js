@@ -156,6 +156,32 @@ test("no row stands for the install: the registry value, root projectDir and roo
   );
 });
 
+test("a project entry without a domain takes the install's installed domain", () => {
+  const files = new Map([
+    [REGISTRY, registryText({ "/tmp/install-a": null })],
+    [
+      FILE_A,
+      installText({
+        domain: "webapp",
+        domainDescriptor: { name: "webapp" },
+        projects: {
+          alpha: { dir: "/tmp/project-a", port: 4001 },
+          beta: { dir: "/tmp/project-b", port: 4002, domain: "other" },
+        },
+      }),
+    ],
+  ]);
+  const { rows, errors } = loaderOver(files).load();
+  assert.deepEqual(errors, []);
+  assert.deepEqual(
+    rows.map((r) => [r.name, r.domain]),
+    [
+      ["alpha", "webapp"],
+      ["beta", "other"],
+    ],
+  );
+});
+
 test("an install with zero projects, or no install file, gives no row and no error", () => {
   const files = new Map([
     [REGISTRY, registryText({ "/tmp/install-a": "/tmp/project-a", "/tmp/install-b": null })],

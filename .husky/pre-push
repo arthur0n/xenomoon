@@ -21,9 +21,15 @@ if [ "$remote_name" = "upstream" ]; then
   exit 1
 fi
 
+# git hands the pushed refs on stdin once; both gates below read them, so keep a copy.
+pushed_refs="$(cat)"
+
+# Identity gate: no outgoing commit carries the machine-wide email instead of this repo's own.
+printf '%s\n' "$pushed_refs" | sh scripts/check-commit-identity.sh --push "$remote_name" || exit 1
+
 # Name gate: scan the added lines of every commit being pushed (not just the working tree) for a
-# known project or locally denylisted client name. git hands the refs on stdin, which the
-# check reads. Terms: docs/process/denylist.md.
-node ui/server/cli/check-project-names.js --push || exit 1
+# known project or locally denylisted client name. The check reads the refs from stdin.
+# Terms: docs/process/denylist.md.
+printf '%s\n' "$pushed_refs" | node ui/server/cli/check-project-names.js --push || exit 1
 
 exit 0

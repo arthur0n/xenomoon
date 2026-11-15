@@ -9,6 +9,9 @@ if ! command -v gitleaks >/dev/null 2>&1; then
 fi
 gitleaks git --staged --redact --no-banner || exit 1
 
+# Identity gate: the commit is signed with this repo's own email, never the machine-wide one.
+sh scripts/check-commit-identity.sh --commit || exit 1
+
 # Interactive release prompt — terminal commits only (skipped for non-TTY such
 # as CI or agent commits). Choosing a type bumps package.json and stages a tag
 # that post-commit creates. feat → sub-version (v0.1.X); fix|chore|refactor →

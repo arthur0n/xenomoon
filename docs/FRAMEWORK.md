@@ -23,11 +23,12 @@ palette. Never reintroduce upstream's green alien identity.
 ## Core model — trunk, clones, domains, one plugin tree
 
 - **This repo is the trunk.** It is never bound to a project directly.
-- **One clone per project** (`xm-<name>` convention, e.g. `probius/lexflow-xm`). A clone
-  is a full framework checkout **bound** to an external project via a gitignored
-  `.xenomoon.json` (`projectDir`, baked `domainDescriptor`, worker config).
-- **Domains are install-time pickers only** (`domains/webapp|expoapp`). `forge new
---domain X` COPIES the pack's agents/skills/commands into `plugin/` and bakes the
+- **One install per domain** (`<domain>-xm`, e.g. `webapp-xm`). An install is a full framework
+  checkout that holds **many projects**: its gitignored `.xenomoon.json` carries the `projects` map
+  (name → dir, port), the baked `domainDescriptor` and the worker config. Each project is added with
+  `npm run install-project -- <dir>` and started from the hub (`npm run hub`).
+- **Domains are install-time pickers only** (`domains/webapp|expoapp`). `npm run install-project -- <dir>
+--domain=X` COPIES the pack's agents/skills/commands into `plugin/` and bakes the
   descriptor into `.xenomoon.json`. **Nothing under `domains/` is read at runtime.**
 - **At runtime there is exactly ONE capability tree: `plugin/`.** Every session loads it
   (namespaced `xenomoon:<name>`).
@@ -81,7 +82,7 @@ autonomous,pulse}/`. `ui/lib/` — shared JSDoc typedefs.
   `docs/ROSTER.md` the agent roster doctrine.
 - These top-level directions are stable; don't expect them to move.
 
-## Session model (how work flows in a bound clone)
+## Session model (how work flows in an install)
 
 - The **orchestrator runs the pipeline itself** — stages are its own actions; it
   dispatches agents and never tells the human to run a command; it never implements.
@@ -114,7 +115,7 @@ autonomous,pulse}/`. `ui/lib/` — shared JSDoc typedefs.
 
 The framework is designed to learn — per project and about itself.
 
-Shipped (in `plugin/`, run in bound clones):
+Shipped (in `plugin/`, run in installs):
 
 - **learn / debrief / contribute commands + researcher agent** — turn session outcomes
   into project-local capabilities (`p-*` agents, skills, library records) and queue
@@ -155,8 +156,8 @@ Forge-local (in `.claude/commands/`, run on the trunk by the human, never shippe
 1. Read this file. 2. `git log --oneline -15` for recent direction. 3. If the question
    is architectural: `graphify query "<question>"` when `graphify-out/` exists, else
    `docs/fork/VISION.md` + `docs/fork/SEAMS.md`. 4. For roster/capability questions:
-   `docs/ROSTER.md`, `plugin/docs/process/`. 5. In a bound clone: the project's `CLAUDE.md`
+   `docs/ROSTER.md`, `plugin/docs/process/`. 5. In an install: the project's `CLAUDE.md`
    index + `<project>/.claude/library/`. Only after these, fall back to reading source.
 
-Live reference install (example, may age): `probius/lexflow-xm` — webapp-domain clone
-bound to `probius/lexflow` (React+Vite / Lambda+tRPC+Drizzle study platform).
+Live reference install (example, may age): a `webapp-xm` install holding the webapp-domain
+projects added to it.

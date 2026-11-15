@@ -283,7 +283,7 @@ export async function loadState() {
   renderTab();
 }
 
-/** When the target folder has no bound project, explain how to point the
+/** When the target folder holds no project, explain how to point the
  * framework at one instead of showing silently-empty panels. The framework
  * only reads the project — it stays in your own repo, wherever it lives.
  * @param {import("../../../lib/types.js").ProjectState} s */
@@ -294,7 +294,7 @@ function renderBanner(s) {
     return;
   }
   banner.replaceChildren();
-  banner.append(el("strong", undefined, "No project bound here yet."));
+  banner.append(el("strong", undefined, "No project here yet."));
   banner.append(el("div", "banner-path", `Looking in: ${s.dir.replace(/^\/Users\/[^/]+/, "~")}`));
   banner.append(
     el(
@@ -304,8 +304,14 @@ function renderBanner(s) {
     ),
   );
   const code = el("div", "banner-code");
-  code.append(el("div", undefined, "npm run bind-project-path -- /path/to/your/project"));
-  code.append(el("div", undefined, "# then restart, or one-off: npm start /path/to/your/project"));
+  code.append(el("div", undefined, "npm run install-project -- /path/to/your/project"));
+  code.append(
+    el(
+      "div",
+      undefined,
+      "# in the framework install; then start it from the hub (npm run hub), or one-off: npm start /path/to/your/project",
+    ),
+  );
   banner.append(code);
   banner.style.display = "";
 }

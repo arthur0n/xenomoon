@@ -226,7 +226,7 @@ project except through the researcher → library → promote gate.
 
 ## Step 2 — point Xenomoon at it
 
-**From the UI (recommended):** `npm start` → ⚙ **Settings** →
+**From the UI (recommended):** start the project from the hub (`npm run hub` in the install) → ⚙ **Settings** →
 
 1. Expand "First time?" for these same steps.
 2. Enable Hermes · URL `http://localhost:8642` · Server key = the `API_SERVER_KEY` you invented.

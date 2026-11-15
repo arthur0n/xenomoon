@@ -15,6 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { parseJSON } from "../../lib/json.js";
+import { projectAt, projectsOf, projectsOfInstalls } from "./profiles.js";
 
 /** Registry location. XENOMOON_REGISTRY overrides it so tests and CI never touch a real home. */
 export const REGISTRY_FILE =
@@ -53,15 +54,6 @@ export function findInstallRoot(from) {
     if (up === dir) return null;
     dir = up;
   }
-}
-
-/** True when `child` is `parent` or sits underneath it. Compares resolved paths segment-wise so
- * `/ws/alpha-xm` is NOT treated as living inside `/ws/alpha`.
- * @param {string} parent @param {string} child @returns {boolean} */
-function contains(parent, child) {
-  const p = path.resolve(parent);
-  const c = path.resolve(child);
-  return c === p || c.startsWith(p + path.sep);
 }
 
 /**
@@ -132,14 +124,28 @@ function writeRegistry(installs) {
   }
 }
 
-/** Record (or refresh) an install → project binding. Called wherever the binding is established,
- * so both `xenomoon install` and a direct `npm run install-project` register.
- * @param {string} installDir @param {string|null} [projectDir] */
+/** The registry value an install gets when it registers. The registry lists installs, not
+ * projects (#65): once the install's `projects` map lists a project, the value is null and any
+ * old project string is dropped. An install with no map (made before it existed) keeps its old
+ * value, or takes `projectDir` when one is given, because the name guards still read it.
+ * @param {string|null|undefined} old the current value, undefined when not registered
+ * @param {boolean} hasProjects whether the install's `projects` map lists at least one project
+ * @param {string|null} [projectDir] legacy: the project a caller still passes
+ * @returns {string|null} */
+export function registryValue(old, hasProjects, projectDir = null) {
+  if (hasProjects) return null;
+  if (projectDir) return path.resolve(projectDir);
+  return old ?? null;
+}
+
+/** Record (or refresh) an install. Called by doctor, which `npm run install-project` (new.js)
+ * runs as its last step. The value follows `registryValue`.
+ * @param {string} installDir @param {string|null} [projectDir] legacy, see registryValue */
 export function registerInstall(installDir, projectDir = null) {
   const install = path.resolve(installDir);
   if (!isInstallDir(install)) return;
   const installs = readRegistry();
-  installs[install] = projectDir ? path.resolve(projectDir) : (installs[install] ?? null);
+  installs[install] = registryValue(installs[install], projectsOf(install).length > 0, projectDir);
   writeRegistry(installs);
 }
 
@@ -148,16 +154,26 @@ export function registerInstall(installDir, projectDir = null) {
  * @property {string|null} root      the install a verb should act on; null when ambiguous
  * @property {string} how            short reason, printed so resolution is never invisible
  * @property {Array<[string, string|null]>} [candidates]  install→project, when ambiguous
+ * @property {import("./profiles.js").ProjectEntry} [project]  the project cwd stands in, when
+ *   the install was found through an install's `projects` map
+ */
+
+/**
+ * @typedef {object} ResolveDeps
+ * @property {() => Record<string, string|null>} [registry]  the installs map (keys only matter)
+ * @property {(file: string) => string} [readFile]  reads each install's .xenomoon.json
  */
 
 /** Decide which install a verb acts on. Order: explicit override → the install you are standing
- * in → the registered project you are standing in → the only install on the machine → ambiguous.
+ * in → the project you are standing in, found in each registered install's `projects` map (the
+ * registry VALUE is ignored) → the only install on the machine → ambiguous.
  * Ambiguity is deliberately an ERROR rather than a guess: silently picking the linked install is
  * the exact bug this module exists to kill.
  * @param {string} cwd @param {string} fallbackRoot the CLI's own install (bare npx / no registry)
  * @param {string|null} [override] --install=<path> or XENOMOON_INSTALL
+ * @param {ResolveDeps} [deps]
  * @returns {Resolution} */
-export function resolveInstall(cwd, fallbackRoot, override = null) {
+export function resolveInstall(cwd, fallbackRoot, override = null, deps = {}) {
   if (override) {
     const root = path.resolve(override);
     if (!isInstallDir(root)) return { root: null, how: `not an install: ${root}`, candidates: [] };
@@ -166,14 +182,22 @@ export function resolveInstall(cwd, fallbackRoot, override = null) {
   const inside = findInstallRoot(cwd);
   if (inside) return { root: inside, how: "cwd is inside this install" };
 
-  const installs = readRegistry();
+  const installs = (deps.registry ?? readRegistry)();
   const entries = Object.entries(installs);
-  // Standing in a registered project (or below it) — the deepest match wins, so nested projects
-  // resolve to the most specific binding rather than an enclosing one.
-  const deepest = entries
-    .filter(([, project]) => project && contains(project, cwd))
-    .sort((a, b) => (b[1] ?? "").length - (a[1] ?? "").length)[0];
-  if (deepest) return { root: deepest[0], how: `cwd is the project of this install` };
+  // Standing in a project (or below it) of some install's `projects` map — the deepest project
+  // dir wins; one folder listed by two installs is refused, never picked.
+  const { match, ambiguous } = projectAt(cwd, projectsOfInstalls(installs, deps));
+  if (match) {
+    return { root: match.install, how: `cwd is project "${match.name}"`, project: match };
+  }
+  const [first] = ambiguous;
+  if (first) {
+    return {
+      root: null,
+      how: `ambiguous: ${first.dir} is a project of ${ambiguous.length} installs`,
+      candidates: ambiguous.map((p) => [p.install, p.dir]),
+    };
+  }
 
   const only = entries.length === 1 ? entries[0] : undefined;
   if (only) return { root: only[0], how: "the only registered install" };

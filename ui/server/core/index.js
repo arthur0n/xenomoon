@@ -26,6 +26,7 @@ import { currentStatus } from "./http/status.js";
 import { reclaimPortIfBusy } from "./http/port.js";
 import { handleConnection } from "./session.js";
 import { prepareGame } from "../cli/materialize.js";
+import { addProjectCommand } from "../cli/project-entry.js";
 import { computeUsage } from "./http/usage.js";
 import {
   getWorkspaceSkills,
@@ -364,9 +365,10 @@ function onListening() {
         `⚠  No ${ENGINE_LABEL} project at: ${PROJECT_DIR}`,
         "   The UI will open but show no sessions or files until it points at one.",
         "   Point it at your project (the framework only reads it — it stays in place):",
-        "     • once:      npm run bind-project-path -- /path/to/your/project",
+        `     • add it:    ${addProjectCommand("/path/to/your/project")}   (in this install)`,
+        "                  then start it from the hub (npm run hub)",
         "     • one-off:   npm start /path/to/your/project",
-        `   Current target is set in ${CONFIG_FILE} (or defaults to ../project).`,
+        `   Target order: the path argument, GAME_DIR, an old root projectDir in ${CONFIG_FILE}, then ../project.`,
         "",
       ].join("\n"),
     );

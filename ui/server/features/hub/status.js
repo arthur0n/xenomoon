@@ -1,5 +1,5 @@
 // The hub's live view of each row: one GET to the row's port at /api/status, classified as
-// on / held (the port answers for another project) / off / unbound / unknown. probeRow never
+// on / held (the port answers for another project) / off / unbound (no port) / unknown. probeRow never
 // throws; aggregate probes every row in parallel and marks rows that share a port.
 // The request carries no Origin header, so the server keeps `lastLine` in its answer.
 import { realpathSync } from "node:fs";
@@ -73,7 +73,7 @@ export async function probeRow(
   row,
   { fetchImpl = fetch, timeoutMs = 1500, realpath = defaultRealpath } = {},
 ) {
-  if (row.project === null) return { state: "unbound" };
+  if (row.port === null) return { state: "unbound", reason: "no port" };
   /** @type {{ status: StatusPayload } | ProbeResult} */
   let read;
   try {
@@ -96,7 +96,9 @@ export async function probeRow(
 function portConflicts(rows) {
   /** @type {Map<number, string[]>} */
   const byPort = new Map();
-  for (const row of rows) byPort.set(row.port, [...(byPort.get(row.port) ?? []), row.id]);
+  for (const row of rows) {
+    if (row.port !== null) byPort.set(row.port, [...(byPort.get(row.port) ?? []), row.id]);
+  }
   /** @type {Map<string, string[]>} */
   const conflicts = new Map();
   for (const ids of byPort.values()) {

@@ -10,9 +10,9 @@
 //     agnostic gate": that gate reads git-TRACKED files only, so a freshly written record is
 //     invisible to it — which is exactly how a bound project's name reached plugin/library/.
 // The per-project proper-noun floor (denylistFor) + verbatim business-rule lines
-// (businessTermsFor) are derived from the BOUND project and passed in; without them the scanner
-// only sees the universal signals and a project name walks straight through. No bound project
-// (CI, a fresh clone) → those terms are empty and the universal signals still run.
+// (businessTermsFor) are derived from EVERY project of this install and passed in; without them
+// the scanner only sees the universal signals and a project name walks straight through. No
+// project (CI, a fresh clone) → those terms are empty and the universal signals still run.
 // The LOCAL denylist (denylist.js: ~/.xenomoon/denylist.txt, $XENOMOON_DENYLIST,
 // $XENOMOON_DENYLIST_TERMS) adds client names no install knows; those match whole-word.
 // Bare-node; wired into `npm run validate` and the pr-domain CI gate.
@@ -22,37 +22,20 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  scanPath,
-  filesUnder,
-  denylistFor,
-  businessTermsFor,
-} from "../features/promotions/contamination.js";
+import { scanPath, filesUnder } from "../features/promotions/contamination.js";
 import { loadDenylist, findTerms } from "./denylist.js";
+import { installTerms } from "./known-projects.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
 const DOMAINS_DIR = path.join(FRAMEWORK_DIR, "domains");
 const PLUGIN_DIR = path.join(FRAMEWORK_DIR, "plugin");
 
-/** The bound project's dir from the baked descriptor. Read directly (never `config.js` — its
- * import triggers a load-time domain/engine probe, and this must stay runnable in CI where no
- * project is bound). @returns {string} "" when nothing is bound */
-function boundProjectDir() {
-  try {
-    const f = path.join(FRAMEWORK_DIR, ".xenomoon.json");
-    if (!existsSync(f)) return "";
-    const raw = /** @type {unknown} */ (JSON.parse(readFileSync(f, "utf8")));
-    const cfg = /** @type {{ projectDir?: unknown }} */ (raw);
-    return typeof cfg.projectDir === "string" ? cfg.projectDir : "";
-  } catch {
-    return ""; // an unreadable descriptor must never break the gate
-  }
-}
-
-const projectDir = boundProjectDir();
-const denylist = projectDir ? denylistFor(projectDir) : [];
-const businessTerms = projectDir ? businessTermsFor(projectDir) : [];
+// The terms of EVERY project this install serves (its `projects` map + a legacy root
+// `projectDir`), read straight from .xenomoon.json by installTerms — never `config.js`: its
+// import triggers a load-time domain/engine probe, and this must stay runnable in CI where no
+// project is bound. A missing or unreadable descriptor gives empty lists, never a broken gate.
+const { denylist, businessTerms } = installTerms(FRAMEWORK_DIR);
 
 /** @type {string[]} */
 let localTerms;

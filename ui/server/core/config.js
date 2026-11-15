@@ -20,8 +20,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const UI_DIR = path.join(__dirname, "..", "..");
 /** The framework root (the folder you cloned/forked). */
 export const FRAMEWORK_DIR = path.join(UI_DIR, "..");
-/** Saved-path config written by `npm run bind-project-path` — gitignored, so each fork
- * remembers its own bound project without committing it. */
+/** The install's config — gitignored, so each install keeps its own `projects` map (written
+ * by `npm run install-project`) without committing it. */
 export const CONFIG_FILE = path.join(FRAMEWORK_DIR, ".xenomoon.json");
 
 /** OpenAI's official `codex-plugin-cc`, vendored on disk so the SDK can load it as a
@@ -54,8 +54,8 @@ const args = process.argv.slice(2);
  * the local `kimi` CLI (`kimi login` → ~/.kimi/config.toml), so there is no key to store here
  * (same zero-secret model as Codex). @typedef {{ enabled?: boolean, roles?: string[] }} KimiConfig */
 
-/** Parsed `.xenomoon.json` (written by `npm run bind-project-path`), or `{}` if absent/invalid.
- * Read once: it carries both the saved project path and the engine block. */
+/** Parsed `.xenomoon.json` (written by `npm run install-project`), or `{}` if absent/invalid.
+ * Read once: it carries the engine block and, on an old install, a root project path. */
 const SAVED = (() => {
   try {
     return /** @type {{ projectDir?: string, domain?: string, domainDescriptor?: import("./domain-resolver.js").DomainDescriptor, port?: number, onboarded?: boolean, engine?: EngineConfig, assetLibrary?: string, hermes?: HermesConfig }} */ (
@@ -66,12 +66,13 @@ const SAVED = (() => {
   }
 })();
 
-/** Where the framework reads the bound project from. The framework is
+/** Where this server process reads its project from. The framework is
  * independent of the project: it points at this folder in place and never
  * vendors or tracks it. Resolution order (first hit wins):
- *   1. a path argument:        `npm start /path/to/project`
+ *   1. a path argument:        `npm start /path/to/project` (how the hub and `xenomoon up` start one)
  *   2. the GAME_DIR env var
- *   3. the saved path:         `.xenomoon.json` (set once via `npm run bind-project-path`)
+ *   3. the saved path:         a root `projectDir` in `.xenomoon.json`, which only an old install
+ *                              still carries; it is read as a fallback and never written
  *   4. default sibling:        `../project` (next to the framework folder)
  */
 function resolveProjectDir() {

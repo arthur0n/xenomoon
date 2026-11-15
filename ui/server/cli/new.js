@@ -13,29 +13,46 @@
 //
 // The chosen domain is written as a project-owned lock (.xenomoon-project.json), committed with
 // the project so the binding travels and the framework can't later drive it as the wrong domain.
-import { existsSync, mkdirSync, cpSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import readline from "node:readline/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseJSON } from "../../lib/json.js";
 import {
   loadDomain,
   readProjectLock,
-  writeProjectLock,
-  resolveProjectTemplate,
   resolvePackDir,
   PROJECT_LOCK_FILE,
   availableDomains,
 } from "../core/domain-resolver.js";
 import { installCapabilities } from "./install-capabilities.js";
-import { ensureIgnores } from "../core/project-side.js";
 import { deploysOnPush, order, promptOpts, workspaceBranchFacts } from "./branch-model.js";
 import { loadWorkspace } from "../../lib/workspace.js";
-import { hasProjectSetting, writeProjectSettings } from "../../lib/project-settings.js";
+import { hasProjectSetting } from "../../lib/project-settings.js";
+import { prepareProject, seedProjectSettings } from "./prepare-project.js";
 import { pickList } from "./picklist.js";
-import { detect as detectDomain, order as orderDomains, summarize } from "./domain-pick.js";
-import { DEFAULT_PORT, savedPort, otherInstallPorts, firstFreePort } from "./port-pick.js";
+import { domainPickItems } from "./domain-pick-rows.js";
+import {
+  DEFAULT_PORT,
+  savedPort,
+  allocationRefusal,
+  otherInstallPorts,
+  firstFreePort,
+  suggestProjectPort,
+} from "./port-pick.js";
+import { validateProjectPath, canonicalPath } from "./validate-path.js";
+import { readProfiles } from "./profiles.js";
+import {
+  installedDomain,
+  domainRefusal,
+  entryForDir,
+  nameRefusal,
+  portRefusal,
+  portsClaimedByOthers,
+  readInstallConfig,
+  mergeInstallConfig,
+  addProjectEntry,
+} from "./project-entry.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
@@ -51,6 +68,8 @@ const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
 const argv = process.argv.slice(2);
 let domainFlag = null;
 let portFlag = null;
+/** @type {string | null} the project's name in the install's `projects` map (#65) */
+let nameFlag = null;
 const positional = [];
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
@@ -59,6 +78,8 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === "--domain") domainFlag = argv[++i] ?? null;
   else if (a.startsWith("--port=")) portFlag = a.slice("--port=".length);
   else if (a === "--port") portFlag = argv[++i] ?? null;
+  else if (a.startsWith("--name=")) nameFlag = a.slice("--name=".length);
+  else if (a === "--name") nameFlag = argv[++i] ?? null;
   else if (!a.startsWith("--")) positional.push(a);
 }
 if (portFlag !== null && !/^\d+$/.test(portFlag)) {
@@ -82,7 +103,67 @@ let targetInput = positional[0] ?? null;
 if (!targetInput && rl) {
   targetInput = (await rl.question("Project folder (absolute path): ")).trim() || null;
 }
-const target = path.resolve(targetInput ?? path.join(FRAMEWORK_DIR, "..", "game"));
+// The project's REAL location (./validate-path.js canonicalPath): every check and every write
+// below — the projects map included — sees one spelling per folder, whatever alias was typed.
+const target = canonicalPath(targetInput ?? path.join(FRAMEWORK_DIR, "..", "game"));
+
+/** Print a refusal and exit 1 — every refusal happens BEFORE the first write, except the
+ * commit-time ownership re-check of step 2c, which happens before the install file's map write.
+ * @param {string} msg @returns {never} */
+function refuse(msg) {
+  console.error(`new: ${msg}`);
+  rl?.close();
+  process.exit(1);
+}
+
+// ---- First project or a later one (#65) ----------------------------------------------------
+// One install per domain; a project is an entry of the `projects` map in .xenomoon.json. An
+// install whose domain is already installed (./project-entry.js installedDomain) only ADDS the
+// project: no pack copy, no re-bake, no install-level questions or root writes.
+const installCfg = readInstallConfig(FRAMEWORK_DIR);
+const installed = installedDomain(installCfg);
+const parsedMap = readProfiles(FRAMEWORK_DIR);
+if (!parsedMap.ok) refuse(`${path.join(FRAMEWORK_DIR, ".xenomoon.json")}: ${parsedMap.reason}`);
+const projectsMap = parsedMap.projects;
+const listed = entryForDir(projectsMap, target, FRAMEWORK_DIR);
+if (installed) {
+  // Compared under the pack's CURRENT name, so an old alias of the installed pack still passes.
+  const requested = (() => {
+    try {
+      return domainFlag ? resolvePackDir(domainFlag, FRAMEWORK_DIR) : null;
+    } catch {
+      return domainFlag;
+    }
+  })();
+  const why = domainRefusal(installed, requested);
+  if (why) refuse(why);
+  domainFlag = installed;
+}
+// The project path is validated here for every run, first or later, before the first write:
+// hard rows refuse, soft rows warn (--allow-nonlocal downgrades locality).
+const pathProblems = validateProjectPath(target, path.resolve(FRAMEWORK_DIR), {
+  allowNonlocal: argv.includes("--allow-nonlocal"),
+});
+for (const p of pathProblems.filter((p) => !p.hard)) console.warn(`⚠ ${p.msg}`);
+const hardPathProblems = pathProblems.filter((p) => p.hard).map((p) => p.msg);
+if (hardPathProblems.length) refuse(hardPathProblems.join("; "));
+if (installed)
+  console.log(`new: "${installed}" is already installed here — adding ${target} as a project.`);
+// Project name — the folder name unless `--name` says otherwise; asked when interactive.
+let projectName = listed?.name ?? nameFlag ?? path.basename(target);
+if (listed) {
+  if ((nameFlag && nameFlag !== listed.name) || portFlag)
+    console.log(
+      `new: ${target} is already the project "${listed.name}" — its entry is kept as it is` +
+        ` (--name/--port are ignored for a listed project).`,
+    );
+} else {
+  if (!nameFlag && rl)
+    projectName =
+      (await rl.question(`Project name [empty = ${projectName}]: `)).trim() || projectName;
+  const why = nameRefusal(projectsMap, projectName, target, FRAMEWORK_DIR);
+  if (why) refuse(why);
+}
 
 /** The project's own default branch — what "lands on main" actually means here — or null when
  * `dir` is not a readable repo (the caller decides, and says so).
@@ -136,43 +217,6 @@ function branchFacts(dir) {
   return { branch: facts.branch, deployWorkflows: facts.deployWorkflows };
 }
 
-/** A pack's RAW descriptor. `loadDomain` normalises into the runtime shape and drops
- * `description`, which is the one field a picklist row wants.
- * @param {string} name @returns {{ label?: string, description?: string }} */
-function packDescriptor(name) {
-  try {
-    const dir = resolvePackDir(name, FRAMEWORK_DIR);
-    return /** @type {{ label?: string, description?: string }} */ (
-      parseJSON(readFileSync(path.join(FRAMEWORK_DIR, "domains", dir, "domain.json"), "utf8"))
-    );
-  } catch {
-    return { label: loadDomain(name, FRAMEWORK_DIR).label };
-  }
-}
-
-/** The project's own package.json — {} when it has none or it is unreadable.
- * @param {string} dir @returns {{ dependencies?: Record<string, string>,
- *   devDependencies?: Record<string, string> }} */
-function projectPkg(dir) {
-  try {
-    return /** @type {{ dependencies?: Record<string, string> }} */ (
-      parseJSON(readFileSync(path.join(dir, "package.json"), "utf8"))
-    );
-  } catch {
-    return {};
-  }
-}
-
-/** Names in the project root — empty when it cannot be read.
- * @param {string} dir @returns {string[]} */
-function projectFiles(dir) {
-  try {
-    return readdirSync(dir);
-  } catch {
-    return [];
-  }
-}
-
 /** The project's workflow files, as {name, text} — empty when it has none.
  * @param {string} dir @returns {{ name: string, text: string }[]} */
 function projectWorkflows(dir) {
@@ -201,15 +245,10 @@ let domainName = domainFlag ?? existingLock;
 // in its manifest; a web app does not. Detection only decides the ORDER and is always shown
 // with its evidence — a recommendation you can check beats a default you cannot.
 if (!domainName && rl) {
-  const avail = availableDomains(FRAMEWORK_DIR);
-  const detected = detectDomain(
-    projectPkg(target),
-    projectFiles(target),
-    existsSync(path.join(target, ".xenomoon", "workspace.json")),
-  );
-  const domainItems = orderDomains(
-    avail.map((name) => ({ id: name, summary: summarize(packDescriptor(name)) })),
-    detected,
+  const { items: domainItems, detected } = domainPickItems(
+    FRAMEWORK_DIR,
+    target,
+    availableDomains(FRAMEWORK_DIR),
   );
   const picked = await pickList(rl, {
     title: "Domain for this project — the capability pack installed into `plugin/`.",
@@ -234,24 +273,51 @@ if (!domainName && rl) {
 // other's UI. So: `--port` wins, then the port this install already had (a re-install keeps
 // what it was using), then the first port no OTHER registered install claims — and it is
 // ALWAYS written. The suggestion is announced with its reason, never applied silently.
-const takenPorts = otherInstallPorts(FRAMEWORK_DIR);
+//
+// A LATER project gets its own port instead: the first one no install or project claims
+// (suggestProjectPort), and a port another one claims is refused. A listed project keeps its own.
 const currentPort = savedPort(FRAMEWORK_DIR);
-const suggestedPort = currentPort ?? firstFreePort(DEFAULT_PORT, takenPorts);
-let portAnswer = portFlag;
-if (!portAnswer && rl) {
-  if (suggestedPort !== DEFAULT_PORT)
+// The root project of an install made before the `projects` map existed keeps the root port.
+const rootProject =
+  !listed &&
+  typeof installCfg.projectDir === "string" &&
+  canonicalPath(installCfg.projectDir, FRAMEWORK_DIR) === target;
+const ownPort = rootProject ? currentPort : null;
+// A new port is never guessed: while a registered install's project list cannot be read, the
+// ports its projects own are unknown, so refuse here, before any write. A project already in
+// the map keeps its port and needs no pick.
+if (!(listed && installed)) {
+  const blocked = allocationRefusal(FRAMEWORK_DIR);
+  if (blocked) refuse(blocked);
+}
+const suggestedPort = installed
+  ? (listed?.entry.port ?? ownPort ?? suggestProjectPort(FRAMEWORK_DIR))
+  : (currentPort ?? firstFreePort(DEFAULT_PORT, otherInstallPorts(FRAMEWORK_DIR)));
+let portAnswer = listed && installed ? null : portFlag;
+if (!portAnswer && rl && !(listed && installed)) {
+  if (!installed && suggestedPort !== DEFAULT_PORT)
     console.log(
       currentPort
         ? `  This install already uses port ${currentPort} — keeping it unless you say otherwise.`
         : `  Port ${DEFAULT_PORT} is taken by another install on this machine; suggesting ${suggestedPort}.`,
     );
   portAnswer = (await rl.question(`UI port [empty = ${suggestedPort}]: `)).trim() || null;
-  if (portAnswer && !/^\d+$/.test(portAnswer)) {
-    console.error(`new: port must be a number (got "${portAnswer}").`);
-    process.exit(1);
-  }
+  if (portAnswer && !/^\d+$/.test(portAnswer))
+    refuse(`port must be a number (got "${portAnswer}").`);
 }
 portAnswer ??= String(suggestedPort);
+// One port rule for first and later runs, before any write: a positive integer no other install
+// or project claims. Only the project's own entry (a re-run) and, on a first run or for a pre-map
+// root project, the install's root port are its own. Re-checked at commit (addProjectEntry).
+const includeRoot = Boolean(installed) && !rootProject;
+if (!(listed && installed)) {
+  const claimed = portsClaimedByOthers(FRAMEWORK_DIR, installCfg, {
+    ownName: listed?.name ?? projectName,
+    includeRoot,
+  });
+  const why = portRefusal(Number(portAnswer), claimed);
+  if (why) refuse(why);
+}
 // Branch model — the project's branch & merge convention, decided by the human here and
 // re-confirmable during onboarding. Written to <project>/.xenomoon/branch-model (the runtime
 // source every session reads); the install's .xenomoon.json gets no copy (#84). The options and
@@ -336,7 +402,8 @@ process.env.XENOMOON_DOMAIN = domainName;
 // The PICKER's core act: install this domain's capabilities into the framework's single `plugin/`
 // tree and bake its runtime descriptor into .xenomoon.json. After this the framework is one tree and
 // there is no "domain" at runtime — nothing under domains/ is read once the server is running.
-{
+// A later project skips it: the domain is installed once per install (#65).
+if (!installed) {
   const { copied } = installCapabilities(FRAMEWORK_DIR, domainName);
   console.log(`new: installed "${domainName}" capabilities into plugin/ (${copied.join(", ")}).`);
 }
@@ -344,131 +411,40 @@ process.env.XENOMOON_DOMAIN = domainName;
 /** Run a child step, inheriting stdio so its output streams through. @param {string[]} args */
 const node = (...args) => execFileSync("node", args, { stdio: "inherit" });
 
-// 0. Ensure the target exists. How the binding is remembered depends on the domain:
-//    - materialize domains (the kind a binary-backed engine needs; a deferred seam) write a
-//      project-owned lock, committed so it travels with the project (the
-//      child steps also resolve it via the XENOMOON_DOMAIN env set above).
-//    - every other domain stays OUT of the project entirely — the binding lives in the framework's
-//      own .xenomoon.json (domain persisted in step 2b), so the project is never touched.
-mkdirSync(target, { recursive: true });
-if (DOMAIN.materializeIntoProject) {
-  writeProjectLock(target, domainName);
-  console.log(`new: locked ${target} to domain "${domainName}" (${PROJECT_LOCK_FILE}).`);
-} else {
-  console.log(
-    `new: domain "${domainName}" writes nothing into ${target} — bound via the framework's .xenomoon.json.`,
-  );
-}
+// 0-1d. Prepare the project: target + lock, starter, ignores, CLAUDE.md, library stubs, branch
+//      model (./prepare-project.js).
+prepareProject({ target, domainName, DOMAIN, branchModel, frameworkDir: FRAMEWORK_DIR });
 
-// 1. Scaffold the domain's starter into an empty/new target — ONLY if the domain ships one. An
-//    existing project (marker present) or a starterless domain is wired in place, never overwritten.
-const marker = path.join(target, DOMAIN.engine.projectFile);
-if (existsSync(marker)) {
-  console.log(`new: ${target} already has a ${DOMAIN.engine.projectFile} — wiring it in place.`);
-} else if (DOMAIN.starter) {
-  cpSync(path.join(FRAMEWORK_DIR, DOMAIN.starter), target, { recursive: true });
-  console.log(`new: scaffolded ${DOMAIN.label} starter → ${target}`);
-} else {
-  console.log(
-    `new: ${target} has no ${DOMAIN.engine.projectFile} and the ${DOMAIN.label} domain ships no ` +
-      `starter — installing into it as-is (bring your own project).`,
-  );
-}
-// Always — every domain writes <project>/.xenomoon/ state, so it must be gitignored even for a
-// non-materialize (install-in-place) domain like webapp.
-ensureIgnores(target, DOMAIN.materializeIntoProject);
-
-// 1b. Seed a CLAUDE.md "project facts" template the orchestrator + agents treat as authoritative —
-//     the active domain's own template if the pack ships one, else the CORE neutral baseline. Written
-//     ONLY when the project has none: an existing CLAUDE.md (yours, or one a starter shipped) is never
-//     overwritten. This is the project's OWN committed doc (project facts, in your voice), not framework
-//     working-state — so unlike .xenomoon/ it is intentionally NOT gitignored.
-const claudeMd = path.join(target, "CLAUDE.md");
-const templatePath = resolveProjectTemplate(domainName, FRAMEWORK_DIR);
-if (existsSync(claudeMd)) {
-  console.log(`new: ${target} already has a CLAUDE.md — leaving it untouched.`);
-} else if (templatePath) {
-  let projectName = path.basename(target);
-  try {
-    const pkg = /** @type {{ name?: unknown }} */ (
-      parseJSON(readFileSync(path.join(target, "package.json"), "utf8"))
-    );
-    if (typeof pkg.name === "string" && pkg.name) projectName = pkg.name;
-  } catch {
-    /* no/invalid package.json — keep the folder name */
-  }
-  const tpl = readFileSync(templatePath, "utf8").replaceAll("{{PROJECT_NAME}}", projectName);
-  writeFileSync(claudeMd, tpl);
-  console.log(
-    `new: seeded CLAUDE.md project-facts template (fill in the {{…}} placeholders) → ${claudeMd}`,
-  );
-}
-
-// 1c. Seed the project library stubs the CLAUDE.md index points at (CLAUDE.md is an INDEX;
-//     full durable content lives here). Only ever created, never overwritten.
-const projectLibrary = path.join(target, ".claude", "library");
-const LIBRARY_STUBS = {
-  "business-rules.md":
-    "# Business rules / product facts\n\n" +
-    "Standing facts about what this product does / doesn't do — captured product INTENT,\n" +
-    "in the user's own words, verbatim. Product-owner-maintained, human-gated. The agents treat\n" +
-    "this doc as AUTHORITATIVE intent. Empty until the first design seeds it.\n",
-  "project.md":
-    "# Project details\n\n" +
-    "Extended project details too long for a CLAUDE.md one-liner — infra notes, service\n" +
-    "map, environment quirks. Keep CLAUDE.md as the index; put the content here.\n",
-};
-for (const [stub, content] of Object.entries(LIBRARY_STUBS)) {
-  const p = path.join(projectLibrary, stub);
-  if (existsSync(p)) continue;
-  mkdirSync(projectLibrary, { recursive: true });
-  writeFileSync(p, content);
-  console.log(`new: seeded project library stub → ${p}`);
-}
-
-// 1d. Bake the branch model project-side — the runtime source of truth every session and
-//     capability reads. Never overwritten on re-install: an existing file IS the human's
-//     current choice (edit it, or re-run onboarding, to change the model as the project matures).
-{
-  const modelFile = path.join(target, ".xenomoon", "branch-model");
-  if (existsSync(modelFile)) {
-    console.log(`new: ${modelFile} already set — keeping the existing branch model.`);
-  } else {
-    mkdirSync(path.dirname(modelFile), { recursive: true });
-    writeFileSync(modelFile, branchModel + "\n");
-    console.log(`new: branch model "${branchModel}" → ${modelFile}`);
-  }
-}
-
-// 2. Remember the path (writes .xenomoon.json projectDir).
-node(path.join(here, "setup.js"), target);
+// 2. There is no "project of the install" (#65): no root projectDir is written. The project is
+//    remembered in step 2c (the `projects` map) and the install registers itself in doctor (step 4).
 
 // 2b. A non-materialize domain writes no project lock, so the framework must remember the domain
 //     itself — persist it into .xenomoon.json beside the path (materialize domains rely on the
-//     committed project lock instead).
-if (!DOMAIN.materializeIntoProject) {
-  const cfgFile = path.join(FRAMEWORK_DIR, ".xenomoon.json");
-  /** @type {Record<string, unknown>} */
-  let cfg = {};
-  try {
-    cfg = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(cfgFile, "utf8")));
-  } catch {
-    /* absent/invalid — start fresh */
-  }
-  writeFileSync(
-    cfgFile,
-    JSON.stringify(
-      {
-        ...cfg,
-        domain: domainName,
-        // ALWAYS written. An absent port is not "the default" — it is two installs silently
-        // resolving to the same one, and the server that starts first serving the other's UI.
-        port: Number(portAnswer),
-      },
-      null,
-      2,
-    ) + "\n",
+//     committed project lock instead). First project only, like step 2.
+//     The root port is ALWAYS written: an absent port is not "the default" — it is two installs
+//     silently resolving to the same one, and the server that starts first serving the other's UI.
+const rootPatch =
+  !installed && !DOMAIN.materializeIntoProject
+    ? { domain: domainName, port: Number(portAnswer) }
+    : null;
+if (rootPatch && listed) mergeInstallConfig(FRAMEWORK_DIR, rootPatch);
+
+// 2c. The project's entry in the install's `projects` map (#65) — the first project under the
+//     install's port, a later one under its own, written together with 2b's root fields. A listed
+//     folder keeps its entry untouched. The write re-checks name and port against the file as
+//     it is now, so a run that took either meanwhile makes this one write nothing and exit 1.
+if (!listed) {
+  const why = addProjectEntry(
+    FRAMEWORK_DIR,
+    projectName,
+    { dir: target, port: Number(portAnswer) },
+    { includeRoot, patch: rootPatch ?? {} },
   );
+  if (why) refuse(why);
+  console.log(`new: project "${projectName}" → ${target} on port ${portAnswer} (projects map).`);
+}
+if (rootPatch) {
+  const cfgFile = path.join(FRAMEWORK_DIR, ".xenomoon.json");
   console.log(`new: bound domain "${domainName}" on port ${portAnswer} in ${cfgFile}.`);
 }
 
@@ -480,7 +456,8 @@ node(path.join(here, "doctor.js"), target);
 
 // 5. Integrations — the remaining binary questions, same single pass (each answers y → the
 //    existing setup script runs; anything else skips cleanly; the portal can enable them later).
-if (rl) {
+//    Install-level, so a later project skips them.
+if (rl && !installed) {
   for (const [id, blurb] of [
     [
       "hermes",
@@ -492,7 +469,8 @@ if (rl) {
     const a = (await rl.question(`Configure ${id} — ${blurb}? [y/N] `)).trim().toLowerCase();
     if (a === "y" || a === "yes") {
       try {
-        execFileSync("npm", ["run", `${id}:setup`], { stdio: "inherit" });
+        // The project is passed explicitly: config.js would otherwise fall back to ../project.
+        execFileSync("npm", ["run", `${id}:setup`, "--", target], { stdio: "inherit" });
       } catch {
         console.warn(`new: ${id}:setup failed — enable it later via ⚙ Settings.`);
       }
@@ -500,34 +478,11 @@ if (rl) {
   }
 }
 
-// 6. First-boot flag: the SERVER kicks off onboarding in the first UI session (the session
-//    has the plugin loaded, so the command exists with full tooling — forms + board). Only
-//    set on a fresh install; a re-install of an already-onboarded project keeps its flag.
-//    Both live in the PROJECT's .xenomoon/settings.json (#84), never the install's .xenomoon.json.
-//    The consequential-action policy block is seeded here too, create-only: the knobs exist
-//    whether or not this writes them (normalizeActionPolicy defaults every absent key to "ask"),
-//    but an invisible knob is an undiscoverable one — the 2026-08 live test parked for days on
-//    gates whose `allow` opt-in nothing had ever surfaced. Only the literal "allow" allows; `ask`
-//    prompts a human, and an AUTONOMOUS run cannot answer a prompt, so a goal that orders a
-//    deploy-reaching push/merge (or an unattended Codex review) needs its key set to "allow".
-{
-  /** @type {Record<string, unknown>} */
-  const seed = {};
-  if (!hasProjectSetting(target, "onboarded")) seed.onboarded = false;
-  if (!hasPolicyBlock)
-    seed.policy = {
-      push: "ask",
-      merge: "ask",
-      dependencies: "ask",
-      branchCreate: "ask",
-      spend: "ask",
-      spendPatterns,
-      codexReview: "ask",
-    };
-  if (Object.keys(seed).length > 0) writeProjectSettings(target, seed);
-}
+// 6. First-boot flag + consequential-action policy block, create-only (./prepare-project.js).
+seedProjectSettings({ target, hasPolicyBlock, spendPatterns });
 rl?.close();
 
+// The hub is the only entry point (plugin/library/verdicts/hub-is-the-only-entry-point.md).
 console.log(
-  `\nnew: done (domain "${domainName}"). Start the server:\n    xenomoon up         # web UI on port ${portAnswer}, DETACHED (terminal stays free; xenomoon stop / restart)\n    xenomoon start      # same server in the foreground, logs in this terminal\nThe FIRST session runs the onboarding interview, then the UI asks the rest.`,
+  `\nnew: done (project "${projectName}", domain "${domainName}", port ${portAnswer}). Start it through the hub:\n    cd ${FRAMEWORK_DIR} && npm run hub   # the hub opens every project of this install\nThe FIRST session runs the onboarding interview, then the UI asks the rest.`,
 );

@@ -12,7 +12,6 @@ import { aggregate, probeRow } from "./status.js";
 /** @param {Partial<HubRow>} over @returns {HubRow} */
 const row = (over) => ({
   id: "r1",
-  kind: "install",
   install: "/tmp/install-a",
   name: "install-a",
   project: "/tmp/project-a",
@@ -99,10 +98,25 @@ test("JSON without a string path is unknown as not a status payload", async () =
   });
 });
 
-test("a row with no bound project is unbound and makes no request", async () => {
+test("a row with no port is unbound with reason 'no port' and makes no request", async () => {
   const { fetchImpl, calls } = fakeFetch(() => json({ path: "/tmp/project-a" }));
-  assert.deepEqual(await probeRow(row({ project: null }), { fetchImpl }), { state: "unbound" });
+  assert.deepEqual(await probeRow(row({ port: null }), { fetchImpl }), {
+    state: "unbound",
+    reason: "no port",
+  });
   assert.equal(calls.length, 0);
+});
+
+test("rows with no port are never marked as sharing a port", async () => {
+  const rows = [row({ id: "a", port: null }), row({ id: "b", port: null })];
+  const result = await aggregate(rows, { probe: async () => ({ state: "unbound" }) });
+  assert.deepEqual(
+    result.rows.map((r) => [r.id, r.conflict]),
+    [
+      ["a", undefined],
+      ["b", undefined],
+    ],
+  );
 });
 
 test("a Node fetch GET to a local server carries no Origin header", async () => {

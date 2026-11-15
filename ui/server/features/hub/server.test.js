@@ -7,7 +7,6 @@ import { makeHubHandler, startHubServer } from "./server.js";
 /** @type {import("./rows.js").HubRow} */
 const ROW_A = {
   id: "a".repeat(16),
-  kind: "install",
   install: "/tmp/install-a",
   name: "install-a",
   project: "/tmp/project-a",

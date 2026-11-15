@@ -22,8 +22,8 @@ and critiques itself. You won't get it right the first time — that's expected.
 
 ## Where the data lives
 
-- Session logs: `<project>/.xenomoon/logs/session-*.ndjson`, where `<project>` is the bound project (the
-  install's `.xenomoon.json` `projectDir`, or the profile's `dir`). The install's own `logs/` holds only
+- Session logs: `<project>/.xenomoon/logs/session-*.ndjson`, where `<project>` is a project of the install (its
+  `dir` in the `projects` map of the install's `.xenomoon.json`). The install's own `logs/` holds only
   pre-#62 files.
   Filenames are ISO timestamps, so a lexical sort is chronological. The tag is the part
   between `session-` and `.ndjson`.

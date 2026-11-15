@@ -13,9 +13,11 @@ fork pulls only domain-agnostic improvements (curated), so the engine payload ne
 
 ## Picking the domain (install-time only)
 
-A domain is chosen **once, at install** — `install-project --domain <name>`
+A domain is chosen **once per install** (one framework install per domain; it then holds many
+projects of that domain, and a project of another domain needs that domain's install) —
+`install-project --domain <name>`
 (`ui/server/cli/install-capabilities.js`) copies the pack into `plugin/` and bakes its descriptor into
-the framework's `.xenomoon.json` (`domainDescriptor`); the pick is also recorded there as `"domain"`.
+the install's `.xenomoon.json` (`domainDescriptor`); the pick is also recorded there as `"domain"`.
 At runtime `config.js` reads that baked descriptor — nothing re-resolves a pack, and there is **no
 silent default**: an unbound framework has no baked descriptor to read.
 
@@ -31,7 +33,7 @@ silent default**: an unbound framework has no baked descriptor to read.
 | `populated`                                 | `doctor.js`            | ships capabilities (hard checks) vs. learns the project                                       |
 | `materializeIntoProject`                    | `materialize.js`       | write framework files into the project tree (default false)                                   |
 
-A pack may also ship `templates/CLAUDE.md` — a project-facts template `forge new` seeds into a
+A pack may also ship `templates/CLAUDE.md` — a project-facts template `npm run install-project` seeds into a
 freshly-bound project (falling back to the CORE neutral `plugin/templates/CLAUDE.md`; an existing
 `CLAUDE.md` is never overwritten).
 

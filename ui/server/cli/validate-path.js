@@ -9,17 +9,37 @@
 //
 // Returns [] when fine, else a list of { hard: boolean, msg: string } — hard rows block the
 // install; soft rows warn (and `--allow-nonlocal` downgrades the locality check).
-import { existsSync, accessSync, constants, statSync } from "node:fs";
+import { existsSync, accessSync, constants, statSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { contains } from "./profiles.js";
 
 /** Path fragments that mark a cloud-synced or network location — file locks and watchers
  * misbehave there (iCloud rehydration, SMB latency), so the install rejects them softly. */
 const NONLOCAL_MARKERS = ["/Mobile Documents/", "/Google Drive/", "/Dropbox/", "/OneDrive/"];
 
-/** Is `child` inside `parent` (or equal)? @param {string} parent @param {string} child */
-function contains(parent, child) {
-  const rel = path.relative(parent, child);
-  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+/** The REAL location of `p` (resolved against `base`): its realpath when it exists, else the
+ * realpath of its nearest existing ancestor joined with the segments that do not exist yet. Two
+ * spellings of one folder (a symlinked parent, macOS /var vs /private/var, a trailing slash, a
+ * relative form) give the same string, so containment and project identity compare locations.
+ * `realpathSync.native` (realpath(3)) returns the ON-DISK letter case, so on a case-insensitive
+ * disk `/x/Shop` and `/x/shop` are one string too; plain realpathSync keeps the caller's case
+ * (#65). Segments that do not exist yet keep the spelling given.
+ * @param {string} p @param {string} [base] @returns {string} */
+export function canonicalPath(p, base = process.cwd()) {
+  const abs = path.resolve(base, p);
+  /** @type {string[]} */
+  const rest = [];
+  let cur = abs;
+  for (;;) {
+    try {
+      return path.join(realpathSync.native(cur), ...rest);
+    } catch {
+      const parent = path.dirname(cur);
+      if (parent === cur) return abs; // nothing on the way up resolves: keep the text
+      rest.unshift(path.basename(cur));
+      cur = parent;
+    }
+  }
 }
 
 /** Validate a project dir for binding. @param {string} target absolute-or-not user input
@@ -36,13 +56,15 @@ export function validateProjectPath(target, frameworkDir, opts = {}) {
     });
     return problems; // everything below needs an absolute path
   }
-  const resolved = path.resolve(target);
-  if (contains(frameworkDir, resolved))
+  // Compared on REAL locations: /var/tmp/x must be seen inside a framework at /private/var/tmp.
+  const resolved = canonicalPath(target);
+  const framework = canonicalPath(frameworkDir);
+  if (contains(framework, resolved))
     problems.push({
       hard: true,
       msg: `project path is INSIDE the framework checkout (${frameworkDir}) — the project must be a separate directory (repo-boundary.md)`,
     });
-  if (contains(resolved, frameworkDir))
+  if (contains(resolved, framework))
     problems.push({
       hard: true,
       msg: `the framework checkout is inside the project path — nest neither in the other (repo-boundary.md)`,

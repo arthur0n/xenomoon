@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
-import { DEFAULT_PORT } from "../../cli/port-pick.js";
 import { buildRows, makeRowLoader } from "./rows.js";
 
 /** @typedef {import("./rows.js").HubError} HubError */
@@ -68,41 +67,30 @@ function loaderOver(files, { failWrite = false } = {}) {
   return { fs, load };
 }
 
-/** @param {string} dir @returns {number | null} */
-const portOfA = (dir) => (dir === "/tmp/install-a" ? 4000 : null);
+const FILE_A = "/tmp/install-a/.xenomoon.json";
+const FILE_B = "/tmp/install-b/.xenomoon.json";
 
-const twoInstalls = {
-  installs: { "/tmp/install-b": null, "/tmp/install-a": "/tmp/project-a" },
-  profilesByInstall: {
-    "/tmp/install-a": {
-      beta: { dir: "/tmp/project-b", port: 4002, domain: "beta" },
-      alpha: { dir: "/tmp/project-a" },
-    },
-  },
-  installPortOf: portOfA,
-};
+/** @param {Record<string, unknown>} data @returns {string} */
+const installText = (data) => JSON.stringify(data);
 
-test("rows are sorted by install, then install before profile, then name, with every field set", () => {
+/** Two installs in the order the registry does not sort them, with entries out of name order. */
+const twoInstalls = [
+  { install: "/tmp/install-b", name: "gamma", dir: "/tmp/project-c", port: 4003 },
+  { install: "/tmp/install-a", name: "beta", dir: "/tmp/project-b", port: 4002, domain: "beta" },
+  { install: "/tmp/install-a", name: "alpha", dir: "/tmp/project-a", port: null },
+];
+
+test("one row per project, sorted by install then name, with every field set and no kind", () => {
   const rows = buildRows(twoInstalls).map(({ id: _id, ...rest }) => rest);
   assert.deepEqual(rows, [
     {
-      kind: "install",
-      install: "/tmp/install-a",
-      name: "install-a",
-      project: "/tmp/project-a",
-      port: 4000,
-      domain: null,
-    },
-    {
-      kind: "profile",
       install: "/tmp/install-a",
       name: "alpha",
       project: "/tmp/project-a",
-      port: 4000,
+      port: null,
       domain: null,
     },
     {
-      kind: "profile",
       install: "/tmp/install-a",
       name: "beta",
       project: "/tmp/project-b",
@@ -110,53 +98,93 @@ test("rows are sorted by install, then install before profile, then name, with e
       domain: "beta",
     },
     {
-      kind: "install",
       install: "/tmp/install-b",
-      name: "install-b",
-      project: null,
-      port: DEFAULT_PORT,
+      name: "gamma",
+      project: "/tmp/project-c",
+      port: 4003,
       domain: null,
     },
   ]);
 });
 
-test("a profile without a port uses the install's saved port, then the default port", () => {
-  const rows = buildRows({
-    installs: { "/tmp/install-a": null, "/tmp/install-b": null },
-    profilesByInstall: {
-      "/tmp/install-a": { alpha: { dir: "/tmp/project-a" } },
-      "/tmp/install-b": { beta: { dir: "/tmp/project-b" } },
-    },
-    installPortOf: portOfA,
-  });
-  /** @param {string} name */
-  const port = (name) => rows.find((r) => r.kind === "profile" && r.name === name)?.port;
-  assert.equal(port("alpha"), 4000);
-  assert.equal(port("beta"), DEFAULT_PORT);
-});
-
-test("ids are 16 hex chars derived from kind, install and name, and differ between kinds", () => {
-  const rows = buildRows(twoInstalls);
+test("ids are 16 hex chars of sha256(install NUL name), so one name in two installs gives two ids", () => {
+  const rows = buildRows([
+    { install: "/tmp/install-a", name: "alpha", dir: "/tmp/p", port: 1 },
+    { install: "/tmp/install-b", name: "alpha", dir: "/tmp/p", port: 1 },
+  ]);
   for (const row of rows) assert.match(row.id, /^[0-9a-f]{16}$/);
-  const installRow = rows.find((r) => r.kind === "install" && r.install === "/tmp/install-a");
-  const profileRow = rows.find((r) => r.kind === "profile" && r.name === "alpha");
-  assert.equal(installRow?.id, hash16("install\0/tmp/install-a\0install-a"));
-  assert.equal(profileRow?.id, hash16("profile\0/tmp/install-a\0alpha"));
-  assert.notEqual(installRow?.id, profileRow?.id);
+  assert.deepEqual(
+    rows.map((r) => r.id),
+    [hash16("/tmp/install-a\0alpha"), hash16("/tmp/install-b\0alpha")],
+  );
 });
 
 test("the same input gives the same ids on every build", () => {
-  const copy = {
-    installs: structuredClone(twoInstalls.installs),
-    profilesByInstall: structuredClone(twoInstalls.profilesByInstall),
-    installPortOf: portOfA,
-  };
   const first = buildRows(twoInstalls).map((r) => r.id);
   assert.deepEqual(
-    buildRows(copy).map((r) => r.id),
+    buildRows(structuredClone(twoInstalls)).map((r) => r.id),
     first,
   );
-  assert.equal(new Set(first).size, 4);
+  assert.equal(new Set(first).size, 3);
+});
+
+test("no row stands for the install: the registry value, root projectDir and root port are ignored", () => {
+  const files = new Map([
+    [REGISTRY, registryText({ "/tmp/install-a": "/tmp/project-old" })],
+    [
+      FILE_A,
+      installText({
+        port: 4100,
+        projectDir: "/tmp/project-old",
+        projects: { alpha: { dir: "/tmp/project-a", port: 4001, domain: "webapp" } },
+      }),
+    ],
+  ]);
+  const { rows, errors } = loaderOver(files).load();
+  assert.deepEqual(errors, []);
+  assert.deepEqual(
+    rows.map(({ id: _id, ...rest }) => rest),
+    [
+      {
+        install: "/tmp/install-a",
+        name: "alpha",
+        project: "/tmp/project-a",
+        port: 4001,
+        domain: "webapp",
+      },
+    ],
+  );
+});
+
+test("an install with zero projects, or no install file, gives no row and no error", () => {
+  const files = new Map([
+    [REGISTRY, registryText({ "/tmp/install-a": "/tmp/project-a", "/tmp/install-b": null })],
+    [FILE_A, installText({ port: 4100, projectDir: "/tmp/project-a" })],
+  ]);
+  const { fs, load } = loaderOver(files);
+  assert.deepEqual(load(), { rows: [], errors: [] });
+  assert.equal(fs.written.size, 0);
+});
+
+test("a project with no port gets port null, never the install's port or a sibling's", () => {
+  const files = new Map([
+    [REGISTRY, registryText({ "/tmp/install-a": null })],
+    [
+      FILE_A,
+      installText({
+        port: 4100,
+        projects: { alpha: { dir: "/tmp/project-a" }, beta: { dir: "/tmp/project-b", port: 4002 } },
+      }),
+    ],
+  ]);
+  const { rows } = loaderOver(files).load();
+  assert.deepEqual(
+    rows.map((r) => [r.name, r.port]),
+    [
+      ["alpha", null],
+      ["beta", 4002],
+    ],
+  );
 });
 
 test("a missing registry file gives no rows and no errors", () => {
@@ -180,13 +208,19 @@ test("an invalid registry on the first read gives no rows, one error and a sidec
 });
 
 test("an invalid registry after a good read keeps the previous rows and records the error", () => {
-  const files = new Map([[REGISTRY, registryText({ "/tmp/install-a": "/tmp/project-a" })]]);
+  const files = new Map([
+    [REGISTRY, registryText({ "/tmp/install-a": null })],
+    [FILE_A, installText({ projects: { alpha: { dir: "/tmp/project-a", port: 4001 } } })],
+  ]);
   const { fs, load } = loaderOver(files);
   const good = load();
   files.set(REGISTRY, JSON.stringify({ version: 2, installs: {} }));
   const bad = load();
   assert.equal(good.rows.length, 1);
-  assert.deepEqual(bad.rows, good.rows);
+  assert.deepEqual(
+    bad.rows.map(({ stale, ...rest }) => (assert.ok(stale), rest)),
+    good.rows,
+  );
   assert.match(onlyError(bad.errors).reason, /version is missing or not 1/);
   assert.equal(
     fs.written.get(`${SIDECARS}/${hash16(REGISTRY)}.error`),
@@ -194,50 +228,62 @@ test("an invalid registry after a good read keeps the previous rows and records 
   );
 });
 
-test("a bad profile file keeps the install row and records an error keyed by that file", () => {
-  const profileFile = "/tmp/install-a/.xenomoon.json";
+test("an invalid install file gives no rows for it, keeps the other install's rows and records an error", () => {
   const files = new Map([
-    [REGISTRY, registryText({ "/tmp/install-a": "/tmp/project-a" })],
-    [profileFile, JSON.stringify({ projects: { alpha: { dir: "" } } })],
+    [REGISTRY, registryText({ "/tmp/install-a": null, "/tmp/install-b": null })],
+    [FILE_A, installText({ projects: { alpha: { dir: "" } } })],
+    [FILE_B, installText({ projects: { gamma: { dir: "/tmp/project-c", port: 4003 } } })],
   ]);
   const { fs, load } = loaderOver(files);
   const { rows, errors } = load();
   const err = onlyError(errors);
   assert.deepEqual(
-    rows.map((r) => [r.kind, r.name]),
-    [["install", "install-a"]],
+    rows.map((r) => [r.install, r.name]),
+    [["/tmp/install-b", "gamma"]],
   );
-  assert.equal(err.file, profileFile);
+  assert.equal(err.file, FILE_A);
   assert.match(err.reason, /projects\["alpha"\]\.dir is missing/);
   assert.equal(
-    fs.written.get(`${SIDECARS}/${hash16(profileFile)}.error`),
-    `${AT} ${profileFile}: ${err.reason}\n`,
+    fs.written.get(`${SIDECARS}/${hash16(FILE_A)}.error`),
+    `${AT} ${FILE_A}: ${err.reason}\n`,
   );
 });
 
-test("a corrupt profile file after a good read keeps both its profile rows and the install's port", () => {
-  const profileFile = "/tmp/install-a/.xenomoon.json";
+test("a corrupt install file after a good read keeps its project rows, ports and domains", () => {
   const files = new Map([
-    [REGISTRY, registryText({ "/tmp/install-a": "/tmp/project-a" })],
-    [profileFile, JSON.stringify({ port: 4100, projects: { alpha: { dir: "/tmp/project-a" } } })],
+    [REGISTRY, registryText({ "/tmp/install-a": null })],
+    [
+      FILE_A,
+      installText({
+        projects: {
+          alpha: { dir: "/tmp/project-a" },
+          beta: { dir: "/tmp/b", port: 4002, domain: "x" },
+        },
+      }),
+    ],
   ]);
   const { load } = loaderOver(files);
   const good = load();
-  files.set(profileFile, "{ corrupt");
+  files.set(FILE_A, "{ corrupt");
   const bad = load();
   /** @param {import("./rows.js").HubRow[]} rows */
-  const shape = (rows) => rows.map((r) => [r.kind, r.name, r.port]);
+  const shape = (rows) => rows.map((r) => [r.name, r.project, r.port, r.domain]);
   assert.deepEqual(shape(good.rows), [
-    ["install", "install-a", 4100],
-    ["profile", "alpha", 4100],
+    ["alpha", "/tmp/project-a", null, null],
+    ["beta", "/tmp/b", 4002, "x"],
   ]);
-  assert.deepEqual(shape(bad.rows), shape(good.rows));
+  assert.deepEqual(
+    bad.rows.map(({ stale, ...rest }) => (assert.ok(stale), rest)),
+    good.rows,
+  );
   assert.match(onlyError(bad.errors).reason, /invalid JSON/);
 });
 
 test("a registry entry that is not an install is dropped and nothing is written", () => {
   const files = new Map([
     [REGISTRY, registryText({ "/tmp/install-a": null, "/tmp/project-b": null })],
+    [FILE_A, installText({ projects: { alpha: { dir: "/tmp/project-a" } } })],
+    ["/tmp/project-b/.xenomoon.json", installText({ projects: { x: { dir: "/tmp/x" } } })],
   ]);
   const { fs, load } = loaderOver(files);
   const { rows, errors } = load();
@@ -256,4 +302,79 @@ test("a sidecar write that throws leaves the error with a null sidecar and does 
   assert.deepEqual(rows, []);
   assert.match(err.reason, /root is not an object/);
   assert.equal(err.sidecar, null);
+});
+
+/** A then B both good, then A breaks: project a loses its port and b gets a string port. */
+function staleLoad() {
+  const files = new Map([
+    [REGISTRY, registryText({ "/tmp/install-a": null, "/tmp/install-b": null })],
+    [
+      FILE_A,
+      installText({
+        projects: { a: { dir: "/tmp/project-a", port: 4001 }, b: { dir: "/tmp/b", port: 4002 } },
+      }),
+    ],
+    [FILE_B, installText({ projects: { gamma: { dir: "/tmp/project-c", port: 4003 } } })],
+  ]);
+  const { load } = loaderOver(files);
+  const good = load();
+  const goodA = installText({
+    projects: { a: { dir: "/tmp/project-a" }, b: { dir: "/tmp/b", port: 4002 } },
+  });
+  files.set(
+    FILE_A,
+    installText({ projects: { a: { dir: "/tmp/project-a" }, b: { dir: "/tmp/b", port: "x" } } }),
+  );
+  return { files, load, good, bad: load(), goodA };
+}
+
+test("rows served from the last good install file carry stale with that file and its reason", () => {
+  const { bad } = staleLoad();
+  const reason = onlyError(bad.errors).reason;
+  assert.deepEqual(
+    bad.rows.map((r) => [r.name, r.port, r.stale]),
+    [
+      ["a", 4001, { file: FILE_A, reason }],
+      ["b", 4002, { file: FILE_A, reason }],
+      ["gamma", 4003, undefined],
+    ],
+  );
+});
+
+test("a good read has no stale field on any row, and stale rows are otherwise the cached ones", () => {
+  const { good, bad } = staleLoad();
+  for (const r of good.rows) assert.equal("stale" in r, false);
+  assert.deepEqual(
+    bad.rows.map(({ stale: _s, ...rest }) => rest),
+    good.rows,
+  );
+});
+
+test("stale clears once the install file is valid again, with the current ports", () => {
+  const { files, load, goodA } = staleLoad();
+  files.set(FILE_A, goodA);
+  const { rows, errors } = load();
+  assert.deepEqual(errors, []);
+  assert.deepEqual(
+    rows.map((r) => [r.name, r.port, "stale" in r]),
+    [
+      ["a", null, false],
+      ["b", 4002, false],
+      ["gamma", 4003, false],
+    ],
+  );
+});
+
+test("a failed registry read marks every cached row stale with the registry file", () => {
+  const { files, load } = staleLoad();
+  files.set(FILE_A, installText({ projects: { a: { dir: "/tmp/project-a", port: 4001 } } }));
+  files.set(REGISTRY, "{ not json");
+  const { rows } = load();
+  assert.deepEqual(
+    rows.map((r) => [r.name, r.stale]),
+    [
+      ["a", { file: REGISTRY, reason: "invalid JSON" }],
+      ["gamma", { file: REGISTRY, reason: "invalid JSON" }],
+    ],
+  );
 });

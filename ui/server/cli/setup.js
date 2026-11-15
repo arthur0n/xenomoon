@@ -1,22 +1,20 @@
-// One-time setup: remember which project the framework points at (its absolute path), saved in
-// .xenomoon.json (gitignored) in the framework root, preserving any engine / hermes / domain block
-// already there. Bare-bones on purpose: this is the BOOTSTRAP step, so it must run BEFORE a domain
-// is bound — it deliberately does NOT import config.js (which resolves the active domain and would
-// throw when nothing is bound yet). It only touches .xenomoon.json.
+// Hermes block setup, saved in .xenomoon.json (gitignored) in the framework root, preserving
+// every other field. Bare-bones on purpose: it deliberately does NOT import config.js (which
+// resolves the active domain and would throw when nothing is bound yet).
 //
-// Usage: npm run bind-project-path -- ../project     (or any path to your project)
-//        npm run bind-project-path                    (defaults to ../game, the sibling folder)
+// It no longer binds a project (#65): an install has no single project, and the one command that
+// adds a project is `npm run install-project -- <dir>`. A run with a project path, or with no
+// argument at all (the old ../game default), exits 1 naming that command and writes nothing.
 //
-// Hermes (external researcher) can be switched on here too — these only touch the
-// `hermes` block, never the project path (use the web UI ⚙ Settings panel for the same):
+// Hermes (external researcher) is switched on here — these only touch the `hermes` block
+// (use the web UI ⚙ Settings panel for the same):
 //        npm run bind-project-path -- --hermes --hermes-key=sk-… --hermes-model=anthropic/claude-opus-4.7
 //        npm run bind-project-path -- --hermes-off
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
-import { validateProjectPath } from "./validate-path.js";
-import { registerInstall } from "./install-registry.js";
+import { addProjectCommand } from "./project-entry.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
@@ -48,11 +46,21 @@ const val = (name) =>
     .slice(1)
     .join("=");
 
-// Any --hermes* flag means this run is (also) about the Hermes block. Mirrors config.js
-// saveHermesConfig semantics: preserve the prior block; a blank apiKey is dropped (never overwrite
-// a saved key with empty), a non-empty one replaces it.
+// A project path (or no Hermes flag at all) asks for the old project binding: refuse it before
+// any write, Hermes flags included.
 const hermesArgs = argv.some((a) => a.startsWith("--hermes"));
-if (hermesArgs) {
+const arg = argv.find((a) => !a.startsWith("--"));
+if (arg || !hermesArgs) {
+  console.error(
+    "bind-project-path: an install no longer has one bound project; nothing was written.\n" +
+      `  Add a project with: ${addProjectCommand(arg ? `"${path.resolve(arg)}"` : undefined)}`,
+  );
+  process.exit(1);
+}
+
+// Hermes block. Mirrors config.js saveHermesConfig semantics: preserve the prior block; a blank
+// apiKey is dropped (never overwrite a saved key with empty), a non-empty one replaces it.
+{
   const saved = readConfig();
   /** @type {Record<string, unknown>} */
   const next = { .../** @type {Record<string, unknown>} */ (saved.hermes ?? {}) };
@@ -74,32 +82,4 @@ if (hermesArgs) {
   if (val("hermes-model") != null) console.log(`  model:   ${val("hermes-model")}`);
   if (val("hermes-url") != null) console.log(`  apiUrl:  ${val("hermes-url")}`);
   if (val("hermes-key")) console.log(`  apiKey:  (saved, hidden)`);
-}
-
-// Project-path setup: skip entirely on a Hermes-only run (no explicit path arg), so
-// `npm run bind-project-path` never clobbers the saved project path with the ../game default.
-const arg = argv.find((a) => !a.startsWith("--"));
-if (arg || !hermesArgs) {
-  const target = path.resolve(arg ?? path.join(FRAMEWORK_DIR, "..", "game"));
-  // Validate BEFORE saving — any local absolute path works (validation, not a folder
-  // convention); hard rows block, soft rows warn (--allow-nonlocal downgrades locality).
-  const problems = validateProjectPath(target, path.resolve(FRAMEWORK_DIR), {
-    allowNonlocal: argv.includes("--allow-nonlocal"),
-  });
-  for (const p of problems.filter((p) => !p.hard)) console.warn(`⚠ ${p.msg}`);
-  const hard = problems.filter((p) => p.hard);
-  if (hard.length) {
-    for (const p of hard) console.error(`✗ ${p.msg}`);
-    process.exit(1);
-  }
-  mergeConfig({ projectDir: target });
-  // This is where the install→project binding is established, so it is also where the machine's
-  // install registry learns about it — covering `xenomoon install` and a direct
-  // `npm run bind-project-path` alike. Best-effort: an unwritable home never fails setup.
-  registerInstall(FRAMEWORK_DIR, target);
-  console.log(`Saved project path → ${CONFIG_FILE}`);
-  console.log(`  projectDir: ${target}`);
-  // Domain-agnostic bootstrap: no engine project marker is named here (no domain is resolved yet).
-  // `forge new --domain <name>` is the command that binds the project to a domain and validates it.
-  console.log(`  Next: bind a domain — npm run install-project -- "${target}" --domain <name>`);
 }

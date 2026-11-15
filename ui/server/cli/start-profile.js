@@ -4,10 +4,12 @@
 // BOOTSTRAP tool: it deliberately does NOT import config.js (which resolves the active domain
 // at load time) — it only reads .xenomoon.json and spawns the server with the right env.
 //
-// Usage: npm run start-project -- <name>                                  start a saved profile
-//        npm run start-project -- --add <name> <dir> [--port=N] [--domain=d]   save/update a profile
-//        npm run start-project -- --remove <name>                          delete a profile
-//        npm run start-project                                             list profiles
+// Usage: npm run start-project -- <name>             start a saved profile
+//        npm run start-project -- --remove <name>    delete a profile
+//        npm run start-project                       list profiles
+//
+// A project is added only by `npm run install-project -- <dir>` (#65), which prepares it; the
+// old `--add`, which wrote a map entry with no preparation, exits 1 naming it and writes nothing.
 //
 // A profile's `domain` is exported as XENOMOON_DOMAIN (env beats the file-level `domain` key in
 // the resolver, and must match the project's own .xenomoon-project.json lock — a mismatch is
@@ -18,6 +20,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
+import { addProjectCommand } from "./project-entry.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
@@ -48,13 +51,6 @@ function mergeConfig(patch) {
 }
 
 const argv = process.argv.slice(2);
-/** @param {string} name @returns {string | undefined} */
-const val = (name) =>
-  argv
-    .find((a) => a.startsWith(`--${name}=`))
-    ?.split("=")
-    .slice(1)
-    .join("=");
 const positional = argv.filter((a) => !a.startsWith("--"));
 
 /** One line per profile, for --list and error hints. @returns {string} */
@@ -62,7 +58,7 @@ function listing() {
   const profiles = readProfiles();
   const names = Object.keys(profiles);
   if (!names.length) {
-    return "  (none — add one: npm run start-project -- --add <name> <dir> [--port=N] [--domain=d])";
+    return `  (none — add one: ${addProjectCommand()})`;
   }
   return names
     .map((n) => {
@@ -76,20 +72,12 @@ function listing() {
 }
 
 if (argv.includes("--add")) {
-  const [name, dir] = positional;
-  if (!name || !dir) {
-    console.error("usage: npm run start-project -- --add <name> <dir> [--port=N] [--domain=d]");
-    process.exit(1);
-  }
-  /** @type {Profile} */
-  const profile = { dir: path.resolve(dir) };
-  const port = Number(val("port"));
-  if (Number.isInteger(port) && port > 0) profile.port = port;
-  const domain = val("domain");
-  if (domain) profile.domain = domain;
-  mergeConfig({ projects: { ...readProfiles(), [name]: profile } });
-  console.log(`Saved profile "${name}" → ${CONFIG_FILE}`);
-  console.log(listing());
+  const dir = positional[1];
+  console.error(
+    "start-project: --add is gone; nothing was written.\n" +
+      `  Add a project with: ${addProjectCommand(dir ? `"${path.resolve(dir)}"` : undefined)}`,
+  );
+  process.exit(1);
 } else if (argv.includes("--remove")) {
   const [name] = positional;
   const profiles = readProfiles();

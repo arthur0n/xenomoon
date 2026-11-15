@@ -1,25 +1,31 @@
-// The hub's row list: one row per client project, i.e. each registered install and each of its
-// launch profiles. buildRows is pure; makeRowLoader adds the file reads, keeping the last good
-// parse per file (an install's profiles and its root port together, from the one .xenomoon.json) so one bad edit never blanks the hub, and writing an `.error` sidecar per failing
-// file. No HTTP, no process work, and nothing is ever written to the registry or a profile file.
+// The hub's row list: one row per project, i.e. per entry of the `projects` map of every
+// registered install. There is no row for an install itself: the registry value and a root
+// `projectDir` are ignored. buildRows is pure; makeRowLoader adds the file reads, keeping the last
+// good install file so one bad edit never blanks the hub, and writing an `.error` sidecar per
+// failing file. No HTTP, no process work, and nothing is ever written to the registry or an install file.
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { REGISTRY_FILE, isInstallDir, parseRegistry } from "../../cli/install-registry.js";
-import { readProfiles } from "../../cli/profiles.js";
-import { DEFAULT_PORT } from "../../cli/port-pick.js";
+import { projectsOf, readProfiles } from "../../cli/profiles.js";
 
-/** @typedef {import("../../cli/profiles.js").Profile} Profile */
+/** @typedef {import("../../cli/profiles.js").ProjectEntry} ProjectEntry */
 
-/**
+/** The file whose current read failed, so the row comes from its last good copy.
+ * @typedef {{ file: string, reason: string }} HubStale */
+
+/** A project row. `project` is the project dir; `port` is null when the map gives none (the row
+ * cannot be started: it never borrows the install's or another project's port). `stale` is set only
+ * on a row served from the last good copy of a file whose current read failed: it shows as before
+ * but cannot be started (lifecycle.js), only stopped.
  * @typedef {{
  *   id: string,
- *   kind: "install" | "profile",
  *   install: string,
  *   name: string,
- *   project: string | null,
- *   port: number,
+ *   project: string,
+ *   port: number | null,
  *   domain: string | null,
+ *   stale?: HubStale,
  * }} HubRow
  */
 
@@ -29,52 +35,31 @@ import { DEFAULT_PORT } from "../../cli/port-pick.js";
  * @param {string} text @returns {string} */
 const shortHash = (text) => createHash("sha256").update(text).digest("hex").slice(0, 16);
 
-/** @param {HubRow["kind"]} kind @param {string} install @param {string} name @returns {string} */
-const rowId = (kind, install, name) => shortHash(`${kind}\0${install}\0${name}`);
+/** @param {string} install @param {string} name @returns {string} */
+const rowId = (install, name) => shortHash(`${install}\0${name}`);
 
 /** @param {HubRow} a @param {HubRow} b @returns {number} */
 function compareRows(a, b) {
   if (a.install !== b.install) return a.install < b.install ? -1 : 1;
-  if (a.kind !== b.kind) return a.kind === "install" ? -1 : 1;
   if (a.name !== b.name) return a.name < b.name ? -1 : 1;
   return 0;
 }
 
-/** One install row plus one row per profile of every install. Pure.
- * @param {{
- *   installs: Record<string, string | null>,
- *   profilesByInstall: Record<string, Record<string, Profile>>,
- *   installPortOf: (installDir: string) => number | null,
- * }} input
+/** One row per project entry, sorted by install then name. Pure.
+ * @param {Array<ProjectEntry & { domain?: string | null, stale?: HubStale }>} projects
  * @returns {HubRow[]} */
-export function buildRows({ installs, profilesByInstall, installPortOf }) {
-  /** @type {HubRow[]} */
-  const rows = [];
-  for (const [install, project] of Object.entries(installs)) {
-    const installPort = installPortOf(install) ?? DEFAULT_PORT;
-    const name = path.basename(install);
-    rows.push({
-      id: rowId("install", install, name),
-      kind: "install",
-      install,
-      name,
-      project,
-      port: installPort,
-      domain: null,
-    });
-    for (const [profileName, profile] of Object.entries(profilesByInstall[install] ?? {})) {
-      rows.push({
-        id: rowId("profile", install, profileName),
-        kind: "profile",
-        install,
-        name: profileName,
-        project: profile.dir,
-        port: profile.port ?? installPort,
-        domain: profile.domain ?? null,
-      });
-    }
-  }
-  return rows.sort(compareRows);
+export function buildRows(projects) {
+  return projects
+    .map((p) => ({
+      id: rowId(p.install, p.name),
+      install: p.install,
+      name: p.name,
+      project: p.dir,
+      port: p.port,
+      domain: p.domain ?? null,
+      ...(p.stale ? { stale: p.stale } : {}),
+    }))
+    .sort(compareRows);
 }
 
 /**
@@ -96,7 +81,7 @@ function readFailure(err) {
   return String(e?.code ?? e?.message ?? err);
 }
 
-/** A loader whose `load()` re-reads the registry and every install's profiles.
+/** A loader whose `load()` re-reads the registry and every install's projects map.
  * @param {RowLoaderOptions} options
  * @returns {() => { rows: HubRow[], errors: HubError[] }} */
 export function makeRowLoader({
@@ -127,17 +112,21 @@ export function makeRowLoader({
     errors.push({ file, reason, at, sidecar });
   }
 
-  /** The parsed map on success (cached), else the last good map or {} plus an error.
+  /** The parsed map on success (cached), else the last good map or {} plus an error and `stale`.
    * @template {Record<string, unknown>} T
    * @param {HubError[]} errors @param {string} file
-   * @param {{ ok: true, value: T } | { ok: false, reason: string }} parsed @returns {T} */
+   * @param {{ ok: true, value: T } | { ok: false, reason: string }} parsed
+   * @returns {{ value: T, stale?: HubStale }} */
   function settle(errors, file, parsed) {
     if (parsed.ok) {
       lastGood.set(file, parsed.value);
-      return parsed.value;
+      return { value: parsed.value };
     }
     record(errors, file, parsed.reason);
-    return /** @type {T} */ (lastGood.get(file) ?? {});
+    return {
+      value: /** @type {T} */ (lastGood.get(file) ?? {}),
+      stale: { file, reason: parsed.reason },
+    };
   }
 
   /** @returns {{ ok: true, value: Record<string, string | null> } | { ok: false, reason: string }} */
@@ -155,32 +144,40 @@ export function makeRowLoader({
     return parsed.ok ? { ok: true, value: parsed.installs } : parsed;
   }
 
+  /** One install's project entries with their domain, from its last good install file; `stale` is
+   * the install file's own failure, else the registry's.
+   * @param {HubError[]} errors @param {string} install @param {HubStale | undefined} registryStale
+   * @returns {Array<ProjectEntry & { domain: string | null, stale?: HubStale }>} */
+  function projectsOfInstall(errors, install, registryStale) {
+    /** @type {string | null} */
+    let text = null;
+    const parsed = readProfiles(install, { readFile: (f) => (text = readFile(f)) });
+    const result = parsed.ok
+      ? {
+          ok: /** @type {const} */ (true),
+          value: { text: /** @type {string | null} */ (text), projects: parsed.projects },
+        }
+      : parsed;
+    const { value: good, stale = registryStale } = settle(
+      errors,
+      path.join(install, ".xenomoon.json"),
+      result,
+    );
+    const goodText = good.text;
+    if (typeof goodText !== "string") return [];
+    return projectsOf(install, { readFile: () => goodText }).map((entry) => ({
+      ...entry,
+      domain: good.projects?.[entry.name]?.domain ?? null,
+      ...(stale ? { stale } : {}),
+    }));
+  }
+
   return function load() {
     /** @type {HubError[]} */
     const errors = [];
-    const registered = settle(errors, registryFile, parseRegistryFile());
-    /** @type {Record<string, string | null>} */
-    const installs = {};
-    for (const [dir, project] of Object.entries(registered)) {
-      if (isInstall(dir)) installs[dir] = project;
-    }
-    /** @type {Record<string, Record<string, Profile>>} */
-    const profilesByInstall = {};
-    /** @type {Map<string, number | null>} */
-    const portByInstall = new Map();
-    for (const install of Object.keys(installs)) {
-      const parsed = readProfiles(install, { readFile });
-      const result = parsed.ok
-        ? {
-            ok: /** @type {const} */ (true),
-            value: { projects: parsed.projects, port: parsed.port },
-          }
-        : parsed;
-      const good = settle(errors, path.join(install, ".xenomoon.json"), result);
-      profilesByInstall[install] = good.projects ?? {};
-      portByInstall.set(install, good.port ?? null);
-    }
-    const installPortOf = (/** @type {string} */ dir) => portByInstall.get(dir) ?? null;
-    return { rows: buildRows({ installs, profilesByInstall, installPortOf }), errors };
+    const { value: registered, stale } = settle(errors, registryFile, parseRegistryFile());
+    const installs = Object.keys(registered).filter((dir) => isInstall(dir));
+    const projects = installs.flatMap((install) => projectsOfInstall(errors, install, stale));
+    return { rows: buildRows(projects), errors };
   };
 }

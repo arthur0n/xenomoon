@@ -23,10 +23,9 @@
 //   --repo <dir>     the git repo the diff modes read (default: this framework checkout)
 // The diff modes fail CLOSED: a git error is a failure, never "nothing to scan".
 import { execFileSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseJSON } from "../../lib/json.js";
 import { knownProjectTerms, readInstallsMap } from "./known-projects.js";
 import { loadDenylist, findTerms, addedLines } from "./denylist.js";
 
@@ -48,18 +47,6 @@ function fail(msg) {
   process.exit(1);
 }
 
-/** The bound project's dir, if this install has one. @returns {string} */
-function boundProjectDir() {
-  try {
-    const f = path.join(FRAMEWORK_DIR, ".xenomoon.json");
-    if (!existsSync(f)) return "";
-    const cfg = /** @type {{ projectDir?: unknown }} */ (parseJSON(readFileSync(f, "utf8")));
-    return typeof cfg.projectDir === "string" ? cfg.projectDir : "";
-  } catch {
-    return "";
-  }
-}
-
 /** @type {string[]} */
 let denylisted = [];
 try {
@@ -69,7 +56,8 @@ try {
 }
 const terms = [
   ...new Set([
-    ...knownProjectTerms({ installs: readInstallsMap(), boundProjectDir: boundProjectDir() }),
+    // This checkout is an install too, registered or not: its own projects count.
+    ...knownProjectTerms({ installs: { [FRAMEWORK_DIR]: null, ...readInstallsMap() } }),
     ...denylisted,
   ]),
 ].sort();

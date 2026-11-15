@@ -368,7 +368,8 @@ const checks = [
   // rather than merely reporting — doctor already runs inside the install it is checking, so
   // it has everything the registry needs.
   (() => {
-    registerInstall(FRAMEWORK_DIR, PROJECT_DIR);
+    // The install only: its projects live in its own `projects` map, not in the registry (#65).
+    registerInstall(FRAMEWORK_DIR);
     const known = Object.keys(readRegistry()).length;
     return {
       ok: true,

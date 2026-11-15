@@ -18,36 +18,51 @@
 //   xenomoon list             every install on this machine, and which owns the global bin
 //
 // Any verb takes --install=<path> (or XENOMOON_INSTALL) to name its target explicitly.
+// doctor | start | up | stop | restart act on ONE project of that install, chosen by
+// --project=<name>, else the project folder cwd is in, else the install's only project
+// (project-target.js); it is passed to the script as its project dir and PORT.
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readRegistry, resolveInstall } from "./install-registry.js";
+import { projectsOf, projectsOfInstalls, readProfiles } from "./profiles.js";
+import { PROJECT_VERBS, projectTarget } from "./project-target.js";
 import { shq } from "../../lib/shell.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const OWN_ROOT = path.join(here, "..", "..", ".."); // the install this linked CLI ships inside
 const argv = process.argv.slice(2);
-const [verb, ...rest] = argv.filter((a) => !a.startsWith("--install="));
-const override =
+/** The value of a `--name=value` flag, or null. @param {string} name */
+const flagValue = (name) =>
   argv
-    .find((a) => a.startsWith("--install="))
+    .find((a) => a.startsWith(`--${name}=`))
     ?.split("=")
     .slice(1)
-    .join("=") ??
-  process.env.XENOMOON_INSTALL ??
-  null;
+    .join("=") ?? null;
+const [verb, ...rest] = argv.filter(
+  (a) => !a.startsWith("--install=") && !a.startsWith("--project="),
+);
+const override = flagValue("install") ?? process.env.XENOMOON_INSTALL ?? null;
 
 // Verbs that act ON an install (as opposed to creating one, or reporting on all of them).
 const ROOT_VERBS = ["doctor", "start", "up", "stop", "restart", "update", "promote"];
 
 /** Resolve the target install for a ROOT_VERB, or exit non-zero listing the candidates. Ambiguity
  * must never be resolved by guessing: silently driving whichever install last won the global
- * `npm link` is precisely the bug the registry exists to eliminate. @returns {string} */
+ * `npm link` is precisely the bug the registry exists to eliminate.
+ * @returns {import("./install-registry.js").Resolution & { root: string }} */
 function targetRoot() {
   const r = resolveInstall(process.cwd(), OWN_ROOT, override);
   if (!r.root) {
-    if (r.candidates?.length) {
+    if (r.how.startsWith("ambiguous:")) {
+      // One project folder listed by several installs: `how` already names the folder.
+      console.error(
+        `xenomoon ${verb}: ${r.how} — say which:\n` +
+          (r.candidates ?? []).map(([i]) => `  ${i}`).join("\n") +
+          `\nPass --install=<path>.`,
+      );
+    } else if (r.candidates?.length) {
       console.error(
         `xenomoon ${verb}: cwd is neither an install nor a known project, and ` +
           `${r.candidates.length} installs are registered — say which:\n` +
@@ -61,34 +76,85 @@ function targetRoot() {
   }
   // Always announce: an unannounced wrong-install run is what made this failure invisible before.
   console.error(`xenomoon ${verb} → ${r.root}  (${r.how})`);
-  return r.root;
+  return /** @type {import("./install-registry.js").Resolution & { root: string }} */ (r);
 }
 
-const ROOT = ROOT_VERBS.includes(verb ?? "") ? targetRoot() : OWN_ROOT;
+const resolution = ROOT_VERBS.includes(verb ?? "") ? targetRoot() : null;
+const ROOT = resolution?.root ?? OWN_ROOT;
+
+// `start <profile>` predates --project: its profile IS a project name (start-profile.js reads
+// the same `projects` map), so a leading positional still names the project.
+const legacyName = verb === "start" && rest[0] && !rest[0].startsWith("--") ? rest[0] : null;
+const projectFlag = flagValue("project") ?? legacyName;
+if (legacyName && projectFlag === legacyName) rest.shift();
+
+/** The one project a PROJECT_VERB acts on, or exit 1 before any script runs.
+ * @returns {import("./profiles.js").ProjectEntry | null} */
+function targetProject() {
+  if (!resolution || !PROJECT_VERBS.includes(verb ?? "")) return null;
+  const parsed = readProfiles(ROOT);
+  const target = projectTarget({
+    resolution,
+    projects: projectsOf(ROOT),
+    rootProjectDir: parsed.ok ? parsed.projectDir : null,
+    flag: projectFlag,
+    cwd: process.cwd(),
+    envPort: process.env.PORT ?? null,
+    verb: verb ?? "",
+  });
+  if ("refuse" in target) {
+    console.error(target.refuse.join("\n"));
+    process.exit(1);
+  }
+  const { project } = target;
+  // A port verb only gets here when PORT is unset or equals the project's (projectTarget refuses
+  // a different one); doctor selects no server by port, so an inherited PORT still reaches it.
+  const port = process.env.PORT ?? String(project.port ?? "");
+  console.error(`  project "${project.name}" → ${project.dir}${port ? `  port ${port}` : ""}`);
+  return project;
+}
+
+const PROJECT = targetProject();
+/** The child env: PORT is the project's port unless the caller set one (for a port verb, the
+ * caller's PORT can only be that same port — see targetProject). */
+const env =
+  PROJECT?.port && (!process.env.PORT || Number(process.env.PORT) === PROJECT.port)
+    ? { ...process.env, PORT: String(PROJECT.port) }
+    : process.env;
+/** The project dir as the script's first argument (config.js reads the first positional). */
+const dirArg = PROJECT ? [PROJECT.dir] : [];
 
 /** @param {string} script @param {string[]} [args] */
 const run = (script, args = []) =>
-  execFileSync("npm", ["run", script, "--", ...args], { cwd: ROOT, stdio: "inherit" });
+  execFileSync("npm", ["run", script, "--", ...args], { cwd: ROOT, stdio: "inherit", env });
+/** @param {string} script @param {string[]} [args] */
+const bash = (script, args = []) =>
+  execFileSync("bash", [path.join(ROOT, script), ...args], { cwd: ROOT, stdio: "inherit", env });
 
 switch (verb) {
   case "install":
   case undefined: // bare `npx github:arthur0n/xenomoon` = install
-    execFileSync("node", [path.join(here, "bootstrap.js"), ...rest], { stdio: "inherit" });
+    // The explicit install is the one flag bootstrap needs back: it is stripped from `rest` above.
+    execFileSync(
+      "node",
+      [path.join(here, "bootstrap.js"), ...rest, ...(override ? [`--install=${override}`] : [])],
+      { stdio: "inherit" },
+    );
     break;
   case "doctor":
-    run("doctor", rest);
+    run("doctor", [...dirArg, ...rest]);
     break;
   case "start":
-    run(rest.length ? "start-project" : "start", rest);
+    // start-profile.js: the profile's dir as the server argument, its port and domain, and the
+    // supervisor loop that honours the UI's restart request.
+    run("start-project", [PROJECT?.name ?? "", ...rest]);
     break;
   case "up":
-    execFileSync("bash", [path.join(ROOT, "start_server"), ...rest], {
-      cwd: ROOT,
-      stdio: "inherit",
-    });
+    bash("start_server", [...dirArg, ...rest]);
     break;
   case "stop":
-    execFileSync("bash", [path.join(ROOT, "stop_server")], { cwd: ROOT, stdio: "inherit" });
+    // stop_server takes no project argument: PORT is what selects the server.
+    bash("stop_server");
     break;
   case "restart": {
     // stop_server exits 0 when nothing was running, so ANY failure here means the stop did not
@@ -96,7 +162,7 @@ switch (verb) {
     // orphan gets a sibling. This used to swallow every non-zero status on the (since falsified)
     // premise that non-zero just meant "nothing to stop".
     try {
-      execFileSync("bash", [path.join(ROOT, "stop_server")], { cwd: ROOT, stdio: "inherit" });
+      bash("stop_server");
     } catch (err) {
       const status = /** @type {{ status?: number }} */ (err).status ?? 1;
       console.error(
@@ -106,10 +172,7 @@ switch (verb) {
       );
       process.exit(status);
     }
-    execFileSync("bash", [path.join(ROOT, "start_server"), ...rest], {
-      cwd: ROOT,
-      stdio: "inherit",
-    });
+    bash("start_server", [...dirArg, ...rest]);
     break;
   }
   case "update": {
@@ -178,9 +241,13 @@ switch (verb) {
       console.log(`No installs registered yet — they register on \`xenomoon install\`.`);
       break;
     }
-    for (const [install, project] of installs) {
+    const projects = projectsOfInstalls(readRegistry());
+    for (const [install] of installs) {
       const owns = path.resolve(install) === path.resolve(OWN_ROOT) ? "  ← owns `xenomoon`" : "";
-      console.log(`${install}${project ? `  → ${project}` : "  (no project bound)"}${owns}`);
+      console.log(`${install}${owns}`);
+      const mine = projects.filter((p) => p.install === path.resolve(install));
+      if (!mine.length) console.log("  (no projects)");
+      for (const p of mine) console.log(`  ${p.name}  ${p.dir}  port ${p.port ?? "(none)"}`);
     }
     break;
   }
@@ -188,7 +255,8 @@ switch (verb) {
     console.error(
       `xenomoon: unknown verb "${verb}"\n` +
         `  install | doctor | start [profile] | up | stop | restart | update | promote | list\n` +
-        `  any verb: --install=<path> to name the target install explicitly`,
+        `  any verb: --install=<path> to name the target install explicitly\n` +
+        `  doctor | start | up | stop | restart: --project=<name> to name the project`,
     );
     process.exit(1);
 }

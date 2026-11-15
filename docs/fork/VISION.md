@@ -11,9 +11,9 @@ Godot is what we forked from — it stays as the upstream reference, not one of 
 Two ideas anchor it:
 
 1. **Per-project, deterministic install.** You `install --domain <name>` into a project. The
-   choice is written to a committed lock (`.xenodot-project.json`) and read literally — no agent
-   inference, no "what are you building?" prompt. One install per project; each is **independent**
-   and **learns that project**. Works on existing (non-greenfield) projects, additively.
+   choice is written to a committed lock (`.xenomoon-project.json`) and read literally — no agent
+   inference, no "what are you building?" prompt. One install per domain holds many projects; each project is **independent**
+   and the framework **learns that project**. Works on existing (non-greenfield) projects, additively.
 
 2. **Packages are portable.** A domain package is an **agentskills.io `SKILL.md` / `SOUL.md`
    bundle** — the same standard our framework, OpenClaw, and Hermes already speak. Authored once,

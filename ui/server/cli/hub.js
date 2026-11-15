@@ -106,7 +106,7 @@ export async function runHub({
   const deps = {
     load,
     aggregate,
-    lifecycle: makeLifecycle({}),
+    lifecycle: makeLifecycle({ load }),
     get ownHost() {
       return ownHost;
     },

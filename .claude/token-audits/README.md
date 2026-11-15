@@ -37,6 +37,11 @@ node ui/server/cli/token-history.js snapshot --global         # the longitudinal
 node ui/server/cli/token-history.js land --opp id --moved true|false|pending [--delta-tok N] [--delta-cost N] [--result "…"]
 ```
 
+`append` and `snapshot` read the session logs of one project of this install. `--project <name|dir>`
+picks it: a name from the `projects` map of `.xenomoon.json` (a name wins over a path of the same
+spelling), or else a project directory. Without the flag, an install with one project uses it; an
+install with several asks for `--project <name>`.
+
 **Never edit `history.json` / `history.md` by hand — go through the CLI.** It is self-contained
 (its own NDJSON parser; no import of the framework's `usage.js`) so the token loop can evolve its
 metrics without touching framework code — leave the small parse duplication alone.

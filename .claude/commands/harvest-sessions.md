@@ -28,7 +28,7 @@ is applied by the SAME `/framework-audit-fix`.
 
 ## Where the data lives (repo-relative; cwd = forge root)
 
-- **Logs:** `<project>/.xenomoon/logs/session-*.ndjson` (`<project>` = the `projectDir` in the install's
+- **Logs:** `<project>/.xenomoon/logs/session-*.ndjson` (`<project>` = a project's `dir` in the `projects` map of the install's
   `.xenomoon.json`; same source
   `/token-audit` mines). Filenames are ISO timestamps → a lexical sort is chronological; the **tag**
   is the part between `session-` and `.ndjson`. Sizes run 650 B → 16 MB — **never slurp one into

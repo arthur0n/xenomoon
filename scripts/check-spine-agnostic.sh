@@ -16,13 +16,14 @@
 #   --project <term>   also fail if this term is hardcoded into the spine
 #   --no-project       skip check 3 entirely (opt out of the auto-derived terms)
 #
-# Check 3 AUTO-DERIVES its terms from the bound project when no --project is given: `npm run
+# Check 3 AUTO-DERIVES its terms from every project of this install (the `projects` map of
+# .xenomoon.json, plus a legacy root projectDir) when no --project is given: `npm run
 # check:agnostic` (and CI) pass no flag, so the branch used to be dead in the only gate anyone
-# actually runs — it fired solely from /sync-framework. The terms come from `denylistFor()` in
-# ui/server/features/promotions/contamination.js — ONE definition of "a project proper noun"
-# (project dir basename + package.json name, generic words and <3-char junk filtered), shared
-# with the contamination gate so the two can't drift apart. No bound project, no node, no
-# descriptor -> no terms, and check 3 skips exactly as before.
+# actually runs — it fired solely from /sync-framework. The terms come from `installTerms()` in
+# ui/server/cli/known-projects.js, which applies `denylistFor()` (contamination.js) — ONE
+# definition of "a project proper noun" (project dir basename + package.json name, generic words
+# and <3-char junk filtered), shared with the contamination gate so the two can't drift apart.
+# No project, no node, no descriptor -> no terms, and check 3 skips exactly as before.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -38,12 +39,12 @@ done
 
 DERIVED=0
 if [ -z "$PROJECT" ] && [ "$SKIP_PROJECT" = 0 ] && [ -f .xenomoon.json ] && command -v node >/dev/null 2>&1; then
-  # An ERE alternation of the bound project's proper nouns ("acme|acme-web"), or empty.
+  # An ERE alternation of the proper nouns of EVERY project this install serves ("acme|acme-web|
+  # beta"), or empty — the same installTerms() the contamination gate uses.
   PROJECT="$(node --input-type=module -e '
-import { readFileSync } from "node:fs";
-import { denylistFor } from "./ui/server/features/promotions/contamination.js";
-const dir = JSON.parse(readFileSync(".xenomoon.json", "utf8")).projectDir;
-if (typeof dir === "string" && dir) console.log(denylistFor(dir).join("|"));
+import { installTerms } from "./ui/server/cli/known-projects.js";
+const { denylist } = installTerms(".");
+if (denylist.length) console.log(denylist.join("|"));
 ' 2>/dev/null || true)"
   [ -n "$PROJECT" ] && DERIVED=1
 fi

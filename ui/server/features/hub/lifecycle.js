@@ -9,6 +9,7 @@ import { aggregate } from "./status.js";
 /** @typedef {{ status: number | null, stdout: string, stderr: string }} RunResult */
 /** @typedef {(file: string, args: string[], opts: { cwd: string, env: NodeJS.ProcessEnv }) => Promise<RunResult>} Run */
 /** @typedef {(rows: HubRow[]) => Promise<{ rows: HubRowStatus[] }>} Snapshot */
+/** @typedef {() => { rows: HubRow[] }} Load */
 
 /**
  * @typedef {{
@@ -88,7 +89,18 @@ function refuseUnclear(self) {
 /** @param {Run} run @param {Snapshot} snapshot @param {HubRow} row @param {HubRow[]} rows
  * @returns {Promise<OpResult>} */
 async function doStart(run, snapshot, row, rows) {
-  if (row.project === null) return { ok: false, code: 409, reason: "no bound project" };
+  if (row.stale) {
+    const { file, reason } = row.stale;
+    return {
+      ok: false,
+      code: 409,
+      reason: `stale config: ${file} failed to read (${reason}); fix that file, then start again`,
+    };
+  }
+  if (row.port === null) {
+    const reason = `no port: set projects["${row.name}"].port in ${row.install}/.xenomoon.json`;
+    return { ok: false, code: 409, reason };
+  }
   const { self, peers } = await look(snapshot, row, rows);
   if (self?.state === "on") return { ok: true, code: 200, state: "on", noop: true };
   const unclear = refuseUnclear(self);
@@ -111,7 +123,9 @@ async function doStart(run, snapshot, row, rows) {
   };
 }
 
-/** @param {Run} run @param {Snapshot} snapshot @param {HubRow} row @param {HubRow[]} rows
+/** Stop is allowed on a stale row on purpose: a running server must stay stoppable when its config
+ * breaks, so it uses the cached port from the last good copy.
+ * @param {Run} run @param {Snapshot} snapshot @param {HubRow} row @param {HubRow[]} rows
  * @returns {Promise<OpResult>} */
 async function doStop(run, snapshot, row, rows) {
   const { self } = await look(snapshot, row, rows);
@@ -135,11 +149,37 @@ async function doStop(run, snapshot, row, rows) {
   };
 }
 
+/** A start decides on the row as it is when its queued op begins, not when the request arrived: a
+ * stop ahead of it may finish after the install file broke or the project left the map (#65).
+ * Without `load` the given row and rows are used as they are.
+ * @param {Load | undefined} load @param {HubRow} row @param {HubRow[]} rows
+ * @returns {{ row: HubRow, rows: HubRow[] } | null} null when the row is gone */
+function current(load, row, rows) {
+  if (!load) return { row, rows };
+  const { rows: fresh } = load();
+  const now = fresh.find((r) => r.id === row.id);
+  return now ? { row: now, rows: fresh } : null;
+}
+
+/** @param {Run} run @param {Snapshot} snapshot @param {Load | undefined} load @param {HubRow} row
+ * @param {HubRow[]} rows @returns {Promise<OpResult>} */
+async function startNow(run, snapshot, load, row, rows) {
+  const now = current(load, row, rows);
+  if (!now) return { ok: false, code: 404, reason: "unknown row" };
+  return doStart(run, snapshot, now.row, now.rows);
+}
+
 /** start / stop for hub rows, serialized per port alone: one machine has one listener per port, and
  * two registry entries can alias one physical install (a symlink), so an install-based key would
- * let two starts on one port both read "off". The snapshot runs inside the serialized op.
- * @param {{ run?: Run, snapshot?: Snapshot }} [deps] */
-export function makeLifecycle({ run = defaultRun, snapshot = (rows) => aggregate(rows) } = {}) {
+ * let two starts on one port both read "off". The snapshot runs inside the serialized op. Stop does
+ * not re-resolve: the row it was given carries the port the hub last saw the server on (the cached
+ * one when stale), which is what finds a running server even after its project left the map.
+ * @param {{ run?: Run, snapshot?: Snapshot, load?: Load }} [deps] */
+export function makeLifecycle({
+  run = defaultRun,
+  snapshot = (rows) => aggregate(rows),
+  load,
+} = {}) {
   /** @type {Map<string, Promise<unknown>>} */
   const tails = new Map();
 
@@ -158,7 +198,7 @@ export function makeLifecycle({ run = defaultRun, snapshot = (rows) => aggregate
 
   return {
     /** @param {HubRow} row @param {HubRow[]} rows @returns {Promise<OpResult>} */
-    start: (row, rows) => serialize(row, () => doStart(run, snapshot, row, rows)),
+    start: (row, rows) => serialize(row, () => startNow(run, snapshot, load, row, rows)),
     /** @param {HubRow} row @param {HubRow[]} rows @returns {Promise<OpResult>} */
     stop: (row, rows) => serialize(row, () => doStop(run, snapshot, row, rows)),
     /** Keys with an operation in flight or queued (for tests). @returns {number} */

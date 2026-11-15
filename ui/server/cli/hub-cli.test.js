@@ -102,7 +102,6 @@ test("a second hub exits 0 within the probe budget while the running hub's statu
   /** @type {import("../features/hub/rows.js").HubRow} */
   const row = {
     id: "s".repeat(16),
-    kind: "install",
     install: "/tmp/install-stall",
     name: "install-stall",
     project: "/tmp/project-stall",

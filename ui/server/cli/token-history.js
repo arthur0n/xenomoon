@@ -9,12 +9,14 @@
 // Source of truth = .claude/token-audits/history.json (append-only; NEVER pruned — it is history,
 // the opposite lifecycle to the ephemeral framework-audit ledger). history.md is a generated view.
 //
-// Logs are read from <project>/.xenomoon/logs (snapshot + append only). The project is
-// `--project <dir>`, else the root `projectDir` of <install>/.xenomoon.json; neither → exit 1.
+// Logs are read from <project>/.xenomoon/logs (snapshot + append only). The project comes from
+// pickProject(): `--project <name|dir>` (a name in the install's `projects` map wins over a path
+// of the same spelling), else the map's only project, else (no map entry) the root `projectDir`
+// of <install>/.xenomoon.json; several projects and no flag, or no project at all → exit 1.
 //
-//   node ui/server/cli/token-history.js append   [--project <dir>] --sessions a,b --offender "…" --opp id:55000 --note "…" [--date YYYY-MM-DD]
-//   node ui/server/cli/token-history.js snapshot  [--project <dir>] --sessions a,b            # print metrics JSON, write nothing (fix-arm BEFORE/AFTER)
-//   node ui/server/cli/token-history.js snapshot  [--project <dir>] --global                  # print the global snapshot
+//   node ui/server/cli/token-history.js append   [--project <name|dir>] --sessions a,b --offender "…" --opp id:55000 --note "…" [--date YYYY-MM-DD]
+//   node ui/server/cli/token-history.js snapshot  [--project <name|dir>] --sessions a,b       # print metrics JSON, write nothing (fix-arm BEFORE/AFTER)
+//   node ui/server/cli/token-history.js snapshot  [--project <name|dir>] --global             # print the global snapshot
 //   node ui/server/cli/token-history.js land      --opp id --moved true|false|pending [--delta-tok N] [--delta-cost N] [--result "…"]
 //   node ui/server/cli/token-history.js pending   [--json]                # list opportunities awaiting confirmation
 //   node ui/server/cli/token-history.js render                           # regenerate history.md + history.html (the daily dashboard)
@@ -25,9 +27,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
 import { projectLogDir } from "../../lib/project-paths.js";
-import { readProfiles } from "./profiles.js";
+import { projectsOf, readProfiles } from "./profiles.js";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const SELF = fileURLToPath(import.meta.url);
+const ROOT = path.resolve(path.dirname(SELF), "../../..");
+// Run as a CLI only when executed directly; an import (the tests) gets the exports, no side effects.
+// import.meta.main (Node >= 24.2) is true for the entry module even when it is run through a
+// symlink, where comparing process.argv[1] with this file's path as text said false (#65).
+const IS_MAIN = import.meta.main === true;
 const DIR = path.join(ROOT, ".claude/token-audits");
 const JSON_PATH = path.join(DIR, "history.json");
 const MD_PATH = path.join(DIR, "history.md");
@@ -391,7 +398,7 @@ function renderMd(h) {
 }
 
 // ---- arg parsing ---------------------------------------------------------------------------
-const argv = process.argv.slice(2);
+const argv = IS_MAIN ? process.argv.slice(2) : [];
 const cmd = argv[0];
 /** @type {Record<string, string>} */
 const flags = {};
@@ -406,7 +413,7 @@ for (let i = 1; i < argv.length; i++) {
   if (nxt !== undefined && !nxt.startsWith("--")) {
     val = nxt;
     i++;
-  } else if (key === "project") die("--project needs a directory");
+  } else if (key === "project") die("--project needs a project name or a directory");
   if (key === "opp") opps.push(val);
   else flags[key] = val;
 }
@@ -435,20 +442,46 @@ function missingLogs(tags) {
   return tags.filter((t) => !existsSync(path.join(logDir(), `session-${t}.ndjson`)));
 }
 
+/** Which project's logs to read. Pure: the caller reads the install and exits on a refusal.
+ * `flag` is a name in `projects` (the name wins) or else a directory path; no flag → the only
+ * project of the map; an empty map → the legacy root `rootDir`; otherwise a refusal message.
+ * @param {{ flag?: string, projects: { name: string, dir: string }[], rootDir?: string | null }} input
+ * @returns {{ ok: true, dir: string } | { ok: false, message: string }} */
+export function pickProject({ flag, projects, rootDir }) {
+  if (flag !== undefined) {
+    const named = projects.find((p) => p.name === flag);
+    return { ok: true, dir: named ? named.dir : flag };
+  }
+  const only = projects.length === 1 ? projects[0] : undefined;
+  if (only) return { ok: true, dir: only.dir };
+  if (projects.length > 1)
+    return {
+      ok: false,
+      message: `several projects in this install (${projects.map((p) => p.name).join(", ")}): pass --project <name>`,
+    };
+  if (rootDir) return { ok: true, dir: rootDir };
+  return {
+    ok: false,
+    message:
+      "no project: pass --project <name|dir> or add a project with `npm run install-project -- <dir>`",
+  };
+}
+
 /** The bound project's log dir, resolved on first use so only log-reading commands need a
- * project: `--project` wins, else the install's saved `projectDir`, else exit 1.
+ * project (see pickProject); a refusal exits 1.
  * @type {string | undefined} */
 let logDirCache;
 /** @returns {string} */
 function logDir() {
   if (logDirCache) return logDirCache;
   const saved = readProfiles(ROOT);
-  const project = flags.project ?? (saved.ok ? saved.projectDir : null);
-  if (!project)
-    die(
-      `no project: pass --project <dir> or save "projectDir" in ${path.join(ROOT, ".xenomoon.json")}`,
-    );
-  logDirCache = projectLogDir(project);
+  const picked = pickProject({
+    flag: flags.project,
+    projects: projectsOf(ROOT),
+    rootDir: saved.ok ? saved.projectDir : null,
+  });
+  if (!picked.ok) die(picked.message);
+  logDirCache = projectLogDir(picked.dir);
   return logDirCache;
 }
 
@@ -562,6 +595,6 @@ if (cmd === "snapshot") {
   // Regenerate history.md + history.html from history.json without changing any data.
   save(loadHistory());
   console.log("ok  token-history: regenerated history.md + history.html");
-} else {
+} else if (IS_MAIN) {
   die(`unknown command "${cmd ?? ""}" — use: append | snapshot | land | pending | render`);
 }

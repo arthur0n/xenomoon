@@ -17,7 +17,7 @@
 const isWorkflowScript = (f) => /(^|\/)\.claude\/workflows\//.test(f);
 
 export default {
-  "**/*.js": (staged) => {
+  "**/*.{js,jsx}": (staged) => {
     const cmds = [`prettier --write ${staged.join(" ")}`];
     const lintable = staged.filter((f) => !isWorkflowScript(f));
     if (lintable.length) cmds.unshift(`eslint --max-warnings 0 --fix ${lintable.join(" ")}`);

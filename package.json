@@ -15,6 +15,7 @@
     "materialize": "node ui/server/cli/materialize.js",
     "doctor": "node ui/server/cli/doctor.js",
     "start": "node ui/server/core/index.js",
+    "build:hub": "vite build --config ui/hub/vite.config.js",
     "hub": "node ui/server/cli/hub.js",
     "badges": "node ui/server/cli/update-badges.js",
     "ledger": "node ui/server/cli/gen-ledger.js",
@@ -55,14 +56,30 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.9.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "6.3.0",
     "eslint": "^10.5.0",
     "globals": "^17.6.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.61.0"
+    "typescript-eslint": "^8.61.0",
+    "vite": "8.3.8"
+  },
+  "versionsResearched": {
+    "2026-11-17": [
+      "react",
+      "react-dom",
+      "vite",
+      "@vitejs/plugin-react",
+      "@types/react",
+      "@types/react-dom"
+    ]
   },
   "bin": {
     "xenomoon": "ui/server/cli/xenomoon.js",

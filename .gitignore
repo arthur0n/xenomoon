@@ -23,6 +23,11 @@ vendor/
 # graphify knowledge graph of the framework itself — derived, rebuilt by the graphify CLI.
 graphify-out/
 
+# Hub page build output (npm run build:hub, Vite) — derived, rebuilt on each install.
+ui/hub/dist/
+# Its build-at-start temporary folders and lock (ui/server/features/hub/build.js).
+ui/hub/.build*
+
 # Detached `npm run start:bg` process records (PID + log per game) — runtime, machine-local.
 .xenomoon-run/
 

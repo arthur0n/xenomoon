@@ -1,10 +1,12 @@
-// The hub's own HTTP surface: GET /api/hub/status, GET /api/hub/stream (the same rows as events),
-// GET /api/hub/ping (a constant "I am a hub" answer for the second hub's probe), POST
-// /api/hub/rows/<id>/start|stop. Every GET and every start/stop is refused unless Host is the hub's
-// own and Origin is absent or the hub's own (guardError), so a page on another local port cannot read
-// or drive the hub. Ids resolve only through load().rows. Status and stream read one feed.
+// The hub's own HTTP surface: GET /api/hub/status, /stream (the same rows as events), /ping (the
+// second hub's probe), POST /api/hub/rows/<id>/start|stop; any other GET outside /api/ is a file of the
+// built page (page.js, from `distDir`). Every GET and every start/stop is refused unless Host is the
+// hub's own and Origin is absent or the hub's own (guardError), so a page on another local port cannot
+// read or drive the hub. Ids resolve only through load().rows. Status and stream read one feed.
 import http from "node:http";
 import { makeStatusStream } from "../../core/http/status-stream.js";
+import { hubPaths } from "./build.js";
+import { sendPageFile } from "./page.js";
 import { makeWatcher } from "./watcher.js";
 
 /** @typedef {import("./rows.js").HubRow} HubRow */
@@ -38,6 +40,7 @@ import { makeWatcher } from "./watcher.js";
  *     stop: (row: HubRow, rows: HubRow[]) => Promise<OpResult>,
  *   },
  *   ownHost: string,
+ *   distDir?: string,
  * }} HubDeps
  */
 
@@ -212,6 +215,10 @@ async function sendGet(deps, req, res, pathname) {
   const refusal = guardError(req, deps.ownHost);
   if (refusal) {
     sendJson(res, 403, { error: refusal });
+    return;
+  }
+  if (!pathname.startsWith("/api/")) {
+    await sendPageFile(res, deps.distDir ?? hubPaths().distDir, pathname);
     return;
   }
   if (pathname === PING_PATH) {

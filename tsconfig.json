@@ -1,6 +1,6 @@
 {
-  "include": ["ui/**/*.js"],
-  "exclude": ["node_modules", "logs"],
+  "include": ["ui/**/*.js", "ui/**/*.jsx"],
+  "exclude": ["node_modules", "logs", "ui/hub/dist"],
   "compilerOptions": {
     "noEmit": true,
     "allowJs": true,
@@ -12,6 +12,8 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "lib": ["ES2022", "dom", "dom.iterable"],
+    // ui/hub/ is React (.jsx + JSDoc), built by Vite; tsc only type-checks it.
+    "jsx": "react-jsx",
 
     // Max strictness. On untyped JS this surfaces a backlog (mostly
     // implicit-any on params); chip away with JSDoc, it is the documented

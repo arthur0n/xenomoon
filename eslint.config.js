@@ -1,5 +1,5 @@
 // Flat-config ESLint: plain JS (type-checked via tsconfig `checkJs` + JSDoc),
-// no React, no path aliases.
+// React only in ui/hub/ (.jsx + JSDoc, built by Vite), no path aliases.
 //
 // Two file groups, logic vs view:
 //   - node + lib + smoke-test  → strict size limits
@@ -74,13 +74,20 @@ export default [
   // `npm run codex:setup`) — not our code, never linted to our rules.
   // .claude/workflows/ holds Workflow DSL scripts (module-level `export` + top-level `return`
   // + runtime-injected globals) that no standard parser can lint; the rest of .claude/ IS linted.
-  { ignores: ["node_modules/", "logs/", "vendor/", ".claude/workflows/"] },
+  // ui/hub/dist/ is Vite build output (npm run build:hub), not source.
+  { ignores: ["node_modules/", "logs/", "vendor/", ".claude/workflows/", "ui/hub/dist/"] },
   js.configs.recommended,
 
   // Node side — server, shared lib, smoke test, and *.check.js scripts run with
   // bare node. stdout logging is the product.
   {
-    files: ["ui/server/**/*.js", "ui/lib/**/*.js", "ui/smoke-test.js", "ui/*.check.js"],
+    files: [
+      "ui/server/**/*.js",
+      "ui/lib/**/*.js",
+      "ui/smoke-test.js",
+      "ui/*.check.js",
+      "ui/hub/vite.config.js",
+    ],
     languageOptions: {
       parser: tsPlugin.parser,
       parserOptions: {
@@ -102,9 +109,10 @@ export default [
     rules: { "@typescript-eslint/no-floating-promises": "off" },
   },
 
-  // Browser side — the client view modules (loaded as ES modules).
+  // Browser side — the client view modules (loaded as ES modules) and the hub page
+  // (React .jsx under ui/hub/src/, bundled by Vite).
   {
-    files: ["ui/client/**/*.js"],
+    files: ["ui/client/**/*.js", "ui/hub/src/**/*.{js,jsx}"],
     languageOptions: {
       parser: tsPlugin.parser,
       parserOptions: {

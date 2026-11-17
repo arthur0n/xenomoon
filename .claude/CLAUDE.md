@@ -16,7 +16,7 @@ framework loads into every project session.
 ## Always
 
 - Prefix shell commands with `rtk` (a PreToolUse hook enforces it; see `.claude/settings.json`).
-- Plain JS + JSDoc only — no `.ts` files. Types are checked via tsconfig `checkJs`.
+- Plain JS + JSDoc only — no `.ts` files; `.jsx` only under `ui/hub/`. Types are checked via tsconfig `checkJs`.
 - Node/CLI scripts live in `ui/server/` so eslint's node group + tsconfig type-check them.
 - Identity: keep the bronze "lunar" identity, never upstream's look: the ringed-planet
   emblem (mark/logo/favicon), the Lunar-Bronze / Moon-Gold palette in `ui/agent-ui.css` (the `--green`
@@ -57,13 +57,15 @@ framework loads into every project session.
   referenced by capabilities/runtime code; `docs/` and `.claude/` are forge-local only — never
   reference them from `plugin/` or `ui/server`.
 - `ui/server/` — Node server + CLI scripts, grouped by area: `core/` (+ `core/http/`),
-  `integrations/{hermes,codex}/`, `features/{tasks,promotions,transcripts,skills,autonomous}/`,
+  `integrations/{hermes,codex}/`, `features/{tasks,promotions,transcripts,skills,autonomous,hub}/`,
   `mcp-tools/` (the in-process `makeXTool` SDK tools), and `cli/` (`setup`, `new`, `doctor`,
   `materialize`, `update-badges`, `release-*`; `promote` lives in `features/promotions/`). New files
   go in the matching area.
 - `ui/client/` — browser modules, grouped by area: `core/` (state, transport, dom/render helpers,
   `main.js` entry) and `features/{chat,activity,tasks,approvals,agents,settings,sessions,promotions,
 project,autonomous}/`. `ui/lib/` — shared JSDoc typedefs + helpers.
+- `ui/hub/` — the hub screen: React with Vite, `.jsx` with JSDoc types. `npm run hub` builds it into the
+  git-ignored `ui/hub/dist/`.
 - `ui/server/core/domain-resolver.js` is **install-only**: `loadDomain`/`availableDomains`/
   `resolveProjectTemplate` feed the picker (`forge new`). At runtime the spine reads the BAKED
   descriptor from `.xenomoon.json` (`config.js` `DOMAIN`), never a live `domains/` pack. Godot is NOT a

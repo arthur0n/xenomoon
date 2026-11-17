@@ -14,6 +14,7 @@ import {
   reclaimLock,
   runViteBuild,
   RECORD_NAME,
+  SHARED_INPUTS,
 } from "./build.js";
 import { withDeadline } from "../../core/http/test-deadline.js";
 
@@ -142,6 +143,16 @@ for (const [name, change, reason] of CHANGES) {
   });
 }
 
+test("a change of any shared input outside ui/hub/ makes the page stale", async () => {
+  assert.ok(SHARED_INPUTS.length > 0);
+  for (const rel of SHARED_INPUTS) {
+    const root = await builtRoot();
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), "changed");
+    assert.deepEqual(hubStaleness(root), { stale: true, reason: `changed ${rel}` });
+  }
+});
+
 test("a failed build throws Vite's output and keeps the old page and old record", async () => {
   const root = await builtRoot();
   const recBefore = fs.readFileSync(hubPaths(root).recordFile, "utf8");
@@ -259,13 +270,14 @@ test("a failed build leaves no temporary build folder and no lock in ui/hub/", a
   assert.deepEqual(left, []);
 });
 
-test("the default really builds the placeholder page with Vite", async () => {
+test("the default really builds the hub page with Vite", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "hub-build-real-"));
   roots.push(root);
   const src = path.join(REPO, "ui", "hub");
   const filter = (/** @type {string} */ s) => !/[/\\](dist|\.build[^/\\]*)$/.test(s);
   fs.cpSync(src, path.join(root, "ui", "hub"), { recursive: true, filter });
   fs.copyFileSync(path.join(REPO, "package-lock.json"), path.join(root, "package-lock.json"));
+  for (const rel of SHARED_INPUTS) fs.cpSync(path.join(REPO, rel), path.join(root, rel));
   fs.symlinkSync(path.join(REPO, "node_modules"), path.join(root, "node_modules"), "dir");
   const res = await ensureHubBuilt({ root, runVite: runViteBuild });
   assert.equal(res.built, true);

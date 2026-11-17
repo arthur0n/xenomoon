@@ -2,7 +2,7 @@
 type: verdicts
 title: one-process-per-project
 description: Each project runs as its own server process behind the hub; the hub never hosts a project session in-process.
-status: stable
+status: deprecated
 tags: [hub, architecture]
 generated: { by: human:arthur0n, at: 2026-11-09T13:45:55.751Z }
 ---

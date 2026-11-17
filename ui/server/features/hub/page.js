@@ -12,8 +12,16 @@ const TYPES = {
   ".svg": "image/svg+xml",
   ".json": "application/json",
   ".png": "image/png",
+  ".webp": "image/webp",
   ".ico": "image/x-icon",
   ".woff2": "font/woff2",
+};
+
+/** Every page-route answer refuses to be shown inside a frame (the old header and the CSP one). */
+const BASE_HEADERS = {
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+  "content-security-policy": "frame-ancestors 'none'",
 };
 
 /** The path segments under dist/ for a request pathname, or null when it may not be served.
@@ -47,7 +55,7 @@ async function resolveInside(distDir, segments) {
 
 /** @param {import("node:http").ServerResponse} res */
 function notFound(res) {
-  res.writeHead(404, { "content-type": "text/plain", "x-content-type-options": "nosniff" });
+  res.writeHead(404, { "content-type": "text/plain", ...BASE_HEADERS });
   res.end("not found");
 }
 
@@ -65,7 +73,7 @@ export async function sendPageFile(res, distDir, pathname) {
   /** @type {Record<string, string>} */
   const headers = {
     "content-type": TYPES[path.extname(file)] ?? "application/octet-stream",
-    "x-content-type-options": "nosniff",
+    ...BASE_HEADERS,
   };
   if (segments?.join("/") === "index.html") headers["cache-control"] = "no-cache";
   res.writeHead(200, headers);

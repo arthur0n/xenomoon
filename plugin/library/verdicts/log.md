@@ -1,5 +1,10 @@
 # verdicts — log
 
+## 2026-11-17
+
+- **Update** project-tab-is-an-iframe-with-status — The owner decided a click opens the project's own page in a new browser tab: no iframe.
+- **Update** one-process-per-project — Process isolation stays; the hub does not frame or proxy a project page.
+
 ## 2026-11-11
 
 - **Update** project-state-lives-in-the-project — #62 step 0: the four logs named; every log a project's session or server writes moves together

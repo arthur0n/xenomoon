@@ -2,7 +2,7 @@
 type: verdicts
 title: project-tab-is-an-iframe-with-status
 description: A hub tab is the project's own UI in an iframe on the project's port, kept alive when hidden; its status dot comes from `GET /api/status` polled, pushed early by `postMessage`.
-status: draft
+status: deprecated
 tags: [hub, architecture, ui]
 generated: { by: human:arthur0n, at: 2026-11-09T13:45:55.930Z }
 ---

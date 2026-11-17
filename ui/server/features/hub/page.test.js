@@ -23,6 +23,7 @@ const FILES = /** @type {const} */ ([
   ["mark.svg", "image/svg+xml"],
   ["data.json", "application/json"],
   ["mark.png", "image/png"],
+  ["mark.webp", "image/webp"],
   ["favicon.ico", "image/x-icon"],
   ["assets/font.woff2", "font/woff2"],
 ]);
@@ -114,6 +115,17 @@ test("each asset type answers its content type with nosniff and no no-cache", as
     );
     assert.equal(r.headers["x-content-type-options"], "nosniff", rel);
     assert.equal(r.headers["cache-control"], undefined, rel);
+  }
+});
+
+test("/, an asset and a 404 refuse to be framed (X-Frame-Options and frame-ancestors)", async () => {
+  // A cross-site iframe navigation sends no Origin, so the guard serves it; only these headers stop it.
+  const framed = { host: deps.ownHost, "sec-fetch-dest": "iframe", "sec-fetch-site": "cross-site" };
+  for (const p of ["/", "/assets/app.js", "/nope.js"]) {
+    const r = await get(p, { headers: framed });
+    assert.equal(r.status, p === "/nope.js" ? 404 : 200, p);
+    assert.equal(r.headers["x-frame-options"], "DENY", p);
+    assert.equal(r.headers["content-security-policy"], "frame-ancestors 'none'", p);
   }
 });
 

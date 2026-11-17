@@ -1,0 +1,501 @@
+/* The hub page's own styles. Every colour, font and radius is a token of ui/agent-ui.css (its
+   :root block, put into the page at build time by ui/hub/vite.config.js); no second palette. */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: clamp(14px, 0.35vw + 12.5px, 19px);
+  scrollbar-color: var(--border-strong) var(--bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(
+      120% 60% at 50% -10%,
+      color-mix(in oklab, var(--accent) 7%, transparent),
+      transparent 70%
+    ),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+
+a {
+  color: var(--accent-text);
+  text-underline-offset: 0.2em;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.hub {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 0 16px 4rem;
+}
+
+/* ---------------- Header ---------------- */
+.hub-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 0 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.brand-mark {
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.brand-word {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--accent-bright);
+}
+
+.brand-sub {
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+.link-state {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-2);
+}
+
+.link-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-3);
+}
+
+.link-state[data-connection="live"] .link-dot {
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.link-state[data-connection="reconnecting"] {
+  color: var(--amber);
+}
+
+.link-state[data-connection="reconnecting"] .link-dot {
+  border-color: var(--amber);
+  border-radius: 0;
+}
+
+/* ---------------- Notices ---------------- */
+.hub-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  padding-top: 1.5rem;
+}
+
+.status-region:empty {
+  display: none;
+}
+
+.notice {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text-2);
+}
+
+.notice-warn {
+  border-color: color-mix(in oklab, var(--amber) 45%, transparent);
+  background: var(--hazard), var(--panel);
+  color: var(--text);
+}
+
+.notice-warn strong {
+  color: var(--amber);
+}
+
+.notice-error {
+  border-color: color-mix(in oklab, var(--red) 50%, transparent);
+}
+
+.notice-title {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.notice-text {
+  margin: 0 0 0.5rem;
+}
+
+.error-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.empty {
+  padding: 2.5rem 0;
+  max-width: 36rem;
+}
+
+.empty-title {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--accent-bright);
+}
+
+.empty-text {
+  margin: 0 0 0.75rem;
+  color: var(--text-2);
+}
+
+.empty-cmd {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--well);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--accent-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------------- Groups ---------------- */
+.group-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-2);
+}
+
+.group-count {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+.g-needs .group-title {
+  font-size: 1.35rem;
+  color: var(--accent-bright);
+}
+
+.g-needs .group-count {
+  color: var(--accent-text);
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.g-needs .rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border-top: 0;
+}
+
+.hub-main[data-stale] .group {
+  opacity: 0.6;
+  filter: saturate(0.5);
+}
+
+/* ---------------- Rows ---------------- */
+.row {
+  display: grid;
+  grid-template-columns: 0.75rem minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0 0.85rem;
+  padding: 0.8rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.g-needs .row {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius);
+  background: linear-gradient(var(--accent-dim), var(--accent-dim)), var(--panel);
+  box-shadow: 0 6px 18px -10px color-mix(in oklab, var(--accent) 45%, transparent);
+}
+
+.row-main {
+  min-width: 0;
+}
+
+.row-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.g-needs .row-name {
+  font-size: 1.2rem;
+  color: var(--accent-bright);
+}
+
+.row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.75rem;
+  margin: 0.1rem 0 0;
+  font-size: 0.875rem;
+  color: var(--text-2);
+}
+
+.row-port {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.row[data-state="needs-you"] .row-state {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.row[data-state="working"] .row-state {
+  color: var(--green);
+}
+
+.row[data-state="held"] .row-state,
+.row[data-state="unknown"] .row-state,
+.row[data-state="no-stream"] .row-state {
+  color: var(--amber);
+}
+
+.row-waiting {
+  max-width: 65ch;
+  margin: 0.55rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--well);
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.row-problem {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: color-mix(in oklab, var(--red), white 25%);
+  overflow-wrap: anywhere;
+}
+
+/* The state marker: shape as well as colour (the label says it in words). */
+.marker {
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-top: 0.45rem;
+  border: 1.5px solid var(--text-3);
+  border-radius: 50%;
+}
+
+.g-needs .marker {
+  margin-top: 0.55rem;
+}
+
+.row[data-state="needs-you"] .marker {
+  border-radius: 0;
+  transform: rotate(45deg);
+  border-color: var(--accent-bright);
+  background: var(--accent);
+  animation: call 2.4s var(--ease-out) infinite;
+}
+
+.row[data-state="working"] .marker {
+  border-color: var(--green);
+  background: var(--green);
+}
+
+.row[data-state="idle"] .marker,
+.row[data-state="on-no-status"] .marker {
+  border-color: var(--green);
+}
+
+.row[data-state="held"] .marker,
+.row[data-state="unknown"] .marker,
+.row[data-state="no-stream"] .marker {
+  border-radius: 0;
+  border-color: var(--amber);
+}
+
+.row[data-state="off"] .marker,
+.row[data-state="unbound"] .marker {
+  height: 0;
+  border-width: 1.5px 0 0;
+  border-radius: 0;
+  margin-top: 0.8rem;
+  border-color: var(--text-4);
+}
+
+@keyframes call {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent);
+  }
+  60% {
+    box-shadow: 0 0 0 0.45rem transparent;
+  }
+}
+
+/* ---------------- Buttons ---------------- */
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  color: var(--accent-text);
+  font: 500 0.875rem/1 var(--font-ui);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out);
+}
+
+.btn:hover {
+  border-color: var(--accent);
+  background: var(--panel-3);
+}
+
+.btn-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  border-color: var(--accent-bright);
+  background: var(--accent-bright);
+}
+
+.btn-quiet {
+  border-color: var(--border-strong);
+  background: transparent;
+  color: var(--text-2);
+}
+
+.btn-quiet:hover {
+  border-color: var(--text-3);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.btn[aria-busy="true"] {
+  cursor: progress;
+  opacity: 1;
+  border-style: dashed;
+}
+
+/* ---------------- Phone ---------------- */
+@media (max-width: 560px) {
+  .row {
+    grid-template-columns: 0.75rem minmax(0, 1fr);
+  }
+
+  .row-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+    margin-top: 0.6rem;
+  }
+
+  .g-needs .row {
+    padding: 0.85rem;
+  }
+}
+
+/* ---------------- Wall screen ---------------- */
+@media (min-width: 1800px) {
+  .hub {
+    max-width: 84rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row[data-state="needs-you"] .marker {
+    animation: none;
+  }
+
+  .btn {
+    transition: none;
+  }
+}

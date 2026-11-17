@@ -74,10 +74,16 @@ lines, a `CLAUDE.md` when it has none, library stubs, branch model, its own port
 Start, stop and watch every project from the hub, run in the install:
 
 ```bash
-npm run hub              # http://127.0.0.1:3110 (XENOMOON_HUB_PORT); opens the hub page
+npm run hub              # http://127.0.0.1:3110 (XENOMOON_HUB_PORT); serves the hub page there
 ```
 
 `npm run hub` builds the page when it is missing or its inputs changed. A failed build stops the hub with the error.
+The page lists every project with its state: needs you, working, idle, off. Other states show as they are: held, unbound, unknown, and "on, update this install" for a project whose install is not updated.
+Projects that need you come first, with the text of what they wait for.
+The list follows `GET /api/hub/stream`; there is no reload.
+Each project has start and stop. Open starts a project that is off, then opens its own page, `http://127.0.0.1:<port>/`, in a new browser tab.
+The hub page shows no project page inside itself and talks only to the hub.
+Adding a project stays a command: `npm run install-project -- <dir>`.
 The hub keeps one connection to the status stream of every running project. Its routes:
 
 - `GET /api/hub/status` — the rows (every project with its state).

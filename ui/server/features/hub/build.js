@@ -11,8 +11,15 @@ import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../..", import.meta.url));
 
-/** Shared files the page uses from outside ui/hub/, relative to the repo root (none today). */
-export const SHARED_INPUTS = /** @type {string[]} */ ([]);
+/** Shared files the page uses from outside ui/hub/, relative to the repo root: the tokens (:root of
+ * agent-ui.css) and the font links (index.html) read by ui/hub/vite.config.js, the favicon
+ * (ui/hub/index.html) and the mark (ui/hub/src/HubHeader.jsx). */
+export const SHARED_INPUTS = [
+  "ui/agent-ui.css",
+  "ui/index.html",
+  "ui/assets/favicon.png",
+  "ui/assets/mark.webp",
+];
 
 /** The build record, written inside the built folder so it is published with the page. */
 export const RECORD_NAME = ".hub-build.json";

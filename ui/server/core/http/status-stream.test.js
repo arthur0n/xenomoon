@@ -294,9 +294,10 @@ function fakeRes() {
   return res;
 }
 
-/** @param {ReturnType<typeof fakes>} f */
-function openBlocked(f) {
-  const stream = makeStatusStream({ payload: f.payload, subscribe: f.subscribe });
+/** @param {{ payload: () => unknown, subscribe: (l: () => void) => () => void }} f
+ * @param {(view: unknown) => string} [changeKey] */
+function openBlocked(f, changeKey) {
+  const stream = makeStatusStream({ payload: f.payload, subscribe: f.subscribe, changeKey });
   const res = fakeRes();
   stream.handle(
     /** @type {import("node:http").IncomingMessage} */ (/** @type {unknown} */ ({ headers: {} })),
@@ -335,6 +336,33 @@ test("stream: on drain one event carries the latest status, not each intermediat
   assert.equal(res.writes.length, 2);
 });
 
+test("stream: after closeAll a new request is answered 503 and never subscribes", async (t) => {
+  const f = fakes();
+  const s = await startServer(t, f);
+  s.stream.closeAll();
+  /** @type {(resolve: (r: Response) => void, reject: (e: Error) => void) => void} */
+  const get = (resolve, reject) => {
+    fetch(`http://127.0.0.1:${s.port}/`).then(resolve, reject);
+  };
+  const r = await withDeadline("the refused request", get);
+  assert.equal(r.status, 503);
+  assert.deepEqual(await r.json(), { error: "shutting down" });
+  assert.equal(f.listenerCount(), 0);
+});
+
+test("stream: a response already destroyed is never subscribed nor kept", () => {
+  const f = fakes();
+  const stream = makeStatusStream({ payload: f.payload, subscribe: f.subscribe });
+  const res = Object.assign(fakeRes(), { destroyed: true });
+  stream.handle(
+    /** @type {import("node:http").IncomingMessage} */ (/** @type {unknown} */ ({ headers: {} })),
+    /** @type {import("node:http").ServerResponse} */ (/** @type {unknown} */ (res)),
+  );
+  assert.equal(f.listenerCount(), 0);
+  assert.equal(res.listenerCount("close"), 0);
+  assert.equal(res.writes.length, 0);
+});
+
 test("stream: client close and closeAll remove the drain listener", () => {
   const f = fakes();
   const a = openBlocked(f);
@@ -345,4 +373,73 @@ test("stream: client close and closeAll remove the drain listener", () => {
   assert.equal(b.res.listenerCount("drain"), 1);
   b.stream.closeAll();
   assert.equal(b.res.listenerCount("drain"), 0);
+});
+
+/** A hub-shaped source (`{ rows, errors, at }`) with the same hand-fired subscription. */
+function hubFakes() {
+  let current = { rows: [{ name: "alpha", state: "idle" }], errors: [], at: "t0" };
+  /** @type {Set<() => void>} */
+  const listeners = new Set();
+  return {
+    payload: () => current,
+    /** @param {Partial<typeof current>} patch */
+    set(patch) {
+      current = { ...current, ...patch };
+    },
+    /** @param {() => void} l */
+    subscribe(l) {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    notify: () => {
+      [...listeners].forEach((l) => {
+        l();
+      });
+    },
+  };
+}
+
+/** @param {unknown} view */
+const hubKey = (view) => {
+  const v = /** @type {Record<string, unknown>} */ (view);
+  return JSON.stringify([v.rows, v.errors]);
+};
+
+/** @param {ReturnType<typeof fakeRes>} res @returns {{ rows: { state?: string }[] }} */
+const lastEvent = (res) => {
+  const parsed = /** @type {unknown} */ (
+    JSON.parse(res.writes.at(-1)?.slice("data: ".length) ?? "")
+  );
+  return /** @type {{ rows: { state?: string }[] }} */ (parsed);
+};
+
+test("stream: a custom changeKey makes a nested change send an event", () => {
+  const f = hubFakes();
+  const { res } = openBlocked(f, hubKey);
+  res.accept = true;
+  res.emit("drain");
+  f.set({ rows: [{ name: "alpha", state: "working" }] });
+  f.notify();
+  assert.equal(res.writes.length, 2);
+  assert.equal(lastEvent(res).rows[0]?.state, "working");
+});
+
+test("stream: a change the custom changeKey ignores sends nothing", () => {
+  const f = hubFakes();
+  const { res } = openBlocked(f, hubKey);
+  res.accept = true;
+  res.emit("drain");
+  f.set({ at: "t1" });
+  f.notify();
+  assert.equal(res.writes.length, 1);
+});
+
+test("stream: without changeKey the project key stays, so a nested hub change sends nothing", () => {
+  const f = hubFakes();
+  const { res } = openBlocked(f);
+  res.accept = true;
+  res.emit("drain");
+  f.set({ rows: [{ name: "alpha", state: "working" }] });
+  f.notify();
+  assert.equal(res.writes.length, 1);
 });

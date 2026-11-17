@@ -26,6 +26,13 @@ function normalize(p, realpath) {
   return real.length > 1 && real.endsWith("/") ? real.slice(0, -1) : real;
 }
 
+/** Whether two paths name one project folder (realpath, no trailing slash); the probe and the
+ * stream watcher both decide a project's identity with it.
+ * @param {string} a @param {string} b @param {(p: string) => string} [realpath] @returns {boolean} */
+export function samePath(a, b, realpath = defaultRealpath) {
+  return normalize(a, realpath) === normalize(b, realpath);
+}
+
 /** Errors from fetch: refused (undici TypeError with `cause.code`), timeout/abort, anything else.
  * @param {unknown} err @returns {ProbeResult} */
 function classifyError(err) {
@@ -87,7 +94,7 @@ export async function probeRow(
   }
   if (!("status" in read) || !read.status) return /** @type {ProbeResult} */ (read);
   const { status } = read;
-  const same = normalize(status.path, realpath) === normalize(row.project, realpath);
+  const same = samePath(status.path, row.project, realpath);
   return { state: same ? "on" : "held", status };
 }
 

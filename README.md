@@ -74,8 +74,19 @@ lines, a `CLAUDE.md` when it has none, library stubs, branch model, its own port
 Start, stop and watch every project from the hub, run in the install:
 
 ```bash
-npm run hub              # http://127.0.0.1:3110 (XENOMOON_HUB_PORT); JSON API only, the page comes later
+npm run hub              # http://127.0.0.1:3110 (XENOMOON_HUB_PORT); no page yet, API only
 ```
+
+The hub keeps one connection to the status stream of every running project. Its routes:
+
+- `GET /api/hub/status` — the rows (every project with its state).
+- `GET /api/hub/stream` — the same rows as server-sent events: one at connect, one on each change.
+- `GET /api/hub/ping` — answers `{ "hub": true, "pid": … }`; a starting hub uses it to see that a hub already runs on the port.
+- `POST /api/hub/rows/<id>/start` and `/stop` — start or stop one project.
+
+Every GET route and the start and stop routes need the hub's own Host, and an Origin that is absent or the hub's own; otherwise 403.
+A method other than GET or POST is answered 405.
+A row carries `watch: "no-stream"` when the project's status stream route answers 404, which is the case for an install that is not updated yet.
 
 The `xenomoon` CLI:
 

@@ -1,14 +1,23 @@
 // One hub per machine: `npm run hub` serves the hub's JSON surface on 127.0.0.1 (XENOMOON_HUB_PORT,
 // default 3110). Before listening it asks the port: a running hub means print its address and exit 0,
-// any other holder means exit 1. Nothing is scheduled; the hub only works when asked. Closing it
-// never touches a client's server.
+// any other holder means exit 1. Its watcher follows each "on" project's status stream; Ctrl+C or
+// SIGTERM stops it and ends open streams before the close. Closing it never touches a client's server.
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { makeRowLoader } from "../features/hub/rows.js";
 import { aggregate } from "../features/hub/status.js";
 import { makeLifecycle } from "../features/hub/lifecycle.js";
-import { makeHubHandler, startHubServer } from "../features/hub/server.js";
+import {
+  closeHub,
+  makeHubFeed,
+  makeHubHandler,
+  makeHubStream,
+  startHubServer,
+} from "../features/hub/server.js";
+
+/** @typedef {import("../features/hub/server.js").HubFeed} HubFeed */
+/** @typedef {import("../features/hub/server.js").HubStream} HubStream */
 
 export const DEFAULT_HUB_PORT = 3110;
 
@@ -58,17 +67,20 @@ async function refusedBeforeListen({ port, host, fetchImpl, log, exit }) {
   return true;
 }
 
-/** SIGINT/SIGTERM close the hub and exit 0; the listeners go away with the server.
- * @param {import("node:http").Server} server @param {(code: number) => void} exit */
-function closeOnSignals(server, exit) {
+/** SIGINT/SIGTERM stop the watcher, end the open streams, close the hub and exit 0. However the
+ * server closes, the watcher stops with it and the signal listeners go away.
+ * @param {{ server: import("node:http").Server, feed: HubFeed, stream: HubStream }} parts
+ * @param {(code: number) => void} exit */
+function closeOnSignals(parts, exit) {
   const stop = () => {
-    server.close(() => {
+    void closeHub(parts).then(() => {
       exit(0);
     });
   };
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
-  server.once("close", () => {
+  parts.server.once("close", () => {
+    parts.feed.stop();
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);
   });
@@ -103,9 +115,12 @@ export async function runHub({
   if (port !== 0 && (await refusedBeforeListen({ port, host, fetchImpl, log, exit }))) return null;
   // ownHost is known only after listen (port 0); the handler reads it per request via this getter.
   let ownHost = `${host}:${port}`;
+  const feed = makeHubFeed({ load, aggregate });
+  const stream = makeHubStream(feed);
   const deps = {
     load,
-    aggregate,
+    feed,
+    stream,
     lifecycle: makeLifecycle({ load }),
     get ownHost() {
       return ownHost;
@@ -123,7 +138,8 @@ export async function runHub({
   }
   const { server, address } = started;
   ownHost = address.replace(/^http:\/\//, "");
-  closeOnSignals(server, exit);
+  closeOnSignals({ server, feed, stream }, exit);
+  void feed.start(); // never rejects; status and stream wait for its first read
   log(`hub listening at ${address}`);
   return started;
 }

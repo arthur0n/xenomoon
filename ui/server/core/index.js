@@ -23,6 +23,9 @@ import { readTasks, reapHandoffs } from "../features/tasks/tasks-store.js";
 import { serveStatic } from "./http/static.js";
 import { makeRequestHandler } from "./http/request-handler.js";
 import { currentStatus } from "./http/status.js";
+import { makeStatusStream } from "./http/status-stream.js";
+import { attachSessionUpgrade } from "./http/upgrade.js";
+import { onStatusChange } from "./registry.js";
 import { reclaimPortIfBusy } from "./http/port.js";
 import { handleConnection } from "./session.js";
 import { prepareGame } from "../cli/materialize.js";
@@ -263,7 +266,7 @@ const POST_ROUTES = {
  * switch; config-block edits are already per-session). Supervisor-aware: under `npm run start-project`
  * (XENOMOON_SUPERVISED=1) exit with code 87 and start-profile respawns us; under a bare
  * `npm start` spawn a detached copy of the same argv once the port is released, then exit.
- * The UI only ever serves localhost, so no extra origin gating is needed here.
+ * The UI listens on 127.0.0.1 only (see server.listen below), so no extra origin gating is needed here.
  * @param {import("node:http").IncomingMessage} _req @param {import("node:http").ServerResponse} res */
 function handleRestartPost(_req, res) {
   res.writeHead(200, { "content-type": "application/json" });
@@ -289,12 +292,16 @@ function handleRestartPost(_req, res) {
     // Upgraded WS sockets keep close() pending forever — drop them first so it can finish.
     for (const c of wss.clients) c.terminate();
     wss.close();
+    // An open status stream is a long-lived response: end it too, or close() waits on it.
+    statusStream.closeAll();
     server.closeAllConnections?.();
     server.close(go);
     // Backstop in case close() still stalls — same exit path, so the respawn still happens.
     setTimeout(go, 2000).unref();
   }, 150);
 }
+
+const statusStream = makeStatusStream({ payload: currentStatus, subscribe: onStatusChange });
 
 const server = http.createServer(
   makeRequestHandler({
@@ -303,11 +310,19 @@ const server = http.createServer(
     deleteSession,
     handleAgentApi,
     serveStatic,
-    status: { path: "/api/status", payload: currentStatus },
+    status: {
+      path: "/api/status",
+      payload: currentStatus,
+      streamPath: "/api/status/stream",
+      stream: statusStream.handle,
+    },
   }),
 );
 
-const wss = new WebSocketServer({ server });
+// noServer: the upgrade door below takes the session socket on `/` only and refuses every
+// other path, instead of ws accepting an upgrade on any path.
+const wss = new WebSocketServer({ noServer: true });
+attachSessionUpgrade(server, wss);
 wss.on("connection", (ws, req) => {
   handleConnection(ws, req);
 });
@@ -391,10 +406,10 @@ function onStartError(err) {
 // — ask before stopping it, rather than dying on EADDRINUSE. The once-handlers are a backstop for
 // the slim race between the check and listen; removed the moment we're listening.
 await reclaimPortIfBusy(PORT);
+// A noServer wss never re-emits the http server's errors, so the server's handler is the backstop.
 server.once("error", onStartError);
-wss.once("error", onStartError);
-server.listen(PORT, () => {
+// This machine only: the UI and the hub reach it on loopback; nothing else on the network may.
+server.listen(PORT, "127.0.0.1", () => {
   server.removeListener("error", onStartError);
-  wss.removeListener("error", onStartError);
   onListening();
 });

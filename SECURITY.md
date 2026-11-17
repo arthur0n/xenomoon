@@ -49,6 +49,10 @@ What a change must never weaken:
   the owner, and whoever can write inside a project folder can already write that project's own
   settings, so code against deliberate symlinks, hard links or races between project folders is
   not built. Owner, 2026-11-13: "in that point is not attacker."
+- **A project server is for this machine only.** It listens on `127.0.0.1`. Its session socket
+  accepts an upgrade on `/` only, and its status routes change no state. The status routes refuse a
+  request whose Host is not `localhost` or `127.0.0.1`, with or without a port, and a request that carries an
+  Origin never receives the last conversation line. The other routes do not check Host.
 - **Secret scanning.** gitleaks scans staged changes pre-commit
   (`.husky/pre-commit`) and the full history in CI
   (`.github/workflows/gitleaks.yml`); config + allowlist in `.gitleaks.toml`.

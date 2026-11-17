@@ -12,6 +12,7 @@ const {
   untrackSession,
   liveSessions,
   nextActivity,
+  onStatusChange,
 } = await import("./registry.js");
 
 /** @typedef {import("./connection.js").LiveSession} LiveSession */
@@ -83,4 +84,57 @@ test("liveSessions keeps insertion order regardless of activity stamps", () => {
   assert.deepEqual(liveSessions(), [a, b]);
   untrackSession(a);
   untrackSession(b);
+});
+
+/** Resolves after every pending microtask has run. @returns {Promise<void>} */
+const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+test("onStatusChange delivers once per change and stops after unsubscribe", async () => {
+  let calls = 0;
+  const off = onStatusChange(() => calls++);
+  nextActivity();
+  await flush();
+  assert.equal(calls, 1);
+  off();
+  nextActivity();
+  await flush();
+  assert.equal(calls, 1);
+});
+
+test("notifications are coalesced to one per tick and run after the caller's sync code", async () => {
+  const a = fakeLs("notify");
+  const state = { busy: true, seq: 0 };
+  /** @type {{ busy: boolean, seq: number }[]} */
+  const seen = [];
+  const off = onStatusChange(() => seen.push({ ...state }));
+  trackSession(a);
+  state.seq = nextActivity();
+  untrackSession(a);
+  state.busy = false;
+  assert.deepEqual(seen, []); // never inside the call
+  await flush();
+  assert.deepEqual(seen, [{ busy: false, seq: state.seq }]);
+  trackSession(a);
+  await flush();
+  untrackSession(a);
+  await flush();
+  nextActivity();
+  await flush();
+  assert.equal(seen.length, 4); // each of the three schedules its own delivery
+  off();
+});
+
+test("a throwing listener is logged and does not stop the others", async (t) => {
+  const logged = t.mock.method(console, "error", () => {});
+  let calls = 0;
+  const offBad = onStatusChange(() => {
+    throw new Error("boom");
+  });
+  const offGood = onStatusChange(() => calls++);
+  nextActivity();
+  await flush();
+  assert.equal(calls, 1);
+  assert.equal(logged.mock.callCount(), 1);
+  offBad();
+  offGood();
 });

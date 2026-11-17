@@ -31,14 +31,46 @@ export function dropLive(id) {
  * @type {Set<LiveSession>} */
 const tracked = new Set();
 
+/** Status-change listeners (issue #92). @type {Set<() => void>} */
+const listeners = new Set();
+let notifyPending = false;
+
+/** Register a listener called after the session status changed; returns its unsubscribe.
+ * @param {() => void} listener @returns {() => void} */
+export function onStatusChange(listener) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+// Coalesced to one delivery per tick, in a microtask: callers assign the returned stamp and flip
+// `busy` right after nextActivity() (stream.js, connection.js), so a listener must run after them.
+function scheduleNotify() {
+  if (notifyPending) return;
+  notifyPending = true;
+  queueMicrotask(() => {
+    notifyPending = false;
+    for (const listener of [...listeners]) {
+      try {
+        listener();
+      } catch (err) {
+        console.error("[registry] status-change listener failed:", err);
+      }
+    }
+  });
+}
+
 /** @param {LiveSession} ls */
 export function trackSession(ls) {
   tracked.add(ls);
+  scheduleNotify();
 }
 
 /** @param {LiveSession} ls */
 export function untrackSession(ls) {
   tracked.delete(ls);
+  scheduleNotify();
 }
 
 /** @returns {LiveSession[]} */
@@ -50,5 +82,6 @@ let activity = 0;
 
 /** A process-wide strictly increasing activity stamp (first call returns 1). @returns {number} */
 export function nextActivity() {
+  scheduleNotify();
   return ++activity;
 }

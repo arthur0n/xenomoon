@@ -1,7 +1,8 @@
 // The HTTP request dispatcher (#60), moved out of index.js so a test can drive it on a port-0
 // server: index.js listens at import, so nothing inside it is importable. Route tables and
 // handlers come in as deps; this file owns only the dispatch order.
-import { corsOrigin } from "./cors.js";
+import { corsOrigin, isLocalHost } from "./cors.js";
+import { redactFor } from "./status-redact.js";
 
 /** @typedef {import("node:http").IncomingMessage} Req */
 /** @typedef {import("node:http").ServerResponse} Res */
@@ -11,7 +12,12 @@ import { corsOrigin } from "./cors.js";
  *   deleteSession: (id: string) => boolean,
  *   handleAgentApi: (req: Req, res: Res, url: string) => void,
  *   serveStatic: (req: Req, res: Res) => void,
- *   status: { path: string, payload: () => unknown },
+ *   status: {
+ *     path: string,
+ *     payload: () => unknown,
+ *     streamPath: string,
+ *     stream: (req: Req, res: Res) => void,
+ *   },
  * }} RequestDeps */
 
 /** The status answer: JSON, plus CORS only for a local install's Origin (the only CORS route).
@@ -25,16 +31,32 @@ function sendStatus(req, res, payload) {
     headers.vary = "Origin";
   }
   res.writeHead(200, headers);
-  res.end(JSON.stringify(req.headers.origin ? withoutLastLine(payload) : payload));
+  res.end(JSON.stringify(redactFor(req.headers, payload)));
 }
 
-/** Any request carrying an Origin (allowed or not) gets the payload minus `lastLine`: the trusted
- * hub origin becomes config in #63; until then no cross-origin page reads conversation text.
- * @param {unknown} payload @returns {unknown} */
-function withoutLastLine(payload) {
-  if (!payload || typeof payload !== "object") return payload;
-  const { lastLine: _drop, ...rest } = /** @type {Record<string, unknown>} */ (payload);
-  return rest;
+/** The status stream path: GET opens the stream, any other method is refused with 405.
+ * @param {Req} req @param {Res} res @param {RequestDeps["status"]} status */
+function routeStream(req, res, status) {
+  if (req.method === "GET") {
+    status.stream(req, res);
+    return;
+  }
+  res.writeHead(405, { "content-type": "application/json", allow: "GET" });
+  res.end(JSON.stringify({ error: "method not allowed" }));
+}
+
+/** The two status routes. The Host check comes first (also before the stream's 405), so a
+ * foreign name (DNS rebinding, #92) gets 403 and no payload is built. True when handled.
+ * @param {Req} req @param {Res} res @param {RequestDeps["status"]} status
+ * @param {string} pathname @returns {boolean} */
+function routeStatus(req, res, status, pathname) {
+  if (pathname !== status.path && pathname !== status.streamPath) return false;
+  if (!isLocalHost(req.headers.host)) {
+    res.writeHead(403, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "forbidden host" }));
+  } else if (pathname === status.path) sendStatus(req, res, status.payload());
+  else routeStream(req, res, status);
+  return true;
 }
 
 /** @param {RequestDeps} deps @returns {(req: Req, res: Res) => void} */
@@ -43,10 +65,7 @@ export function makeRequestHandler(deps) {
     const url = req.url ?? "";
     // GET lookups match the pathname, so a cache-busting `?t=…` still reaches the route.
     const pathname = url.split("?")[0] ?? "";
-    if (pathname === deps.status.path) {
-      sendStatus(req, res, deps.status.payload());
-      return;
-    }
+    if (routeStatus(req, res, deps.status, pathname)) return;
     const getRoute = deps.getRoutes[pathname];
     if (getRoute) {
       res.writeHead(200, { "content-type": "application/json" });

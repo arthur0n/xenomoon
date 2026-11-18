@@ -373,12 +373,18 @@ body.resizing iframe {
   color: var(--text-2);
 }
 
+/* The project name never shrinks or wraps: it is how the owner knows which project this is. */
 .project-chip strong {
+  flex: none;
   color: var(--text);
   font-weight: 600;
+  white-space: nowrap;
 }
 
+/* The path gives way instead, and loses its START: the rtl box puts the ellipsis on the left,
+   so the folder name at the end stays visible (header-text.js fences the text with LRMs). */
 .project-chip .path {
+  min-width: 0;
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-3);
@@ -386,6 +392,8 @@ body.resizing iframe {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  direction: rtl;
+  text-align: left;
 }
 
 .topbar-right {

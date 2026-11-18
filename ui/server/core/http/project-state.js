@@ -8,12 +8,15 @@ import {
   PROJECT_FOUND,
   ENGINE,
   DOMAIN,
+  FRAMEWORK_DIR,
   FRAMEWORK_PLUGIN_DIR,
   hermesPublicConfig,
   codexPublicConfig,
   getOnboarded,
 } from "../config.js";
 import { parseFrontmatter } from "../../../lib/frontmatter.js";
+import { readProfiles } from "../../cli/profiles.js";
+import { entryForDir } from "../../cli/project-entry.js";
 
 /**
  * @param {string} dir
@@ -100,10 +103,28 @@ export function projectName(dir = PROJECT_DIR) {
   return name;
 }
 
-/** @returns {import("../../../lib/types.js").ProjectState} */
-export function projectState() {
-  const dir = PROJECT_DIR;
-  const name = projectName(dir);
+/** The name the hub knows the project at `dir` by: its key in the install's `projects` map, so
+ * the status and the hub row carry one name. A project the map does not list (a server started by
+ * path) keeps its display name.
+ * @param {import("../../cli/profiles.js").ProfilesParse} profiles @param {string} dir
+ * @param {string} installDir @param {string} displayName @returns {string} */
+export function statusName(profiles, dir, installDir, displayName) {
+  const listed = profiles.ok ? entryForDir(profiles.projects, dir, installDir) : null;
+  return listed?.name ?? displayName;
+}
+
+/** The one name of the project at `dir`, read from disk: the hub's name for it (statusName over
+ * the install's map), else projectName. Both /api/state and /api/status use it.
+ * @param {string} [dir] @param {string} [installDir] @returns {string} */
+export function hubName(dir = PROJECT_DIR, installDir = FRAMEWORK_DIR) {
+  return statusName(readProfiles(installDir), dir, installDir, projectName(dir));
+}
+
+/** The route calls it with no arguments; a test passes its own folders.
+ * @param {string} [dir] @param {string} [installDir]
+ * @returns {import("../../../lib/types.js").ProjectState} */
+export function projectState(dir = PROJECT_DIR, installDir = FRAMEWORK_DIR) {
+  const name = hubName(dir, installDir);
   // Directory names to skip while scanning the project tree (node_modules, dist, …) — keeps a real
   // Node/webapp repo's inventory from drowning in dependency files. A domain may declare none for a
   // whole-tree scan.

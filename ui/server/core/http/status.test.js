@@ -8,7 +8,7 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 const { statusPayload, statusEnv, statusName } = await import("./status.js");
-const { projectName } = await import("./project-state.js");
+const { projectName, hubName, projectState } = await import("./project-state.js");
 
 /** @typedef {import("./status.js").StatusSession} StatusSession */
 
@@ -148,4 +148,21 @@ test("statusName is the project's name in the install's projects map, else the d
     statusName({ ok: false, reason: "bad" }, "/tmp/xm-status-shop", "/tmp/xm-install", "pkg-name"),
     "pkg-name",
   );
+});
+
+test("/api/state's name is the hub's name for the project, else its package.json name", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "xm-status-alpha-"));
+  const install = mkdtempSync(path.join(tmpdir(), "xm-status-install-"));
+  try {
+    writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "alpha-pkg" }));
+    assert.equal(hubName(dir, install), "alpha-pkg");
+    assert.equal(projectState(dir, install).name, "alpha-pkg");
+    const map = { projects: { alpha: { dir, port: 4001 } } };
+    writeFileSync(path.join(install, ".xenomoon.json"), JSON.stringify(map));
+    assert.equal(hubName(dir, install), "alpha");
+    assert.equal(projectState(dir, install).name, "alpha");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(install, { recursive: true, force: true });
+  }
 });

@@ -6,6 +6,7 @@ import { $, $$, el, fillComposer, appendToComposer } from "../../core/dom.js";
 import { fetchJSON } from "../../../lib/json.js";
 import { view } from "../../core/state.js";
 import { paint, agentLabel, agentInitial } from "../agents/agents.js";
+import { homePath, chipPath, pageTitle } from "./header-text.js";
 
 const TAB_KEY = "xenomoon-side-tab";
 
@@ -278,7 +279,10 @@ export async function loadState() {
   state = s;
   view.projectDir = s.dir;
   $("proj-name").textContent = s.found ? s.name : "no project";
-  $("proj-path").textContent = s.dir.replace(/^\/Users\/[^/]+/, "~");
+  const projPath = $("proj-path");
+  projPath.textContent = chipPath(s.dir);
+  projPath.title = homePath(s.dir);
+  document.title = pageTitle(s);
   renderBanner(s);
   renderTab();
 }
@@ -295,7 +299,7 @@ function renderBanner(s) {
   }
   banner.replaceChildren();
   banner.append(el("strong", undefined, "No project here yet."));
-  banner.append(el("div", "banner-path", `Looking in: ${s.dir.replace(/^\/Users\/[^/]+/, "~")}`));
+  banner.append(el("div", "banner-path", `Looking in: ${homePath(s.dir)}`));
   banner.append(
     el(
       "div",

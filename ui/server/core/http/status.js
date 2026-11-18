@@ -2,11 +2,11 @@
 // doing right now?" — idle / working / waiting on the human — built from the live session registry.
 // The env part (name/path/domain/port/pid) is resolved ONCE at module load, so a polled request
 // never touches disk.
-import { PROJECT_DIR, DOMAIN, PORT, FRAMEWORK_DIR } from "../config.js";
+import { PROJECT_DIR, DOMAIN, PORT } from "../config.js";
 import { liveSessions } from "../registry.js";
-import { projectName } from "./project-state.js";
-import { readProfiles } from "../../cli/profiles.js";
-import { entryForDir } from "../../cli/project-entry.js";
+import { hubName } from "./project-state.js";
+// The name rule lives in project-state.js (one copy for /api/state and /api/status).
+export { statusName } from "./project-state.js";
 
 /** @typedef {import("../connection.js").LiveSession} LiveSession */
 /** @typedef {import("../connection.js").PendingEntry} PendingEntry */
@@ -68,19 +68,9 @@ export function statusPayload(sessions, now, env) {
   };
 }
 
-/** The name the hub knows the project at `dir` by: its key in the install's `projects` map, so
- * the status and the hub row carry one name. A project the map does not list (a server started by
- * path) keeps its display name.
- * @param {import("../../cli/profiles.js").ProfilesParse} profiles @param {string} dir
- * @param {string} installDir @param {string} displayName @returns {string} */
-export function statusName(profiles, dir, installDir, displayName) {
-  const listed = profiles.ok ? entryForDir(profiles.projects, dir, installDir) : null;
-  return listed?.name ?? displayName;
-}
-
 /** @type {StatusEnv} */
 const ENV = Object.freeze({
-  name: statusName(readProfiles(FRAMEWORK_DIR), PROJECT_DIR, FRAMEWORK_DIR, projectName()),
+  name: hubName(),
   path: PROJECT_DIR,
   domain: DOMAIN.name,
   port: PORT,

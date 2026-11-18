@@ -60,8 +60,8 @@ detail — this rule stands whether or not you load it.
    entry gate in full (what it reads, when it stops, what it reports). **It is the single source
    of truth: this file states no gate rules of its own.** Your caller passes the repo, so the gate
    needs no project file.
-1. **Only past the gate: orient, then records.** Read the project's `CLAUDE.md` (stack,
-   conventions, the NEVER list, the library index), then `library-first` — a decided verdict is
+1. **Only past the gate: orient, then records.** Read the project's `CLAUDE.md` (commands,
+   the Hard rules, the Conventions index, the library index), then `library-first` — a decided verdict is
    not re-derived.
 2. **Intent before hypothesis.** `intent-guardrails` is not optional: captured product intent
    outranks anything you infer from code, and an intent question is routed, never guessed.

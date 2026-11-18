@@ -1,67 +1,49 @@
-# {{PROJECT_NAME}} — project facts
+# {{PROJECT_NAME}}
 
-> Policy/routing lives in the active domain's orchestrator; this file is project FACTS only.
-> Fill in every `{{…}}` placeholder; delete any section that genuinely doesn't apply.
-> The framework's agents and orchestrator read this file and treat it as authoritative — it
-> overrides their generic defaults. Keep it short and true; a stale fact is worse than none.
+<!-- This file is an INDEX with the same shape in every project. Keep it under 200 lines.
+     One line per fact, concrete enough to verify. Pages of detail live in a doc with one
+     line here. Stack and infrastructure detail lives in `README.md`. Delete a section that
+     does not apply. -->
 
-## Project overview
+## What it is
 
-{{what it is — one or two sentences: who uses it, what it does}}
+{{one or two sentences: who uses it, what it does}}
 
-## Stack
+- Built with: {{one line, the basics only: language, main framework, storage}}. Detail: `README.md`.
+- This project runs inside the Xenomoon framework: its agents, skills and the hub come from it.
 
-- **Language / runtime:** {{e.g. TypeScript on Node 20, Python 3.12, Go 1.22}}
-- **Key frameworks / libraries:** {{the few that actually shape the codebase}}
-- **Data / storage:** {{db + access layer, or "none"}}
-- **External services:** {{auth, queues, third-party APIs this depends on — or "none"}}
+## Data model and tenancy
 
-## Layout
-
-- {{top-level dir → what lives there, one line each — the map a newcomer needs}}
+- Tenancy: {{who owns the data, and how isolation works}}
+- Scoping rule: {{the helper or layer every owned query goes through}}
+- Entities: `.claude/library/project.md`
 
 ## Commands
 
-- **Install:** {{e.g. npm install}}
-- **Dev / run:** {{how to run it locally}}
-- **Build:** {{e.g. npm run build}}
-- **Validate:** {{type-check + lint + tests in one, e.g. npm run validate}}
-- **Test:** {{the unit runner}}
+- Install: {{command}}
+- Dev: {{command}}
+- Validate: {{type-check + lint + tests in one command}}
+- Test: {{command}}
+- Build: {{command}}
+- {{one line per other command the agents need}}
 
-## Understanding the codebase (graphify)
+## Hard rules
 
-This project can keep an optional knowledge graph in `graphify-out/` (gitignored, built by the
-`graphify` CLI). For codebase / architecture / "how does X work" questions, query the graph FIRST
-when `graphify-out/graph.json` exists — `graphify query "<question>"` (or `path` / `explain`)
-returns a scoped subgraph, far smaller than raw grep. Auto-refresh after edits is **opt-in**
-(AST-only, free): `touch graphify-out/.autoupdate` to enable, else run `graphify update .` after
-big changes. No graph yet? `graphify .` builds one. See the `xenomoon:graphify` skill.
+The few rules that hold for every task. Each line says what is done, then what enforces it:
+the check, or "judgment".
 
-## Conventions / convention floor
+- {{what is done. Check: the check that enforces it.}}
+- {{what is done. Judgment: review.}}
 
-Project-specific hard rules every change must respect (the agents obey these over their
-defaults). Terse one-liners only — anything longer lives in a `.claude/library/` doc with
-a pointer in the Library index below:
+## Conventions
 
-- {{e.g. business logic lives in core/ — not in entrypoints/handlers}}
-- {{e.g. no console.log / no `any` / no non-null `!`; lint runs with zero warnings}}
-- {{e.g. config-driven — no magic numbers}}
-- {{add the rules that are actually non-negotiable here}}
+An index. Each area has its own doc; one line per doc.
+
+- {{area}}: {{path}} — {{what it covers}}
+- {{one line per area}}
 
 ## Library index
 
-This file stays an **index** — full durable content lives in `.claude/library/` docs; each
-gets ONE line here. Never dump full rules or specs into this file.
-
-- `.claude/library/business-rules.md` — standing product facts, user's words verbatim.
-  **Product-owner-maintained, human-gated.** The framework's agents treat it as
-  **AUTHORITATIVE intent** — they build and reason to it and never manufacture an
-  assumption that contradicts a rule stated there. Empty until the first `design`
-  seeds it.
-- {{add a one-line pointer per additional library doc as they're created}}
-
-## NEVER (project-specific)
-
-- {{e.g. never commit secrets / env values}}
-- {{e.g. never edit generated files by hand}}
-- {{add any other hard "never" specific to this project}}
+- `.claude/library/business-rules.md` — standing product facts in the owner's words; the agents treat it as the intent.
+- `.claude/library/project.md` — longer project details: entities, environments.
+- {{one line per further library doc}}

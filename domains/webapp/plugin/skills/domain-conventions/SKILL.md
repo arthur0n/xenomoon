@@ -13,8 +13,8 @@ trouble.
 
 ## Read before writing
 
-- **`CLAUDE.md`** — stack, data model and tenancy, the command list, the convention floor, the
-  project's NEVER list.
+- **`CLAUDE.md`** — the command list, the Hard rules (each names its check), the Conventions index,
+  the library index.
 - **`docs/conventions.md`** when present — the hard rules and refactor playbooks.
 - **The project's lint config.** Write code that passes it first time: assume strict (zero warnings,
   no `any`, no non-null `!`, type-aware rules) unless the project says otherwise. Touching a

@@ -8,17 +8,19 @@ description: Install the framework onto a project that ALREADY uses Claude — i
 # Onboarding a project that already has a Claude life
 
 The project has its own `CLAUDE.md`, probably `.claude/skills`, maybe hooks and conventions that
-predate you. **Their content is authoritative; the framework's structure fills gaps.** Installing
-means negotiating with what exists — never overwriting it, and never silently.
+predate you. **Their content is authoritative; the framework's structure gives it one shape.** Installing
+means negotiating with what exists: a part may stay, move or be removed, each change approved by the
+human, never silently.
 
 **Foreground only.** Every write under the project is human-gated, one at a time. A backgrounded run
 cannot pause for the interview that is half the point.
 
 ## Step 1 — inventory, read-only, no judgement
 
-1. **Their `CLAUDE.md`** (and `docs/conventions.md` if present): which of the framework's expected
-   blocks exist — Commands · Library index → `.claude/library/business-rules.md` · convention floor
-   · NEVER list — and which are missing. Report as a checklist.
+1. **Their `CLAUDE.md`** (and `docs/conventions.md` if present): match what it holds to the
+   template's sections — What it is · Data model and tenancy · Commands · Hard rules · Conventions ·
+   Library index → `.claude/library/business-rules.md` — by meaning, not by heading name. Report
+   the sections found and the sections missing as a checklist.
 2. **Their `.claude/skills/`**: list each skill, name and description line. **The default verdict
    for every one is KEEP PROJECT-LOCAL.** Flag only the clearly generic — no project nouns,
    technique-shaped — as day-zero promotion candidates, and file each flagged one through
@@ -76,10 +78,23 @@ rubber-stamp questions — the product-owner will dutifully cite code for whatev
 
 It produces three things:
 
-**An annotated `CLAUDE.md` merge proposal.** Their content stays verbatim; the proposal ADDS the
-missing framework blocks — the commands mapping from step 1.4, a `## Library index` scaffold
-pointing at an empty `.claude/library/business-rules.md`, a NEVER-list seed. `CLAUDE.md` stays an
-INDEX: full rules live in the library doc with one pointer line each. The human approves the edit.
+**An annotated `CLAUDE.md` review.** The file is reviewed, not only added to: analyze what is
+there and where the framework's shape fits it. `CLAUDE.md` stays an INDEX with the template's
+sections. The review:
+
+1. Matches each part of their file to a template section by meaning, not by heading name.
+2. Gives each part one verdict: it **stays** as a line; it **moves** to a doc and leaves one line
+   behind; or it is **removed**. Stack and infrastructure detail moves to `README.md`. Pages of
+   conventions move to one doc per area, indexed under Conventions.
+3. Lists the missing sections and proposes adding each: the commands mapping from step 1.4, a
+   `## Library index` scaffold pointing at an empty `.claude/library/business-rules.md`, a
+   Conventions index.
+4. Names a file over 200 lines, a procedure that could be a skill, and a rule a check could enforce.
+5. Waits for the human: each edit is approved one at a time, and nothing is written before that.
+
+A project whose rules live in a parent folder's `CLAUDE.md` or `.claude/CLAUDE.md` (Claude Code
+loads every `CLAUDE.md` above the working directory) is reviewed on that file; no second file is
+created beside it.
 
 **The project library, scaffolded — `.claude/library/`** with `README.md` (the index),
 `business-rules.md`, and `explorations/`. Empty is fine and expected; what is NOT fine is absent,

@@ -51,8 +51,8 @@ beats grepping for callers.
 
 ## 2. The project's own rules come first
 
-Before generic footguns, judge against **this project's floor**: its `CLAUDE.md` conventions, its
-NEVER list, its `domain-conventions` skill if the pack ships one, and any local rule the repo
+Before generic footguns, judge against **this project's floor**: its `CLAUDE.md` Hard rules and the
+convention docs the Conventions index points to, its `domain-conventions` skill if the pack ships one, and any local rule the repo
 states. A change that is clean in the abstract but violates the project's own convention is
 `changes` — the project's rules outrank your priors, and they are usually there because something
 already went wrong once.

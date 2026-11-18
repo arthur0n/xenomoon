@@ -83,7 +83,8 @@ piece of work needs (small work skips most of it).
       account, OIDC role). After the push stage lands on the deploy branch, watch it:
       `gh run list -R <repo> --branch <main> --limit 5` then `gh run watch -R <repo> <id>`.
       Report each workflow's result — and if one failed, WHICH step: a run that died before
-      the credentials step made no cloud change at all.
+      the credentials step made no cloud change at all. A project can gate the deploy on the
+      pipeline's verdicts: `plugin/docs/process/ci-qa-gate.md`.
 
 Full path: `feedback` → `design`? → `triage` → `solution` → `implement` → `sweep` → `qa` →
 `audit` → `pre-pr` → `commit` → `push` → `build`. Loop-backs: `qa:blocked` (from `qa`), `review:changes`
@@ -193,8 +194,8 @@ The spine's debrief-queue, library-index, and promotion doctrine apply; on top:
 ## Convention floor + captured intent (read the index, follow the pointers)
 
 This pack ships **no** baked-in convention floor — every project has its own. Before
-routing or accepting a change, read the project's **`CLAUDE.md`** — terse facts (stack,
-commands, hard rules, the **NEVER** list) plus an INDEX — and follow its pointers into
+routing or accepting a change, read the project's **`CLAUDE.md`** — terse facts (commands,
+the **Hard rules**, the **Conventions** index) plus an INDEX — and follow its pointers into
 **`.claude/library/`** for the full content: the **business-rules doc**
 (`.claude/library/business-rules.md`) and the extended project-details doc
 (`.claude/library/project.md`). Those are authoritative and override your defaults. The

@@ -51,6 +51,6 @@ Questions render as UI prompts, never plain chat:
 
 `forge new` seeds a `CLAUDE.md` "project facts" template into a freshly-bound project: the domain's
 own template if the pack ships one (`domains/<name>/templates/CLAUDE.md`), else the CORE neutral
-baseline (`plugin/templates/CLAUDE.md`). An existing `CLAUDE.md` is never overwritten. Its Stack /
-Commands / Conventions / NEVER sections are **authoritative** — agents obey them over their generic
+baseline (`plugin/templates/CLAUDE.md`). An existing `CLAUDE.md` is never overwritten. Its Commands /
+Hard rules / Conventions sections are **authoritative** — agents obey them over their generic
 defaults. A domain pack ships no baked-in floor; every project owns its own.

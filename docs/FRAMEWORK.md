@@ -26,7 +26,7 @@ palette. Never reintroduce upstream's green alien identity.
 - **One install per domain** (`<domain>-xm`, e.g. `webapp-xm`). An install is a full framework
   checkout that holds **many projects**: its gitignored `.xenomoon.json` carries the `projects` map
   (name → dir, port), the baked `domainDescriptor` and the worker config. Each project is added with
-  `npm run install-project -- <dir>` and started from the hub (`npm run hub`), one page that lists every project with its state and opens each project's own page in a new browser tab.
+  `npm run install-project -- <dir>` and started from the hub (`npm run hub`), one page that lists every project with its state, starts and stops each one, and shows the address of each project that is on; the hub page opens nothing.
 - **Domains are install-time pickers only** (`domains/webapp|expoapp`). `npm run install-project -- <dir>
 --domain=X` COPIES the pack's agents/skills/commands into `plugin/` and bakes the
   descriptor into `.xenomoon.json`. **Nothing under `domains/` is read at runtime.**

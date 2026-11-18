@@ -39,13 +39,13 @@ void test("run: the row stays busy until its result, then keeps the refusal by i
   const ops = makeRowOps();
   ops.keep(["a"]);
   const p = held();
-  ops.run("a", "open", () => p.promise);
-  assert.deepEqual(ops.snapshot().get("a"), { busy: "open", problem: null });
-  p.resolve({ ok: false, reason: "port 4101 in use", href: "http://127.0.0.1:4101/" });
+  ops.run("a", "start", () => p.promise);
+  assert.deepEqual(ops.snapshot().get("a"), { busy: "start", problem: null });
+  p.resolve({ ok: false, reason: "port 4101 in use" });
   await flush();
   assert.deepEqual(ops.snapshot().get("a"), {
     busy: null,
-    problem: { reason: "port 4101 in use", href: "http://127.0.0.1:4101/" },
+    problem: { reason: "port 4101 in use" },
   });
 });
 

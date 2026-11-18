@@ -3,10 +3,10 @@
 // a second request for a row never starts while one runs, and the result for a row that has left the
 // list is dropped. No React; App.jsx reads it through useSyncExternalStore.
 
-/** @typedef {"start" | "stop" | "open"} Busy */
-/** @typedef {{ reason: string, href?: string }} Problem */
+/** @typedef {"start" | "stop"} Busy */
+/** @typedef {{ reason: string }} Problem */
 /** @typedef {{ busy: Busy | null, problem: Problem | null }} RowOp */
-/** @typedef {{ ok: true, href?: string } | { ok: false, reason: string, href?: string }} OpResult */
+/** @typedef {{ ok: true } | { ok: false, reason: string }} OpResult */
 
 /** @type {RowOp} */
 export const IDLE = Object.freeze({ busy: null, problem: null });
@@ -48,7 +48,7 @@ export function makeRowOps() {
       });
   };
 
-  /** Starts `call` at once (openRow must start inside the click) unless this row has one running.
+  /** Starts `call` at once unless this row has one running.
    * @param {string} id @param {Busy} kind @param {() => Promise<OpResult>} call
    * @returns {boolean} false when a request for this row already runs */
   const run = (id, kind, call) => {
@@ -61,9 +61,7 @@ export function makeRowOps() {
         update((m) => m.delete(id));
         return;
       }
-      const problem = res.ok
-        ? null
-        : { reason: res.reason, ...(res.href === undefined ? {} : { href: res.href }) };
+      const problem = res.ok ? null : { reason: res.reason };
       update((m) => m.set(id, { busy: null, problem }));
     };
     call().then(done, (/** @type {unknown} */ err) => {

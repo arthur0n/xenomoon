@@ -1,7 +1,7 @@
-// Tests for the hub page's list logic (rows.js): screen state, order, actions.
+// Tests for the hub page's list logic (rows.js): screen state, order, actions, address.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { actionsOf, rowItems, screenOf, sortRows } from "./rows.js";
+import { actionsOf, addressOf, rowItems, screenOf, sortRows } from "./rows.js";
 
 /** @typedef {import("./rows.js").HubViewRow} HubViewRow */
 
@@ -109,50 +109,56 @@ void test("inside a group by name then id, whatever the input order", () => {
   );
 });
 
-void test("an on row offers stop and open at its address", () => {
-  assert.deepEqual(actionsOf(on("idle"), []), {
-    open: { url: "http://127.0.0.1:4100/", startFirst: false },
-    start: false,
-    stop: true,
-  });
+void test("an on row offers stop, and nothing opens the project", () => {
+  assert.deepEqual(actionsOf(on("idle"), []), { start: false, stop: true });
 });
 
-void test("an off row offers start, and open means start first", () => {
-  assert.deepEqual(actionsOf(row(), [row()]), {
-    open: { url: "http://127.0.0.1:4100/", startFirst: true },
-    start: true,
-    stop: false,
-  });
+void test("an off row offers start, and nothing opens the project", () => {
+  assert.deepEqual(actionsOf(row(), [row()]), { start: true, stop: false });
 });
 
 void test("an off stale row offers nothing (lifecycle refuses its start)", () => {
   const stale = row({ stale: { file: "/i/.xenomoon.json", reason: "bad json" } });
-  assert.deepEqual(actionsOf(stale, [stale]), { open: null, start: false, stop: false });
+  assert.deepEqual(actionsOf(stale, [stale]), { start: false, stop: false });
 });
 
 void test("an off row whose port another row holds on offers nothing", () => {
   const off = row();
   const peer = { ...on("idle"), id: "b2", name: "beta" };
-  assert.deepEqual(actionsOf(off, [off, peer]), { open: null, start: false, stop: false });
+  assert.deepEqual(actionsOf(off, [off, peer]), { start: false, stop: false });
 });
 
 void test("held, unknown and unbound rows offer nothing", () => {
   for (const state of /** @type {const} */ (["held", "unknown", "unbound"])) {
-    assert.deepEqual(
-      actionsOf(row({ state }), []),
-      { open: null, start: false, stop: false },
-      state,
-    );
+    assert.deepEqual(actionsOf(row({ state }), []), { start: false, stop: false }, state);
+  }
+});
+
+void test("no row state offers an open action", () => {
+  const states = /** @type {const} */ (["on", "off", "held", "unknown", "unbound"]);
+  for (const state of states) {
+    const keys = Object.keys(actionsOf(row({ state }), [])).sort();
+    assert.deepEqual(keys, ["start", "stop"], state);
+  }
+  assert.deepEqual(Object.keys(actionsOf(on("waiting"), [])).sort(), ["start", "stop"]);
+});
+
+void test("addressOf: an on row with a port gives its address; off or no port gives nothing", () => {
+  assert.equal(addressOf(on("idle")), "http://127.0.0.1:4100/");
+  assert.equal(addressOf({ ...on("idle"), watch: "no-stream" }), "http://127.0.0.1:4100/");
+  assert.equal(addressOf(row({ state: "on", port: null })), null);
+  for (const state of /** @type {const} */ (["off", "held", "unknown", "unbound"])) {
+    assert.equal(addressOf(row({ state })), null, state);
   }
 });
 
 void test("rowItems returns the sorted rows with screen and actions", () => {
   const items = rowItems([row({ id: "o" }), { ...on("waiting", "q?"), id: "w" }]);
   assert.deepEqual(
-    items.map((i) => [i.row.id, i.screen.state, i.actions.stop]),
+    items.map((i) => [i.row.id, i.screen.state, i.actions.stop, i.address]),
     [
-      ["w", "needs-you", true],
-      ["o", "off", false],
+      ["w", "needs-you", true, "http://127.0.0.1:4100/"],
+      ["o", "off", false, null],
     ],
   );
 });

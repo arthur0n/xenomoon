@@ -1,5 +1,5 @@
-// The hub page's list logic, pure: each row's screen state and label, the list order, and the
-// buttons a row offers. No React, no DOM. Rows come from GET /api/hub/status and /api/hub/stream
+// The hub page's list logic, pure: each row's screen state and label, the list order, the buttons
+// a row offers, and the address it shows. No React, no DOM. Rows come from GET /api/hub/status and /api/hub/stream
 // (HubViewRow, ui/server/features/hub/server.js:19-21). A button is offered only when
 // ui/server/features/hub/lifecycle.js would not always refuse it.
 
@@ -16,10 +16,9 @@
  */
 /** `waiting` (the project's lastLine) is present only on "needs-you".
  * @typedef {{ state: ScreenState, label: string, waiting?: string }} RowScreen */
-/** `startFirst`: the server is off, so open means start it, then open the address.
- * @typedef {{ url: string, startFirst: boolean }} OpenAction */
-/** @typedef {{ open: OpenAction | null, start: boolean, stop: boolean }} RowActions */
-/** @typedef {{ row: HubViewRow, screen: RowScreen, actions: RowActions }} RowItem */
+/** @typedef {{ start: boolean, stop: boolean }} RowActions */
+/** `address`: the project's own page, shown as text, only while its server is on.
+ * @typedef {{ row: HubViewRow, screen: RowScreen, actions: RowActions, address: string | null }} RowItem */
 
 /** @type {Record<ScreenState, string>} */
 export const LABELS = {
@@ -81,8 +80,11 @@ export function sortRows(rows) {
     .map(({ row }) => row);
 }
 
-/** @param {number} port @returns {string} */
-export const openUrl = (port) => `http://127.0.0.1:${port}/`;
+/** The project's own address while its server is on and has a port; null otherwise.
+ * @param {HubViewRow} row @returns {string | null} */
+export function addressOf(row) {
+  return row.state === "on" && row.port !== null ? `http://127.0.0.1:${row.port}/` : null;
+}
 
 /** Whether lifecycle.js doStart could go on for an off row: not stale (lifecycle.js:92-99), a port
  * (lifecycle.js:100-103), no other row on the same port that is on (lifecycle.js:108-110).
@@ -92,30 +94,26 @@ function canStart(row, rows) {
   return !rows.some((r) => r.id !== row.id && r.port === row.port && r.state === "on");
 }
 
-/** The buttons a row offers. On rows: stop, and open when there is a port. Off rows: start and open
- * (start first) when lifecycle would start them. Held / unknown: lifecycle refuses both start and stop
+/** The buttons a row offers. On rows: stop. Off rows: start when lifecycle would start them. Held / unknown: lifecycle refuses both start and stop
  * (refuseUnclear, lifecycle.js:74-87), and the port serves another or an unclear server, so nothing.
  * Unbound: start is refused (no port) and stop is a no-op (lifecycle.js:132-134), so nothing.
  * @param {HubViewRow} row @param {HubViewRow[]} rows all rows of the same view
  * @returns {RowActions} */
 export function actionsOf(row, rows) {
   const state = stateOf(row);
-  if (ON_STATES.has(state)) {
-    const open = row.port === null ? null : { url: openUrl(row.port), startFirst: false };
-    return { open, start: false, stop: true };
-  }
-  if (state === "off" && row.port !== null && canStart(row, rows)) {
-    return { open: { url: openUrl(row.port), startFirst: true }, start: true, stop: false };
-  }
-  return { open: null, start: false, stop: false };
+  if (ON_STATES.has(state)) return { start: false, stop: true };
+  if (state === "off" && row.port !== null && canStart(row, rows))
+    return { start: true, stop: false };
+  return { start: false, stop: false };
 }
 
-/** The whole list for the page: sorted, each row with its screen and actions.
+/** The whole list for the page: sorted, each row with its screen, actions and address.
  * @param {HubViewRow[]} rows @returns {RowItem[]} */
 export function rowItems(rows) {
   return sortRows(rows).map((row) => ({
     row,
     screen: screenOf(row),
     actions: actionsOf(row, rows),
+    address: addressOf(row),
   }));
 }

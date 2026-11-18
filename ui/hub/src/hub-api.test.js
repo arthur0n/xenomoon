@@ -1,19 +1,11 @@
-// hub-api.js with fakes only: EventSource, fetch, timers and window.open are injected, so nothing
-// here opens a socket or waits on a clock.
+// hub-api.js with fakes only: EventSource, fetch and timers are injected, so nothing here opens a
+// socket or waits on a clock.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  POST_TIMEOUT_MS,
-  RETRY_MAX_MS,
-  RETRY_MIN_MS,
-  STREAM_URL,
-  WAIT_ON_MS,
-  makeHubApi,
-} from "./hub-api.js";
+import { POST_TIMEOUT_MS, RETRY_MAX_MS, RETRY_MIN_MS, STREAM_URL, makeHubApi } from "./hub-api.js";
 import { withDeadline } from "../../server/core/http/test-deadline.js";
 
 /** @typedef {import("./hub-api.js").HubSnapshot} HubSnapshot */
-/** @typedef {import("./hub-api.js").TabLike} TabLike */
 
 function fakeSources() {
   /** @type {FakeSource[]} */
@@ -84,28 +76,6 @@ function fakeFetch(answers) {
     return Promise.resolve({ status: a.status, text: () => Promise.resolve(a.body) });
   };
   return { fetchImpl, calls };
-}
-
-function fakeTab() {
-  /** @type {string[]} */
-  const log = [];
-  /** @type {TabLike & { closed: boolean }} */
-  const tab = {
-    closed: false,
-    opener: { the: "hub page" },
-    location: {
-      set href(v) {
-        log.push(`href ${v} opener ${tab.opener === null ? "null" : "set"}`);
-      },
-      get href() {
-        return "about:blank";
-      },
-    },
-    close: () => {
-      tab.closed = true;
-    },
-  };
-  return { tab, log };
 }
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -259,134 +229,5 @@ for (const stall of /** @type {const} */ (["request", "body"])) {
       reason: "the hub did not answer the start within 45 s",
     });
     assert.deepEqual([signals[0]?.aborted, t.pending.size], [true, 0]);
-  });
-}
-
-void test("openRow: a start that never settles closes the reserved tab and returns the reason", async () => {
-  const t = fakeTimers();
-  const { fetchImpl } = stalledFetch("request");
-  const { tab, log } = fakeTab();
-  const api = makeHubApi({ timers: t.timers, fetchImpl, openTab: () => tab });
-  const result = api.openRow(OFF);
-  await flush();
-  assert.equal(t.runOne(), POST_TIMEOUT_MS);
-  assert.deepEqual(await settled(result, "the open result"), {
-    ok: false,
-    reason: "the hub did not answer the start within 45 s",
-  });
-  assert.deepEqual([tab.closed, log, t.pending.size], [true, [], 0]);
-});
-
-void test("openRow: an on row opens its address with noopener and starts nothing", async () => {
-  const { fetchImpl, calls } = fakeFetch([]);
-  /** @type {string[][]} */
-  const opened = [];
-  const openTab = (/** @type {string} */ url, /** @type {string} */ f) => {
-    opened.push([url, f]);
-    return null;
-  };
-  const api = makeHubApi({ fetchImpl, openTab });
-  assert.deepEqual(await api.openRow(ON), { ok: true, href: "http://127.0.0.1:4101/" });
-  assert.deepEqual(opened, [["http://127.0.0.1:4101/", "noopener,noreferrer"]]);
-  assert.equal(calls.length, 0);
-});
-
-void test("openRow: an off row reserves the tab in the click, starts, waits for on, then navigates", async () => {
-  const { Ctor, all } = fakeSources();
-  const t = fakeTimers();
-  const { fetchImpl, calls } = fakeFetch([{ status: 200, body: '{"ok":true}' }]);
-  const { tab, log } = fakeTab();
-  /** @type {string[]} */
-  const order = [];
-  const openTab = (/** @type {string} */ url) => {
-    order.push(`open ${url} after ${calls.length} posts`);
-    return tab;
-  };
-  const api = makeHubApi({ EventSourceImpl: Ctor, timers: t.timers, fetchImpl, openTab });
-  api.subscribe(() => {});
-  all[0]?.emit(view([OFF]));
-  const result = api.openRow(OFF);
-  assert.deepEqual(order, ["open about:blank after 0 posts"], "tab reserved synchronously");
-  await flush();
-  assert.deepEqual(log, [], "no navigation before the row is on");
-  all[0]?.emit(view([ON]));
-  assert.deepEqual(await result, { ok: true, href: "http://127.0.0.1:4101/" });
-  assert.deepEqual(log, ["href http://127.0.0.1:4101/ opener null"]);
-  assert.equal(t.pending.size, 0, "the wait timer is cleared");
-});
-
-void test("openRow: a failed start or a wait that runs out closes the reserved tab", async () => {
-  const t = fakeTimers();
-  const { fetchImpl } = fakeFetch([
-    { status: 409, body: JSON.stringify({ ok: false, reason: "port 4101 in use" }) },
-    { status: 200, body: '{"ok":true}' },
-  ]);
-  const first = fakeTab();
-  const second = fakeTab();
-  const tabs = [first.tab, second.tab];
-  const api = makeHubApi({ timers: t.timers, fetchImpl, openTab: () => tabs.shift() ?? null });
-  assert.deepEqual(await api.openRow(OFF), { ok: false, reason: "port 4101 in use" });
-  assert.equal(first.tab.closed, true);
-  const late = api.openRow(OFF);
-  await flush();
-  assert.equal(t.runOne(), WAIT_ON_MS);
-  assert.deepEqual(await late, { ok: false, reason: "the project did not come on within 30 s" });
-  assert.equal(second.tab.closed, true);
-  assert.deepEqual(second.log, []);
-});
-
-void test("openRow: a blocked tab still starts the row and returns its address as a link", async () => {
-  const { Ctor, all } = fakeSources();
-  const { fetchImpl } = fakeFetch([{ status: 200, body: '{"ok":true}' }]);
-  const api = makeHubApi({
-    EventSourceImpl: Ctor,
-    timers: fakeTimers().timers,
-    fetchImpl,
-    openTab: () => null,
-  });
-  api.subscribe(() => {});
-  const result = api.openRow(OFF);
-  await flush();
-  all[0]?.emit(view([ON]));
-  assert.deepEqual(await result, {
-    ok: false,
-    reason: "the browser blocked the new tab; open the project with the link",
-    href: "http://127.0.0.1:4101/",
-  });
-});
-
-for (const [what, after] of /** @type {Array<[string, object[]]>} */ ([
-  ["to another folder", [{ ...ON, project: "/p/beta" }]],
-  ["to another port", [{ ...ON, project: "/p/alpha", port: 4102 }]],
-  ["out of the list", []],
-])) {
-  void test(`openRow: a row re-pointed ${what} while it starts closes the tab, says so, never navigates`, async () => {
-    const { Ctor, all } = fakeSources();
-    const t = fakeTimers();
-    const { fetchImpl } = fakeFetch([{ status: 200, body: '{"ok":true}' }]);
-    const { tab, log } = fakeTab();
-    const api = makeHubApi({
-      EventSourceImpl: Ctor,
-      timers: t.timers,
-      fetchImpl,
-      openTab: () => tab,
-    });
-    api.subscribe(() => {});
-    const clicked = { ...OFF, project: "/p/alpha" };
-    all[0]?.emit(view([clicked]));
-    const result = api.openRow(clicked);
-    await flush();
-    all[0]?.emit(view(after));
-    const got = await withDeadline(
-      "the open result",
-      (/** @type {(v: import("./hub-api.js").OpenResult) => void} */ res, rej) => {
-        result.then(res, rej);
-      },
-    );
-    assert.deepEqual(got, {
-      ok: false,
-      reason: "the project changed while it started (another folder or port, or removed)",
-    });
-    assert.deepEqual([tab.closed, log, t.pending.size], [true, [], 0]);
   });
 }

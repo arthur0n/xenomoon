@@ -1,15 +1,12 @@
 // The hub page's one link to the hub (same origin, never a project server): the row stream with its
-// own bounded reconnect, start/stop as results in words, and openRow, which reserves a tab inside the
-// click, starts an off row, waits for the stream to show it on, then sends the tab there. EventSource,
-// fetch, timers and window.open are injected, so the tests run in Node with fakes.
+// own bounded reconnect, and start/stop as results in words. EventSource, fetch and timers are
+// injected, so the tests run in Node with fakes.
 
-/** A hub row as the stream sends it; this module reads only id, state, port and `project`, the
- * project folder (HubRow.project, ui/server/features/hub/rows.js:27,59).
- * @typedef {{ id: string, state: string, port?: number | null, project?: string } & Record<string, unknown>} HubPageRow */
+/** A hub row as the stream sends it; this module reads only id and state.
+ * @typedef {{ id: string, state: string } & Record<string, unknown>} HubPageRow */
 /** @typedef {"live" | "reconnecting"} HubConnection */
 /** @typedef {{ rows: HubPageRow[], errors: unknown[], connection: HubConnection }} HubSnapshot */
 /** @typedef {{ ok: true } | { ok: false, reason: string }} RowResult */
-/** @typedef {{ ok: true, href: string } | { ok: false, reason: string, href?: string }} OpenResult */
 /**
  * The part of EventSource this module uses.
  * @typedef {{
@@ -20,22 +17,16 @@
 /** @typedef {new (url: string) => StreamLike} StreamCtor */
 /** @typedef {{ set: (fn: () => void, ms: number) => unknown, clear: (handle: unknown) => void }} Timers */
 /** @typedef {(url: string, init: { method: string, signal: AbortSignal }) => Promise<{ status: number, text: () => Promise<string> }>} FetchLike */
-/** The part of a window.open result this module uses.
- * @typedef {{ opener: unknown, location: { href: string }, close: () => void }} TabLike */
-/** @typedef {(url: string, features: string) => TabLike | null} OpenTab */
 /**
  * @typedef {{
  *   EventSourceImpl?: StreamCtor,
  *   fetchImpl?: FetchLike,
  *   timers?: Timers,
- *   openTab?: OpenTab,
- *   waitOnMs?: number,
  * }} HubApiDeps */
 
 export const STREAM_URL = "/api/hub/stream";
 export const RETRY_MIN_MS = 1000;
 export const RETRY_MAX_MS = 15000;
-export const WAIT_ON_MS = 30000;
 /** A start can wait behind one op on its port (lifecycle.js serializes per port), and each op is a
  * status probe of up to 1.5 s (status.js:81) plus a script of up to 20 s (lifecycle.js:26,35). */
 export const POST_TIMEOUT_MS = 45000;
@@ -47,9 +38,6 @@ const defaultTimers = {
     clearTimeout(/** @type {number} */ (handle));
   },
 };
-
-/** @type {OpenTab} */
-const defaultOpenTab = (url, features) => window.open(url, "_blank", features);
 
 /** The rows of one stream event, or null when the event is not a hub view.
  * @param {unknown} data @returns {{ rows: HubPageRow[], errors: unknown[] } | null} */
@@ -78,12 +66,6 @@ function isRow(r) {
   if (!r || typeof r !== "object") return false;
   const { id, state } = /** @type {{ id?: unknown, state?: unknown }} */ (r);
   return typeof id === "string" && typeof state === "string";
-}
-
-/** The project's own page for a row, or null when it has no port.
- * @param {HubPageRow} row @returns {string | null} */
-export function projectAddress(row) {
-  return typeof row.port === "number" ? `http://127.0.0.1:${row.port}/` : null;
 }
 
 /** @param {unknown} body @param {number} status @returns {string} */
@@ -156,14 +138,6 @@ async function postRow(fetchImpl, timers, id, action) {
  */
 export function makeHubApi(deps = {}) {
   const timers = deps.timers ?? defaultTimers;
-  const openTab = deps.openTab ?? defaultOpenTab;
-  const waitOnMs = deps.waitOnMs ?? WAIT_ON_MS;
-  /** @type {HubPageRow[]} */
-  let latest = [];
-  /** Whether any view has arrived, so `latest` says which rows exist. */
-  let heard = false;
-  /** Called with every fresh row list, from any subscription. @type {Set<() => void>} */
-  const waiters = new Set();
 
   /**
    * One stream subscription. Every `error` closes the EventSource and reconnects on our own timer
@@ -192,10 +166,7 @@ export function makeHubApi(deps = {}) {
         if (closed || source !== es || !view) return;
         delay = RETRY_MIN_MS;
         last = view;
-        latest = view.rows;
-        heard = true;
         listener({ ...view, connection: "live" });
-        for (const w of [...waiters]) w();
       };
       es.onerror = () => {
         if (closed || source !== es) return;
@@ -216,73 +187,10 @@ export function makeHubApi(deps = {}) {
     };
   };
 
-  /** The row once the stream shows it on; "changed" when the row with this id is gone or points to
-   * another project folder or port than `was`; null when `waitOnMs` runs out first.
-   * @param {HubPageRow} was the row as it was at the click
-   * @returns {Promise<HubPageRow | "changed" | null>} */
-  const waitOn = (was) =>
-    new Promise((resolve) => {
-      const check = () => {
-        const row = latest.find((r) => r.id === was.id);
-        if (!row && !heard) return false;
-        if (!row || row.project !== was.project || row.port !== was.port) finish("changed");
-        else if (row.state === "on") finish(row);
-        else return false;
-        return true;
-      };
-      /** @param {HubPageRow | "changed" | null} row */
-      const finish = (row) => {
-        waiters.delete(check);
-        timers.clear(handle);
-        resolve(row);
-      };
-      const handle = timers.set(() => {
-        finish(null);
-      }, waitOnMs);
-      if (!check()) waiters.add(check);
-    });
-
   /** @param {string} id @returns {Promise<RowResult>} */
   const startRow = (id) => postRow(deps.fetchImpl ?? fetch, timers, id, "start");
   /** @param {string} id @returns {Promise<RowResult>} */
   const stopRow = (id) => postRow(deps.fetchImpl ?? fetch, timers, id, "stop");
 
-  /**
-   * Open the row's project page in a new tab. Call it straight from the click handler: for an off
-   * row the tab is reserved before the first await (a popup blocker allows it only there), its
-   * opener is cut, and it is sent to the project once the stream shows the row on.
-   * @param {HubPageRow} row @returns {Promise<OpenResult>} */
-  const openRow = async (row) => {
-    if (row.state === "on") {
-      const href = projectAddress(row);
-      if (!href) return { ok: false, reason: "this project has no port" };
-      // With noopener window.open always returns null, so a blocked tab cannot be told apart.
-      openTab(href, "noopener,noreferrer");
-      return { ok: true, href };
-    }
-    // The folder and port of the click: an entry re-pointed meanwhile is not where the tab goes.
-    const was = { id: row.id, state: row.state, port: row.port, project: row.project };
-    const tab = openTab("about:blank", "");
-    if (tab) tab.opener = null;
-    const fail = /** @param {string} reason @param {string | null} [href] @returns {OpenResult} */ (
-      reason,
-      href = null,
-    ) => {
-      tab?.close();
-      return href ? { ok: false, reason, href } : { ok: false, reason };
-    };
-    const started = await startRow(was.id);
-    if (!started.ok) return fail(started.reason);
-    const on = await waitOn(was);
-    if (on === "changed")
-      return fail("the project changed while it started (another folder or port, or removed)");
-    if (!on) return fail(`the project did not come on within ${Math.round(waitOnMs / 1000)} s`);
-    const href = projectAddress(on);
-    if (!href) return fail("this project has no port");
-    if (!tab) return fail("the browser blocked the new tab; open the project with the link", href);
-    tab.location.href = href;
-    return { ok: true, href };
-  };
-
-  return { subscribe, startRow, stopRow, openRow };
+  return { subscribe, startRow, stopRow };
 }

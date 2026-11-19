@@ -89,12 +89,16 @@ sections. The review:
 3. Lists the missing sections and proposes adding each: the commands mapping from step 1.4, a
    `## Library index` scaffold pointing at an empty `.claude/library/business-rules.md`, a
    Conventions index.
-4. Names a file over 200 lines, a procedure that could be a skill, and a rule a check could enforce.
+4. Names the project's `CLAUDE.md` when it is over 200 lines (the limit is for that file only, not
+   for the docs it points to), a procedure that could be a skill, and a rule a check could enforce.
 5. Waits for the human: each edit is approved one at a time, and nothing is written before that.
 
-A project whose rules live in a parent folder's `CLAUDE.md` or `.claude/CLAUDE.md` (Claude Code
-loads every `CLAUDE.md` above the working directory) is reviewed on that file; no second file is
-created beside it.
+**The review covers the project's own folder and nothing above it.** Claude Code loads every
+`CLAUDE.md` in the folders above the project by itself; those files belong to the owner's machine
+or workspace, not to the project. They are not reviewed, not judged, not compared with the
+project's file, not named in a brief to another agent, and never changed. When the project keeps
+its rules in `.claude/CLAUDE.md` inside its own folder, that is the file reviewed; no second file
+is created beside it.
 
 **The project library, scaffolded — `.claude/library/`** with `README.md` (the index),
 `business-rules.md`, and `explorations/`. Empty is fine and expected; what is NOT fine is absent,

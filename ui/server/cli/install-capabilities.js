@@ -21,6 +21,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseJSON } from "../../lib/json.js";
+import { readInstallConfigStrict } from "../../lib/install-config.js";
 import {
   loadDomain,
   resolvePackDir,
@@ -31,6 +32,7 @@ import {
 import { writeInstallOutput, isInstallOutput } from "../core/install-output.js";
 import { ensureDomainLibrary } from "../features/promotions/ensure-library.js";
 import { checkRoots } from "../features/library/library-io.js";
+import { mergeInstallConfig } from "./project-entry.js";
 
 /** Capability subdirs copied from the pack's plugin into the framework plugin. `.claude-plugin/`
  * (the pack's own manifest) is deliberately NOT copied — the base `plugin/.claude-plugin/plugin.json`
@@ -111,6 +113,10 @@ function preflightPack(packDir, domainName) {
     );
 }
 
+/** The one shape of an install-config refusal; `reason` names the file. @param {string} reason */
+const installConfigError = (reason) =>
+  new Error(`install-capabilities: the install config cannot be updated — ${reason}`);
+
 /** The one shape of a strict-library refusal. @param {string} domainName @param {string[]} errors */
 function libraryError(domainName, errors) {
   return new Error(
@@ -188,6 +194,8 @@ export function installCapabilities(frameworkDir, domainName) {
   // remove. Refuse the install as a whole, or perform it as a whole.
   preflightPack(packDir, domainName);
   preflightLibrary(pluginDir, packDir, domainName);
+  const cfgRead = readInstallConfigStrict(frameworkDir);
+  if ("error" in cfgRead) throw installConfigError(cfgRead.error);
   const copied = [];
   /** Every file this run writes into `plugin/` — the input to `plugin/.gitignore`. @type {string[]} */
   const written = [];
@@ -272,15 +280,8 @@ export function installCapabilities(frameworkDir, domainName) {
 
   // 4. Bake the pack's runtime descriptor into the framework config, so the runtime never resolves a
   //    live domain.json. `domain` (the name) is written by new.js; this adds the resolved values.
-  const cfgFile = path.join(frameworkDir, ".xenomoon.json");
-  /** @type {Record<string, unknown>} */
-  let cfg = {};
-  try {
-    cfg = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(cfgFile, "utf8")));
-  } catch {
-    /* absent/invalid — start fresh */
-  }
-  writeFileSync(cfgFile, JSON.stringify({ ...cfg, domainDescriptor: descriptor }, null, 2) + "\n");
+  const failed = mergeInstallConfig(frameworkDir, { domainDescriptor: descriptor });
+  if (failed) throw installConfigError(failed);
 
   return { copied, descriptor };
 }
@@ -292,11 +293,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const frameworkDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
   /** @type {string | undefined} */
   let domainName;
+  /** @type {unknown} */
+  let projectDirSetting;
   try {
-    const cfg = /** @type {{ domain?: string }} */ (
+    const cfg = /** @type {{ domain?: string, projectDir?: unknown }} */ (
       parseJSON(readFileSync(path.join(frameworkDir, ".xenomoon.json"), "utf8"))
     );
     domainName = cfg.domain;
+    projectDirSetting = cfg.projectDir;
   } catch {
     /* no config — trunk / uninstalled clone */
   }
@@ -319,13 +323,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     );
 
     if (current !== domainName) {
-      const cfgFile = path.join(frameworkDir, ".xenomoon.json");
-      // Re-read: installCapabilities just re-baked domainDescriptor into this file.
-      const cfg = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(cfgFile, "utf8")));
-      writeFileSync(cfgFile, JSON.stringify({ ...cfg, domain: current }, null, 2) + "\n");
+      const failed = mergeInstallConfig(frameworkDir, { domain: current });
+      if (failed) throw installConfigError(failed);
       // The project's OWN lock is the authoritative binding, so migrate it too — healing only the
       // framework config would leave the two disagreeing by name while meaning the same pack.
-      const projectDir = typeof cfg.projectDir === "string" ? cfg.projectDir : null;
+      const projectDir = typeof projectDirSetting === "string" ? projectDirSetting : null;
       const lockMigrated = projectDir && readProjectLock(projectDir) === domainName;
       if (lockMigrated) writeProjectLock(projectDir, current);
       console.log(

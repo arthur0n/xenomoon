@@ -1,11 +1,12 @@
 // Server configuration — argv parsing, paths and policy constants, resolved
 // once at startup. Importing this module also validates --allow and exits on a
 // bad value (a load-time side effect, by design).
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseJSON } from "../../lib/json.js";
+import { updateInstallConfig } from "../../lib/install-config.js";
 import { shq } from "../../lib/shell.js";
 import { projectLogDir } from "../../lib/project-paths.js";
 import {
@@ -325,33 +326,37 @@ export function hermesPublicConfig() {
   };
 }
 
-/** Merge a partial Hermes block into `.xenomoon.json`, preserving every other field
- * (projectDir, engine, …). An empty-string apiKey is dropped (don't overwrite a saved
- * key with blank when the UI didn't resend it); a non-empty one replaces it.
+/**
+ * Replace one block of `.xenomoon.json` with `build(previous block)`, keeping every other key.
+ * Goes through updateInstallConfig: the block is built from the file as read for this write; a
+ * file that exists but cannot be read or parsed returns `{ error }` and nothing is written; a
+ * missing file starts from `{}`; the write is one atomic rename.
+ * @template T
+ * @param {"hermes" | "codex" | "kimi"} key @param {(prev: T) => T} build
+ * @returns {{ ok: true } | { error: string }}
+ */
+function saveBlock(key, build) {
+  const result = updateInstallConfig(FRAMEWORK_DIR, (config) => ({
+    next: { ...config, [key]: build(/** @type {T} */ (config[key] ?? {})) },
+  }));
+  return "error" in result ? result : { ok: true };
+}
+
+/** Merge a partial Hermes block into `.xenomoon.json` (via saveBlock), preserving every other
+ * field. An empty-string apiKey is dropped (don't overwrite a saved key with blank when the UI
+ * didn't resend it); a non-empty one replaces it. An empty `profile` keeps the saved one.
  * @param {HermesConfig} patch @returns {{ ok: true } | { error: string }} */
 export function saveHermesConfig(patch) {
-  /** @type {Record<string, unknown>} */
-  let saved = {};
-  try {
-    saved = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8")));
-  } catch {
-    /* absent/invalid — start fresh */
-  }
-  const prev = /** @type {HermesConfig} */ (saved.hermes ?? {});
-  /** @type {HermesConfig} */
-  const next = { ...prev };
-  if (patch.enabled != null) next.enabled = patch.enabled;
-  if (patch.apiUrl != null) next.apiUrl = patch.apiUrl;
-  if (patch.model != null) next.model = patch.model;
-  if (patch.apiKey) next.apiKey = patch.apiKey; // blank/undefined → keep existing
-  if (patch.roles != null) next.roles = patch.roles;
-  if (patch.profile != null && patch.profile !== "") next.profile = patch.profile;
-  try {
-    writeFileSync(CONFIG_FILE, JSON.stringify({ ...saved, hermes: next }, null, 2) + "\n");
-    return { ok: true };
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "write failed" };
-  }
+  return saveBlock("hermes", (/** @type {HermesConfig} */ prev) => {
+    const next = { ...prev };
+    if (patch.enabled != null) next.enabled = patch.enabled;
+    if (patch.apiUrl != null) next.apiUrl = patch.apiUrl;
+    if (patch.model != null) next.model = patch.model;
+    if (patch.apiKey) next.apiKey = patch.apiKey; // blank/undefined → keep existing
+    if (patch.roles != null) next.roles = patch.roles;
+    if (patch.profile != null && patch.profile !== "") next.profile = patch.profile;
+    return next;
+  });
 }
 
 /** Effective Codex config, resolved fresh on every call (env `CODEX_ENABLED` →
@@ -403,28 +408,16 @@ export function codexPublicConfig() {
   return { enabled: c.enabled, vendored: existsSync(CODEX_PLUGIN_DIR), roles: c.roles };
 }
 
-/** Merge a partial Codex block into `.xenomoon.json`, preserving every other field
- * (projectDir, engine, hermes, …). @param {CodexConfig} patch @returns {{ ok: true } | { error: string }} */
+/** Merge a partial Codex block into `.xenomoon.json` (via saveBlock), preserving every other
+ * field. @param {CodexConfig} patch @returns {{ ok: true } | { error: string }} */
 export function saveCodexConfig(patch) {
-  /** @type {Record<string, unknown>} */
-  let saved = {};
-  try {
-    saved = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8")));
-  } catch {
-    /* absent/invalid — start fresh */
-  }
-  const prev = /** @type {CodexConfig} */ (saved.codex ?? {});
-  /** @type {CodexConfig} */
-  const next = { ...prev };
-  if (patch.enabled != null) next.enabled = patch.enabled;
-  if (patch.roles != null) next.roles = patch.roles;
-  if (patch.costBasis != null) next.costBasis = patch.costBasis;
-  try {
-    writeFileSync(CONFIG_FILE, JSON.stringify({ ...saved, codex: next }, null, 2) + "\n");
-    return { ok: true };
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "write failed" };
-  }
+  return saveBlock("codex", (/** @type {CodexConfig} */ prev) => {
+    const next = { ...prev };
+    if (patch.enabled != null) next.enabled = patch.enabled;
+    if (patch.roles != null) next.roles = patch.roles;
+    if (patch.costBasis != null) next.costBasis = patch.costBasis;
+    return next;
+  });
 }
 
 /** Effective Kimi config, resolved fresh on every call (env `KIMI_ENABLED` → `.xenomoon.json`
@@ -456,27 +449,15 @@ export function kimiPublicConfig() {
   return { enabled: c.enabled, roles: c.roles };
 }
 
-/** Merge a partial Kimi block into `.xenomoon.json`, preserving every other field
- * (projectDir, engine, hermes, codex, …). @param {KimiConfig} patch @returns {{ ok: true } | { error: string }} */
+/** Merge a partial Kimi block into `.xenomoon.json` (via saveBlock), preserving every other
+ * field. @param {KimiConfig} patch @returns {{ ok: true } | { error: string }} */
 export function saveKimiConfig(patch) {
-  /** @type {Record<string, unknown>} */
-  let saved = {};
-  try {
-    saved = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8")));
-  } catch {
-    /* absent/invalid — start fresh */
-  }
-  const prev = /** @type {KimiConfig} */ (saved.kimi ?? {});
-  /** @type {KimiConfig} */
-  const next = { ...prev };
-  if (patch.enabled != null) next.enabled = patch.enabled;
-  if (patch.roles != null) next.roles = patch.roles;
-  try {
-    writeFileSync(CONFIG_FILE, JSON.stringify({ ...saved, kimi: next }, null, 2) + "\n");
-    return { ok: true };
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "write failed" };
-  }
+  return saveBlock("kimi", (/** @type {KimiConfig} */ prev) => {
+    const next = { ...prev };
+    if (patch.enabled != null) next.enabled = patch.enabled;
+    if (patch.roles != null) next.roles = patch.roles;
+    return next;
+  });
 }
 
 // Bare tool names auto-allowed (no permission prompt) for the whole session — the

@@ -10,30 +10,14 @@
 // (use the web UI ⚙ Settings panel for the same):
 //        npm run bind-project-path -- --hermes --hermes-key=sk-… --hermes-model=anthropic/claude-opus-4.7
 //        npm run bind-project-path -- --hermes-off
-import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseJSON } from "../../lib/json.js";
+import { updateInstallConfig } from "../../lib/install-config.js";
 import { addProjectCommand } from "./project-entry.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
 const CONFIG_FILE = path.join(FRAMEWORK_DIR, ".xenomoon.json");
-
-/** Read .xenomoon.json (or {} if absent/invalid). @returns {Record<string, unknown>} */
-function readConfig() {
-  try {
-    return /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8")));
-  } catch {
-    return {};
-  }
-}
-
-/** Merge a patch into .xenomoon.json, preserving every other field.
- * @param {Record<string, unknown>} patch */
-function mergeConfig(patch) {
-  writeFileSync(CONFIG_FILE, JSON.stringify({ ...readConfig(), ...patch }, null, 2) + "\n");
-}
 
 const argv = process.argv.slice(2);
 /** @param {string} name @returns {boolean} */
@@ -59,24 +43,27 @@ if (arg || !hermesArgs) {
 }
 
 // Hermes block. Mirrors config.js saveHermesConfig semantics: preserve the prior block; a blank
-// apiKey is dropped (never overwrite a saved key with empty), a non-empty one replaces it.
+// apiKey is dropped (never overwrite a saved key with empty), a non-empty one replaces it. The
+// block is built inside updateInstallConfig from the file as read for this write; an unreadable
+// file ends the command with exit 1 and nothing is written.
 {
-  const saved = readConfig();
-  /** @type {Record<string, unknown>} */
-  const next = { .../** @type {Record<string, unknown>} */ (saved.hermes ?? {}) };
   let enabledMsg = "(unchanged)";
-  if (flag("hermes")) {
-    next.enabled = true;
-    enabledMsg = "true";
+  if (flag("hermes")) enabledMsg = "true";
+  if (flag("hermes-off")) enabledMsg = "false";
+  const res = updateInstallConfig(FRAMEWORK_DIR, (config) => {
+    /** @type {Record<string, unknown>} */
+    const next = { .../** @type {Record<string, unknown>} */ (config.hermes ?? {}) };
+    if (flag("hermes")) next.enabled = true;
+    if (flag("hermes-off")) next.enabled = false;
+    if (val("hermes-url") != null) next.apiUrl = val("hermes-url");
+    if (val("hermes-model") != null) next.model = val("hermes-model");
+    if (val("hermes-key")) next.apiKey = val("hermes-key"); // blank/undefined → keep existing
+    return { next: { ...config, hermes: next } };
+  });
+  if ("error" in res) {
+    console.error(`bind-project-path: ${res.error}`);
+    process.exit(1);
   }
-  if (flag("hermes-off")) {
-    next.enabled = false;
-    enabledMsg = "false";
-  }
-  if (val("hermes-url") != null) next.apiUrl = val("hermes-url");
-  if (val("hermes-model") != null) next.model = val("hermes-model");
-  if (val("hermes-key")) next.apiKey = val("hermes-key"); // blank/undefined → keep existing
-  mergeConfig({ hermes: next });
   console.log(`Saved Hermes config → ${CONFIG_FILE}`);
   console.log(`  enabled: ${enabledMsg}`);
   if (val("hermes-model") != null) console.log(`  model:   ${val("hermes-model")}`);

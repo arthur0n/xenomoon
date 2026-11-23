@@ -427,7 +427,10 @@ const rootPatch =
   !installed && !DOMAIN.materializeIntoProject
     ? { domain: domainName, port: Number(portAnswer) }
     : null;
-if (rootPatch && listed) mergeInstallConfig(FRAMEWORK_DIR, rootPatch);
+if (rootPatch && listed) {
+  const why = mergeInstallConfig(FRAMEWORK_DIR, rootPatch);
+  if (why) refuse(why);
+}
 
 // 2c. The project's entry in the install's `projects` map (#65) — the first project under the
 //     install's port, a later one under its own, written together with 2b's root fields. A listed

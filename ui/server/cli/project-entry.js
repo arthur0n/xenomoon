@@ -3,9 +3,10 @@
 // (is the domain already installed, may this name / port be used, is the folder already
 // listed) are pure and take their inputs; the two file helpers below them are the only I/O.
 // A BOOTSTRAP helper like setup.js and profiles.js: it never imports config.js.
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { parseJSON } from "../../lib/json.js";
+import { updateInstallConfig } from "../../lib/install-config.js";
 import { canonicalPath } from "./validate-path.js";
 import { DEFAULT_PORT, allocationRefusal, claimedPorts } from "./port-pick.js";
 import { readRegistry } from "./install-registry.js";
@@ -115,47 +116,73 @@ export function readInstallConfig(installDir) {
   }
 }
 
-/** Merge a patch into `<installDir>/.xenomoon.json`, preserving every other field (the same
- * shape as start-profile.js / setup.js mergeConfig, which live in modules with side effects).
- * @param {string} installDir @param {Record<string, unknown>} patch */
-export function mergeInstallConfig(installDir, patch) {
-  const file = path.join(installDir, ".xenomoon.json");
-  writeFileSync(
-    file,
-    JSON.stringify({ ...readInstallConfig(installDir), ...patch }, null, 2) + "\n",
+/** The `projects` map of `cfg` (never null). @param {Record<string, unknown>} cfg
+ * @returns {Record<string, Profile>} */
+const projectsOf = (cfg) =>
+  /** @type {Record<string, Profile>} */ (
+    typeof cfg.projects === "object" && cfg.projects !== null ? cfg.projects : {}
   );
+
+/** Merge a patch into `<installDir>/.xenomoon.json`, preserving every other field, through
+ * ../../lib/install-config.js updateInstallConfig (a file that cannot be read writes nothing).
+ * @param {string} installDir @param {Record<string, unknown>} patch
+ * @returns {string | null} the reason nothing was written, or null = written */
+export function mergeInstallConfig(installDir, patch) {
+  const r = updateInstallConfig(installDir, (cfg) => ({ next: { ...cfg, ...patch } }));
+  return "error" in r ? r.error : null;
 }
 
 /** Add one entry to the install's `projects` map, keeping every other entry and field; `patch`
- * (the first run's root domain + port) lands in the same write. Ownership is re-checked against
- * the file as it is NOW, just before writing: a name another run gave to a different folder, or
- * a port another run took since validation, writes nothing and returns the refusal (null =
- * written). Without a cross-process lock a window remains between this read and the write.
+ * (the first run's root domain + port) lands in the same write. Ownership is checked inside the
+ * update, on the file as it is read for this write: a name another run gave to a different
+ * folder, or a port another run took since validation, writes nothing and returns the refusal;
+ * so does a file that cannot be read (null = written). Without a cross-process lock a window
+ * remains between that read and the rename.
  * @param {string} installDir @param {string} name @param {Profile} entry
  * @param {{ includeRoot?: boolean, patch?: Record<string, unknown>,
  *   registry?: Record<string, unknown> }} [opts]
  * @returns {string | null} */
 export function addProjectEntry(installDir, name, entry, opts = {}) {
-  const cfg = readInstallConfig(installDir);
-  const cur = cfg.projects;
-  const projects = /** @type {Record<string, Profile>} */ (
-    typeof cur === "object" && cur !== null ? cur : {}
-  );
-  const again = "nothing was written; run the command again.";
   if (entry.port !== undefined && !isPort(entry.port))
     return `${portRefusal(entry.port, [])} Nothing was written.`;
-  if (nameRefusal(projects, name, entry.dir, installDir))
-    return `another run gave the project name "${name}" to another folder meanwhile; ${again}`;
-  const unknown = allocationRefusal(installDir, opts.registry ?? readRegistry());
-  if (unknown) return `${unknown} Nothing was written.`;
-  const claimed = portsClaimedByOthers(installDir, cfg, {
-    ownName: name,
-    includeRoot: opts.includeRoot ?? false,
-    registry: opts.registry,
+  const again = "nothing was written; run the command again.";
+  const r = updateInstallConfig(installDir, (cfg) => {
+    const projects = projectsOf(cfg);
+    if (nameRefusal(projects, name, entry.dir, installDir))
+      return {
+        refuse: `another run gave the project name "${name}" to another folder meanwhile; ${again}`,
+      };
+    const unknown = allocationRefusal(installDir, opts.registry ?? readRegistry());
+    if (unknown) return { refuse: `${unknown} Nothing was written.` };
+    const claimed = portsClaimedByOthers(installDir, cfg, {
+      ownName: name,
+      includeRoot: opts.includeRoot ?? false,
+      registry: opts.registry,
+    });
+    if (entry.port !== undefined && claimed.includes(entry.port))
+      return { refuse: `another run took port ${entry.port} meanwhile; ${again}` };
+    return { next: { ...cfg, ...opts.patch, projects: { ...projects, [name]: entry } } };
   });
-  if (entry.port !== undefined && claimed.includes(entry.port))
-    return `another run took port ${entry.port} meanwhile; ${again}`;
-  const next = { ...cfg, ...opts.patch, projects: { ...projects, [name]: entry } };
-  writeFileSync(path.join(installDir, ".xenomoon.json"), JSON.stringify(next, null, 2) + "\n");
-  return null;
+  return "error" in r ? r.error : null;
+}
+
+/** Remove the entry `name` from the install's `projects` map, keeping every other entry and
+ * field; the map is read inside the update, so an entry another run added meanwhile stays.
+ * @param {string} installDir @param {string} name
+ * @returns {null | { error: string, noSuchName: boolean }} null = removed and written;
+ *   `noSuchName` = the map has no such entry (nothing written); otherwise the file could not
+ *   be read or written (nothing written) */
+export function removeProjectEntry(installDir, name) {
+  let noSuchName = false;
+  const r = updateInstallConfig(installDir, (cfg) => {
+    const projects = projectsOf(cfg);
+    if (!name || !projects[name]) {
+      noSuchName = true;
+      return { refuse: `no such profile "${name}"` };
+    }
+    const rest = { ...projects };
+    delete rest[name];
+    return { next: { ...cfg, projects: rest } };
+  });
+  return "error" in r ? { error: r.error, noSuchName } : null;
 }

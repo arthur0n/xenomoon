@@ -18,6 +18,8 @@ import {
   portRefusal,
   portsClaimedByOthers,
   addProjectEntry,
+  mergeInstallConfig,
+  removeProjectEntry,
 } from "./project-entry.js";
 import { canonicalPath } from "./validate-path.js";
 import { parseJSON } from "../../lib/json.js";
@@ -249,3 +251,86 @@ test("#65: addProjectEntry writes nothing while another install's project list i
   assert.ok((why ?? "").includes(path.join(broken, ".xenomoon.json")), why ?? "");
   assert.ok(readFileSync(file).equals(before));
 });
+
+// ---- #98: every writer keeps the other keys and refuses on an unreadable file ----------------
+
+const OTHER = {
+  domain: "webapp",
+  domainDescriptor: { name: "webapp" },
+  port: 3117,
+  hermes: { enabled: true },
+  projects: { alpha: { dir: "/w/alpha", port: 3117 }, beta: { dir: "/w/beta", port: 3118 } },
+};
+
+/** @param {string} dir @returns {Record<string, any>} */
+const readCfg = (dir) =>
+  /** @type {Record<string, any>} */ (
+    parseJSON(readFileSync(path.join(dir, ".xenomoon.json"), "utf8"))
+  );
+
+/** An install whose .xenomoon.json holds exactly `text`. @param {string} text */
+function installText(text) {
+  const dir = tmp();
+  writeFileSync(path.join(dir, ".xenomoon.json"), text);
+  return dir;
+}
+
+test("#98: mergeInstallConfig adds the patch and keeps every other key", () => {
+  const dir = install(OTHER);
+  assert.equal(mergeInstallConfig(dir, { onboarded: true }), null);
+  assert.deepEqual(readCfg(dir), { ...OTHER, onboarded: true });
+});
+
+test("#98: addProjectEntry keeps the other keys and entries, and the patch lands with it", () => {
+  const dir = install(OTHER);
+  const why = addProjectEntry(
+    dir,
+    "gamma",
+    { dir: "/w/gamma", port: 3119 },
+    { registry: {}, patch: { onboarded: true } },
+  );
+  assert.equal(why, null);
+  assert.deepEqual(readCfg(dir), {
+    ...OTHER,
+    onboarded: true,
+    projects: { ...OTHER.projects, gamma: { dir: "/w/gamma", port: 3119 } },
+  });
+});
+
+test("#98: removeProjectEntry removes only the named entry and keeps every other key", () => {
+  const dir = install(OTHER);
+  assert.equal(removeProjectEntry(dir, "beta"), null);
+  assert.deepEqual(readCfg(dir), { ...OTHER, projects: { alpha: OTHER.projects.alpha } });
+});
+
+test("#98: removeProjectEntry with an unknown name gives noSuchName and writes nothing", () => {
+  const dir = install(OTHER);
+  const file = path.join(dir, ".xenomoon.json");
+  const before = readFileSync(file);
+  const r = removeProjectEntry(dir, "nobody");
+  assert.equal(r?.noSuchName, true);
+  assert.match(r?.error ?? "", /no such profile "nobody"/);
+  assert.ok(readFileSync(file).equals(before));
+});
+
+/** @type {[string, string][]} */
+const UNREADABLE = [
+  ["empty", ""],
+  ["invalid JSON", "{ not json"],
+];
+for (const [label, text] of UNREADABLE) {
+  test(`#98: an ${label} .xenomoon.json: all three writers refuse and leave it byte-identical`, () => {
+    const dir = installText(text);
+    const file = path.join(dir, ".xenomoon.json");
+    const named = (/** @type {string | null | undefined} */ why) => {
+      assert.ok(why, "a refusal");
+      assert.ok(why.includes(file), why);
+    };
+    named(mergeInstallConfig(dir, { onboarded: true }));
+    named(addProjectEntry(dir, "alpha", { dir: "/w/alpha", port: 3117 }, { registry: {} }));
+    const removed = removeProjectEntry(dir, "alpha");
+    named(removed?.error);
+    assert.equal(removed?.noSuchName, false);
+    assert.equal(readFileSync(file, "utf8"), text);
+  });
+}

@@ -119,6 +119,15 @@ test("a pack whose library fails the strict check is refused before any write", 
   assert.equal(read(dir, "plugin/library/sources/index.md"), coreIndex);
 });
 
+test("an empty .xenomoon.json refuses the install by name, before any generated file", () => {
+  const dir = framework("empty-config");
+  fs.writeFileSync(path.join(dir, ".xenomoon.json"), "");
+  assert.throws(() => installCapabilities(dir, "t"), /\.xenomoon\.json/);
+  assert.equal(fs.statSync(path.join(dir, ".xenomoon.json")).size, 0);
+  for (const g of ["framework-root.generated", "issuekit-path.generated"])
+    assert.ok(!fs.existsSync(path.join(dir, "plugin/hooks", g)), `${g} was written`);
+});
+
 test("isInstallOutput reads the manifest the installer wrote; no manifest means nothing is", () => {
   const dir = framework("reader");
   const plugin = path.join(dir, "plugin");

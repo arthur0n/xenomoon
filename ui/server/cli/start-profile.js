@@ -16,11 +16,9 @@
 // refused at boot, never silently applied). Caller env (PORT / XENOMOON_DOMAIN) wins over the
 // profile, so one-off overrides still work.
 import { spawn } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseJSON } from "../../lib/json.js";
-import { addProjectCommand } from "./project-entry.js";
+import { addProjectCommand, readInstallConfig, removeProjectEntry } from "./project-entry.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // ui/server/cli
 const FRAMEWORK_DIR = path.join(here, "..", "..", "..");
@@ -29,25 +27,10 @@ const SERVER = path.join(FRAMEWORK_DIR, "ui", "server", "core", "index.js");
 
 /** @typedef {{ dir: string, port?: number, domain?: string }} Profile */
 
-/** Read .xenomoon.json (or {} if absent/invalid). @returns {Record<string, unknown>} */
-function readConfig() {
-  try {
-    return /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8")));
-  } catch {
-    return {};
-  }
-}
-
-/** The saved profiles map (never null). @returns {Record<string, Profile>} */
+/** The saved profiles map (never null), for display and start only. @returns {Record<string, Profile>} */
 function readProfiles() {
-  const p = readConfig().projects;
+  const p = readInstallConfig(FRAMEWORK_DIR).projects;
   return p && typeof p === "object" ? /** @type {Record<string, Profile>} */ (p) : {};
-}
-
-/** Merge a patch into .xenomoon.json, preserving every other field.
- * @param {Record<string, unknown>} patch */
-function mergeConfig(patch) {
-  writeFileSync(CONFIG_FILE, JSON.stringify({ ...readConfig(), ...patch }, null, 2) + "\n");
 }
 
 const argv = process.argv.slice(2);
@@ -80,13 +63,15 @@ if (argv.includes("--add")) {
   process.exit(1);
 } else if (argv.includes("--remove")) {
   const [name] = positional;
-  const profiles = readProfiles();
-  if (!name || !profiles[name]) {
-    console.error(`no such profile "${name ?? ""}" — saved profiles:\n${listing()}`);
+  const why = removeProjectEntry(FRAMEWORK_DIR, name ?? "");
+  if (why) {
+    console.error(
+      why.noSuchName
+        ? `${why.error} — saved profiles:\n${listing()}`
+        : `start-project: ${why.error}`,
+    );
     process.exit(1);
   }
-  delete profiles[name];
-  mergeConfig({ projects: profiles });
   console.log(`Removed profile "${name}".`);
   console.log(listing());
 } else if (!positional.length) {

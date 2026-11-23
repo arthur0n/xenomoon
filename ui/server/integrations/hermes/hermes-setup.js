@@ -45,6 +45,7 @@ import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { parseJSON } from "../../../lib/json.js";
+import { readInstallConfigStrict, updateInstallConfig } from "../../../lib/install-config.js";
 import {
   saveHermesConfig,
   getHermesConfig,
@@ -71,6 +72,12 @@ const val = (n) =>
 
 const ASSUME_YES = flag("yes");
 const RESET = flag("reset");
+// An install file that exists but cannot be read ends the command before anything is written.
+const STRICT = readInstallConfigStrict(FRAMEWORK_DIR);
+if ("error" in STRICT) {
+  console.error(`hermes:setup: ${STRICT.error}`);
+  process.exit(1);
+}
 const SAVED_HERMES = getHermesConfig(); // per-INSTALL identity — rationale in hermes-profile.js
 const { profile: PROFILE, port: PORT } = resolveInstallIdentity({
   flagProfile: val("profile"),
@@ -530,23 +537,20 @@ function removeEnvKey(text, key) {
     .join("\n");
 }
 
-/** Remove the `hermes` block from .xenomoon.json, leaving every other field intact. */
+/** Remove the `hermes` block from .xenomoon.json (via updateInstallConfig, from the file as
+ * read for this write), leaving every other field intact. A failed update ends the command. */
 function unwireXenomoon() {
-  /** @type {Record<string, unknown>} */
-  let saved;
-  try {
-    saved = /** @type {Record<string, unknown>} */ (parseJSON(readFileSync(CONFIG_FILE, "utf8")));
-  } catch {
-    console.log("• No .xenomoon.json — nothing to unwire.");
-    return;
-  }
-  if (saved.hermes === undefined) {
+  const CLEAN = "no hermes block";
+  const res = updateInstallConfig(FRAMEWORK_DIR, ({ hermes, ...rest }) =>
+    hermes === undefined ? { refuse: CLEAN } : { next: rest },
+  );
+  if (!("error" in res)) console.log(`✓ Removed hermes block from ${CONFIG_FILE}`);
+  else if (res.error !== CLEAN) {
+    console.error(`Failed to unwire Xenomoon config: ${res.error}`);
+    process.exit(1);
+  } else if (existsSync(CONFIG_FILE)) {
     console.log("• .xenomoon.json has no hermes block (already clean).");
-    return;
-  }
-  delete saved.hermes;
-  writeFileSync(CONFIG_FILE, JSON.stringify(saved, null, 2) + "\n");
-  console.log(`✓ Removed hermes block from ${CONFIG_FILE}`);
+  } else console.log("• No .xenomoon.json — nothing to unwire.");
 }
 
 /** Undo everything `npm run hermes:setup` wrote, so the flow can be tested from scratch:

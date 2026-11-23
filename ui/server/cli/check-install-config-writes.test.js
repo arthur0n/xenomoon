@@ -193,7 +193,54 @@ test("a name assigned from a split that breaks after a top-level + is the instal
   assert.deepEqual(lines(src.join("\n")), [3]);
 });
 
-test("a split with a non-literal part or a `${}` template is not folded", () => {
+for (const [label, tpl] of [
+  ["whole", "`${installDir}/.xenomoon.json`"],
+  ["split over + with a literal", '`${dir}/.xenomoon` + ".json"'],
+  ["split over + with nested braces", '`${opts[{ a: 1 }.a]}/.xeno` + "moon.json"'],
+])
+  test(`a template with \${} parts is the install file by its static text: ${label}`, () => {
+    const named = `const pad = \`\${n}\`;\nconst file = ${tpl};\nwriteFileSync(file, text);`;
+    assert.deepEqual(findInstallConfigWrites(named), [
+      { line: 3, text: "writeFileSync(file, text);", call: "writeFileSync" },
+    ]);
+    assert.deepEqual(lines(`const x = \`\${a}\`;\n\nwriteFileSync(${tpl}, text);`), [3]);
+  });
+
+test("block comments hide the calls and names they hold", () => {
+  const src = [
+    "/* writeFileSync(CONFIG_FILE, text); */",
+    "/*",
+    '  writeFileSync(path.join(dir, ".xenomoon.json"), text);',
+    "*/",
+    "/**",
+    " * Never: writeFileSync(CONFIG_FILE, text) on .xenomoon.json.",
+    " */",
+    "const x = 1;",
+  ];
+  assert.deepEqual(lines(src.join("\n")), []);
+});
+
+test("a real write after a block comment: only that write, on its line", () => {
+  const src = [
+    "/* writeFileSync(CONFIG_FILE, a);",
+    "   rmSync(CONFIG_FILE); */",
+    "",
+    "rmSync(CONFIG_FILE);",
+  ];
+  assert.deepEqual(findInstallConfigWrites(src.join("\n")), [
+    { line: 4, text: "rmSync(CONFIG_FILE);", call: "rmSync" },
+  ]);
+});
+
+test("rule: a member call named like a write API is flagged whatever its receiver", () => {
+  const src = [
+    "const store = { writeFileSync: save };",
+    'store.writeFileSync(path.join(dir, ".xenomoon.json"), text);',
+  ];
+  assert.deepEqual(lines(src.join("\n")), [2]);
+});
+
+test("a split with a non-literal part, or a name broken by a `${}`, is not the install file", () => {
   assert.deepEqual(lines('writeFileSync(path.join(dir, ".xenomoon" + ext + ".json"), t);'), []);
   assert.deepEqual(lines('writeFileSync(path.join(dir, `.xeno${m}` + "moon.json"), t);'), []);
 });

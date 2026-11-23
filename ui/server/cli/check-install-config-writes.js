@@ -1,8 +1,8 @@
 // check:install-config — a best-effort text check (not a parser, not a security control) against accidental direct writes: only ui/lib/install-config.js writes the install's `.xenomoon.json`.
-// Fails: a write call (WRITE_CALLS or an fs alias of one) whose path argument holds `.xenomoon.json` (adjacent literals joined by `+` count as one), `CONFIG_FILE`, or a name assigned from either outside a non-path call.
+// Fails: a write call (WRITE_CALLS or an fs alias of one) whose path argument holds `.xenomoon.json` (literals joined by `+` count as one; a template counts by its static text, each `${}` breaking it), `CONFIG_FILE`, or a name assigned from either outside a non-path call.
+// A call named like a write API whose path names the install file is flagged whatever its receiver (`store.writeFileSync(...)` too: the check does not resolve receivers); route that write through updateInstallConfig.
 // A name once bound to the install file counts as that file in the whole source file (scope and order ignored, so a function using a name declared below it stays covered): rename a reused variable.
-// Not seen: a split through a variable (`a + ".json"`), a path from another module under another name, from a helper call or a parameter, a write function passed
-// into another module, dynamic access (`fs[name]`), a call inside a template's `${}`, regex literals.
+// Not seen: a split through a variable (`a + ".json"`), a path from another module under another name, from a helper call or a parameter, a write function passed into another module, dynamic access (`fs[name]`), a call inside a template's `${}`, a `+` split of a template whose `${}` holds a template or braces two deep, regex literals.
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -147,10 +147,29 @@ export function foldLiterals(text) {
   );
 }
 
+const INTERPOLATION = String.raw`\$\{(?:[^{}\`]|\{[^{}\`]*\})*\}`;
+/** A quoted literal (kept as is) or a template that may hold `${}` parts. */
+const ANY_LITERAL = new RegExp(
+  String.raw`"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|\`(?:[^\`\\$]|\\.|\$(?!\{)|${INTERPOLATION})*\``,
+  "g",
+);
+const ESCAPE_OR_INTERPOLATION = new RegExp(String.raw`\\.|${INTERPOLATION}`, "g");
+
+/** `text` with each template's `${}` parts replaced by a NUL, so a template reads as its static
+ * text and an interpolation still breaks a name. @param {string} text @returns {string} */
+const maskInterpolations = (text) =>
+  text.replace(ANY_LITERAL, (lit) =>
+    lit[0] === "`" ? lit.replace(ESCAPE_OR_INTERPOLATION, (p) => (p[0] === "\\" ? p : "\0")) : lit,
+  );
+
+/** Does `text` hold the install file's name as literal text (folded, templates by static text)?
+ * @param {string} text */
+const holdsFileName = (text) => foldLiterals(maskInterpolations(text)).includes(".xenomoon.json");
+
 /** Does `text` name the install file: the literal, or a tainted identifier as a whole token?
  * @param {string} text @param {Set<string>} names */
 function namesConfig(text, names) {
-  if (foldLiterals(text).includes(".xenomoon.json")) return true;
+  if (holdsFileName(text)) return true;
   for (const n of names)
     if (new RegExp(`(?<![\\w$.])${n.replace(/\$/g, "\\$")}(?![\\w$])`).test(text)) return true;
   return false;
@@ -294,7 +313,7 @@ function writeAt(scan, m) {
  * @param {string} src @returns {Violation[]}
  */
 export function findInstallConfigWrites(src) {
-  if (!src.includes("CONFIG_FILE") && !foldLiterals(src).includes(".xenomoon.json")) return [];
+  if (!src.includes("CONFIG_FILE") && !holdsFileName(src)) return [];
   const code = blankComments(src);
   /** @type {Scan} */
   const scan = {

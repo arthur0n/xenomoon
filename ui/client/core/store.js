@@ -18,8 +18,9 @@ import { reduce } from "./reducer.js";
 /** @typedef {import("../../lib/types.js").ToolInput} ToolInput */
 /** @typedef {import("../../lib/types.js").ServerMsg} ServerMsg */
 
-/** A chat-column entry. Append-only; rendered by index (no key needed).
- * @typedef {{ kind: "user" | "agent" | "banner", who?: string, text: string, images?: string[] }} ChatEntry */
+/** A chat-column entry. Entries are immutable; the view tells an append from a replace by reference.
+ * `cid` is the client turn id of a user turn typed on this page or carried by a history item.
+ * @typedef {{ kind: "user" | "agent" | "banner", who?: string, text: string, images?: string[], cid?: string }} ChatEntry */
 
 /** A pending interactive card (ask | form | permission), keyed by server id and
  * settled in place when the user replies.
@@ -48,7 +49,8 @@ import { reduce } from "./reducer.js";
  * @property {string} policy              - replaced by every `policy` snapshot
  * @property {RunningAgent[]} running      - folded from spawn / tool_result / task events
  * @property {Approval[]} approvals        - keyed by id; appended then settled in place
- * @property {ChatEntry[]} chat            - append-only: history + agent text + banners + user input
+ * @property {ChatEntry[]} chat            - replaced by a history snapshot, otherwise appended (agent text, banners, user input)
+ * @property {string[]} pendingTurns       - cids of turns typed here that the server has not acknowledged (`user_ack`); a history replace keeps their chat entries
  * @property {LogEntry[]} activity         - append-only (oldest first; the view prepends)
  * @property {Todo[]} todos                - replaced by each TodoWrite
  * @property {Thinking} thinking
@@ -70,6 +72,7 @@ export function initialState() {
     running: [],
     approvals: [],
     chat: [],
+    pendingTurns: [],
     activity: [],
     todos: [],
     thinking: { active: false, label: "" },

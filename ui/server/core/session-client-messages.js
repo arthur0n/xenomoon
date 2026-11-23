@@ -21,7 +21,8 @@ import { removePending } from "./connection.js";
 /** @typedef {import("@anthropic-ai/claude-agent-sdk").SDKUserMessage} SDKUserMessage */
 /** The inbox surface this dispatcher needs (the full inbox lives in session.js).
  * @typedef {{ push: (msg: SDKUserMessage) => void }} InboxLike */
-/** @typedef {import("./connection.js").PendingHolder} PendingHolder */
+/** The live session as this dispatcher sees it: its pending interactions and its chat window.
+ * @typedef {import("./connection.js").PendingHolder & { chat: import("./chat-window.js").ChatWindow }} PendingHolder */
 /** @typedef {(obj: OutMsg) => void} Send */
 
 /** Execute an approved promotion: move the capability project→plugin and mark it
@@ -160,6 +161,39 @@ function handleControlMessage(msg, { send, inbox, session }) {
   }
 }
 
+/** A client turn id the server keeps and acknowledges: 1-64 characters of [A-Za-z0-9_-]
+ * (a crypto.randomUUID() fits). */
+const CID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** The message's client turn id when it is valid, else undefined (the turn is still accepted).
+ * @param {unknown} cid @returns {string | undefined} */
+export function validCid(cid) {
+  return typeof cid === "string" && CID_RE.test(cid) ? cid : undefined;
+}
+
+/** A typed user turn: prune done tasks, queue the turn, record its chat item (with its cid when
+ * valid), acknowledge a valid cid with `user_ack`, and note human activity for Pulse.
+ * @param {Extract<ClientMsg, { type: "user_input" }>} msg
+ * @param {{ send: Send, inbox: InboxLike, holder: PendingHolder, session: SessionState }} deps */
+function handleUserInput(msg, { send, inbox, holder, session }) {
+  // A new user turn — prune completed agent tasks so the board reflects live
+  // work instead of accumulating a graveyard of done items across the session.
+  const pruned = pruneDoneTasks();
+  if (pruned) send({ type: "tasks", tasks: pruned });
+  // Pasted images ride along as base64 image blocks ahead of the text.
+  inbox.push(userInputTurn(msg));
+  // The page shows this turn as the user's chat entry (chat.js addUser); an image-only turn has
+  // no text, so no chat item, as on a resume.
+  const cid = validCid(msg.cid);
+  const text = msg.text.trim();
+  if (text) holder.chat.add(cid ? { role: "user", text, cid } : { role: "user", text });
+  // The ack tells the page the turn is in: it stops keeping it as pending across a history replace.
+  if (cid) send(/** @type {import("../../lib/types.js").UserAckMsg} */ ({ type: "user_ack", cid }));
+  // Any human turn makes THIS session the Pulse delivery target and silently wakes a sleeping
+  // Pulse — sleep is not off, so nobody has to remember to switch it back on.
+  if (session.pulseId != null) noteHumanActivity(session.pulseId);
+}
+
 /**
  * @param {import("ws").RawData} raw
  * @param {{ log: (dir: string, obj: OutMsg) => void, send: Send, inbox: InboxLike, holder: PendingHolder, session: SessionState }} deps
@@ -174,15 +208,7 @@ export function handleClientMessage(raw, { log, send, inbox, holder, session }) 
   }
   log("in", msg);
   if (msg.type === "user_input") {
-    // A new user turn — prune completed agent tasks so the board reflects live
-    // work instead of accumulating a graveyard of done items across the session.
-    const pruned = pruneDoneTasks();
-    if (pruned) send({ type: "tasks", tasks: pruned });
-    // Pasted images ride along as base64 image blocks ahead of the text.
-    inbox.push(userInputTurn(msg));
-    // Any human turn makes THIS session the Pulse delivery target and silently wakes a sleeping
-    // Pulse — sleep is not off, so nobody has to remember to switch it back on.
-    if (session.pulseId != null) noteHumanActivity(session.pulseId);
+    handleUserInput(msg, { send, inbox, holder, session });
   } else if (msg.type === "reply") {
     // Removal goes through removePending so a browser reply stamps activity (status endpoint, #60);
     // an unknown id resolves nothing and changes nothing.

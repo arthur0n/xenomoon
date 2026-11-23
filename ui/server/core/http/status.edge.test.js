@@ -8,6 +8,7 @@ const { statusPayload } = await import("./status.js");
 const { addPending, removePending, teardown } = await import("../connection.js");
 const { trackSession, liveSessions, nextActivity } = await import("../registry.js");
 const { runWithRetry } = await import("../stream.js");
+const { createChatWindow } = await import("../chat-window.js");
 
 /** @typedef {import("../connection.js").LiveSession} LiveSession */
 /** @typedef {import("../stream.js").SDKMessage} SDKMessage */
@@ -69,7 +70,12 @@ test("a torn-down waiting session leaves liveSessions and no longer makes the st
 });
 
 test("a stream that throws after an assistant message propagates and keeps activity consistent", async () => {
-  const act = { lastLine: "", runningAgents: 0, activitySeq: nextActivity() };
+  const act = {
+    lastLine: "",
+    runningAgents: 0,
+    activitySeq: nextActivity(),
+    chat: createChatWindow(),
+  };
   const before = act.activitySeq;
   const busy = { value: false };
   /** @type {Map<string, import("../../../lib/types.js").RunningAgentWire>} */

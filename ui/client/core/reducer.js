@@ -10,6 +10,7 @@
 import { VERB_KIND, toolDetail } from "./format.js";
 import { agentLabel } from "../features/agents/agents.js";
 import { getPersona } from "../../lib/hermes-personas.js";
+import { chatItem } from "../../lib/chat-items.js";
 
 /** @typedef {import("./store.js").State} State */
 /** @typedef {import("./store.js").ChatEntry} ChatEntry */
@@ -33,6 +34,10 @@ export function reduce(s, msg) {
       return { ...s, policy: msg.value }; // SNAPSHOT — replace
     case "history":
       return foldHistory(s, msg.items ?? []);
+    case "user_ack":
+      return s.pendingTurns.includes(msg.cid)
+        ? { ...s, pendingTurns: s.pendingTurns.filter((c) => c !== msg.cid) }
+        : s; // the chat array is untouched: no redraw
     case "status":
       return { ...s, chat: [...s.chat, { kind: "banner", text: msg.text }] };
     case "ask":
@@ -155,15 +160,70 @@ function foldIdle(s) {
   };
 }
 
-/** @param {State} s @param {HistoryItem[]} items @returns {State} */
+/** A history snapshot REPLACES the chat (banners included), followed by the entries of
+ * turns typed here that are still pending and absent from it (by cid, then by absorbByText);
+ * a pending turn the snapshot holds leaves `pendingTurns`. An equal result keeps each slice
+ * reference. @param {State} s @param {HistoryItem[]} items @returns {State} */
 function foldHistory(s, items) {
+  const inSnapshot = new Set(items.flatMap((it) => (it.cid ? [it.cid] : [])));
+  const unseen = s.pendingTurns.filter((c) => !inSnapshot.has(c));
+  const local = s.chat.filter((e) => e.kind === "user" && e.cid && unseen.includes(e.cid));
+  const absorbed = absorbByText(local, items);
+  const pending = unseen.filter((c) => !absorbed.has(c));
   /** @type {ChatEntry[]} */
-  const entries = items.map((it) =>
-    it.role === "user"
-      ? { kind: "user", text: it.text }
-      : { kind: "agent", who: "main", text: it.text },
-  );
-  return { ...s, chat: [...s.chat, ...entries] };
+  const chat = [
+    ...items.map((it) =>
+      it.role === "user"
+        ? { kind: /** @type {const} */ ("user"), text: it.text, ...(it.cid ? { cid: it.cid } : {}) }
+        : { kind: /** @type {const} */ ("agent"), who: "main", text: it.text },
+    ),
+    ...local.filter((e) => e.cid && !absorbed.has(e.cid)),
+  ];
+  const same =
+    chat.length === s.chat.length &&
+    chat.every((e, i) => {
+      const o = s.chat[i];
+      if (e === o) return true;
+      return (
+        e.kind === o?.kind && e.text === o.text && e.who === o.who && e.cid === o.cid && !o.images
+      );
+    });
+  const samePending = pending.length === s.pendingTurns.length;
+  if (same && samePending) return s;
+  return { ...s, chat: same ? s.chat : chat, pendingTurns: samePending ? s.pendingTurns : pending };
+}
+
+/** The cids of pending local user entries that a snapshot USER item WITHOUT a cid holds by
+ * text (the stored transcript has no cids). One-to-one: newest entry first, each takes the
+ * latest unused cid-less item with its trimmed text; cid-carrying items never match.
+ * A new turn typed while disconnected after a server restart, equal in text to an older
+ * stored turn, is taken for that turn and leaves the screen until the next history.
+ * @param {readonly ChatEntry[]} entries pending local user entries, oldest first
+ * @param {readonly HistoryItem[]} items @returns {Set<string>} */
+export function absorbByText(entries, items) {
+  /** @type {Set<number>} */
+  const used = new Set();
+  /** @type {Set<string>} */
+  const absorbed = new Set();
+  for (const e of [...entries].reverse()) {
+    if (e.kind !== "user" || !e.cid) continue;
+    const j = lastFreeUserItem(items, e.text.trim(), used);
+    if (j < 0) continue;
+    used.add(j);
+    absorbed.add(e.cid);
+  }
+  return absorbed;
+}
+
+/** The index of the latest cid-less user item with this text not in `used`, or -1.
+ * @param {readonly HistoryItem[]} items @param {string} text @param {Set<number>} used
+ * @returns {number} */
+function lastFreeUserItem(items, text, used) {
+  for (let k = items.length - 1; k >= 0; k--) {
+    const it = items[k];
+    if (it?.role === "user" && !it.cid && !used.has(k) && it.text === text) return k;
+  }
+  return -1;
 }
 
 /** @param {Extract<ServerMsg, { type: "ask" | "form" | "permission" }>} msg @returns {Approval} */
@@ -365,8 +425,17 @@ function foldResult(s, m) {
 function foldAssistant(s, m) {
   const who = m.subagent_type ?? labelForParent(s, m.parent_tool_use_id) ?? "main";
   let next = who === "main" && !s.busy ? { ...s, busy: true } : s;
+  if (who === "main") next = foldMainText(next, m);
   for (const b of m.message?.content ?? []) next = foldBlock(next, b, who);
   return next;
+}
+
+/** Main's prose: one chat entry per message, built as the stored chat builds it.
+ * @param {State} s @param {SdkEvent} m @returns {State} */
+function foldMainText(s, m) {
+  const item = chatItem(m);
+  if (!item) return s;
+  return { ...s, chat: [...s.chat, { kind: "agent", who: "main", text: item.text }] };
 }
 
 /** The actor for a sub-agent message that omits subagent_type: the chip its
@@ -383,11 +452,10 @@ function foldBlock(s, b, who) {
   return s;
 }
 
-/** Main's prose goes to the chat column; a sub-agent's prose to the activity log.
- * @param {State} s @param {string} text @param {string} who @returns {State} */
+/** A sub-agent's prose goes to the activity log; main's is folded once per message
+ * by foldMainText. @param {State} s @param {string} text @param {string} who @returns {State} */
 function foldText(s, text, who) {
-  if (!text.trim()) return s;
-  if (who === "main") return { ...s, chat: [...s.chat, { kind: "agent", who: "main", text }] };
+  if (who === "main" || !text.trim()) return s;
   return {
     ...s,
     activity: [...s.activity, { kind: "say", agent: who, text: text.trim().slice(0, 200) }],

@@ -130,6 +130,7 @@ function handleMessage(ev) {
     case "pulse": // store-only: the LED is a subscriber, nothing imperative to do here
     case "autonomousMode":
     case "idle":
+    case "user_ack":
       break; // fully handled by the store
   }
 }

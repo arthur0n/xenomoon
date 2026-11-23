@@ -19,6 +19,7 @@ const {
   onSocketDetach,
   replayPending,
   flushBuffer,
+  flushedMessage,
   makeWaitFor,
   addPending,
   removePending,
@@ -272,4 +273,112 @@ test("createLogger: each logger owns its stream, a second one after a failure wa
   assert.doesNotThrow(() => second.end());
   assert.equal(first.warn.mock.callCount(), 2);
   assert.equal(conn.buffer.length, 1);
+});
+
+/** @param {unknown} o @returns {OutMsg} */
+const out = (o) => /** @type {OutMsg} */ (o);
+/** @param {unknown} o */
+const env = (o) =>
+  /** @type {{ message: { message: { content: Array<{ type: string }> } } }} */ (o);
+const mainEvent = () =>
+  out({
+    type: "event",
+    session_id: "s",
+    message: {
+      type: "assistant",
+      uuid: "u1",
+      parent_tool_use_id: null,
+      message: {
+        id: "msg_1",
+        usage: { input_tokens: 3 },
+        content: [
+          { type: "text", text: "hello" },
+          { type: "tool_use", id: "tu1", name: "Read", input: { a: 1 } },
+          { type: "text", text: "bye" },
+        ],
+      },
+    },
+  });
+
+test("flushedMessage: a main assistant event loses its text blocks, keeps tool_use, ids, usage and envelope", () => {
+  const got = flushedMessage(mainEvent());
+  assert.deepEqual(got, {
+    type: "event",
+    session_id: "s",
+    message: {
+      type: "assistant",
+      uuid: "u1",
+      parent_tool_use_id: null,
+      message: {
+        id: "msg_1",
+        usage: { input_tokens: 3 },
+        content: [{ type: "tool_use", id: "tu1", name: "Read", input: { a: 1 } }],
+      },
+    },
+  });
+});
+
+test("flushedMessage: the input object is not mutated", () => {
+  const input = mainEvent();
+  const clone = structuredClone(input);
+  const got = flushedMessage(input);
+  assert.notEqual(got, input);
+  assert.deepEqual(input, clone);
+});
+
+test("flushedMessage: string content comes out as an empty content array", () => {
+  const got = env(
+    flushedMessage(
+      out({ type: "event", message: { type: "user", message: { role: "user", content: "hi" } } }),
+    ),
+  );
+  assert.deepEqual(got.message.message.content, []);
+});
+
+test("flushedMessage: sub-agent, tool-only, result, status and tasks come back as the same object", () => {
+  const cases = [
+    {
+      type: "event",
+      message: {
+        type: "assistant",
+        parent_tool_use_id: "toolu_9",
+        message: { content: [{ type: "text", text: "sub" }] },
+      },
+    },
+    {
+      type: "event",
+      message: {
+        type: "assistant",
+        parent_tool_use_id: null,
+        message: { content: [{ type: "tool_use", id: "t", name: "x", input: {} }] },
+      },
+    },
+    { type: "event", message: { type: "result", subtype: "success" } },
+    { type: "status", text: "working" },
+    { type: "tasks", tasks: [] },
+  ].map(out);
+  for (const c of cases) assert.equal(flushedMessage(c), c);
+});
+
+test("flushedMessage: a buffered history is dropped", () => {
+  assert.equal(flushedMessage(out({ type: "history", items: [] })), null);
+});
+
+test("flushBuffer sends status, the text-less event and result in order, drops history, empties the buffer", () => {
+  const { ls } = makeLs();
+  const { ws, sent } = makeSocket();
+  ls.conn.socket = ws;
+  const result = out({ type: "event", message: { type: "result", subtype: "success" } });
+  const status = out({ type: "status", text: "s" });
+  ls.conn.buffer = [status, out({ type: "history", items: [] }), mainEvent(), result];
+  flushBuffer(ls);
+  assert.equal(sent.length, 3);
+  const [a, b, c] = sent.map((s) => env(parseJSON(s)));
+  assert.deepEqual(a, status);
+  assert.deepEqual(
+    b?.message.message.content.map((x) => x.type),
+    ["tool_use"],
+  );
+  assert.deepEqual(c, result);
+  assert.deepEqual(ls.conn.buffer, []);
 });

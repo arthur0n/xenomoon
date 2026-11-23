@@ -65,8 +65,9 @@ export async function emitContextUsage(q, send) {
 /** @typedef {import("@anthropic-ai/claude-agent-sdk").SDKUserMessage} SDKUserMessage */
 /** @typedef {{ agentByTool: Map<string, string>, bgSpawns: Set<string>, bgBoard: Map<string, string>, runningByTask: Map<string, RunningChip>, send: (obj: OutMsg) => void }} TrackDeps */
 /** @typedef {{ send: (obj: OutMsg) => void, trackMessage: (m: SDKMessage, deps: TrackDeps) => void, trackDeps: TrackDeps, busy: { value: boolean }, sid: { value: string | null }, overload: { value: boolean }, onSessionId?: (id: string) => void, onBusyChange?: () => void, activity: Activity }} StreamDeps */
-/** The status-endpoint activity fields streamQuery keeps current (a LiveSession satisfies it).
- * @typedef {{ lastLine: string, runningAgents: number, activitySeq: number }} Activity */
+/** The status-endpoint activity fields and the chat window streamQuery keeps current (a
+ * LiveSession satisfies it).
+ * @typedef {{ lastLine: string, runningAgents: number, activitySeq: number, chat: import("./chat-window.js").ChatWindow }} Activity */
 
 const RETRY_DELAY_MS = 5 * 60 * 1000; // 5 min between API-529 retries
 const MAX_529_RETRIES = 3; // cap so a sustained outage can't loop forever
@@ -175,6 +176,9 @@ async function streamQuery(
     // busy flips drive the detach grace policy (onBusyChange): keep a detached session alive while
     // a turn runs, start the idle window the moment it goes quiet.
     if (message.type === "assistant") {
+      // The page's chat shows streamed assistant text only; a user turn enters the window at
+      // ingress (session-client-messages.js), as the page adds it itself.
+      activity.chat.addMessage(message);
       const line = lastTextLine(message);
       if (line !== null) activity.lastLine = line;
       activity.activitySeq = nextActivity(); // every assistant message is activity, text or not

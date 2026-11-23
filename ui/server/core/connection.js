@@ -11,6 +11,7 @@ import { LOG_DIR } from "./config.js";
 import { redactImages } from "./user-input.js";
 import { registerLive, dropLive, untrackSession, nextActivity } from "./registry.js";
 import { emitRunning } from "./stream.js";
+import { chatItem } from "../../lib/chat-items.js";
 import { unregisterSession } from "../features/pulse/pulse-control.js";
 import { readTasks } from "../features/tasks/tasks-store.js";
 import { readPromotions } from "../features/promotions/promotions-store.js";
@@ -50,6 +51,7 @@ import { readAutonomous } from "../features/autonomous/autonomous-store.js";
  *   lastLine: string,
  *   runningAgents: number,
  *   activitySeq: number,
+ *   chat: import("./chat-window.js").ChatWindow,
  * }} LiveSession */
 /** What the pending writers need: the Map plus the activity stamp they bump (a LiveSession fits).
  * @typedef {{ pending: Pending, activitySeq: number }} PendingHolder */
@@ -243,13 +245,33 @@ export function replayPending(ls) {
   for (const { msg } of ls.pending.values()) ls.send(msg);
 }
 
-/** Flush messages buffered while detached to the freshly-attached socket, in order. @param {LiveSession} ls */
+/** A buffered message as the flush sends it, the chat window having been sent just before it:
+ * a `history` is dropped (null), since the window supersedes it; an `event` whose message carries
+ * main-conversation chat text (chatItem returns an item) is a copy without its text blocks, the
+ * rest intact (tool_use blocks, ids, usage, parent_tool_use_id, the envelope); anything else is
+ * returned as is. Pure: the input object is never changed. @param {OutMsg} obj @returns {OutMsg | null} */
+export function flushedMessage(obj) {
+  if (obj.type === "history") return null;
+  const m = /** @type {import("../../lib/chat-items.js").ChatSource | undefined} */ (obj.message);
+  if (obj.type !== "event" || !m || !chatItem(m)) return obj;
+  const content = m.message?.content;
+  const kept = Array.isArray(content) ? content.filter((b) => b.type !== "text") : [];
+  const message = { ...m, message: { ...m.message, content: kept } };
+  return { ...obj, message };
+}
+
+/** Flush messages buffered while detached to the freshly-attached socket, in order, each passed
+ * through flushedMessage (no chat text the window already holds is sent twice). A socket that is
+ * not OPEN leaves the buffer as it is. @param {LiveSession} ls */
 export function flushBuffer(ls) {
   const s = ls.conn.socket;
   if (!s || s.readyState !== s.OPEN) return;
   const buffered = ls.conn.buffer;
   ls.conn.buffer = [];
-  for (const obj of buffered) s.send(JSON.stringify(obj));
+  for (const obj of buffered) {
+    const out = flushedMessage(obj);
+    if (out) s.send(JSON.stringify(out));
+  }
 }
 
 /** Build the three reconnect hooks for a live session: `resync` (re-emit snapshots so a (re)attached

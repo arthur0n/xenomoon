@@ -11,6 +11,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 import { sessionHistory } from "../features/transcripts/transcripts.js";
 import { buildUiServer } from "../mcp-tools/ui-server.js";
 import { maybeKickoffOnboarding } from "./first-boot.js";
+import { createChatWindow } from "./chat-window.js";
 import { runWithRetry } from "./stream.js";
 import { getLive, trackSession } from "./registry.js";
 import {
@@ -136,7 +137,9 @@ function runSession({
       // fireNow=true on resume: first interval tick is 5 min away
       checkLoop.arm((session.autonomousActive = readAutonomous().active));
       if (resumeId) {
-        send({ type: "history", items: sessionHistory(resumeId) });
+        const history = sessionHistory(resumeId);
+        for (const item of history) ls.chat.add(item); // the window starts from the stored chat
+        send({ type: "history", items: history });
         send({ type: "status", text: `resumed session ${resumeId.slice(0, 8)}…` });
       } else {
         send({ type: "status", text: `session starting in ${PROJECT_DIR}` });
@@ -270,10 +273,11 @@ function bindSocket(ws, ls) {
   });
 }
 
-/** Re-bind a reconnecting browser to its still-running session: steal from any stale socket, swap
- * in the new one, cancel the grace timer, flush the detached buffer, then re-sync snapshots and
- * replay open approval cards — so the running sub-agents continue uninterrupted and a fully reloaded
- * page rebuilds its view. No second query is started. @param {LiveSession} ls @param {import("ws").WebSocket} ws */
+/** Re-bind a browser (an in-page reconnect, a reload, a second tab) to its still-running session:
+ * close any other open socket, swap in the new one, cancel the grace timer, then send the session
+ * id, the chat window (`history`, which the page's chat is replaced with), the detached buffer
+ * (flushBuffer: chat text the window holds is not repeated), the snapshots (resync) and the open
+ * approval cards. No second query is started. @param {LiveSession} ls @param {import("ws").WebSocket} ws */
 function reattach(ls, ws) {
   const old = ls.conn.socket;
   if (old && old !== ws && old.readyState === old.OPEN) old.close(4000, "session re-attached");
@@ -281,6 +285,7 @@ function reattach(ls, ws) {
   bindSocket(ws, ls);
   evaluateGrace(ls); // attached now → cancels any pending teardown
   ls.send({ type: "session", id: ls.id }); // (re)assert the client's reconnect key
+  ls.send({ type: "history", items: ls.chat.items() });
   flushBuffer(ls);
   ls.resync();
   replayPending(ls);
@@ -335,6 +340,7 @@ export function handleConnection(ws, req) {
     lastLine: "",
     runningAgents: 0,
     activitySeq: 0,
+    chat: createChatWindow(), // empty; runSession seeds it on a disk resume
   };
   trackSession(ls); // the status endpoint sees it from start (before the SDK id exists) to teardown
   const waitFor = makeWaitFor(send, ls);

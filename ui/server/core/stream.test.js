@@ -6,6 +6,7 @@ process.env.XENOMOON_DOMAIN ??= "webapp";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 const { runWithRetry, lastTextLine } = await import("./stream.js");
+const { createChatWindow } = await import("./chat-window.js");
 
 /** @typedef {import("./stream.js").SDKMessage} SDKMessage */
 /** @typedef {import("./stream.js").TrackDeps} TrackDeps */
@@ -28,7 +29,12 @@ const SYSTEM = /** @type {any} */ ({ type: "system", subtype: "task_progress" })
 /** Run one fake query to its end. `onTrack(i)` runs inside trackMessage for message i.
  * @param {SDKMessage[]} messages @param {{ activity?: Activity, onTrack?: (i: number, d: TrackDeps) => void }} [opts] */
 async function run(messages, { activity, onTrack } = {}) {
-  const act = activity ?? { lastLine: "", runningAgents: 0, activitySeq: 0 };
+  const act = activity ?? {
+    lastLine: "",
+    runningAgents: 0,
+    activitySeq: 0,
+    chat: createChatWindow(),
+  };
   const busy = { value: false };
   /** @type {boolean[]} */
   const busySeen = [];
@@ -42,6 +48,8 @@ async function run(messages, { activity, onTrack } = {}) {
   };
   /** @type {number[]} */
   const seqs = [];
+  /** @type {SDKMessage[]} */
+  const sent = [];
   let i = 0;
   await runWithRetry({
     makeQuery: () =>
@@ -53,7 +61,10 @@ async function run(messages, { activity, onTrack } = {}) {
     trackMessage: (_m, d) => onTrack?.(i++, d),
     trackDeps,
     send: (o) => {
-      if (o.type === "event") seqs.push(act.activitySeq);
+      if (o.type === "event") {
+        seqs.push(act.activitySeq);
+        sent.push(/** @type {SDKMessage} */ (o.message));
+      }
     },
     abort: new AbortController(),
     busy,
@@ -63,7 +74,7 @@ async function run(messages, { activity, onTrack } = {}) {
     onBusyChange: () => busySeen.push(busy.value),
     activity: act,
   });
-  return { act, busy, busySeen, seqs };
+  return { act, busy, busySeen, seqs, sent };
 }
 
 test("runningAgents follows runningByTask.size; activitySeq bumps only when it changes", async () => {
@@ -108,4 +119,31 @@ test("busy still flips true on assistant and false on result, each via onBusyCha
   const { busy, busySeen } = await run([assistant(["hi"]), RESULT]);
   assert.deepEqual(busySeen, [true, false]);
   assert.equal(busy.value, false);
+});
+
+test("the chat window holds only main-conversation assistant text; what is sent is unchanged", async () => {
+  const sub = /** @type {SDKMessage} */ (
+    /** @type {unknown} */ ({ ...assistant(["sub text"]), parent_tool_use_id: "toolu_1" })
+  );
+  const toolResult = /** @type {SDKMessage} */ (
+    /** @type {unknown} */ ({
+      type: "user",
+      parent_tool_use_id: null,
+      message: { content: [{ type: "tool_result", tool_use_id: "t", content: "ok" }] },
+    })
+  );
+  const messages = [
+    assistant(["first"]),
+    sub,
+    assistant([], true),
+    toolResult,
+    assistant(["second"]),
+  ];
+  const { act, sent } = await run(messages);
+  assert.deepEqual(act.chat.items(), [
+    { role: "assistant", text: "first" },
+    { role: "assistant", text: "second" },
+  ]);
+  assert.equal(sent.length, messages.length);
+  for (const [i, m] of sent.entries()) assert.equal(m, messages[i]);
 });

@@ -4,23 +4,8 @@
 import { readFileSync, readdirSync, existsSync, statSync, rmSync } from "node:fs";
 import path from "node:path";
 import { parseJSON } from "../../../lib/json.js";
+import { chatItem, lastChatItems } from "../../../lib/chat-items.js";
 import { TRANSCRIPT_DIR } from "../../core/config.js";
-
-/** @param {import("../../../lib/types.js").TranscriptEntry} entry @returns {string | null} */
-function transcriptText(entry) {
-  // message.content is a string or an array of blocks; meta/command wrappers
-  // start with "<" and are not conversation.
-  const c = entry.message?.content;
-  const text =
-    typeof c === "string"
-      ? c
-      : (c ?? [])
-          .filter((b) => b.type === "text")
-          .map((b) => b.text)
-          .join("\n");
-  const t = (text ?? "").trim();
-  return t && !t.startsWith("<") && !t.startsWith("Caveat:") ? t : null;
-}
 
 /** @returns {import("../../../lib/types.js").RecentSession[]} */
 export function recentSessions() {
@@ -45,7 +30,7 @@ export function recentSessions() {
           continue;
         }
         if (e.type === "user" && !e.isSidechain) {
-          title = transcriptText(e);
+          title = chatItem(e)?.text ?? null;
           if (title) break;
         }
       }
@@ -92,9 +77,8 @@ export function sessionHistory(id) {
     } catch {
       continue;
     }
-    if (e.isSidechain || (e.type !== "user" && e.type !== "assistant")) continue;
-    const text = transcriptText(e);
-    if (text) items.push({ role: e.type === "user" ? "user" : "assistant", text });
+    const item = chatItem(e);
+    if (item) items.push(item);
   }
-  return items.slice(-100);
+  return lastChatItems(items);
 }

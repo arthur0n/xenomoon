@@ -54,8 +54,8 @@ async function submit() {
   close();
   void loadState();
   const prompt = harvestPrompt(data.path, building);
-  addUser(prompt);
-  send({ type: "user_input", text: prompt });
+  const cid = addUser(prompt);
+  send({ type: "user_input", text: prompt, cid });
 }
 
 export function initTranscript() {

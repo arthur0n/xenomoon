@@ -105,7 +105,7 @@ function onPaste(e) {
 function sendMessage() {
   const text = textarea.value.trim();
   if (!text && !attachments.length) return;
-  addUser(
+  const cid = addUser(
     text,
     attachments.map((a) => a.dataUrl),
   );
@@ -114,6 +114,7 @@ function sendMessage() {
     type: "user_input",
     text,
     images: attachments.map(({ media_type, data }) => ({ media_type, data })),
+    cid,
   });
   // Optimistically mark the hive busy + running; statusbar renders the line and
   // the button below reads `busy`.

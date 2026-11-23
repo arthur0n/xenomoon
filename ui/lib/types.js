@@ -174,7 +174,10 @@
  */
 
 // ---------- WebSocket messages ----------
-/** @typedef {{ role: "user" | "assistant", text: string }} HistoryItem */
+/** A chat item; `cid` is the client turn id of a typed user turn that carried one.
+ * @typedef {{ role: "user" | "assistant", text: string, cid?: string }} HistoryItem */
+/** Server -> browser: the typed user turn with this client turn id was accepted and queued.
+ * @typedef {{ type: "user_ack", cid: string }} UserAckMsg */
 /** One in-flight sub-agent in the authoritative running-strip snapshot. The server
  * owns this set (its `runningByTask` map); the client reconciles `state.running`
  * against it so a missed lifecycle event self-heals on the next snapshot.
@@ -200,6 +203,7 @@
  *   | { type: "autonomousMode", payload: Autonomous }
  *   | { type: "pulse", payload: Pulse }
  *   | { type: "idle" }
+ *   | UserAckMsg
  * )} ServerMsg */
 
 /** A row in the activity log. `color` (optional) is an inline pill color — used by Hermes
@@ -213,7 +217,7 @@
  * @typedef {{ type?: string, message?: { type?: string, subtype?: string }, [key: string]: unknown }} OutMsg */
 /** Browser -> server messages.
  * @typedef {(
- *   | { type: "user_input", text: string, images?: Array<{ media_type: string, data: string }> }
+ *   | { type: "user_input", text: string, images?: Array<{ media_type: string, data: string }>, cid?: string }
  *   | { type: "reply", id: number, payload: Reply }
  *   | { type: "policy", value: string }
  *   | { type: "task_update", op: "update" | "remove", id: string, status?: string, answer?: string }

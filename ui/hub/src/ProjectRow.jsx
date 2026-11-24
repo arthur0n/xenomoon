@@ -1,7 +1,11 @@
-// One project row: name, state label (and the waiting text for "needs you"), the project's address as
-// plain text while it is on, and the buttons its `actions` (rows.js) allow. A running request marks
-// its button busy and blocks the row's buttons; a refusal stays on the row in words until the next
-// success. Both live in row-ops.js (keyed by row id), so they survive the row moving to another group.
+// One project row: name, state label (and the waiting text for "needs you"), the project's address
+// while it is on, and the buttons its `actions` (rows.js) allow: Open (the project's own tab), Start,
+// Stop. A running request marks its button busy and blocks the row's buttons; a refusal (a blocked
+// tab included) stays on the row in words until the next success. Both live in row-ops.js (keyed by
+// row id), so they survive the row moving to another group.
+
+import { openProject } from "./open-project.js";
+import { tabNameOf } from "./rows.js";
 
 /** @typedef {ReturnType<typeof import("./hub-api.js").makeHubApi>} HubApi */
 /** @typedef {import("./hub-api.js").RowResult} RowResult */
@@ -13,6 +17,7 @@
 const BUTTON_TEXT = {
   start: ["Start", "Starting…"],
   stop: ["Stop", "Stopping…"],
+  open: ["Open", "Opening…"],
 };
 
 /**
@@ -75,6 +80,13 @@ export default function ProjectRow({ item, api, op, run }) {
         )}
       </div>
       <div className="row-actions">
+        {actions.open &&
+          address &&
+          button(
+            "open",
+            () => Promise.resolve(openProject({ name: tabNameOf(row), address })),
+            "btn-quiet",
+          )}
         {actions.start && button("start", () => api.startRow(row.id), "")}
         {actions.stop && button("stop", () => api.stopRow(row.id), "btn-quiet")}
       </div>

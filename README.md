@@ -81,7 +81,7 @@ npm run hub              # http://127.0.0.1:3110 (XENOMOON_HUB_PORT); serves the
 The page lists every project with its state: needs you, working, idle, off. Other states show as they are: held, unbound, unknown, and "on, update this install" for a project whose install is not updated.
 Projects that need you come first, with the text of what they wait for.
 The list follows `GET /api/hub/stream`; there is no reload.
-Each project has start and stop. A project that is on shows its own address, `http://127.0.0.1:<port>/`, as text; the hub page opens nothing.
+Each project has start and stop. A project that is on shows its own address, `http://127.0.0.1:<port>/`, as text. Next to the address is an Open button. It asks the browser for the tab with the name of that project and port. A tab the hub opened before has that name: it is not reloaded, and the hub asks the browser to bring it to the front. When the browser finds none, a new tab opens at the address and shows a new session of the project.
 The hub page shows no project page inside itself and talks only to the hub.
 Adding a project stays a command: `npm run install-project -- <dir>`.
 The hub keeps one connection to the status stream of every running project. Its routes:

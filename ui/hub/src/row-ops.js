@@ -1,9 +1,9 @@
-// The running request and the last refusal of each row, keyed by row id and kept outside the row
-// component: a row that moves to the other group (and is remounted) stays busy and keeps its message,
+// The running request (start, stop or open) and the last refusal of each row, keyed by row id and
+// kept outside the row component: a row that moves to the other group (and is remounted) stays busy and keeps its message,
 // a second request for a row never starts while one runs, and the result for a row that has left the
 // list is dropped. No React; App.jsx reads it through useSyncExternalStore.
 
-/** @typedef {"start" | "stop"} Busy */
+/** @typedef {"start" | "stop" | "open"} Busy */
 /** @typedef {{ reason: string }} Problem */
 /** @typedef {{ busy: Busy | null, problem: Problem | null }} RowOp */
 /** @typedef {{ ok: true } | { ok: false, reason: string }} OpResult */
@@ -48,7 +48,8 @@ export function makeRowOps() {
       });
   };
 
-  /** Starts `call` at once unless this row has one running.
+  /** Starts `call` at once unless this row has one running. A refusal sets its reason as the row's
+   * problem; a successful start or stop clears it, a successful open leaves it as it was.
    * @param {string} id @param {Busy} kind @param {() => Promise<OpResult>} call
    * @returns {boolean} false when a request for this row already runs */
   const run = (id, kind, call) => {
@@ -61,10 +62,18 @@ export function makeRowOps() {
         update((m) => m.delete(id));
         return;
       }
-      const problem = res.ok ? null : { reason: res.reason };
+      const problem = !res.ok ? { reason: res.reason } : kind === "open" ? was.problem : null;
       update((m) => m.set(id, { busy: null, problem }));
     };
-    call().then(done, (/** @type {unknown} */ err) => {
+    /** `call` runs here, synchronously (a new tab needs the click's user activation); a throw
+     * from it ends the request as a rejection does. @type {Promise<OpResult>} */
+    let pending;
+    try {
+      pending = call();
+    } catch (err) {
+      pending = Promise.reject(err);
+    }
+    pending.then(done, (/** @type {unknown} */ err) => {
       done({ ok: false, reason: err instanceof Error ? err.message : String(err) });
     });
     return true;

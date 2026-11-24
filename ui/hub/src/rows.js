@@ -1,7 +1,9 @@
 // The hub page's list logic, pure: each row's screen state and label, the list order, the buttons
-// a row offers, and the address it shows. No React, no DOM. Rows come from GET /api/hub/status and /api/hub/stream
-// (HubViewRow, ui/server/features/hub/server.js:19-21). A button is offered only when
-// ui/server/features/hub/lifecycle.js would not always refuse it.
+// a row offers, the address it shows and offers to open, and the tab name it opens in. No React, no DOM.
+// Rows come from GET /api/hub/status and /api/hub/stream (HubViewRow, ui/server/features/hub/server.js:19-21).
+// Start and stop are offered only when ui/server/features/hub/lifecycle.js would not always refuse them.
+
+import { isPort } from "../../lib/port.js";
 
 /** A row as the hub sends it: the HubRow (ui/server/features/hub/rows.js:23-31) plus the probe result
  * (ui/server/features/hub/status.js:9-11: state on|held|off|unbound|unknown, status, reason, conflict)
@@ -16,8 +18,9 @@
  */
 /** `waiting` (the project's lastLine) is present only on "needs-you".
  * @typedef {{ state: ScreenState, label: string, waiting?: string }} RowScreen */
-/** @typedef {{ start: boolean, stop: boolean }} RowActions */
-/** `address`: the project's own page, shown as text, only while its server is on.
+/** `open`: the project's own page can be opened (exactly when addressOf gives an address).
+ * @typedef {{ start: boolean, stop: boolean, open: boolean }} RowActions */
+/** `address`: the project's own page, shown and offered to open, only while its server is on.
  * @typedef {{ row: HubViewRow, screen: RowScreen, actions: RowActions, address: string | null }} RowItem */
 
 /** @type {Record<ScreenState, string>} */
@@ -80,10 +83,19 @@ export function sortRows(rows) {
     .map(({ row }) => row);
 }
 
-/** The project's own address while its server is on and has a port; null otherwise.
+/** The project's own address while its server is on and its port is an integer from 1 to 65535
+ * (a number, not a string); null otherwise.
  * @param {HubViewRow} row @returns {string | null} */
 export function addressOf(row) {
-  return row.state === "on" && row.port !== null ? `http://127.0.0.1:${row.port}/` : null;
+  const port = /** @type {unknown} */ (row.port);
+  return row.state === "on" && isPort(port) ? `http://127.0.0.1:${port}/` : null;
+}
+
+/** The browser window name the row's page opens in: the same for the same id and port, another for
+ * another port. Starts with a letter, since names starting with "_" are reserved.
+ * @param {HubViewRow} row @returns {string} */
+export function tabNameOf(row) {
+  return `xenomoon-${row.id}-${row.port}`;
 }
 
 /** Whether lifecycle.js doStart could go on for an off row: not stale (lifecycle.js:92-99), a port
@@ -94,17 +106,18 @@ function canStart(row, rows) {
   return !rows.some((r) => r.id !== row.id && r.port === row.port && r.state === "on");
 }
 
-/** The buttons a row offers. On rows: stop. Off rows: start when lifecycle would start them. Held / unknown: lifecycle refuses both start and stop
+/** The buttons a row offers. On rows: stop, and open while they have a port. Off rows: start when lifecycle would start them. Held / unknown: lifecycle refuses both start and stop
  * (refuseUnclear, lifecycle.js:74-87), and the port serves another or an unclear server, so nothing.
  * Unbound: start is refused (no port) and stop is a no-op (lifecycle.js:132-134), so nothing.
  * @param {HubViewRow} row @param {HubViewRow[]} rows all rows of the same view
  * @returns {RowActions} */
 export function actionsOf(row, rows) {
   const state = stateOf(row);
-  if (ON_STATES.has(state)) return { start: false, stop: true };
+  const open = addressOf(row) !== null;
+  if (ON_STATES.has(state)) return { start: false, stop: true, open };
   if (state === "off" && row.port !== null && canStart(row, rows))
-    return { start: true, stop: false };
-  return { start: false, stop: false };
+    return { start: true, stop: false, open };
+  return { start: false, stop: false, open };
 }
 
 /** The whole list for the page: sorted, each row with its screen, actions and address.

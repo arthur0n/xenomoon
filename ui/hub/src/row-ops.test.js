@@ -56,6 +56,26 @@ void test("run: a rejected call is a refusal in words", async () => {
   assert.deepEqual(ops.snapshot().get("a"), { busy: null, problem: { reason: "boom" } });
 });
 
+void test("run: a successful open keeps the refusal of an earlier stop", async () => {
+  const ops = makeRowOps();
+  ops.run("a", "stop", () => Promise.resolve({ ok: false, reason: "stop refused" }));
+  await Promise.resolve();
+  ops.run("a", "open", () => Promise.resolve({ ok: true }));
+  await Promise.resolve();
+  assert.deepEqual(ops.snapshot().get("a"), { busy: null, problem: { reason: "stop refused" } });
+});
+
+void test("run: a successful start or stop clears an earlier refusal", async () => {
+  for (const kind of /** @type {const} */ (["start", "stop"])) {
+    const ops = makeRowOps();
+    ops.run("a", "stop", () => Promise.resolve({ ok: false, reason: "stop refused" }));
+    await Promise.resolve();
+    ops.run("a", kind, () => Promise.resolve({ ok: true }));
+    await Promise.resolve();
+    assert.deepEqual(ops.snapshot().get("a"), IDLE, kind);
+  }
+});
+
 void test("keep: a row that left the list drops its result; one that came back stays busy", async () => {
   const ops = makeRowOps();
   ops.keep(["a", "b"]);
@@ -114,4 +134,19 @@ void test("subscribe: every change notifies and gives a new snapshot object", ()
   stop();
   ops.run("b", "start", () => new Promise(() => {}));
   assert.deepEqual([n, before === ops.snapshot()], [1, false]);
+});
+
+void test("run: a call that throws synchronously ends the request with its message and frees the row", async () => {
+  const ops = makeRowOps();
+  const result = ops.run("a", "open", () => {
+    throw new Error("sync boom");
+  });
+  assert.equal(result, true);
+  await Promise.resolve();
+  assert.deepEqual(ops.snapshot().get("a"), { busy: null, problem: { reason: "sync boom" } });
+  assert.equal(
+    ops.run("a", "open", () => new Promise(() => {})),
+    true,
+    "the row accepts a later request",
+  );
 });

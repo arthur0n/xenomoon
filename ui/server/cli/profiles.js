@@ -5,6 +5,9 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { parseJSON } from "../../lib/json.js";
+import { MAX_PORT, isPort } from "../../lib/port.js";
+
+export { MAX_PORT, isPort };
 
 /** @typedef {{ dir: string, port?: number, domain?: string }} Profile */
 
@@ -27,13 +30,6 @@ export function contains(parent, child) {
 const isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 /** @param {unknown} v @returns {v is string} */
 const isDir = (v) => typeof v === "string" && v !== "";
-/** The highest TCP port number. */
-export const MAX_PORT = 65535;
-/** THE port rule (#65), for every project port accepted or validated (install file, --port,
- * the commit-time check in ./project-entry.js, an inherited PORT): an integer from 1 to 65535.
- * @param {unknown} v @returns {v is number} */
-export const isPort = (v) =>
-  Number.isInteger(v) && /** @type {number} */ (v) >= 1 && /** @type {number} */ (v) <= MAX_PORT;
 /** @param {string} f */
 const readUtf8 = (f) => readFileSync(f, "utf8");
 

@@ -23,7 +23,8 @@ import { findWorkspace, repoFor, githubSlug } from "../../lib/workspace.js";
  * @typedef {{ number?: number, title?: string, state?: string, url?: string, body?: string,
  *   labels?: ({ name?: string } | string)[],
  *   comments?: { body?: string, author?: { login?: string }, createdAt?: string }[],
- *   baseRefName?: string, headRefName?: string, mergeStateStatus?: string, mergeable?: string,
+ *   baseRefName?: string, headRefName?: string, headRefOid?: string,
+ *   mergeStateStatus?: string, mergeable?: string,
  *   statusCheckRollup?: { conclusion?: string, state?: string, status?: string, name?: string, context?: string }[],
  *   conclusion?: string, headSha?: string, displayTitle?: string, updatedAt?: string }} GhNode
  */

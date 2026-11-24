@@ -24,8 +24,9 @@ stage, stash or clean), the project's branch model and whether this push reaches
 branch, the upstream (none → STOP; `--set-upstream` ONLY when the brief named remote+branch),
 fast-forward-only against the fetched remote, every `(#N)` in the commits being published
 (lane labels + the NEWEST QA/REVIEW verdict, read exactly as the commit gate reads them), and
-the checks (the open PR's rollup, else the branch's last run). `issuekit` means the shipped
-path your prompt names.
+the checks (the open PR's rollup, else the branch's last run — **with the SHA that rollup
+belongs to**, because a red is only yours if it is bound to what you are pushing).
+`issuekit` means the shipped path your prompt names.
 
 - **exit 1 = STOP.** Put its `STOP` lines in your report verbatim — each names the stage that
   owns the fix (`issuekit branch sync` / the developer in a worktree / implement). You fix
@@ -33,6 +34,12 @@ path your prompt names.
 - **exit 0 = PASS.** Its last line is the exact push command. Run that, nothing else.
 - **`FLAG` lines are report material** (dirty entries, pending checks, an unrecognised verdict
   word, no pipeline state on an issue) — name the decision they imply; never wait silently.
+- **A red rollup on an ANCESTOR of your tip is a FLAG, not a STOP.** The red is bound to code
+  the remote already has and your commits sit on top of it, so the push is what re-fires CI —
+  STOPping there blocked the only move that could clear the red, and twice (PR #239
+  2026-11-22, PR #244 2026-11-24) the resolution was a human override. Report the flag (it
+  names both SHAs) and re-check the new run after the push. Red **at** your tip, or unrelated
+  to it, still STOPs, and there is no flag or env var that turns a STOP off.
 
 **Do not re-derive any step by hand.** Re-reading the issue thread, the diff, the transcript or
 the workflow files here is the work QA and audit already did on this SHA — it was 13–37 tool

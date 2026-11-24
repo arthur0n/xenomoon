@@ -223,8 +223,16 @@ export function cmdPrUpdate(num, flags) {
 // --when-green: deterministic gate first — OPEN + no conflicts + every check
 // SUCCESS/NEUTRAL/SKIPPED, else exit 1 listing exactly what blocks. One call replaces
 // the "merge PR N when checks pass" agent dispatch (and its retry re-dispatches).
-/** @param {string} repo @param {string | number} num */
-export function prGreenGate(repo, num) {
+/**
+ * The merge gate's FACTS, split by what owns them: `checks` are the rollup's own non-green
+ * contexts, `state`/`mergeable` are the PR's. `headSha` is the commit the rollup BELONGS to —
+ * `gh` resolves `statusCheckRollup` from the PR's head commit, so `headRefOid` from the SAME
+ * call is that rollup's SHA (no extra request; verified against a real pull request,
+ * 2026-11-24). A caller that must know whether a red is bound to already-published code
+ * (push-check) cannot answer it from the blocker strings alone.
+ * @param {string} repo @param {string | number} num
+ * @returns {{ blockers: string[], checks: string[], conflicting: boolean, headSha: string }} */
+export function prGateFacts(repo, num) {
   const pr = ghNode([
     "pr",
     "view",
@@ -232,19 +240,26 @@ export function prGreenGate(repo, num) {
     "-R",
     repo,
     "--json",
-    "state,mergeable,mergeStateStatus,statusCheckRollup",
+    "state,mergeable,mergeStateStatus,statusCheckRollup,headRefOid",
   ]);
-  const blockers = [];
-  if (pr.state !== "OPEN") blockers.push(`state=${pr.state} (not OPEN)`);
-  if (pr.mergeable === "CONFLICTING")
-    blockers.push("mergeable=CONFLICTING (needs conflict resolution)");
+  /** @type {string[]} */ const checks = [];
   for (const c of pr.statusCheckRollup ?? []) {
     const name = c.name ?? c.context ?? "check";
     const verdict = (c.conclusion ?? c.state ?? c.status ?? "").toUpperCase();
     if (!["SUCCESS", "NEUTRAL", "SKIPPED"].includes(verdict))
-      blockers.push(`${name}: ${verdict || "PENDING"}`);
+      checks.push(`${name}: ${verdict || "PENDING"}`);
   }
-  return blockers;
+  const blockers = [];
+  if (pr.state !== "OPEN") blockers.push(`state=${pr.state} (not OPEN)`);
+  const conflicting = pr.mergeable === "CONFLICTING";
+  if (conflicting) blockers.push("mergeable=CONFLICTING (needs conflict resolution)");
+  blockers.push(...checks);
+  return { blockers, checks, conflicting, headSha: pr.headRefOid ?? "" };
+}
+
+/** Every reason PR `num` is not mergeable, in one list. @param {string} repo @param {string | number} num */
+export function prGreenGate(repo, num) {
+  return prGateFacts(repo, num).blockers;
 }
 
 /** @param {string | number} num @param {Flags} flags */

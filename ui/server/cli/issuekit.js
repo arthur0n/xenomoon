@@ -448,6 +448,10 @@ const HELP = `issuekit — searchable, deterministic GitHub-issue attempt log (s
                                          newest QA/REVIEW verdict, PR checks / last run, target.
                                          STOP → exit 1 naming the owning stage; PASS → prints the
                                          bare \`git push\` to run next. Never pushes (gates must see it).
+                                         A red rollup whose commit is a strict ANCESTOR of the tip
+                                         being pushed is a FLAG, not a STOP (the red is already-
+                                         published code and the push re-fires CI); red AT the tip,
+                                         or unrelated, still STOPs. No override flag exists.
   issuekit deploy-check [--workflow W] [--branch B]
                                          last COMPLETED deploy run's conclusion; fails on
                                          non-success; never polls in-flight. Merged ≠ done.

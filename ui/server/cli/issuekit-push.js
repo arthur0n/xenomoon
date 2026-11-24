@@ -19,7 +19,7 @@
 // this judges whether that judgement still stands today, and it must read the lanes the same way.
 import { readBranchModel, deployReaching } from "../../lib/branch-doctrine.js";
 import { run, gh, git, resolveRepo, maybeSwitchUser, mark, str } from "./issuekit-lib.js";
-import { prGreenGate } from "./issuekit-plumb.js";
+import { prGateFacts } from "./issuekit-plumb.js";
 import { findWorkspace, repoFor } from "../../lib/workspace.js";
 
 /** @typedef {import("./issuekit-lib.js").Flags} Flags */
@@ -35,15 +35,25 @@ import { findWorkspace, repoFor } from "../../lib/workspace.js";
  * @typedef {{ num: string, readable: boolean, labels: string[], qa: LaneVerdict, review: LaneVerdict }} IssueState
  */
 /**
- * The CI evidence for the branch.
- * @typedef {{ kind: "pr" | "run" | "none", pr: number | null, failed: string[], pending: string[], detail: string }} Checks
+ * Where the commit a check rollup belongs to sits relative to the tip being published.
+ * `tip` = the rollup IS this push's tip. `ancestor` = the rollup is for code already published,
+ * and this push stacks commits on top of it. `unrelated` = neither (a diverged or foreign head).
+ * `unknown` = no SHA, or a commit this clone does not have — fail-closed, treated as `unrelated`.
+ * @typedef {"tip" | "ancestor" | "unrelated" | "unknown"} HeadRelation
+ */
+/**
+ * The CI evidence for the branch. `failed`/`pending` are the rollup's own contexts; `hard` is a
+ * blocker that is NOT a check (a CONFLICTING merge) and so can never be explained away by where
+ * the rollup sits. `headSha` is the commit the rollup belongs to, `headRel` its position.
+ * @typedef {{ kind: "pr" | "run" | "none", pr: number | null, failed: string[], pending: string[],
+ *   hard: string[], headSha: string, headRel: HeadRelation, detail: string }} Checks
  */
 /**
  * Everything the verdict needs, gathered once (collectFacts) — a plain object so the decision is
- * testable without a repo.
+ * testable without a repo. `tip` is HEAD's full SHA: the commit this push would make the remote's.
  * @typedef {{
  *   branch: string, current: string, remote: string, upstream: string | null, setUpstream: boolean,
- *   dirty: string[], ahead: number | null, behind: number | null,
+ *   dirty: string[], ahead: number | null, behind: number | null, tip: string,
  *   commits: { sha: string, subject: string }[], issues: IssueState[], checks: Checks,
  *   doctrine: Doctrine, reaches: boolean | null,
  * }} PushFacts
@@ -168,11 +178,31 @@ function judgeIssue(i, stops, flags) {
     );
 }
 
-/** Step 6: checks. Red stops; pending is a decision to NAME; no CI is a stated fact.
- * @param {Checks} c @param {string[]} stops @param {string[]} flags */
-function judgeChecks(c, stops, flags) {
+/** 7 chars of a SHA, the length every receipt line already prints. @param {string} sha */
+const short = (sha) => sha.slice(0, 7) || "?";
+
+/**
+ * Step 6: checks. Red stops — EXCEPT a red whose rollup is a strict ancestor of the tip being
+ * pushed. That red is bound to code the remote already has, and the commits on top of it are
+ * typically its fix: STOPping there blocks the only action that can clear the red, so the gate's
+ * own correct answer becomes "override me" (PR #239 2026-11-22, PR #244 2026-11-24, both pushed
+ * on an owner override). It is downgraded to a FLAG that names both SHAs. A rollup AT the tip, or
+ * unrelated to it, keeps the STOP untouched — that is the case the gate exists for. There is no
+ * flag, env var or --force anywhere here: the gate is made correct, not bypassable.
+ * @param {PushFacts} f @param {string[]} stops @param {string[]} flags */
+function judgeChecks(f, stops, flags) {
+  const c = f.checks;
   const where = c.pr ? ` on PR #${c.pr}` : "";
-  if (c.failed.length)
+  for (const h of c.hard)
+    stops.push(`${h}${where} — the developer resolves it in a worktree; not the push lane`);
+  if (c.failed.length && c.headRel === "ancestor")
+    flags.push(
+      `checks RED${where}: ${c.failed.join(", ")} — but that rollup is for ${short(c.headSha)}, ` +
+        `a strict ANCESTOR of the tip being pushed (${short(f.tip)}): the red belongs to code ` +
+        `${f.remote}/${f.branch} ALREADY has, and this push adds ${f.ahead ?? "?"} commit(s) on ` +
+        `top of it, re-firing CI. Not a blocker — report it and re-check the new run after the push.`,
+    );
+  else if (c.failed.length)
     stops.push(
       `checks RED${where}: ${c.failed.join(", ")} — the owning stage fixes; you do not push over red`,
     );
@@ -195,8 +225,32 @@ export function pushGateVerdict(f) {
   for (const i of f.issues) judgeIssue(i, stops, flags);
   if (!f.issues.length && f.commits.length)
     flags.push("no (#N) in the published commits — nothing to verify against an issue");
-  judgeChecks(f.checks, stops, flags);
+  judgeChecks(f, stops, flags);
   return { stops, flags };
+}
+
+/** Local git ancestry, injectable so `relateHead` is testable without a repo. */
+export const GIT_ANCESTRY = {
+  /** @param {string} sha */
+  has: (sha) => run("git", ["cat-file", "-e", `${sha}^{commit}`], { allowFail: true }).status === 0,
+  /** @param {string} a @param {string} b */
+  isAncestor: (a, b) =>
+    run("git", ["merge-base", "--is-ancestor", a, b], { allowFail: true }).status === 0,
+};
+
+/**
+ * Where the rollup's commit sits relative to the tip being published. A SHA this clone does not
+ * have is `unknown`, never "probably fine": the whole point of the downgrade is that the ancestry
+ * was PROVEN locally, and an unproven one must keep its STOP.
+ * @param {string} headSha @param {string} tip @param {typeof GIT_ANCESTRY} [git_]
+ * @returns {HeadRelation} */
+export function relateHead(headSha, tip, git_ = GIT_ANCESTRY) {
+  if (!headSha || !tip) return "unknown";
+  if (headSha === tip) return "tip";
+  // Abbreviated forms of the same commit are the same commit (gh prints 40, git log 7).
+  if (headSha.startsWith(tip) || tip.startsWith(headSha)) return "tip";
+  if (!git_.has(headSha) || !git_.has(tip)) return "unknown";
+  return git_.isAncestor(headSha, tip) ? "ancestor" : "unrelated";
 }
 
 const PENDING_RE = /:\s*(PENDING|QUEUED|IN_PROGRESS|EXPECTED|WAITING)$/;
@@ -211,11 +265,22 @@ function collectChecks(repo, remote, branch) {
   const pr = prs[0]?.number ?? null;
   if (pr !== null) {
     // `state=` is the PR's own state, moot here (we filtered to OPEN); a CONFLICTING mergeable stays
-    // a blocker — a push onto a conflicting PR is work for the developer, not the lane.
-    const blockers = prGreenGate(repo, pr).filter((b) => !b.startsWith("state="));
-    const pending = blockers.filter((b) => PENDING_RE.test(b));
-    const failed = blockers.filter((b) => !PENDING_RE.test(b));
-    return { kind: "pr", pr, failed, pending, detail: `PR #${pr}` };
+    // a blocker — a push onto a conflicting PR is work for the developer, not the lane. It is `hard`
+    // because it is not a check: no rollup SHA can ever explain it away.
+    const g = prGateFacts(repo, pr);
+    const pending = g.checks.filter((b) => PENDING_RE.test(b));
+    const failed = g.checks.filter((b) => !PENDING_RE.test(b));
+    const hard = g.conflicting ? ["mergeable=CONFLICTING (needs conflict resolution)"] : [];
+    return {
+      kind: "pr",
+      pr,
+      failed,
+      pending,
+      hard,
+      headSha: g.headSha,
+      headRel: "unknown",
+      detail: `PR #${pr}`,
+    };
   }
   const r = nodesOf(
     gh(
@@ -229,26 +294,33 @@ function collectChecks(repo, remote, branch) {
         "-L",
         "1",
         "--json",
-        "status,conclusion,workflowName",
+        // headSha rides along on the call we already make — the run IS a rollup bound to a commit,
+        // and without its SHA a red run on an older head reads exactly like a red at the tip.
+        "status,conclusion,workflowName,headSha",
       ],
       { allowFail: true },
     ).out,
   )[0];
-  const none = { kind: /** @type {const} */ ("none"), pr: null, failed: [], pending: [] };
+  const base = { pr: null, failed: [], pending: [], hard: [], headRel: /** @type {const} */ ("unknown") }; // prettier-ignore
   if (!r)
     return {
-      ...none,
+      ...base,
+      kind: "none",
+      headSha: "",
       detail: `no workflow run on ${remote}/${branch} (not CI-covered, or never pushed)`,
     };
-  const raw = /** @type {{ status?: string, conclusion?: string, workflowName?: string }} */ (r);
+  const raw =
+    /** @type {{ status?: string, conclusion?: string, workflowName?: string, headSha?: string }} */ (
+      r
+    );
   const name = raw.workflowName ?? "run";
-  const run_ = { kind: /** @type {const} */ ("run"), pr: null, detail: name };
+  const run_ = { ...base, kind: /** @type {const} */ ("run"), headSha: raw.headSha ?? "" };
   if (raw.status !== "completed")
-    return { ...run_, failed: [], pending: [`${name}: ${(raw.status ?? "").toUpperCase()}`] };
+    return { ...run_, pending: [`${name}: ${(raw.status ?? "").toUpperCase()}`], detail: name };
   const ok = ["success", "neutral", "skipped"].includes(raw.conclusion ?? "");
   if (!ok)
-    return { ...run_, failed: [`${name}: ${(raw.conclusion ?? "").toUpperCase()}`], pending: [] };
-  return { ...run_, failed: [], pending: [], detail: `${name}: ${raw.conclusion}` };
+    return { ...run_, failed: [`${name}: ${(raw.conclusion ?? "").toUpperCase()}`], detail: name };
+  return { ...run_, detail: `${name}: ${raw.conclusion}` };
 }
 
 /** @param {string} repo @param {string} num @returns {IssueState} */
@@ -332,6 +404,10 @@ function collectFacts(askedBranch, flags) {
   const reaches = deployReaching(branch, doctrine);
   const issues = citedIssues(commits).map((n) => collectIssue(repo, n));
   const checks = collectChecks(repo, remote, branch);
+  // The ancestry is read AFTER the fetch above, so the PR head is in this clone when the remote
+  // has it. Anything still unresolvable stays "unknown" and keeps its STOP.
+  const tip = git(["rev-parse", "HEAD"]);
+  checks.headRel = relateHead(checks.headSha, tip);
   return {
     repo,
     facts: {
@@ -343,6 +419,7 @@ function collectFacts(askedBranch, flags) {
       dirty,
       ahead,
       behind,
+      tip,
       commits,
       issues,
       checks,
@@ -364,6 +441,13 @@ function issueLine(i) {
   return `issue      #${i.num}: ${labels} · ${lane("qa")} · ${lane("review")}`;
 }
 
+const REL_NOTE = {
+  tip: "= the tip being pushed",
+  ancestor: "ANCESTOR of the tip being pushed",
+  unrelated: "not related to the tip being pushed",
+  unknown: "commit not resolvable locally",
+};
+
 /** @param {Checks} c */
 function checksLine(c) {
   if (c.kind === "none") return "checks     none";
@@ -372,7 +456,10 @@ function checksLine(c) {
     : c.pending.length
       ? ` — pending: ${c.pending.join(", ")}`
       : " — green";
-  return `checks     ${c.detail}${tail}`;
+  // The rollup's own SHA, always printed: every "is this red mine?" question starts here.
+  const at = c.headSha ? ` @${short(c.headSha)} (${REL_NOTE[c.headRel]})` : "";
+  const hard = c.hard.length ? ` — ${c.hard.join(", ")}` : "";
+  return `checks     ${c.detail}${at}${tail}${hard}`;
 }
 
 /** @param {PushFacts} f */

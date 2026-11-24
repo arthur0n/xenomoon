@@ -7,6 +7,11 @@ if ! command -v gitleaks >/dev/null 2>&1; then
   echo "  and commit again." >&2
   exit 1
 fi
+
+# Main guard (issue #99): a framework checkout with projects bound refuses a commit on main.
+# It runs after the gitleaks presence check and before the scan.
+node ui/server/cli/install-main-guard.js --commit || exit 1
+
 gitleaks git --staged --redact --no-banner || exit 1
 
 # Identity gate: the commit is signed with this repo's own email, never the machine-wide one.

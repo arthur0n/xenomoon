@@ -17,8 +17,9 @@
 // Modes (one scanner, three surfaces):
 //   (default)        tracked source under ui/ plugin/ domains/ scripts/   — npm run validate
 //   --staged         added lines + paths of the staged changes, any file  — .husky/pre-commit
-//   --push           added lines of every commit being pushed; reads the  — .husky/pre-push
-//                    hook's stdin (`<local ref> <local sha> <remote ref> <remote sha>` lines)
+//   --push           added lines AND messages of every commit being pushed — .husky/pre-push
+//                    reads the hook's stdin (`<local ref> <local sha> <remote ref> <remote sha>`)
+//   --text           the text given on stdin (a branch name, a PR title and body)
 //   --require-terms  an EMPTY term list fails instead of passing           — CI (pr-domain.yml)
 //   --repo <dir>     the git repo the diff modes read (default: this framework checkout)
 // The diff modes fail CLOSED: a git error is a failure, never "nothing to scan".
@@ -36,7 +37,13 @@ const TEXT = /\.(js|mjs|cjs|ts|tsx|jsx|json|md|sh|bash|yml|yaml|css|html|txt)$/i
 const ZERO_SHA = /^0+$/;
 
 const argv = process.argv.slice(2);
-const MODE = argv.includes("--push") ? "push" : argv.includes("--staged") ? "staged" : "tree";
+const MODE = argv.includes("--push")
+  ? "push"
+  : argv.includes("--staged")
+    ? "staged"
+    : argv.includes("--text")
+      ? "text"
+      : "tree";
 const REQUIRE_TERMS = argv.includes("--require-terms");
 const repoAt = argv.indexOf("--repo");
 const REPO = repoAt >= 0 && argv[repoAt + 1] ? path.resolve(argv[repoAt + 1] ?? "") : FRAMEWORK_DIR;
@@ -150,6 +157,30 @@ function scanStaged() {
   }
 }
 
+/** Hits in commit messages (subject and body). `log` is `git log -z --format=%h%x00%B`: NUL
+ * between the sha and the message and between commits, and git refuses NUL in a message, so the
+ * framing cannot be forged by the message itself.
+ * @param {string} log @param {string} label @returns {import("./denylist.js").TermHit[]} */
+function scanMessages(log, label) {
+  const parts = log.split("\0");
+  /** @type {import("./denylist.js").TermHit[]} */
+  const out = [];
+  for (let i = 0; i + 1 < parts.length; i += 2) {
+    const sha = (parts[i] ?? "").trim();
+    out.push(...findTerms(parts[i + 1] ?? "", `${label}commit ${sha} (in the message)`, terms));
+  }
+  return out;
+}
+
+/** @returns {import("./denylist.js").TermHit[]} */
+function scanText() {
+  try {
+    return findTerms(readFileSync(0, "utf8"), "stdin", terms);
+  } catch (e) {
+    return fail(`cannot read stdin: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
 /** @returns {import("./denylist.js").TermHit[]} */
 function scanPush() {
   /** @type {import("./denylist.js").TermHit[]} */
@@ -159,9 +190,11 @@ function scanPush() {
     if (!line.trim()) continue;
     const range = pushRange(line);
     if (!range) continue;
+    const ref = `${line.trim().split(/\s+/)[0] ?? ""} → `;
     try {
       const log = git(["log", "-p", "-U0", "--no-color", "--no-ext-diff", "--format=", ...range]);
-      out.push(...scanPatch(log, `${line.trim().split(/\s+/)[0] ?? ""} → `));
+      out.push(...scanPatch(log, ref));
+      out.push(...scanMessages(git(["log", "-z", "--format=%h%x00%B", ...range]), ref));
     } catch (e) {
       fail(`cannot read the pushed commits: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -169,11 +202,13 @@ function scanPush() {
   return out;
 }
 
-const hits = MODE === "push" ? scanPush() : MODE === "staged" ? scanStaged() : scanTree();
+const SCAN = { push: scanPush, staged: scanStaged, text: scanText, tree: scanTree };
+const hits = SCAN[MODE]();
 const where = {
   tree: "framework source",
   staged: "the staged changes",
   push: "the pushed commits",
+  text: "the given text",
 }[MODE];
 
 if (hits.length > 0) {
@@ -183,8 +218,8 @@ if (hits.length > 0) {
   for (const h of hits)
     console.error(`    ${h.file}${h.line ? `:${h.line}` : ""} — "${h.term}"\n      ${h.text}`);
   console.error(
-    "  The framework ships to every project. Use a neutral name (alpha/beta) in examples and\n" +
-      "  tests; a project's own facts belong in that project's repo.",
+    "  Replace the name with a neutral word (alpha/beta). The framework ships to every project;\n" +
+      "  a project's own facts belong in that project's repo.",
   );
   process.exit(1);
 }

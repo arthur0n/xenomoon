@@ -4,10 +4,12 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { runHub } from "./hub.js";
+import { GUARD_HOOKS } from "./install-main-guard.js";
 
 /** @type {import("node:http").Server[]} */
 const servers = [];
@@ -213,4 +215,34 @@ test("a port taken between the probe and listen is refused with exit 1", async (
   assert.equal(started, null);
   assert.deepEqual(rec.lines, [`port ${port} is held by another server; set XENOMOON_HUB_PORT`]);
   assert.deepEqual(rec.codes, [1]);
+});
+
+test("a bound install with hooks off warns once on start; with hooks on it does not", async () => {
+  const installDir = mkdtempSync(path.join(tmpdir(), "hub-install-"));
+  const git = (/** @type {string[]} */ args) => {
+    assert.equal(spawnSync("git", ["-C", installDir, ...args]).status, 0);
+  };
+  git(["init", "-q"]);
+  git(["config", "core.hooksPath", ".githooks"]);
+  writeFileSync(
+    path.join(installDir, ".xenomoon.json"),
+    JSON.stringify({ projects: { alpha: { dir: "/ws/alpha" } } }),
+  );
+  /** @type {string[]} */
+  const errs = [];
+  const errLog = (/** @type {string} */ l) => errs.push(l);
+  const off = await startHub(EMPTY, { installDir, errLog });
+  assert.ok(off.started);
+  assert.deepEqual(errs, [
+    `warning: git hooks are not active in ${installDir}, so main is not protected there; run \`npm ci\` in that folder`,
+  ]);
+  // "Hooks on" is the setting AND the generated hook files (#99).
+  mkdirSync(path.join(installDir, ".husky", "_"), { recursive: true });
+  for (const h of GUARD_HOOKS)
+    writeFileSync(path.join(installDir, ".husky", "_", h), "", { mode: 0o755 });
+  git(["config", "core.hooksPath", ".husky/_"]);
+  errs.length = 0;
+  const on = await startHub(EMPTY, { installDir, errLog });
+  assert.ok(on.started);
+  assert.deepEqual(errs, []);
 });

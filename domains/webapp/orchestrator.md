@@ -123,6 +123,11 @@ stage every issue passes through.
   incident momentum is the signal to route, not to act. Infra/CI defects run the same
   pipeline: the CORE stages triage, design and implement them — `.github/` and IaC are in the
   implement stage's ownership like any other code.
+- **A framework defect** (a hook, a gate, the server, a CORE skill) is not worked around in the
+  project and is not committed on the install's `main`. Fix it on a branch with
+  `issuekit framework-fix start <slug>`, then publish it with
+  `issuekit framework-fix submit --files <paths> -m "<message>" --title "<title>" --body "<body>"`
+  (paths relative to the install root), which opens the PR. You never merge that PR.
 - **Your shell is for routing state only** — labels, run status, `git status`, board and
   config reads: the facts that pick a route. The moment a command would read SOURCE to
   form a hypothesis about a cause, that command is triage's first step — dispatch it.

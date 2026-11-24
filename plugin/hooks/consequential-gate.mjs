@@ -131,6 +131,13 @@ const MATCHER_EXPORTS = /** @type {const} */ ([
   ["routinePushTarget", (/** @type {any} */ x) => typeof x === "function"],
   ["mutatesDependencies", (/** @type {any} */ x) => typeof x === "function"],
   ["spendsMoney", (/** @type {any} */ x) => typeof x === "function"],
+  ["mergesFrameworkRepo", (/** @type {any} */ x) => typeof x === "function"],
+  ["FRAMEWORK_MERGE_DENY", (/** @type {any} */ x) => typeof x === "string" && x.length > 0],
+]);
+
+/** ui/lib/framework-remote.js exports this gate calls; shape-checked like MATCHER_EXPORTS. */
+const REMOTE_EXPORTS = /** @type {const} */ ([
+  ["mergesFrameworkAt", (/** @type {any} */ x) => typeof x === "function"],
 ]);
 
 /** The real matchers, LOADED and the right shape. An import that merely succeeds is not enough: a
@@ -164,7 +171,20 @@ async function loadMatchers(helper, helperWhy) {
     const skew = `ui/lib/consequential.js loaded but is missing: ${missing.join(", ")} (version-skewed install)`;
     return { m: null, root, why: helperWhy ? `${helperWhy}; ${skew}` : skew };
   }
-  return { m: mod, root, why: helperWhy };
+  let fr;
+  try {
+    fr = await import(path.join(root, "ui", "lib", "framework-remote.js"));
+  } catch {
+    const gone =
+      "ui/lib/framework-remote.js could not be loaded (the file is absent, or it failed at load)";
+    return { m: null, root, why: helperWhy ? `${helperWhy}; ${gone}` : gone };
+  }
+  const frMissing = REMOTE_EXPORTS.filter(([name, ok]) => !ok(fr[name])).map(([name]) => name);
+  if (frMissing.length) {
+    const skew = `ui/lib/framework-remote.js loaded but is missing: ${frMissing.join(", ")} (version-skewed install)`;
+    return { m: null, root, why: helperWhy ? `${helperWhy}; ${skew}` : skew };
+  }
+  return { m: { ...mod, mergesFrameworkAt: fr.mergesFrameworkAt }, root, why: helperWhy };
 }
 
 // Last-resort tripwires for when the real matchers cannot be loaded. Deliberately CRUDE and
@@ -396,7 +416,10 @@ process.stdin.on("end", () => {
       }
     }
 
-    if (m.MERGE_RE.test(cmd)) {
+    if (m.mergesFrameworkAt(cmd, cwd, FRAMEWORK_DIR)) {
+      // The owner merges framework PRs, whatever the project's merge policy says.
+      denials.push(m.FRAMEWORK_MERGE_DENY);
+    } else if (m.MERGE_RE.test(cmd)) {
       // Merge/promote: workers report merge-ready; the main loop rides policy.merge. Same shared
       // decision the permission layer uses — one definition, one answer.
       const d = m.mergeDecision(null, isSubagent, p.merge);

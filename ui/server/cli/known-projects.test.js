@@ -88,12 +88,13 @@ test("every project of every install is a term, not just the registry value", ()
   assert.deepEqual(terms, ["alpha-shop", "beta-app", "delta-tool", "gamma-site"]);
 });
 
-test("a profile name is not a term by itself — only the project dir is", () => {
+test("a profile name is a term next to the project dir", () => {
   const readFile = fakeInstalls({
     "/ws/one-xm": { projects: { zebrafish: { dir: "/ws/alpha-shop" } } },
   });
   assert.deepEqual(knownProjectTerms({ installs: { "/ws/one-xm": null }, readFile }), [
     "alpha-shop",
+    "zebrafish",
   ]);
 });
 
@@ -154,6 +155,7 @@ test("installProjectDirs: one invalid entry does not blind the root dir or the v
   assert.deepEqual(knownProjectTerms({ installs: { "/ws/one-xm": null }, readFile }), [
     "alpha-shop",
     "beta-app",
+    "broken",
   ]);
 });
 
@@ -198,4 +200,30 @@ test("installTerms: denylist and business terms are the union over the install's
   } finally {
     rmSync(ws, { recursive: true, force: true });
   }
+});
+
+test("99: a distinctive profile key is a term whatever its folder is called", () => {
+  const readFile = fakeInstalls({
+    "/ws/one-xm": { projects: { zebrafish: { dir: "/ws/gamma-site" } } },
+  });
+  const terms = knownProjectTerms({ installs: { "/ws/one-xm": null }, readFile });
+  assert.ok(terms.includes("zebrafish"), "the key");
+  assert.ok(terms.includes("gamma-site"), "the folder");
+});
+
+test("99: generic profile keys are dropped, the folders of those profiles stay", () => {
+  const readFile = fakeInstalls({
+    "/ws/one-xm": {
+      projects: {
+        staging: { dir: "/ws/alpha-shop" },
+        build: { dir: "/ws/beta-app" },
+        production: { dir: "/ws/gamma-site" },
+      },
+    },
+  });
+  assert.deepEqual(knownProjectTerms({ installs: { "/ws/one-xm": null }, readFile }), [
+    "alpha-shop",
+    "beta-app",
+    "gamma-site",
+  ]);
 });

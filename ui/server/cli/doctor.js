@@ -28,6 +28,7 @@ import { readPromotions, approvedPending } from "../features/promotions/promotio
 import { locate } from "../features/promotions/promote-run.js";
 import { registerInstall, readRegistry } from "./install-registry.js";
 import { listeningServers, orphans, report } from "./orphan-servers.js";
+import { hooksOffWarning } from "./install-main-guard.js";
 
 /** Count files with a suffix in a dir (0 if missing). @param {string} dir @param {string} suffix */
 function countFiles(dir, suffix) {
@@ -364,6 +365,8 @@ const checks = [
   // problem; an enabled-but-broken one is the silent failure this catches). Fix hints come
   // from each probe's own error text.
   ...(await integrationRows()),
+  // A bound install protects main through its husky hooks; the row shows only when they are off.
+  ...((w) => (w ? [{ ok: false, hard: false, label: w }] : []))(hooksOffWarning(FRAMEWORK_DIR)),
   // Registry reconciliation. The machine's install index is what lets a verb find the right
   // install when cwd is a project rather than an install; an install missing from it silently
   // degrades to "ambiguous" (or, when it is the only one, to a lucky guess). Self-heal here

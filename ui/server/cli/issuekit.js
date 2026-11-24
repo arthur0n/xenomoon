@@ -27,6 +27,7 @@ import {
 import { cmdBranch, cmdPr, cmdPromote, cmdDeployCheck } from "./issuekit-plumb.js";
 import { cmdCommit } from "./issuekit-commit.js";
 import { cmdPushCheck } from "./issuekit-push.js";
+import { cmdFrameworkFix } from "./issuekit-framework.js";
 import { cmdShow, printAttempts, ATTEMPT_RE } from "./issuekit-show.js";
 import {
   PIPELINE_LABELS,
@@ -456,6 +457,32 @@ const HELP = `issuekit — searchable, deterministic GitHub-issue attempt log (s
                                          last COMPLETED deploy run's conclusion; fails on
                                          non-success; never polls in-flight. Merged ≠ done.
 
+  FRAMEWORK FIX — a bound install (a framework checkout that runs projects) refuses commits
+  and pushes on main; a session fixes the framework through this, one fix at a time:
+  issuekit framework-fix start <slug>    on the framework checkout this script lives in (not
+                                         the cwd): from main with nothing staged, create and
+                                         switch to fix/<slug>; refuses while another fix branch
+                                         is checked out (names it and its open PR), on a slug
+                                         naming a known project, or on an unbound checkout
+  issuekit framework-fix submit --files <a,b> -m "<msg>"
+                                         on the fix branch: stage ONLY the named files (comma-
+                                         separated or repeated, relative to the checkout) and
+                                         commit them through the checkout's own hooks; refuses on
+                                         main, with something already staged, or on a missing or
+                                         outside path, or when a file the commit hook stages
+                                         (README.md, LEDGER.md, …) has unnamed local changes; a
+                                         commit holding an unnamed file is taken back, every
+                                         working-tree change kept
+      … --title "<t>" --body "<b>"       then publish: name-check the branch, its commit
+                                         messages not on <remote>/main, title and body; push the
+                                         branch (never main, hooks run); open the PR with label
+                                         spine, or let the push update the open one. --title and
+                                         --body are required for a branch's first publish.
+                                         Merges nothing: the PR waits for the owner
+  issuekit framework-fix submit --title "<t>" --body "<b>"
+                                         without --files and -m: publish the branch's commits
+                                         only (the re-run after a failed push or PR create)
+
   .issuekit.json keys: repo, ghUser, base, branchPrefix, mergeMethod, deployWorkflow, prodBranch.
   Repo resolves: --repo > .issuekit.json > current git repo. Optional --user runs
   \`gh auth switch\`. NEVER uses \`rtk gh\` (it truncates labels) — raw gh only.`;
@@ -508,6 +535,9 @@ const COMMANDS = {
   },
   "push-check": (pos, flags) => {
     cmdPushCheck(pos, flags);
+  },
+  "framework-fix": (pos) => {
+    cmdFrameworkFix(pos);
   },
   "labels-init": (_pos, flags) => {
     cmdLabelsInit(flags);

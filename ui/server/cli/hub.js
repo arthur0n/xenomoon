@@ -17,6 +17,10 @@ import {
   makeHubStream,
   startHubServer,
 } from "../features/hub/server.js";
+import { hooksOffWarning } from "./install-main-guard.js";
+
+/** The framework checkout this file lives in. */
+const INSTALL_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 /** @typedef {import("../features/hub/server.js").HubFeed} HubFeed */
 /** @typedef {import("../features/hub/server.js").HubStream} HubStream */
@@ -126,6 +130,13 @@ function closeOnSignals(parts, exit) {
   });
 }
 
+/** One warning line when the install is bound and its git hooks are off.
+ * @param {string} installDir @param {(line: string) => void} errLog */
+function warnWhenHooksOff(installDir, errLog) {
+  const warning = hooksOffWarning(installDir);
+  if (warning) errLog(`warning: ${warning}`);
+}
+
 /**
  * @typedef {{
  *   port?: number,
@@ -137,6 +148,7 @@ function closeOnSignals(parts, exit) {
  *   exit?: (code: number) => void,
  *   ensureBuilt?: () => Promise<unknown>,
  *   distDir?: string,
+ *   installDir?: string,
  *   fetchImpl?: typeof fetch,
  *   load?: () => { rows: import("../features/hub/rows.js").HubRow[], errors: import("../features/hub/rows.js").HubError[] },
  * }} HubOptions
@@ -156,6 +168,7 @@ export async function runHub({
   exit = process.exit,
   ensureBuilt,
   distDir,
+  installDir = INSTALL_DIR,
   fetchImpl = fetch,
   load = makeRowLoader({ sidecarDir, ...(registryFile ? { registryFile } : {}) }),
 } = {}) {
@@ -182,6 +195,7 @@ export async function runHub({
   closeOnSignals({ server, feed, stream }, exit);
   void feed.start(); // never rejects; status and stream wait for its first read
   log(`hub listening at ${address}`);
+  warnWhenHooksOff(installDir, errLog);
   return started;
 }
 

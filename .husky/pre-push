@@ -21,8 +21,11 @@ if [ "$remote_name" = "upstream" ]; then
   exit 1
 fi
 
-# git hands the pushed refs on stdin once; both gates below read them, so keep a copy.
+# git hands the pushed refs on stdin once; the gates below read them, so keep a copy.
 pushed_refs="$(cat)"
+
+# Main guard (issue #99): a framework checkout with projects bound refuses a push of main.
+printf '%s\n' "$pushed_refs" | node ui/server/cli/install-main-guard.js --push || exit 1
 
 # Identity gate: no outgoing commit carries the machine-wide email instead of this repo's own.
 printf '%s\n' "$pushed_refs" | sh scripts/check-commit-identity.sh --push "$remote_name" || exit 1

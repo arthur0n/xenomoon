@@ -16,7 +16,9 @@ import {
   routinePushTarget,
   mutatesDependencies,
   spendsMoney,
+  FRAMEWORK_MERGE_DENY,
 } from "../../lib/consequential.js";
+import { frameworkRepo, mergesFrameworkAt } from "../../lib/framework-remote.js";
 import {
   readBranchModel,
   deployReaching,
@@ -31,6 +33,7 @@ import {
   EPIC_TOOL,
   EDIT_TOOLS,
   GENERIC_SUBAGENT_TYPES,
+  FRAMEWORK_DIR,
   FRAMEWORK_PLUGIN_DIR,
   PROJECT_DIR,
   ISSUEKIT,
@@ -307,12 +310,24 @@ function migrationQuestion(cmd, policy, kinds, questions) {
   }
 }
 
+/** The framework's `owner/name` (null on `{ error }`), read once per server process on the first
+ * merge-shaped command. @type {{ repo: string | null } | null} */
+let fwRepo = null;
+/** @param {string} dir @returns {string | null} */
+const cachedFrameworkRepo = (dir) => (fwRepo ??= { repo: frameworkRepo(dir) }).repo;
+
+/** Does this command merge on the framework repo? The shared `mergesFrameworkAt` the hook also
+ * calls; the session's folder here is the project. @param {string} cmd @returns {boolean} */
+function mergesFramework(cmd) {
+  return mergesFrameworkAt(cmd, PROJECT_DIR, FRAMEWORK_DIR, { readRepo: cachedFrameworkRepo });
+}
+
 /** Which consequential things does ONE command do? Every category is classified BEFORE anything is
  * decided — returning on the first match meant `git push && npm install lodash` asked only about
  * the push, and approving that single prompt ran the install unasked.
  * @param {string} cmd @param {ReturnType<typeof getActionPolicy>} policy @param {string} agent
  * @returns {{ denials: string[], questions: string[], kinds: string[] }} */
-function classifyConsequential(cmd, policy, agent) {
+export function classifyConsequential(cmd, policy, agent) {
   /** @type {string[]} */ const denials = [];
   /** @type {string[]} */ const questions = [];
   /** @type {string[]} */ const kinds = [];
@@ -339,7 +354,10 @@ function classifyConsequential(cmd, policy, agent) {
     }
   }
 
-  if (MERGE_RE.test(cmd)) {
+  if (mergesFramework(cmd)) {
+    // The owner merges framework PRs, whatever the project's merge policy says.
+    denials.push(FRAMEWORK_MERGE_DENY);
+  } else if (MERGE_RE.test(cmd)) {
     // Merge/promote is the orchestrator's plumbing under policy.merge; workers report merge-ready.
     const d = mergeDecision(agent, isSubagent, policy.merge);
     if (d.verdict === "deny") denials.push(d.message);

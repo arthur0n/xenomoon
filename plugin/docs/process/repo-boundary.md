@@ -6,10 +6,12 @@ it. They never share a repo, and the boundary is what makes the learning loop wo
 - **The domain can only learn in one place.** One install serves N projects; every
   approved learning lands in the install's `domains/<name>/` and benefits the next
   project immediately. Vendoring the framework per project would fragment learnings.
-- **The project is never a git actor for the framework.** Nothing a bound project does
-  pushes, commits, or hosts framework files. Users update the framework with
-  `git pull upstream` and contribute learnings via PRs — both in the INSTALL, never the
-  project.
+- **The project repo hosts no framework files.** Nothing a bound project does commits or
+  pushes framework files into the project repo. A session working for a project fixes the
+  framework only through `issuekit framework-fix` (a branch and a PR on the framework
+  repo). `main` of an install with bound projects refuses commits and pushes. Users update
+  the framework with `git pull upstream` and contribute learnings via PRs — both in the
+  INSTALL, never the project.
 - **Privacy is physical.** Project facts (business rules, data model) live only in the
   project's own files; the contamination gate polices the one crossing point
   (promotions).

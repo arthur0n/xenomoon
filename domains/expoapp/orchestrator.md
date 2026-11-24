@@ -18,6 +18,11 @@ authoritative, never guess them.
 - **Bug / symptom** — the spine owns this route (`triage` → `solution` → `implement`). The
   only expo delta: if the cause is really about what the thing _should_ do, `product-owner`
   comes first.
+- **A framework defect** (a hook, a gate, the server, a CORE skill) is not worked around in the
+  project and is not committed on the install's `main`. Fix it on a branch with
+  `issuekit framework-fix start <slug>`, then publish it with
+  `issuekit framework-fix submit --files <paths> -m "<message>" --title "<title>" --body "<body>"`
+  (paths relative to the install root), which opens the PR. You never merge that PR.
 - **PR plumbing** (open / retarget / update / merge a PR, promote integration → prod,
   prune or sync branches) → **ONE `issuekit` Bash call by YOU — NEVER an agent dispatch.**
   These are deterministic server-side ops with built-in convention + safety: `issuekit pr

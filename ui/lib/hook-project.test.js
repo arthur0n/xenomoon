@@ -10,6 +10,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -18,6 +19,8 @@ import os from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { FRAMEWORK_MERGE_DENY } from "./consequential.js";
+import { frameworkRepo } from "./framework-remote.js";
 import { parseJSON } from "./json.js";
 
 const HOOKS = path.join(
@@ -285,3 +288,84 @@ test(
     assert.equal(existsSync(marker), false);
   },
 );
+
+// ── framework merges (#99) ────────────────────────────────────────────────────
+// Relies on: the helper's FRAMEWORK_DIR being the real checkout, the folder form of the command
+// (`cd <framework> && ...`, no remote read needed for the verdict), and a project cwd in the tmp root.
+const FW_MERGE = `cd ${FRAMEWORK} && gh pr merge 3`;
+const PROJ_MERGE = "gh pr merge 3";
+const allModes = (/** @type {string} */ merge) =>
+  `{ policy: { push: "allow", merge: ${JSON.stringify(merge)}, dependencies: "allow", branchCreate: "allow", ` +
+  `spend: "allow", migrationPush: "allow", spendPatterns: [], migrationsPending: "" }, ` +
+  `projectDir: ${JSON.stringify(projA)}, why: "" }`;
+
+test("gate: a framework merge is denied whether the project's merge policy is allow or ask", () => {
+  for (const merge of ["allow", "ask"]) {
+    const g = lonelyGate(`fw-merge-${merge}`, answeringHelper(allModes(merge)));
+    const r = g(FW_MERGE);
+    assertDeny(r, /^framework PRs are merged by the owner/);
+    const reason = /** @type {{ hookSpecificOutput: { permissionDecisionReason: string } }} */ (
+      parseJSON(r.out)
+    ).hookSpecificOutput.permissionDecisionReason;
+    assert.equal(reason, FRAMEWORK_MERGE_DENY);
+  }
+});
+
+test("gate: a wrapped framework merge and a PR URL naming the framework are denied", (t) => {
+  const g = lonelyGate("fw-merge-forms", answeringHelper(allModes("allow")));
+  assertDeny(g(`cd ${FRAMEWORK} && env GH_X=1 command gh pr merge 3`), /^framework PRs/);
+  const repo = frameworkRepo(FRAMEWORK);
+  if (repo === null) {
+    t.skip("this checkout has no framework remote to name");
+    return;
+  }
+  assertDeny(g(`nohup gh pr merge "https://github.com/${repo}/pull/7"`), /^framework PRs/);
+});
+
+/** A gate whose helper names `<root>/<dir>` as the framework root, under merge policy allow. That
+ * root's ui/lib/consequential.js re-exports the real one; its framework-remote.js is `remote`
+ * (absent when null). @param {string} dir @param {string | null} remote */
+function fakeFrameworkGate(dir, remote) {
+  const fake = path.join(root, dir);
+  const lib = path.join(fake, "ui", "lib");
+  mkdirSync(lib, { recursive: true });
+  const real = path.join(FRAMEWORK, "ui", "lib", "consequential.js");
+  writeFileSync(path.join(lib, "consequential.js"), `export * from ${JSON.stringify(real)};\n`);
+  if (remote !== null) writeFileSync(path.join(lib, "framework-remote.js"), remote);
+  const helper =
+    `export const FRAMEWORK_DIR = ${JSON.stringify(fake)};\n` +
+    `export async function projectPolicy() { return ${allModes("allow")}; }\n`;
+  return { fake, g: lonelyGate(`gate-${dir.replace(/\W/g, "-")}`, helper) };
+}
+
+test("gate: a quoted cd into a framework root whose path holds a space is denied", () => {
+  const remote = path.join(FRAMEWORK, "ui", "lib", "framework-remote.js");
+  const { fake, g } = fakeFrameworkGate(
+    "fw with space",
+    `export * from ${JSON.stringify(remote)};\n`,
+  );
+  // The gate compares real paths, and the tmp root can sit behind a symlink (macOS /var).
+  assertDeny(g(`cd "${realpathSync(fake)}" && gh pr merge 7 --squash`), /^framework PRs/);
+  assertSilent(g(PROJ_MERGE));
+});
+
+test("gate: a project merge keeps today's answer under both policies", () => {
+  assertSilent(lonelyGate("proj-merge-allow", answeringHelper(allModes("allow")))(PROJ_MERGE));
+  assertAsk(
+    lonelyGate("proj-merge-ask", answeringHelper(allModes("ask")))(PROJ_MERGE),
+    /^Merge \/ promote is consequential/,
+  );
+});
+
+test("gate: a framework root without a usable framework-remote.js goes blind and names it", () => {
+  const cases = /** @type {[string, string | null][]} */ ([
+    ["absent", null],
+    ["no-export", "export const other = 1;\n"],
+  ]);
+  for (const [name, remote] of cases) {
+    assertAsk(
+      fakeFrameworkGate(`fw-${name}`, remote).g(PROJ_MERGE),
+      /looks like a merge\/promote[\s\S]*ui\/lib\/framework-remote\.js/,
+    );
+  }
+});

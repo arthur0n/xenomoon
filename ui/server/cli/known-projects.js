@@ -40,6 +40,9 @@ const TOO_GENERIC = new Set([
   "tmp",
   "project",
   "default",
+  "build",
+  "staging",
+  "production",
 ]);
 
 /** Whether a term is distinctive enough to accuse a file of contamination.
@@ -98,7 +101,8 @@ export function installTerms(installDir, deps = {}) {
 /** Project terms from every project of every install this machine has registered, plus an
  * explicitly bound one. Each registry KEY is an install; its `.xenomoon.json` lists the projects
  * (installProjectDirs). A registry VALUE that is a string (an install registered before the map
- * existed) still contributes. A profile NAME (the map key) is not a term by itself: only dirs are.
+ * existed) still contributes. A profile NAME (the `projects` map key) is a term too, under the
+ * same isUsableTerm rule: a project is known by its alias as much as by its folder.
  *
  * An install whose directory is gone still counts through its registry value: its name is
  * exactly as leakable as a live one, and the registry entry is the only record that it existed.
@@ -109,12 +113,16 @@ export function knownProjectTerms({ installs = {}, boundProjectDir = "", readFil
   const deps = readFile ? { readFile } : {};
   /** @type {Set<string>} */
   const dirs = new Set();
+  /** @type {string[]} */
+  const aliases = [];
   for (const [install, value] of Object.entries(installs)) {
     for (const d of installProjectDirs(install, deps)) dirs.add(d);
+    for (const e of salvageProfiles(install, deps)?.entries ?? [])
+      aliases.push(e.name.toLowerCase());
     if (typeof value === "string" && value) dirs.add(value);
   }
   if (boundProjectDir) dirs.add(boundProjectDir);
-  return [...new Set([...dirs].flatMap(namesFor))].filter(isUsableTerm).sort();
+  return [...new Set([...[...dirs].flatMap(namesFor), ...aliases])].filter(isUsableTerm).sort();
 }
 
 /** The registry's install→project map, read straight from disk. Empty when absent, so CI —

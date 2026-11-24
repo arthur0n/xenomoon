@@ -204,3 +204,133 @@ test("the hooks and the workflow actually call these modes", () => {
   assert.match(ci, /XENOMOON_DENYLIST_TERMS: \$\{\{ secrets\.XENOMOON_DENYLIST_TERMS \}\}/);
   assert.match(ci, /node-version: 24/);
 });
+
+/** Run the real check with stdin. @param {string[]} args @param {NodeJS.ProcessEnv} env
+ * @param {string} [input] */
+function check(args, env, input = "") {
+  const r = spawnSync("node", [CHECK, ...args], { env, encoding: "utf8", input });
+  return { status: r.status, out: `${r.stdout}${r.stderr}` };
+}
+
+/** One empty commit with a message; returns its full sha. @param {string} repo
+ * @param {string[]} messages one `-m` each (subject, then body) */
+function commitMessage(repo, messages) {
+  git(repo, [
+    "commit",
+    "-q",
+    "--allow-empty",
+    "--no-verify",
+    ...messages.flatMap((m) => ["-m", m]),
+  ]);
+  return git(repo, ["rev-parse", "HEAD"]).out.trim();
+}
+
+/** The pre-push hook's stdin line. @param {string} local @param {string} remote */
+const pushLine = (local, remote) => `refs/heads/main ${local} refs/heads/main ${remote}\n`;
+
+test("99: push mode refuses a name in a commit SUBJECT and names the commit", () => {
+  const repo = freshRepo();
+  const base = git(repo, ["rev-parse", "HEAD"]).out.trim();
+  const head = commitMessage(repo, [`roadmap for ${TERM}`]);
+  const short = git(repo, ["rev-parse", "--short", head]).out.trim();
+  const r = check(["--push", "--repo", repo], envWith(TERM), pushLine(head, base));
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.out, new RegExp(`commit ${short} \\(in the message\\)`));
+  assert.match(r.out, /"acme-fake"/);
+});
+
+test("99: push mode refuses a name in a commit BODY, not only the subject", () => {
+  const repo = freshRepo();
+  const base = git(repo, ["rev-parse", "HEAD"]).out.trim();
+  const head = commitMessage(repo, ["neutral subject", `body line\nmore for ${TERM}`]);
+  const short = git(repo, ["rev-parse", "--short", head]).out.trim();
+  const r = check(["--push", "--repo", repo], envWith(TERM), pushLine(head, base));
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.out, new RegExp(`commit ${short} \\(in the message\\)`));
+});
+
+test("99: a control byte in a message does not hide a later name from push mode", () => {
+  for (const byte of ["\x1f", "\x1e"]) {
+    const repo = freshRepo();
+    const base = git(repo, ["rev-parse", "HEAD"]).out.trim();
+    const head = commitMessage(repo, [`neutral ${byte} subject`, `body for ${TERM}`]);
+    const r = check(["--push", "--repo", repo], envWith(TERM), pushLine(head, base));
+    assert.equal(r.status, 1, `byte ${byte.charCodeAt(0)}: ${r.out}`);
+    assert.match(r.out, /"acme-fake"/);
+  }
+});
+
+test("99: push mode does not scan a commit the remote already has; a clean message passes", () => {
+  const repo = freshRepo();
+  const leaky = commitMessage(repo, [`for ${TERM}`]);
+  const clean = commitMessage(repo, ["neutral subject"]);
+  const onRemote = check(["--push", "--repo", repo], envWith(TERM), pushLine(clean, leaky));
+  assert.equal(onRemote.status, 0, `the leaky commit is the remote's tip: ${onRemote.out}`);
+  assert.match(onRemote.out, /^ok /);
+  const base = git(repo, ["rev-parse", "HEAD~2"]).out.trim();
+  const all = check(["--push", "--repo", repo], envWith(TERM), pushLine(clean, base));
+  assert.equal(all.status, 1, "the same range from before the leaky commit is refused");
+});
+
+/** A registry with one install whose `projects` map is `projects`. @param {Record<string, unknown>} projects
+ * @returns {NodeJS.ProcessEnv} */
+function registryWith(projects) {
+  const install = mkdtempSync(path.join(scratch, "install-"));
+  writeFileSync(path.join(install, ".xenomoon.json"), JSON.stringify({ projects }));
+  const registry = path.join(scratch, `${path.basename(install)}.json`);
+  writeFileSync(registry, JSON.stringify({ installs: { [install]: null } }));
+  return { ...envWith(""), XENOMOON_REGISTRY: registry };
+}
+
+test("99: a distinctive projects-map key is a term in tree mode; generic keys are not", () => {
+  const repo = freshRepo();
+  mkdirSync(path.join(repo, "ui"));
+  const file = path.join(repo, "ui", "a.js");
+  const env = registryWith({
+    zebrafish: { dir: "/ws/folder-one" },
+    staging: { dir: "/ws/folder-two" },
+    build: { dir: "/ws/folder-three" },
+    production: { dir: "/ws/folder-four" },
+  });
+  writeFileSync(file, "// deploy to staging, build production\n");
+  git(repo, ["add", "-A"]);
+  const clean = check(["--repo", repo], env);
+  assert.equal(clean.status, 0, `generic keys never accuse: ${clean.out}`);
+  assert.match(clean.out, /none of 5 known/, "zebrafish and the 4 folders, no generic key");
+  writeFileSync(file, "// the zebrafish roadmap\n");
+  git(repo, ["add", "-A"]);
+  const leak = check(["--repo", repo], env);
+  assert.equal(leak.status, 1, leak.out);
+  assert.match(leak.out, /ui\/a\.js:1 — "zebrafish"/);
+});
+
+test("99: --text refuses a name with its line number and the advice", () => {
+  const r = check(["--text"], envWith(TERM), `first line\nbuilt for ${TERM}\n`);
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.out, /stdin:2 — "acme-fake"/);
+  assert.match(r.out, /Replace the name with a neutral word/);
+});
+
+test("99: --text passes clean text, and text holding only a generic alias", () => {
+  assert.equal(check(["--text"], envWith(TERM), "a neutral branch name\n").status, 0);
+  const env = registryWith({ staging: { dir: "/ws/zebrafish-shop" } });
+  const r = check(["--text"], env, "deploy to staging and build\n");
+  assert.equal(r.status, 0, r.out);
+  assert.match(r.out, /none of 1 known/, "the alias is dropped, the folder name is the one term");
+  assert.equal(check(["--text"], env, "for zebrafish-shop\n").status, 1, "the folder still bites");
+});
+
+test("99: --require-terms with an empty term list fails in --text mode", (t) => {
+  if (bound) {
+    t.skip("this checkout is bound to a project, so its term list is never empty");
+    return;
+  }
+  const r = check(["--text", "--require-terms"], envWith(""), "anything\n");
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.out, /--require-terms: the term list is EMPTY/);
+  assert.equal(
+    check(["--text"], envWith(""), "anything\n").status,
+    0,
+    "without the flag it passes",
+  );
+});

@@ -1,0 +1,4 @@
+# Main guard (issue #99): a framework checkout with projects bound refuses a merge commit on main
+# (git runs this hook, not pre-commit, for a merge). A fast-forward makes no commit and passes.
+# Cherry-pick and rebase onto main have no pre-hook; the refusal of the push of main covers them.
+node ui/server/cli/install-main-guard.js --commit || exit 1

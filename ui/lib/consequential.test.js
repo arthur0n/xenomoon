@@ -15,6 +15,7 @@ import {
   mergeDecision,
   routinePushTarget,
   spendsMoney,
+  mergesFrameworkRepo,
 } from "./consequential.js";
 import { readBranchModel, deployReaching, branchCreationRoutine } from "./branch-doctrine.js";
 
@@ -346,4 +347,125 @@ test("spendsMoney: grouping and network runners still spend", () => {
   assert.equal(spendsMoney("docker run img curl https://api.openai.com/v1", []), true);
   assert.equal(spendsMoney("http POST https://api.openai.com/v1", []), true);
   assert.equal(spendsMoney("timeout 300 rtk pnpm eval:test", SPEND_PATTERNS), true);
+});
+
+// ── mergesFrameworkRepo (#99): a merge on the framework repo ─────────────────
+const FW = "/work/acme-forge";
+const PROJ = "/work/alpha-project";
+/** @param {string} cmd @param {string} cwd @param {string | null} [repo] */
+const fwMerge = (cmd, cwd, repo = "acme/forge") => mergesFrameworkRepo(cmd, cwd, FW, repo);
+
+test("mergesFrameworkRepo: a PR merge is the framework's when the folder is inside it", () => {
+  assert.equal(fwMerge("gh pr merge 12", FW), true);
+  assert.equal(fwMerge("gh pr merge 12", `${FW}/ui/lib`), true);
+  assert.equal(fwMerge("gh pr merge 12", PROJ), false);
+});
+
+test("mergesFrameworkRepo: an explicit repo decides alone, case-insensitively", () => {
+  assert.equal(fwMerge("gh pr merge 12 -R acme/forge", PROJ), true);
+  assert.equal(fwMerge("gh pr merge 12 --repo=ACME/FORGE", PROJ), true);
+  assert.equal(fwMerge("gh pr merge 12 -R alpha-org/beta", FW), false);
+});
+
+test("mergesFrameworkRepo: issuekit merge and promote follow the folder", () => {
+  assert.equal(fwMerge("issuekit pr merge 12", FW), true);
+  assert.equal(fwMerge("issuekit promote", FW), true);
+  assert.equal(fwMerge("issuekit promote", PROJ), false);
+});
+
+test("mergesFrameworkRepo: gh api merge endpoints are decided by the repo in the path", () => {
+  for (const cmd of [
+    "gh api repos/acme/forge/merges -f base=main -f head=x",
+    "gh api -X PUT repos/acme/forge/pulls/7/merge",
+  ]) {
+    assert.equal(fwMerge(cmd, PROJ), true, cmd);
+    assert.equal(fwMerge(cmd.replace("acme/forge", "alpha-org/beta"), FW), false, cmd);
+  }
+});
+
+test("mergesFrameworkRepo: a folder named in the command counts, an unknown one does not", () => {
+  assert.equal(fwMerge(`cd ${FW} && gh pr merge 3`, PROJ), true);
+  assert.equal(fwMerge("cd ~ && gh pr merge 3", FW), false);
+});
+
+test("mergesFrameworkRepo: a cd path is read as one shell word, so a spaced folder counts", () => {
+  const spaced = "/work/framework install";
+  /** @param {string} cmd @param {string} cwd */
+  const at = (cmd, cwd) => mergesFrameworkRepo(cmd, cwd, spaced, "acme/forge");
+  for (const word of [
+    `"${spaced}"`,
+    `'${spaced}'`,
+    "/work/framework\\ install",
+    "/work/'framework install'/ui",
+    '/work/"framework "install',
+  ])
+    assert.equal(at(`cd ${word} && gh pr merge 7 --squash`, "/work/project"), true, word);
+  // Inside double quotes a backslash before a plain letter stays: that is another folder.
+  assert.equal(at('cd "/work/framework\\ install" && gh pr merge 7', "/work/project"), false);
+  // Unreadable words leave the folder unknown, even from inside the framework.
+  for (const word of [
+    '"$HOME/x"',
+    "$(pwd)",
+    "`pwd`",
+    "~/x",
+    "-",
+    '"/work/framework install',
+    "/work/framework install",
+    '""',
+  ])
+    assert.equal(at(`cd ${word} && gh pr merge 7`, spaced), false, word);
+  // Single quotes keep `$` literal; a \-escaped `$` in double quotes is literal too.
+  assert.equal(at("cd '/work/framework install/$x' && gh pr merge 7", "/work/project"), true);
+  assert.equal(at('cd "/work/framework install/\\$x" && gh pr merge 7', "/work/project"), true);
+});
+
+test("mergesFrameworkRepo: git -C changes only its own segment, never a later merge", () => {
+  assert.equal(fwMerge(`rtk git -C ${FW} fetch && rtk gh pr merge 3`, PROJ), false);
+  assert.equal(fwMerge(`git -C ${FW} status && gh pr merge 7`, PROJ), false);
+  assert.equal(fwMerge(`git -C ${PROJ} status && gh pr merge 7`, FW), true);
+});
+
+test("mergesFrameworkRepo: a leading wrapper does not hide the merge", () => {
+  for (const pre of ["command ", "env GH_X=1 ", "GH_X=1 ", "time ", "nohup ", "rtk proxy env "]) {
+    assert.equal(fwMerge(`${pre}gh pr merge 3`, FW), true, pre);
+    assert.equal(fwMerge(`${pre}gh pr merge 3 -R acme/forge`, PROJ), true, pre);
+    assert.equal(fwMerge(`${pre}issuekit promote`, FW), true, pre);
+    assert.equal(fwMerge(`${pre}gh pr merge 3`, PROJ), false, pre);
+  }
+  assert.equal(fwMerge("cd /tmp && GH_X='a b' gh pr merge 3 --repo acme/forge", PROJ), true);
+});
+
+test("mergesFrameworkRepo: quoted repo flags and a PR URL name the repo", () => {
+  assert.equal(fwMerge('gh pr merge 3 -R "acme/forge"', PROJ), true);
+  assert.equal(fwMerge("gh pr merge 3 --repo='acme/forge'", PROJ), true);
+  assert.equal(fwMerge("gh pr merge https://github.com/acme/forge/pull/7", PROJ), true);
+  assert.equal(fwMerge('gh pr merge "https://github.com/Acme/Forge/pull/7" --squash', PROJ), true);
+  assert.equal(fwMerge("gh pr merge https://github.com/alpha-org/beta/pull/7", FW), false);
+  assert.equal(fwMerge("gh pr merge https://github.com/acme/forge/pull/7", PROJ, null), false);
+});
+
+test("mergesFrameworkRepo: auto-merge and GraphQL merge mutations", () => {
+  assert.equal(fwMerge("gh pr merge 3 --auto --squash", FW), true);
+  const q = (/** @type {string} */ m) =>
+    `gh api graphql -f query='mutation { ${m}(input: {pullRequestId: "PR_x"}) { clientMutationId } }'`;
+  for (const m of ["mergePullRequest", "enablePullRequestAutoMerge"]) {
+    assert.equal(fwMerge(q(m), FW), true, m);
+    assert.equal(fwMerge(`command ${q(m)}`, FW), true, m);
+    // A node id does not name the repo: from a project folder only a named repo counts.
+    assert.equal(fwMerge(q(m), PROJ), false, m);
+    assert.equal(fwMerge(`${q(m)} -F owner=x # acme/forge`, PROJ), true, m);
+  }
+  const multi = "gh api graphql -f query='\nmutation {\n  mergePullRequest(input: {}) { x }\n}'";
+  assert.equal(fwMerge(multi, FW), true, "a query over several lines");
+  assert.equal(fwMerge("gh api graphql -f query='{ viewer { login } }'", FW), false);
+});
+
+test("mergesFrameworkRepo: with no known repo the folder test still decides", () => {
+  assert.equal(fwMerge("gh pr merge 3", FW, null), true);
+  assert.equal(fwMerge("gh pr merge 3 -R acme/forge", PROJ, null), false);
+});
+
+test("mergesFrameworkRepo: commands that merge nothing are false inside the framework", () => {
+  assert.equal(fwMerge("gh pr view 12", FW), false);
+  assert.equal(fwMerge("gh pr list", FW), false);
 });

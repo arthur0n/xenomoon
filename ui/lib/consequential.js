@@ -161,6 +161,152 @@ export function mergeDecision(agent, isSubagent, policy) {
   return { verdict: "ask", message: MERGE_ASK };
 }
 
+// ── merge on the framework repo ──────────────────────────────────────────────
+export const FRAMEWORK_MERGE_DENY =
+  "framework PRs are merged by the owner (issue #99); open or update the PR with issuekit framework-fix";
+
+/** One leading wrapper that runs the rest of the segment as the real command: `rtk [proxy]`,
+ * `command`, `env [-i] …`, `time [-p]`, `nohup`, or a `VAR=x` assignment. Stripped repeatedly.
+ * NOT covered, by design: a subshell (`( … )`, `$( … )`, `bash -c`), `xargs`, `eval`, an alias or
+ * a shell function. Per SECURITY.md a deliberate bypass by a hostile actor is out of scope; this
+ * gate stops a session that types an ordinary command, and those forms are not ordinary. */
+const SEG_WRAPPER_RE =
+  /^(?:rtk\s+(?:proxy\s+)?|command\s+|env(?:\s+-i|\s+-(?=\s))*\s+|time(?:\s+-p)?\s+|nohup\s+|[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|\S*)\s+)/;
+/** One segment that merges a PR or promotes (branch prune merges nothing, so it is not here).
+ * `gh pr merge … --auto` is a `gh pr merge` and matches here. */
+const FW_MERGE_SEG_RE =
+  /^(?:gh\s+pr\s+merge\b|(?:node\s+\S*issuekit\.js|issuekit)\s+(?:pr\s+merge\b|promote\b))/;
+/** `gh api …repos/<owner>/<name>/merges` or `…/pulls/<n>/merge`, captured owner and name. */
+const GH_API_MERGE_RE =
+  /^gh\s+api\b.*?\brepos\/([^/\s"']+)\/([^/\s"']+)\/(?:merges|pulls\/\d+\/merge)\b/;
+const GH_GRAPHQL_RE = /^gh\s+api\s+graphql\b/;
+const GRAPHQL_MERGE_RE = /\b(?:mergePullRequest|enablePullRequestAutoMerge)\b/i;
+const REPO_FLAG_RE = /(?:^|\s)(?:-R|--repo)(?:\s+|=)["']?([^\s"']+)/;
+/** A PR named by URL (`https://github.com/<owner>/<name>/pull/<n>`), captured owner and name. */
+const PR_URL_RE = /(?:^|[\s"'])https?:\/\/[^/\s"']+\/([^/\s"']+)\/([^/\s"']+)\/pull\/\d+/;
+const CD_RE = /^(?:rtk\s+)?cd\s+(.+)$/;
+/** One part of a shell word: 'single', "double" (its \-escapes kept for a later pass), \x, or bare
+ * text. `$` and a backtick match no part, so an expansion leaves the word unread. */
+const WORD_PART_RE = /'([^']*)'|"((?:[^"\\$`]|\\.)*)"|\\(.)|([^\s'"\\$`]+)/y;
+
+/** The folder a `cd` argument names, read as ONE shell word (quotes, backslash escapes), or null
+ * when the text alone cannot tell it: a leading `~` or `-`, a `$` expansion, a backtick, an
+ * unclosed quote, an empty word, or more than one word. @param {string} arg @returns {string | null} */
+function cdTarget(arg) {
+  if (/^[~-]/.test(arg)) return null;
+  let out = "";
+  WORD_PART_RE.lastIndex = 0;
+  let m = WORD_PART_RE.exec(arg);
+  for (; m; m = WORD_PART_RE.exec(arg)) {
+    const dq = m[2] === undefined ? undefined : m[2].replace(/\\([\\"$`])/g, "$1");
+    out += m[1] ?? dq ?? m[3] ?? m[4] ?? "";
+    if (WORD_PART_RE.lastIndex === arg.length) return out || null;
+  }
+  return null;
+}
+
+/** The segment with its leading wrappers removed. @param {string} seg @returns {string} */
+function stripWrappers(seg) {
+  let s = seg;
+  for (let m = SEG_WRAPPER_RE.exec(s); m?.[0]; m = SEG_WRAPPER_RE.exec(s)) s = s.slice(m[0].length);
+  return s;
+}
+
+/** `dir` made absolute against `base` with `.`/`..` folded, by string alone (no imports here).
+ * @param {string} base @param {string} dir @returns {string} */
+function resolveDir(base, dir) {
+  /** @type {string[]} */
+  const out = [];
+  for (const part of (dir.startsWith("/") ? dir : `${base}/${dir}`).split("/")) {
+    if (part === "..") out.pop();
+    else if (part && part !== ".") out.push(part);
+  }
+  return `/${out.join("/")}`;
+}
+
+/** @param {string} dir @param {string} root @returns {boolean} */
+function insideDir(dir, root) {
+  const r = resolveDir("/", root);
+  return dir === r || dir.startsWith(r === "/" ? "/" : `${r}/`);
+}
+
+/** `owner/name` lower-cased from `owner/name`, `host/owner/name` or a `.git` URL tail.
+ * @param {string} s @returns {string | null} */
+function normRepo(s) {
+  const parts = s
+    .replace(/\.git$/i, "")
+    .split("/")
+    .filter(Boolean);
+  return parts.length >= 2 ? parts.slice(-2).join("/").toLowerCase() : null;
+}
+
+/** A `gh api graphql` merge (`mergePullRequest`, `enablePullRequestAutoMerge`) is the framework's
+ * when it runs inside the framework folder or its text names the framework's `owner/name`. Limit:
+ * the mutation takes a PR node id, and a node id does not name the repo, so the same mutation run
+ * from a project folder with only an id is not caught.
+ * @param {string} text this segment and the rest of the line (a query may span lines)
+ * @param {boolean} inFolder @param {string | null} fwRepo @returns {boolean} */
+function graphqlMergesFramework(text, inFolder, fwRepo) {
+  if (!GRAPHQL_MERGE_RE.test(text)) return false;
+  return inFolder || (fwRepo !== null && text.toLowerCase().includes(fwRepo));
+}
+
+/** Does this one segment merge on the framework repo? An explicit repo (`-R`/`--repo`, a PR URL,
+ * or the `gh api` URL) decides alone; without one the folder the segment runs in decides.
+ * @param {string} seg wrappers already stripped @param {string} rest `seg` and what follows it
+ * @param {boolean} inFolder @param {string | null} fwRepo @returns {boolean} */
+function segmentMergesFramework(seg, rest, inFolder, fwRepo) {
+  if (GH_GRAPHQL_RE.test(seg)) return graphqlMergesFramework(rest, inFolder, fwRepo);
+  const api = GH_API_MERGE_RE.exec(seg);
+  if (api) {
+    // `{owner}/{repo}` is filled in by gh from the folder's own repo.
+    if (api[1] === "{owner}" && api[2] === "{repo}") return inFolder;
+    return fwRepo !== null && normRepo(`${api[1]}/${api[2]}`) === fwRepo;
+  }
+  if (!FW_MERGE_SEG_RE.test(seg)) return false;
+  const flag = REPO_FLAG_RE.exec(seg);
+  const url = PR_URL_RE.exec(seg);
+  if (!flag && !url) return inFolder;
+  if (fwRepo === null) return false;
+  const named = [flag ? (flag[1] ?? "") : "", url ? `${url[1]}/${url[2]}` : ""];
+  return named.some((r) => r !== "" && normRepo(r) === fwRepo);
+}
+
+/**
+ * Does this command merge a PR, or promote, on the FRAMEWORK repo? Per segment (`&&`, `||`, `;`,
+ * `|`): the target is the framework when an explicit `-R`/`--repo` or a `gh api` URL names
+ * `frameworkRepo`, or, with no explicit repo, when the segment's folder is inside `frameworkDir`.
+ * That folder starts at `cwd` and follows `cd <dir>` segments. A `git -C <dir>` changes the folder
+ * of its own git segment only, never a later one (`gh` has no `-C`). Leading wrappers (`command`,
+ * `env`, `VAR=x`, `time`, `nohup`, `rtk [proxy]`) are stripped first.
+ * `frameworkRepo` is null when `frameworkRemote` gave `{ error }`: the repo-name test is then
+ * skipped and the folder test alone decides.
+ * @param {string} cmd the Bash command text
+ * @param {string} cwd the session's folder (absolute; "" when unknown)
+ * @param {string} frameworkDir the framework checkout (absolute; "" when unknown)
+ * @param {string | null} frameworkRepo the framework's `owner/name`, or null
+ * @returns {boolean}
+ */
+export function mergesFrameworkRepo(cmd, cwd, frameworkDir, frameworkRepo) {
+  const fwRepo = frameworkRepo ? normRepo(frameworkRepo) : null;
+  const inFw = (/** @type {string} */ d) => frameworkDir !== "" && insideDir(d, frameworkDir);
+  let here = cwd ? resolveDir("/", cwd) : "";
+  const segs = cmd.split(/&&|\|\||;|\||\n/).map((s) => stripWrappers(s.trim()));
+  for (const [i, seg] of segs.entries()) {
+    const cd = CD_RE.exec(seg);
+    if (cd) {
+      const to = cdTarget(cd[1] ?? "");
+      // A word text cannot resolve (`~`, `-`, `$VAR`, `$(…)`) makes the folder unknown.
+      const known = to !== null && (here !== "" || to.startsWith("/"));
+      here = known ? resolveDir(here || "/", to) : "";
+      continue;
+    }
+    const rest = segs.slice(i).join(" ");
+    if (seg && segmentMergesFramework(seg, rest, here !== "" && inFw(here), fwRepo)) return true;
+  }
+  return false;
+}
+
 // ── dependencies ─────────────────────────────────────────────────────────────
 /** Lifecycle verbs that write package.json or the lockfile. `update`/`upgrade`/`dedupe` re-pin, and
  * the denial message claims agents never re-pin — so the matcher has to agree with it. */

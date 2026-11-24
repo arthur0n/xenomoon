@@ -10,7 +10,9 @@ is `plugin/docs/process/updates-routing.md` — read it first.
   `domains/<name>/plugin/library/` (+ their kind indexes) that passed your local promote
   gate. Use the shipped `/contribute` command — it stages exactly this and runs the gates.
 - Framework (spine) fixes are welcome too, but as ordinary code PRs with `npm run validate`
-  green — they are NOT "learnings" and never route through promotions.
+  green — they are NOT "learnings" and never route through promotions. From an install
+  that runs projects, open that PR with `issuekit framework-fix`. It adds the `spine`
+  label that `.github/workflows/pr-domain.yml` needs for a PR that touches non-domain paths.
 
 ## What is never PR-able
 

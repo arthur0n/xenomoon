@@ -50,6 +50,9 @@ palette. Never reintroduce upstream's green alien identity.
   _(History: the pack used to ship its own analyst/developer/reviewer/tester, which put the
   framework's own purpose behind a pack choice and drifted into one role per tree. That is
   what the promotion process is unwinding, one stage at a time.)_
+- **A bound install takes no commits on `main`.** Its git hooks refuse them. A session fixes a
+  framework defect on a branch with `issuekit framework-fix`, which opens a pull request; the
+  owner merges it.
 - **The bound project stays pure.** The framework reads it in place. Project-side state
   is confined to `<project>/.xenomoon/` (task board `tasks.json`, `promotions.json`,
   `autonomous.json`, handoffs) and project-owned capabilities in `<project>/.claude/`

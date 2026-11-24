@@ -61,6 +61,9 @@ have been routine (live bite 2026-08-21). The tool result already carries the ex
 run the bare command. If the push draws a policy prompt anyway, that prompt IS the gate — a
 human answers it, and a refusal ends the stage with a flagged report.
 
+Framework work is not pushed with this command. `main` of an install with bound projects
+refuses it; framework fixes are published by `issuekit framework-fix submit`.
+
 ## 3. The report — the receipt
 
 - remote/branch and the SHA range published (`<old>..<new>`),

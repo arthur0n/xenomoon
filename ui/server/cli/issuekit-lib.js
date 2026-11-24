@@ -60,18 +60,24 @@ export const parseObject = (raw) => {
 };
 
 // ── tiny shell helpers ───────────────────────────────────────────────────────
-/** @param {string} cmd @param {string[]} args @param {{ input?: string, allowFail?: boolean }} [opts] */
-export function run(cmd, args, { input, allowFail } = {}) {
+/** @typedef {{ input?: string, allowFail?: boolean, cwd?: string }} RunOpts */
+/** @typedef {{ status: number, out: string, err: string }} RunResult */
+
+/** A process that cannot start reports its spawn error in `err`.
+ * @param {string} cmd @param {string[]} args @param {RunOpts} [opts] @returns {RunResult} */
+export function run(cmd, args, { input, allowFail, cwd } = {}) {
   const r = spawnSync(cmd, args, {
     encoding: "utf8",
     input,
+    cwd,
     maxBuffer: 64 * 1024 * 1024,
   });
   if (r.status !== 0 && !allowFail) {
     const msg = (r.stderr || r.stdout || `${cmd} failed`).trim();
     throw new Error(msg);
   }
-  return { status: r.status ?? 1, out: (r.stdout || "").trim(), err: (r.stderr || "").trim() };
+  const err = (r.error ? r.error.message : (r.stderr ?? "")).trim();
+  return { status: r.status ?? 1, out: (r.stdout || "").trim(), err };
 }
 
 /** @param {string[]} args @param {{ input?: string, allowFail?: boolean }} [opts] */

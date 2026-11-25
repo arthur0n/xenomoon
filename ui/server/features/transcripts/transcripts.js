@@ -4,7 +4,7 @@
 import { readFileSync, readdirSync, existsSync, statSync, rmSync } from "node:fs";
 import path from "node:path";
 import { parseJSON } from "../../../lib/json.js";
-import { chatItem, lastChatItems } from "../../../lib/chat-items.js";
+import { chatItem, historyItems } from "../../../lib/chat-items.js";
 import { TRANSCRIPT_DIR } from "../../core/config.js";
 
 /** @returns {import("../../../lib/types.js").RecentSession[]} */
@@ -66,8 +66,8 @@ export function deleteSession(id) {
 export function sessionHistory(id) {
   const file = path.join(TRANSCRIPT_DIR, `${id}.jsonl`);
   if (!/^[\w-]+$/.test(id) || !existsSync(file)) return [];
-  /** @type {import("../../../lib/types.js").HistoryItem[]} */
-  const items = [];
+  /** @type {import("../../../lib/types.js").TranscriptEntry[]} */
+  const entries = [];
   for (const line of readFileSync(file, "utf8").split("\n")) {
     if (!line) continue;
     /** @type {import("../../../lib/types.js").TranscriptEntry} */
@@ -77,8 +77,7 @@ export function sessionHistory(id) {
     } catch {
       continue;
     }
-    const item = chatItem(e);
-    if (item) items.push(item);
+    entries.push(e);
   }
-  return lastChatItems(items);
+  return historyItems(entries); // by time, each message once: a compact repeats old entries
 }

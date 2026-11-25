@@ -42,6 +42,8 @@ const WRAPPER_OPEN = new RegExp(`^<(?:${WRAPPER_TAGS.join("|")})[\\s>]`);
  * @property {string | null} [parent_tool_use_id]
  * @property {boolean} [isSynthetic]
  * @property {boolean} [isReplay]
+ * @property {string} [uuid]
+ * @property {string} [timestamp]
  * @property {{ content?: string | Array<{ type?: string, text?: string }> }} [message]
  */
 
@@ -92,4 +94,33 @@ export function chatItem(m) {
  */
 export function lastChatItems(items) {
   return items.slice(-CHAT_WINDOW);
+}
+
+/**
+ * The chat items of a stored transcript: the last CHAT_WINDOW by time, each
+ * message once. A compact writes older entries again at the end of the file
+ * (same `uuid`, same `timestamp`), so the position in the file is not the
+ * order of the conversation. An entry with no timestamp stays after the entry
+ * it follows in the file.
+ * @param {ChatSource[]} entries in file order
+ * @returns {import("./types.js").HistoryItem[]}
+ */
+export function historyItems(entries) {
+  /** @type {Set<string>} */
+  const seen = new Set();
+  /** @type {Array<{ at: string, item: import("./types.js").HistoryItem }>} */
+  const rows = [];
+  let at = "";
+  for (const e of entries) {
+    if (typeof e.timestamp === "string") at = e.timestamp;
+    if (e.uuid) {
+      if (seen.has(e.uuid)) continue;
+      seen.add(e.uuid);
+    }
+    const item = chatItem(e);
+    if (item) rows.push({ at, item });
+  }
+  // Array.prototype.sort is stable: equal times keep the file order.
+  rows.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  return lastChatItems(rows.map((r) => r.item));
 }

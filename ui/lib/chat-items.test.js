@@ -6,6 +6,7 @@ import {
   LOCAL_COMMAND_CAVEAT,
   WRAPPER_TAGS,
   chatItem,
+  historyItems,
   lastChatItems,
 } from "./chat-items.js";
 
@@ -110,4 +111,58 @@ void test("lastChatItems keeps the last CHAT_WINDOW in order and returns a copy"
   const copy = lastChatItems(short);
   assert.deepEqual(copy, short);
   assert.notEqual(copy, short);
+});
+
+/** A stored user entry. @param {number} n @param {string} at */
+const entry = (n, at) => ({ type: "user", uuid: `u${n}`, timestamp: at, message: blocks(`m${n}`) });
+/** @param {number} n */
+const day = (n) => `2026-01-${String(n).padStart(2, "0")}T00:00:00.000Z`;
+
+void test("historyItems (#100): a compact that writes old entries again at the end keeps the real last ones last, each once", () => {
+  const old = [entry(1, day(1)), entry(2, day(2))];
+  const recent = [entry(3, day(3)), entry(4, day(4))];
+  const summary = {
+    type: "user",
+    uuid: "s",
+    timestamp: day(5),
+    isCompactSummary: true,
+    message: blocks("summary"),
+  };
+  // file order after a compact: the conversation, then the old entries again, then the summary
+  const got = historyItems([...old, ...recent, ...old, summary]);
+  assert.deepEqual(
+    got.map((i) => i.text),
+    ["m1", "m2", "m3", "m4"],
+  );
+});
+
+void test("historyItems (#100): the window is the last CHAT_WINDOW by time, not by place in the file", () => {
+  const all = Array.from({ length: CHAT_WINDOW + 10 }, (_, i) =>
+    entry(i, day(1).replace("00:00:00", `00:${String(i).padStart(2, "0")}:00`)),
+  );
+  const got = historyItems([...all, ...all.slice(0, 30)]);
+  assert.equal(got.length, CHAT_WINDOW);
+  assert.equal(got[0]?.text, "m10");
+  assert.equal(got.at(-1)?.text, `m${CHAT_WINDOW + 9}`);
+});
+
+void test("historyItems (#100): entries with no uuid or no timestamp keep the file order", () => {
+  const plain = [
+    { type: "user", message: blocks("a") },
+    { type: "assistant", message: blocks("b") },
+    { type: "user", message: blocks("a") },
+  ];
+  assert.deepEqual(
+    historyItems(plain).map((i) => i.text),
+    ["a", "b", "a"],
+  );
+  const mixed = [
+    entry(1, day(2)),
+    { type: "assistant", message: blocks("after m1") },
+    entry(2, day(1)),
+  ];
+  assert.deepEqual(
+    historyItems(mixed).map((i) => i.text),
+    ["m2", "m1", "after m1"],
+  );
 });

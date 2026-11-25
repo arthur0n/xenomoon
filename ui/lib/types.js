@@ -232,6 +232,6 @@
 /** Pauses the session, sends the prompt, resolves when the browser replies.
  * @typedef {(type: string, payload: Record<string, unknown>) => Promise<Reply>} WaitFor */
 /** A single line from a Claude Code .jsonl transcript (the subset we read).
- * @typedef {{ type?: string, isSidechain?: boolean, message?: { content?: string | Array<{ type?: string, text?: string }> } }} TranscriptEntry */
+ * @typedef {{ type?: string, isSidechain?: boolean, uuid?: string, timestamp?: string, message?: { content?: string | Array<{ type?: string, text?: string }> } }} TranscriptEntry */
 
 export {};

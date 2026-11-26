@@ -276,6 +276,45 @@ plugin/orchestrator.md`, and the pack's agents/skills too): an edit made to the 
      decide. Origin: six advisories sat against the lockfile unnoticed because nothing in
      `validate` or CI ever looked at dependencies.
 
+3b. **Second look outside (every pass).** After the dimensions, compare with one outside reference:
+`https://github.com/mattpocock/skills/tree/main/skills` (a public set of agent skills; first read
+2026-11-26 for #105). The question is narrow: does it hold an idea that fixes a finding of THIS pass,
+or a pattern our skills, checklists (`plugin/docs/flow/`) or orchestrator lack?
+
+- Read the overview first, not everything: the repo `README.md` and the folder listing
+  (`https://api.github.com/repos/mattpocock/skills/contents/skills`), through a `sonnet` agent or
+  `curl` of the raw files. Open one skill in full only when its description matches a finding or a
+  step we are weak on. If the address does not resolve, say so and skip the step — never from memory.
+- An idea is a candidate, under the same scrutiny as step 4. Take the idea in our own words, in the
+  file that owns that rule; never copy a skill file in.
+- Prevention order first: an idea that is a check or a structure beats an idea that is more text.
+  An idea that adds a reviewer, a review round or a new kind of issue is `skip` unless the owner
+  asked for it (#105: one review per issue, no new issue without the owner's word).
+- Already decided, do not re-raise without new evidence: two parallel reviewers and a smell list,
+  standards hidden from the builder until review, "do not triage what you wrote yourself", plan
+  pieces as tracker tickets.
+- Report it as its own short block: what was read, the date, and each idea as `take` / `later` /
+  `skip` with one line of why. A `take` becomes a finding with a normal id (dim of the surface it
+  improves).
+
+**The second reference is a yardstick, not a source of ideas:** Lauren Tan, "All Code Is Slop
+(Except Mine)", `https://ai.engineer/code/2026/talks/lauren-tan`, and the write-up of its rules,
+`https://github.com/Dahhrk/dark-factory/blob/main/docs/dune-method.md` (first read 2026-11-26 for
+#105). It gives four layers, strongest first: code structure, then lint / compiler / CI, then rules
+and skills, then a person in review. Hold this pass against it:
+
+- For each finding of this pass, name the layer its proposed fix sits on. A fix that is one more
+  sentence, where a check or a structure change could do the job, is rewritten before it is
+  recorded, or carries the reason it must stay text ("judgment, because …").
+- Count, in `plugin/docs/flow/*.md`, the lines marked `[judgment]` and `[code, not built]`, and
+  compare with the last pass (write the two numbers in `lastAudit`). The numbers should fall. A rise
+  is a finding.
+- A rule that was corrected twice since the last pass (the debrief queue, the ledger, git log of the
+  rule files) is a candidate for a check: name it.
+- A rule stated in more than one file is a finding: one home, the other places point to it.
+- Re-read the two pages only when the pass has a question they could answer; the four layers above
+  are enough for the routine check.
+
 4. **Judge + id each finding.** EXPECT most findings to be false positives on inspection — they are
    hypotheses until checked against the actual files: generic industry vocabulary (tank/grunt/runner)
    ≠ contamination; `@export` ≠ hardcoded; a single-consumer or single-instance pattern ≠ something to

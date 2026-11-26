@@ -1,7 +1,7 @@
 // The HTTP request dispatcher (#60), moved out of index.js so a test can drive it on a port-0
 // server: index.js listens at import, so nothing inside it is importable. Route tables and
 // handlers come in as deps; this file owns only the dispatch order.
-import { corsOrigin, isLocalHost } from "./cors.js";
+import { corsOrigin, isLocalHost, requestRefusal } from "./cors.js";
 import { redactFor } from "./status-redact.js";
 
 /** @typedef {import("node:http").IncomingMessage} Req */
@@ -59,6 +59,17 @@ function routeStatus(req, res, status, pathname) {
   return true;
 }
 
+/** Every non-status request: a foreign Host or Origin (#89) gets 403 before any handler or
+ * static file runs. True when refused.
+ * @param {Req} req @param {Res} res @returns {boolean} */
+function refuseForeign(req, res) {
+  const refusal = requestRefusal(req.headers);
+  if (refusal === null) return false;
+  res.writeHead(403, { "content-type": "application/json" });
+  res.end(JSON.stringify({ error: refusal }));
+  return true;
+}
+
 /** @param {RequestDeps} deps @returns {(req: Req, res: Res) => void} */
 export function makeRequestHandler(deps) {
   return (req, res) => {
@@ -66,8 +77,9 @@ export function makeRequestHandler(deps) {
     // GET lookups match the pathname, so a cache-busting `?t=…` still reaches the route.
     const pathname = url.split("?")[0] ?? "";
     if (routeStatus(req, res, deps.status, pathname)) return;
+    if (refuseForeign(req, res)) return;
     const getRoute = deps.getRoutes[pathname];
-    if (getRoute) {
+    if (getRoute && req.method === "GET") {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(getRoute()));
       return;

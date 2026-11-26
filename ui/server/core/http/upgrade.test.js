@@ -1,4 +1,5 @@
-// The session WebSocket answers on `/` only (#92): every other upgrade path is refused.
+// The session WebSocket answers on `/` only (#92), and only to a local page (#89): every other
+// upgrade path is refused with 400, a foreign Host or Origin with 403.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -47,9 +48,10 @@ async function start(t) {
   return {
     wss,
     conns,
-    /** @param {string} path */
-    client(path) {
-      const ws = new WebSocket(`ws://127.0.0.1:${addr.port}${path}`);
+    port: addr.port,
+    /** @param {string} path @param {import("ws").ClientOptions} [options] ws client options (origin, headers) */
+    client(path, options) {
+      const ws = new WebSocket(`ws://127.0.0.1:${addr.port}${path}`, options);
       clients.push(ws);
       return ws;
     },
@@ -111,4 +113,52 @@ test("after a refusal the server holds no client, and / still connects", async (
   assert.equal(s.conns.length, 0);
   assert.equal(await outcome(s.client("/")), "open");
   assert.equal(s.wss.clients.size, 1);
+});
+
+/** A refusal is a 403 AND no connection: no `connection` event, no client held.
+ * @param {Awaited<ReturnType<typeof start>>} s */
+function assertNoSession(s) {
+  assert.equal(s.conns.length, 0);
+  assert.equal(s.wss.clients.size, 0);
+}
+
+test("#89 a foreign Origin (another local port, a foreign site) is refused with 403 and no connection", async (t) => {
+  const s = await start(t);
+  assert.equal(await outcome(s.client("/", { origin: "http://127.0.0.1:1" })), 403);
+  assert.equal(await outcome(s.client("/", { origin: "https://evil.example" })), 403);
+  assertNoSession(s);
+});
+
+test("#89 a foreign Host is refused with 403 and no connection", async (t) => {
+  const s = await start(t);
+  const ws = s.client("/", { headers: { host: `evil.example:${s.port}` } });
+  assert.equal(await outcome(ws), 403);
+  assertNoSession(s);
+});
+
+test("#89 the path rule comes first: another path with a foreign Origin is 400, not 403", async (t) => {
+  const s = await start(t);
+  assert.equal(
+    await outcome(s.client("/api/status/stream", { origin: "https://evil.example" })),
+    400,
+  );
+  assertNoSession(s);
+});
+
+test("#89 the own Origin connects, and so does a request with no Origin", async (t) => {
+  const s = await start(t);
+  assert.equal(await outcome(s.client("/", { origin: `http://127.0.0.1:${s.port}` })), "open");
+  assert.equal(await outcome(s.client("/")), "open");
+  assert.equal(s.conns.length, 2);
+  assert.equal(s.wss.clients.size, 2);
+});
+
+test("#89 the own Origin on /?resume=abc connects and the handler sees that url", async (t) => {
+  const s = await start(t);
+  assert.equal(
+    await outcome(s.client("/?resume=abc", { origin: `http://127.0.0.1:${s.port}` })),
+    "open",
+  );
+  assert.equal(s.conns.length, 1);
+  assert.equal(s.conns[0]?.url, "/?resume=abc");
 });

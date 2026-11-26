@@ -16,10 +16,23 @@ const PAYLOAD = { state: "idle", sessions: 0, lastLine: "secret question?" };
 const { lastLine: _hidden, ...CROSS_ORIGIN_PAYLOAD } = PAYLOAD;
 const server = http.createServer(
   makeRequestHandler({
-    getRoutes: { "/api/state": () => (calls.push("state"), { ok: "state" }) },
-    postRoutes: {},
+    getRoutes: {
+      "/api/state": () => (calls.push("state"), { ok: "state" }),
+      "/api/both": () => (calls.push("both:get"), { ok: "both:get" }),
+    },
+    postRoutes: {
+      "/api/post": (_req, res) => {
+        calls.push("post");
+        res.end("post");
+      },
+      "/api/both": (_req, res) => {
+        calls.push("both:post");
+        res.end("both:post");
+      },
+    },
     deleteSession: (id) => (calls.push(`delete:${id}`), true),
-    handleAgentApi: (_req, res) => {
+    handleAgentApi: (_req, res, url) => {
+      calls.push(`agent:${url}`);
       res.end("agent");
     },
     serveStatic: (req, res) => {
@@ -128,9 +141,12 @@ test("/api/status with an empty Origin header: no lastLine; beside it no Origin 
   assert.deepEqual(JSON.parse(none.body), PAYLOAD);
 });
 
-test("other GET routes never get CORS, even from a local Origin", async () => {
+test("other GET routes never get CORS: a foreign local Origin gets 403, route not run", async () => {
+  const callsBefore = calls.length;
   const r = await fetch(`${base}/api/state`, { headers: { origin: "http://localhost:4000" } });
-  await r.text();
+  assert.equal(r.status, 403);
+  assert.deepEqual(await r.json(), { error: "forbidden origin" });
+  assert.equal(calls.length, callsBefore);
   assert.equal(r.headers.get("access-control-allow-origin"), null);
   assert.equal(r.headers.get("vary"), null);
 });
@@ -219,4 +235,70 @@ test("both status routes still answer on 127.0.0.1:<port> and localhost:<port>",
     assert.equal(stream.body, "stream", host);
     assert.equal(streamCalls.length, 1, host);
   }
+});
+
+/** The requests a foreign Origin or Host must never let through: one per dispatch branch. */
+const GUARDED = /** @type {const} */ ([
+  ["POST", "/api/post"],
+  ["DELETE", "/api/sessions/s1"],
+  ["POST", "/api/agents/x/check"],
+  ["GET", "/api/state"],
+  ["GET", "/index.html"],
+]);
+
+test("#89 a foreign Origin on every non-status route: 403, handler never called", async () => {
+  const host = `127.0.0.1:${port}`;
+  const before = calls.length;
+  for (const [method, path] of GUARDED) {
+    const r = await rawRequest(path, host, method, { origin: "http://evil.example" });
+    assert.equal(r.status, 403, `${method} ${path}`);
+    assert.deepEqual(JSON.parse(r.body), { error: "forbidden origin" }, `${method} ${path}`);
+  }
+  assert.equal(calls.length, before);
+});
+
+test("#89 a foreign Host on every non-status route: 403, handler never called", async () => {
+  const before = calls.length;
+  for (const [method, path] of GUARDED) {
+    const r = await rawRequest(path, `evil.example:${port}`, method);
+    assert.equal(r.status, 403, `${method} ${path}`);
+    assert.deepEqual(JSON.parse(r.body), { error: "forbidden host" }, `${method} ${path}`);
+  }
+  assert.equal(calls.length, before);
+});
+
+test("#89 the own Origin, or no Origin: POST, DELETE and a read route work as before", async () => {
+  const host = `127.0.0.1:${port}`;
+  const cases = /** @type {const} */ ([
+    ["POST", "/api/post", "post", "post"],
+    ["DELETE", "/api/sessions/s1", "delete:s1", '{"deleted":true}'],
+    ["POST", "/api/agents/x/check", "agent:/api/agents/x/check", "agent"],
+    ["GET", "/api/state", "state", '{"ok":"state"}'],
+  ]);
+  for (const extra of /** @type {Record<string, string>[]} */ ([
+    { origin: `http://${host}` },
+    {},
+  ])) {
+    for (const [method, path, call, body] of cases) {
+      const before = calls.length;
+      const r = await rawRequest(path, host, method, extra);
+      assert.equal(r.status, 200, `${method} ${path} ${JSON.stringify(extra)}`);
+      assert.equal(r.body, body, `${method} ${path}`);
+      assert.deepEqual(calls.slice(before), [call], `${method} ${path}`);
+    }
+  }
+});
+
+test("#89 a path in both tables: POST reaches the POST handler, not the read producer", async () => {
+  const before = calls.length;
+  const r = await rawRequest("/api/both", `127.0.0.1:${port}`, "POST");
+  assert.equal(r.body, "both:post");
+  assert.deepEqual(calls.slice(before), ["both:post"]);
+});
+
+test("#89 a path in both tables: GET still reaches the read producer", async () => {
+  const before = calls.length;
+  const r = await rawRequest("/api/both", `127.0.0.1:${port}`);
+  assert.equal(r.body, '{"ok":"both:get"}');
+  assert.deepEqual(calls.slice(before), ["both:get"]);
 });

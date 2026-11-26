@@ -266,7 +266,8 @@ const POST_ROUTES = {
  * switch; config-block edits are already per-session). Supervisor-aware: under `npm run start-project`
  * (XENOMOON_SUPERVISED=1) exit with code 87 and start-profile respawns us; under a bare
  * `npm start` spawn a detached copy of the same argv once the port is released, then exit.
- * The UI listens on 127.0.0.1 only (see server.listen below), so no extra origin gating is needed here.
+ * No origin check here: the dispatcher refuses a foreign Host or Origin before this handler runs
+ * (`requestRefusal`, ui/server/core/http/request-handler.js).
  * @param {import("node:http").IncomingMessage} _req @param {import("node:http").ServerResponse} res */
 function handleRestartPost(_req, res) {
   res.writeHead(200, { "content-type": "application/json" });

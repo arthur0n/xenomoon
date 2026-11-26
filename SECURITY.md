@@ -49,10 +49,20 @@ What a change must never weaken:
   the owner, and whoever can write inside a project folder can already write that project's own
   settings, so code against deliberate symlinks, hard links or races between project folders is
   not built. Owner, 2026-11-13: "in that point is not attacker."
-- **A project server is for this machine only.** It listens on `127.0.0.1`. Its session socket
-  accepts an upgrade on `/` only, and its status routes change no state. The status routes refuse a
-  request whose Host is not `localhost` or `127.0.0.1`, with or without a port, and a request that carries an
-  Origin never receives the last conversation line. The other routes do not check Host.
+- **A project server is for this machine only.** It listens on `127.0.0.1`.
+  Every route except the two status routes answers 403 to a request whose Host is not
+  `localhost` or `127.0.0.1`, with or without a port. The page files are among these routes.
+  Each of them also answers 403 to a request that carries an Origin other than exactly
+  `http://<Host>`. A request with no Origin is accepted. Every answer of the page files carries
+  `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`, so a browser
+  shows no project page inside a frame. The session socket accepts an upgrade on `/` only, and
+  answers 400 to any other path. It applies the same Host and Origin rule (403) before a session
+  opens or is re-attached. The two status routes change no state. They refuse a Host that is not
+  `localhost` or `127.0.0.1`, and a request that carries an Origin never receives the last
+  conversation line. A program on the owner's machine that sets these headers itself passes; that
+  is the hostile-person line above. Known limit: a foreign page can send the browser to a project
+  address, as a link does; the project page then opens a new session by itself, which the foreign
+  page can neither read nor write to. Owner, 2026-11-25, on accepting it: "1".
 - **Secret scanning.** gitleaks scans staged changes pre-commit
   (`.husky/pre-commit`) and the full history in CI
   (`.github/workflows/gitleaks.yml`); config + allowlist in `.gitleaks.toml`.

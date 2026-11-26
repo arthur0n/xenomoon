@@ -1,0 +1,21 @@
+# Publish
+
+Agent: `senior-analyst` with the push skill. Never the agent that wrote the code. Job: send the change as far as the contract allows, through the project's own path. Nothing here closes the issue.
+
+## Do
+
+- `[judgment]` Read the "How far" line of the contract: pull request opened, merged, or deployed.
+- `[judgment]` A move counts with what it sets off by itself. Find out first whether a merge deploys in this project. If it does, a merge is a deploy and needs the approval of a deploy.
+- `[code, not built]` Does the next move stay inside what the contract allows? No → state Ready, not published. Until code does it: compare by hand and write the answer on the issue.
+- `[check]` One call to `issuekit push-check`, then obey it. Exit 1 → stop and quote its STOP lines. Exit 0 → run the one command it prints, exactly.
+- `[code]` The push is a bare `git push <remote> <branch>`. No force, no tags, no chained commands.
+- `[code]` A push that reaches the deploy branch follows the project's push setting (ask, or allow).
+- `[judgment]` A problem is flagged, never fixed here. A dirty tree is flagged and not touched.
+- `[judgment]` The pull request carries the before and after evidence, and what the Design said about undoing the change. It says `Refs #N`, never Closes.
+- `[judgment]` Never deploy by hand. Deploy is the project's CI after the push.
+- `[check]` After a push to the deploy branch, watch the run and report which step failed, if one did. "Merged" is not "shipped": check that the run that finished is the one of this change.
+- `[judgment]` Keep the issue open. If the project closes issues automatically on deploy, say so before the push: only Proof may close it.
+
+## Next
+
+Deployed → state Waiting for the proof → Proof. Not allowed further → state Ready, not published.

@@ -97,22 +97,13 @@ function reviewFile(verb) {
 // ones"), which on a live project produced one finding per round for ten rounds. The companion's
 // `task` verb carries no template and no outputSchema, so the rubric and the output shape must
 // both live in the prompt text. Wording is domain-agnostic BY REQUIREMENT — this file is inside
-// check:agnostic's scan scope.
-const AUDIT_RUBRIC = [
-  "You are auditing code in this repository. This is an EXHAUSTIVE ADVERSARIAL AUDIT, not a",
-  "review: attempt to refute the code's correctness, and enumerate everything that survives",
-  "your own scrutiny.",
-  "",
-  "Rules:",
-  "- Enumerate EVERY defect you can substantiate. Do NOT prefer one strong finding, do NOT stop",
-  "  at the first problem, and do NOT collapse a class of problems into one item.",
-  "- Every finding needs file:line evidence from code you actually read, and a concrete,",
-  "  reachable failure scenario. If you cannot point at a line, drop the finding.",
-  "- Read ONLY files relevant to the stated scope; do not crawl the whole repository.",
+// check:agnostic's scan scope. The read-only rule, the ladder, the output block and the TOTAL
+// trailer are SHARED with the design attack below — one rubric text, two openings.
+const READ_ONLY_RULE = [
   "- Never run `git fetch` or any writing command — your sandbox is read-only; the attempt",
   "  fails and burns the run. Local read-only git commands (`git diff`, `git log`) are fine.",
-  '- "Nothing found" is a valid answer ONLY if you inspected the whole scope and say so.',
-  "",
+];
+const LADDER_AND_OUTPUT = [
   "Severity ladder — label every finding with exactly one:",
   "  [P0] data loss, a security hole, or a break in the main path",
   "  [P1] wrong behavior under a real, reachable condition",
@@ -127,24 +118,121 @@ const AUDIT_RUBRIC = [
   "- fix: <the smallest correct change>",
   "",
   "End with exactly one line: TOTAL: <n> findings (<a> P0, <b> P1, <c> P2, <d> P3)",
+];
+const AUDIT_RUBRIC = [
+  "You are auditing code in this repository. This is an EXHAUSTIVE ADVERSARIAL AUDIT, not a",
+  "review: attempt to refute the code's correctness, and enumerate everything that survives",
+  "your own scrutiny.",
+  "",
+  "Rules:",
+  "- Enumerate EVERY defect you can substantiate. Do NOT prefer one strong finding, do NOT stop",
+  "  at the first problem, and do NOT collapse a class of problems into one item.",
+  "- Every finding needs file:line evidence from code you actually read, and a concrete,",
+  "  reachable failure scenario. If you cannot point at a line, drop the finding.",
+  "- Read ONLY files relevant to the stated scope; do not crawl the whole repository.",
+  ...READ_ONLY_RULE,
+  '- "Nothing found" is a valid answer ONLY if you inspected the whole scope and say so.',
+  "",
+  ...LADDER_AND_OUTPUT,
 ].join("\n");
+
+// The design attack: same ladder and output, aimed at a design that exists only as text (no
+// diff for a review verb to read). It always OPENS the prompt, so the design text is never the
+// first token the companion parses — a leading dash in it cannot be read as a flag.
+const DESIGN_RUBRIC = [
+  "You are attacking a DESIGN for this repository before any code for it exists. This is an",
+  "EXHAUSTIVE ADVERSARIAL DESIGN REVIEW: attempt to refute the approach, and enumerate every",
+  "problem that survives your own scrutiny.",
+  "",
+  "Rules:",
+  "- Read the repository files the design names and verify every fact it states about them",
+  "  (paths, functions, current behavior). A stated fact the code contradicts is a finding.",
+  "- Enumerate EVERY problem you can substantiate. Do NOT prefer one strong finding, do NOT stop",
+  "  at the first problem, and do NOT collapse a class of problems into one item.",
+  "- Every finding needs evidence: file:line from code you actually read, or the design line it",
+  "  attacks quoted verbatim. If you can point at neither, drop the finding.",
+  "- Never write, edit or create any file. You review; you do not implement.",
+  ...READ_ONLY_RULE,
+  '- "Nothing found" is a valid answer ONLY if you checked every claim the design makes and say so.',
+  '- In the output block, `where:` is <path>:<line> or design: "<the quoted design line>".',
+  "",
+  ...LADDER_AND_OUTPUT,
+].join("\n");
+
+// A design rides as ONE argv string; bounded well under ARG_MAX before anything spawns.
+const DESIGN_MAX_BYTES = 64 * 1024;
+
+/** A string field that carries text — empty or whitespace-only counts as absent.
+ * @param {string | undefined} s @returns {s is string} */
+const present = (s) => typeof s === "string" && s.trim() !== "";
 
 /** The audit prompt: rubric + scope + the caller's focus. The `task` verb takes no --base/--scope
  * flags, so scope becomes a SENTENCE — passing those flags to `task` would be a usage error.
- * Focus APPENDS to the rubric, never replaces it.
- * @param {{ focus?: string, base?: string, scope?: string }} input @returns {string} */
+ * Focus APPENDS to the rubric, never replaces it. `only` is a RESTRICTIVE scope (a re-check
+ * after a fix): it replaces the scope sentence, and nothing outside it is reported.
+ * @param {{ focus?: string, base?: string, scope?: string, only?: string }} input
+ * @returns {string} */
 function auditPrompt(input) {
-  const scope = input.base
-    ? `Scope: the changes on this branch relative to \`${input.base}\`.`
-    : input.scope === "working-tree"
-      ? "Scope: the uncommitted working tree as it stands."
-      : input.scope === "branch"
-        ? "Scope: everything this branch changes."
-        : "Scope: the working tree as it stands.";
-  const focus = input.focus
-    ? `Weight these areas first, but audit everything in scope: ${input.focus}.`
-    : "";
+  const only = present(input.only);
+  const scope = only
+    ? `Scope: ONLY ${input.only}. Read and report only what is inside this scope; a finding ` +
+      "outside it is not reported, even if you see one."
+    : input.base
+      ? `Scope: the changes on this branch relative to \`${input.base}\`.`
+      : input.scope === "working-tree"
+        ? "Scope: the uncommitted working tree as it stands."
+        : input.scope === "branch"
+          ? "Scope: everything this branch changes."
+          : "Scope: the working tree as it stands.";
+  const focus = !input.focus
+    ? ""
+    : only
+      ? `Weight these areas first: ${input.focus}.`
+      : `Weight these areas first, but audit everything in scope: ${input.focus}.`;
   return [AUDIT_RUBRIC, "", scope, focus].filter(Boolean).join("\n");
+}
+
+/** The design-attack prompt: rubric, the caller's focus, then the design text verbatim between
+ * markers. @param {{ focus?: string, design?: string }} input @returns {string} */
+function designPrompt(input) {
+  const focus = input.focus
+    ? `Weight these areas first, but attack the whole design: ${input.focus}.`
+    : "";
+  return [DESIGN_RUBRIC, "", focus, "--- DESIGN ---", input.design, "--- END DESIGN ---"]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** Why this call's fields cannot run together, or null. Checked BEFORE anything spawns, so a
+ * refusal never costs a run. @param {string} kind
+ * @param {{ design?: string, only?: string, focus?: string }} input @returns {string | null} */
+function fieldRefusal(kind, input) {
+  if (present(input.design) && kind !== "adversarial-review")
+    return (
+      `design is read only by kind:"adversarial-review" (a design attack); this call is ` +
+      `kind:"${kind}". Nothing was run. Call again with kind:"adversarial-review" and design.`
+    );
+  if (present(input.only) && kind !== "audit")
+    return (
+      `only is read only by kind:"audit" (a re-check after a fix); this call is ` +
+      `kind:"${kind}". Nothing was run. Call again with kind:"audit" and only.`
+    );
+  if (!present(input.design)) return null;
+  // Both ride the same argv prompt on a design run, so the bound covers both together.
+  const designBytes = Buffer.byteLength(input.design, "utf8");
+  const focusBytes = input.focus ? Buffer.byteLength(input.focus, "utf8") : 0;
+  const bytes = designBytes + focusBytes;
+  if (bytes <= DESIGN_MAX_BYTES) return null;
+  if (focusBytes === 0)
+    return (
+      `design is ${bytes} bytes; the limit is ${DESIGN_MAX_BYTES} bytes (64 KB). Nothing was ` +
+      "run. Shorten the design text, or attack it in parts."
+    );
+  return (
+    `design + focus is ${bytes} bytes (design ${designBytes}, focus ${focusBytes}); the limit ` +
+    `is ${DESIGN_MAX_BYTES} bytes (64 KB) for both together. Nothing was run. Shorten the ` +
+    "design text or the focus, or attack it in parts."
+  );
 }
 
 /** Which tree this call reviews. A pipeline lane runs in a git worktree; without `cwd` the
@@ -379,11 +467,12 @@ function unavailable() {
  * validates it away). Audit maps to the templateless `task` verb — never `--write` (an audit is
  * read-only by contract) and never `--background` (blocking is the tool's contract). `--cwd` is
  * emitted ALWAYS so there is one code path and the reviewed tree is never ambiguous.
- * @param {string} kind
- * @param {{ base?: string, scope?: string, focus?: string, effort?: string }} input
+ * A design attack (`mode` "design") rides the same `task` verb as audit: no diff exists to review.
+ * @param {string} mode
+ * @param {{ base?: string, scope?: string, focus?: string, effort?: string, design?: string, only?: string }} input
  * @param {string} tree @returns {string[]} */
-function companionArgs(kind, input, tree) {
-  if (kind === "audit")
+function companionArgs(mode, input, tree) {
+  if (mode === "audit" || mode === "design")
     return [
       "task",
       "--cwd",
@@ -391,8 +480,9 @@ function companionArgs(kind, input, tree) {
       "--effort",
       input.effort ?? DEFAULT_EFFORT,
       "--json",
-      auditPrompt(input),
+      mode === "design" ? designPrompt(input) : auditPrompt(input),
     ];
+  const kind = mode;
   /** @type {string[]} */
   const args = [kind, "--cwd", tree];
   if (input.base) args.push("--base", input.base);
@@ -424,11 +514,12 @@ function parkFullReview(kind, payload) {
   return file;
 }
 
-/** The kind-specific receipt body. @param {string} kind @param {CodexPayload} payload
+/** The mode-specific receipt body — a design attack comes back as task-verb prose, like audit.
+ * @param {string} mode @param {CodexPayload} payload
  * @param {string} file @returns {string} */
-function receiptBody(kind, payload, file) {
-  if (kind === "adversarial-review") return receiptFromStructured(payload, file);
-  if (kind === "audit") {
+function receiptBody(mode, payload, file) {
+  if (mode === "adversarial-review") return receiptFromStructured(payload, file);
+  if (mode === "audit" || mode === "design") {
     const prose = (payload.rawOutput ?? "").trim();
     return receiptFromProse(prose, auditHeadline(prose), file, AUDIT_SKELETON_LINES, "");
   }
@@ -441,6 +532,66 @@ function receiptBody(kind, payload, file) {
   );
 }
 
+/** What this call runs as: a design attack is its own mode (task verb, audit cap), every other
+ * call runs as its kind. @param {string} kind @param {{ design?: string }} input
+ * @returns {{ mode: string, capMs: number, verb: string }} */
+function runPlan(kind, input) {
+  const mode = kind === "adversarial-review" && present(input.design) ? "design" : kind;
+  if (mode === "design") return { mode, capMs: AUDIT_WALLCLOCK_MS, verb: "attacking the design" };
+  if (mode === "audit") return { mode, capMs: AUDIT_WALLCLOCK_MS, verb: "auditing" };
+  return { mode, capMs: RUN_WALLCLOCK_MS, verb: "reviewing" };
+}
+
+/** The tool input schema — module level so the factory stays under the function cap. */
+const CODEX_SCHEMA = {
+  kind: z
+    .enum(["review", "adversarial-review", "audit"])
+    .optional()
+    .describe(
+      "'review' (default) — Codex's native review of the target diff (mergeability headline). 'adversarial-review' — high-precision challenge to the approach; one strong objection by design; with `design` it instead attacks a design text before any code exists. 'audit' — exhaustive enumeration of every defect against a severity ladder; slowest and priciest; with `only` it re-checks just that scope.",
+    ),
+  base: z
+    .string()
+    .optional()
+    .describe(
+      "Git ref to review against, e.g. 'main'. On 'audit' it is stated in the prompt rather than passed as a flag.",
+    ),
+  scope: z
+    .enum(["auto", "working-tree", "branch"])
+    .optional()
+    .describe("What to review: 'auto' (default), the working tree, or the whole branch."),
+  focus: z
+    .string()
+    .optional()
+    .describe(
+      "adversarial-review (with or without design) and audit: what to weight, e.g. 'the save/load path'. Ignored by the native review.",
+    ),
+  cwd: z
+    .string()
+    .optional()
+    .describe(
+      "Directory to review — pass the worktree root when the lane runs in a git worktree. Defaults to the bound project.",
+    ),
+  effort: z
+    .enum(["low", "medium", "high", "xhigh"])
+    .optional()
+    .describe(
+      "audit and design attack: reasoning effort. Default 'high' — exhaustiveness costs spend.",
+    ),
+  design: z
+    .string()
+    .optional()
+    .describe(
+      "adversarial-review only: the design text to attack (e.g. a design posted as an issue comment), before any code exists. Codex verifies its facts against the repository and enumerates findings on the audit's P0–P3 ladder. base/scope are not used. Max 64 KB (UTF-8 bytes); empty counts as absent.",
+    ),
+  only: z
+    .string()
+    .optional()
+    .describe(
+      "audit only: a RESTRICTIVE scope for a re-check after a fix, e.g. 'the fix for finding 2 and the callers of what it changed'. Codex reads and reports only that; findings outside it are not reported. Empty counts as absent.",
+    ),
+};
+
 /** Build the Codex review tool. @param {Send} send */
 export function makeCodexTool(send) {
   return tool(
@@ -451,63 +602,33 @@ export function makeCodexTool(send) {
       "a quality gate, so this returns when the review is done (minutes, not seconds). " +
       'kind:"review" is Codex\'s native review of the diff; kind:"adversarial-review" challenges ' +
       'the approach itself and returns schema-checked findings; kind:"audit" enumerates EVERY ' +
-      "defect against a severity ladder (slowest and priciest). Pass cwd to review a git " +
+      "defect against a severity ladder (slowest and priciest). To attack a DESIGN that exists " +
+      'only as text (before any code), pass kind:"adversarial-review" + design. To re-check a ' +
+      'fix without a full re-audit, pass kind:"audit" + only. Pass cwd to review a git ' +
       "worktree instead of the bound project. Read-only: Codex never edits, " +
       "stages, or commits. The permission prompt on this call IS the human's consent — do not " +
       "offer a review in chat first and do not ask twice. One round per slice is the default.",
-    {
-      kind: z
-        .enum(["review", "adversarial-review", "audit"])
-        .optional()
-        .describe(
-          "'review' (default) — Codex's native review of the target diff (mergeability headline). 'adversarial-review' — high-precision challenge to the approach; one strong objection by design. 'audit' — exhaustive enumeration of every defect against a severity ladder; slowest and priciest.",
-        ),
-      base: z
-        .string()
-        .optional()
-        .describe(
-          "Git ref to review against, e.g. 'main'. On 'audit' it is stated in the prompt rather than passed as a flag.",
-        ),
-      scope: z
-        .enum(["auto", "working-tree", "branch"])
-        .optional()
-        .describe("What to review: 'auto' (default), the working tree, or the whole branch."),
-      focus: z
-        .string()
-        .optional()
-        .describe(
-          "adversarial-review and audit: what to weight, e.g. 'the save/load path'. Ignored by the native review.",
-        ),
-      cwd: z
-        .string()
-        .optional()
-        .describe(
-          "Directory to review — pass the worktree root when the lane runs in a git worktree. Defaults to the bound project.",
-        ),
-      effort: z
-        .enum(["low", "medium", "high", "xhigh"])
-        .optional()
-        .describe(
-          "audit only: reasoning effort. Default 'high' — an audit trades spend for exhaustiveness.",
-        ),
-    },
+    CODEX_SCHEMA,
     async (input) => {
+      const kind = input.kind ?? "review";
+      const refused = fieldRefusal(kind, input);
+      if (refused) return ok(refused);
       const blocked = unavailable();
       if (blocked) return ok(blocked);
 
-      const kind = input.kind ?? "review";
+      const { mode, capMs, verb } = runPlan(kind, input);
       const tree = resolveTree(input);
       if ("error" in tree) return ok(tree.error);
       const runId = `codex-${Date.now()}`;
-      relay(send, "start", `${kind}${input.base ? ` vs ${input.base}` : ""}`, runId);
+      relay(send, "start", `${mode}${input.base ? ` vs ${input.base}` : ""}`, runId);
 
       /** @type {{ code: number, stdout: string, stderr: string }} */
       let run;
       try {
-        run = await runCompanion(companionArgs(kind, input, tree.dir), send, runId, {
+        run = await runCompanion(companionArgs(mode, input, tree.dir), send, runId, {
           cwd: tree.dir,
-          capMs: kind === "audit" ? AUDIT_WALLCLOCK_MS : RUN_WALLCLOCK_MS,
-          verb: kind === "audit" ? "auditing" : "reviewing",
+          capMs,
+          verb,
         });
       } catch (err) {
         readiness = null;
@@ -532,13 +653,13 @@ export function makeCodexTool(send) {
       }
       if (run.code !== 0) readiness = null;
 
-      const file = parkFullReview(kind, payload);
-      relay(send, "done", `${kind} finished (exit ${run.code})`, runId);
+      const file = parkFullReview(mode, payload);
+      relay(send, "done", `${mode} finished (exit ${run.code})`, runId);
       return ok(
         [
           degradedPrefix(run),
           `tree: ${tree.label}`,
-          receiptBody(kind, payload, file),
+          receiptBody(mode, payload, file),
           ...traceLines(payload),
         ]
           .filter(Boolean)

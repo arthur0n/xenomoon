@@ -2,7 +2,7 @@
 name: webapp-uat
 agents: [uat-runner]
 domain: webapp
-description: The browser acceptance lane — run the project's own capped e2e script against a running app with a saved auth session, or drive the browser directly when the project has no suite. Covers the caps that must already live in the config, the saved-session ritual, and what the minimal proof scenario asserts. Load when running UAT on a web app.
+description: The browser acceptance lane — run the project's own capped e2e script against a running app with a saved auth session, or drive the browser directly when the project has no suite. Covers the caps that must already live in the config, the saved-session ritual, and what the minimal proof scenario asserts. Load for the Proof step, or any UAT run, on a web app.
 ---
 
 # The browser lane
@@ -79,4 +79,5 @@ config caps, no saved-state discipline, no artefacts unless you capture them. So
   trustworthy, and a reader deciding whether to believe a PASS needs to know which one ran.
 
 This is a fallback, not a destination. When a project starts relying on it, the finding to report is
-that the project needs a capped suite.
+that the project needs a capped suite. In the Proof step it does not count as the proof, which must
+be something that can be run again: report that no proof can be run.

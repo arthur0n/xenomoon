@@ -15,7 +15,7 @@ Agent: the orchestrator. The commit hook decides. Job: record the change. It nev
 
 ## Stop
 
-In a terminal session: the owner's word before the commit. In a project session: none.
+None. When the commit hook asks, the owner answers the hook; that is not a stop of the flow.
 
 ## Next
 

@@ -2,260 +2,88 @@
 name: pipeline-dispatch
 agents: [orchestrator]
 domain: universal
-description: How to run a pipeline stage — resolve the repo, pick the target (one issue, or the stage's own queue), pass force, brief the agent, and report one line per issue. Also the parts only the router can do: choosing which reviewers run and reconciling their verdicts into one. Load before dispatching triage, solution, implement, sweep, qa, audit or pre-pr.
+description: How to dispatch a step of the flow (plugin/docs/flow/) — resolve the repo, pick the agent and method skill for the step, write the brief, run Codex through its tool, and report one line per step. Load before the first dispatch of a step.
 ---
 
-# Dispatching a stage
+# Dispatching a step of the flow
 
-Each stage is an agent plus a skill. What is left over — which repo, which issue, what to say in the
-brief, what to report — is yours, and this is it. The agents own the method; you own the routing.
+The checklist owns the method of a step; this skill owns the dispatch: which repo, which agent,
+what goes in the brief, what comes back.
 
 ## 1. Resolve the repo, once
 
 Take it from the project's `CLAUDE.md` (the repo, and which `gh` account to use if the project pins
-one). **A `gh` 404 on the repo stops the stage** — say so rather than guessing an account, because
+one). **A `gh` 404 on the repo stops the step** — say so rather than guessing an account, because
 guessing writes verdicts to a repo nobody is watching.
 
-## 2. Pick the target
+## 2. Who runs each step
 
-A **number** targets that issue. **Empty** means the stage's own queue, and each stage has a
-different one — the queue IS the stage's definition of "not done yet":
+Checklists are under `plugin/docs/flow/`.
 
-| stage       | with no number                                                                               | order        |
-| ----------- | -------------------------------------------------------------------------------------------- | ------------ |
-| `triage`    | open issues without `triaged` and without `needs-info`                                       | newest first |
-| `solution`  | `triaged` present, `solution-ready` absent, no open blocker label                            | newest first |
-| `implement` | `solution-ready` and not `implemented` — **list them and ask which**, never auto-run a queue | —            |
-| `sweep`     | the working tree as it stands (no issue needed)                                              | —            |
-| `qa`        | `implemented` with no `qa:*` verdict yet                                                     | oldest first |
-| `audit`     | query-then-inspect — see §5, it is not a label predicate                                     | oldest first |
-| `pre-pr`    | nothing: it needs a target, so say what you need                                             | —            |
-| `push`      | the current branch's committed-but-unpushed work — it needs a branch, not an issue           | —            |
+| step      | `subagent_type`                                           | checklist      | method skill                         |
+| --------- | --------------------------------------------------------- | -------------- | ------------------------------------ |
+| Screening | `junior-analyst`                                          | `screening.md` | `triage-method`                      |
+| Direction | `product-owner` (foreground)                              | `direction.md` | `grill`                              |
+| Triage    | `junior-analyst`                                          | `triage.md`    | `triage-method`                      |
+| Contract  | you                                                       | `contract.md`  | —                                    |
+| Design    | `senior-analyst`                                          | `design.md`    | `solution-method`                    |
+| Plan      | `senior-analyst`                                          | `plan.md`      | `solution-method`                    |
+| Build     | `developer`, then `tester` for the checks                 | `build.md`     | `implement-method`, then `qa-method` |
+| Review    | Codex via `mcp__ui__codex`; else a fresh `senior-analyst` | `review.md`    | — / `adversarial-review`             |
+| Fix       | `developer`, then the same reviewer                       | `fix.md`       | `implement-method`                   |
+| Commit    | you                                                       | `commit.md`    | `commit-method`                      |
+| Publish   | `senior-analyst`                                          | `publish.md`   | `push-method`                        |
+| Proof     | `uat-runner`                                              | `proof.md`     | the pack's UAT lane                  |
 
-**How many at once is per stage, and the reasons differ:**
+One builder at a time: builders share one working tree, so two only when their file scopes are
+stated disjoint in each brief. Triage is read-only.
 
-- **triage FANS OUT** — it is the pipeline's one parallel point. Several read-only triage agents may
-  run at once; they touch nothing.
-- **solution is serial** — two specs racing on the same issue produce two different fixes.
-- **implement is ONE at a time** — builders share a working tree. More than one only when the briefs
-  state genuinely disjoint file scopes.
-- **qa is serial** — the gates it runs share that same tree.
-- **`implement` with no number LISTS and ASKS.** Every other queue may run one issue after another;
-  a builder loose on a queue writes code nobody asked for.
+## 3. The brief
 
-**`--force` anywhere in the arguments** re-runs a stage that already has its label. Pass it through
-in the brief; do not decide for the agent whether its own work is stale.
+It names the checklist path, the method skill, the issue and the repo, and nothing the checklist
+already says:
 
-## 3. Brief the agent
+> _"Design for #42 in owner/repo — follow `plugin/docs/flow/design.md`, run the `solution-method` skill."_
 
-**Which agent, and which lane.** Both matter: several stages share an agent and differ only by the
-skill they load, so a brief that omits the lane gets generic behaviour from the right agent.
+A re-check after a fix says so: _"Re-check after fix round 2 on #42 — read only the fix and its
+callers; the earlier verdict does not count, run again."_
 
-| stage     | `subagent_type`  | skill named in the brief |
-| --------- | ---------------- | ------------------------ |
-| triage    | `junior-analyst` | `triage-method`          |
-| sweep     | `junior-analyst` | `gate-sweep`             |
-| solution  | `senior-analyst` | `solution-method`        |
-| audit     | `senior-analyst` | `adversarial-review`     |
-| pre-pr    | `senior-analyst` | `pre-pr-review`          |
-| implement | `developer`      | `implement-method`       |
-| qa        | `tester`         | `qa-method`              |
-| push      | `senior-analyst` | `push-method`            |
+## 4. Codex
 
-The brief names the skill, the issue, the repo, and force:
+**Only through the `mcp__ui__codex` tool**, never your own Bash: the full review stays out of your
+context and a receipt comes back. A tool missing in an install is a setup problem to report. In a
+git worktree pass `cwd`, or the review judges the main checkout (the receipt's `tree:` line says
+which was reviewed).
 
-> _"Audit issue #42 in owner/repo — run the `adversarial-review` skill. focus=auth. force=false."_
-> _"Push the committed work on `fix/42` in owner/repo — run the `push-method` skill (`issuekit push-check`, then its one push). issue=#42."_
+**Which kind** (verified in `ui/server/mcp-tools/codex-tool.js`):
 
-Put the repo IN the brief. An agent that has to discover which repo it is working on will guess, and
-its first action is usually a label-only gate that must not open a project file to answer.
+- **Review** → `kind:"audit"`, with the fixed numbered list of attacks from `review.md` (plus the
+  domain's usual suspects) as `focus`. It is the only kind that enumerates every finding.
+- **The re-check after a fix** → `kind:"audit"` with `only`: the open findings, the fix and the
+  callers of what it changed. `only` is a restrictive scope: nothing outside it is read or reported.
+- **The attack on the design** → `kind:"adversarial-review"` with `design`: the text of the
+  confirmed design, as the `senior-analyst` wrote it on the issue. No file in the tree is needed.
+- `kind:"review"` ignores `focus`: not used by the flow.
 
-**Keep it short.** A brief that re-specifies what the skill already says invites the agent to follow
-the brief instead of the skill, and the two drift.
+**Receipts.** One that opens `PARTIAL —` is not a verdict yet: dispatch `xenomoon:handoff-summarizer`
+on the named path and map from its answer, never read the file yourself. One that opens
+`DEGRADED —` is not evidence: report the exit code and stderr, map nothing, post nothing.
 
-## 4. Report
+**Mapping.** Codex says `approve` / `needs-attention`; the lane says `pass` / `changes`. You cannot
+comment on an issue: dispatch `senior-analyst` with the receipt ("post this Codex receipt as the
+review comment, do not review") and it posts ONE comment `## 🔎 REVIEW — pass|changes` with the
+`review-verified: <sha>` marker and the label. Never the reviewer's own word, which the gate cannot
+read.
 
-One line per issue, and **what belongs in that line is the stage's own** — these fields are what
-makes a run auditable afterwards:
+## 5. Report
 
-| stage     | report                                                                                                                                          |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| triage    | `sev · area · necessary/fold/not-necessary · the cause` — plus which issues were SKIPPED as already triaged, and any label that failed to apply |
-| solution  | `CONFIRMED/REFINED/WRONG · ships deploy/migration? · the regression test it specified`                                                          |
-| implement | `files changed · validate/build/test · the regression test going red→green`                                                                     |
-| sweep     | the verdict VERBATIM: `QUICK-PASS` with the gates and their counts, or the numbered FIX list with `path:line`                                   |
-| qa        | `PASS/BLOCKED · validate/build/test/smoke · whether the regression test actually guards the bug`                                                |
-| audit     | `pass/changes · top finding · WHICH reviewers ran (codex\|internal\|both)`                                                                      |
-| pre-pr    | `ready/not-ready · delivered · dropped · unasked · what the human must do before merge`                                                         |
-| push      | `remote/branch · SHA range published · issues in the commits · checks state · every STOP flagged with its owning stage`                         |
+One line per step: the step, the result, what goes next. **A deviation from the Design is the
+headline**, before files and checks: it is the one part nobody reviewed. **A label that failed to
+apply is reported**, never swallowed.
 
-**A label that failed to apply is reported, never swallowed** — the labels are how the next stage
-finds its work, so a silent failure strands the issue.
+## 6. Literal structure
 
-**A DEVIATION FROM THE SPEC IS A HEADLINE, not a detail.** If the implementer built something other
-than what the `## 🔬 ANALYSIS` spec (or the PRD's Acceptance) described — a different approach, an
-extra change, a dropped caveat — say so first, before the files and the gates. That delta is the one
-part of the work NOBODY has reviewed: the spec was reviewed, and the deviation replaced it. Do not
-advance it silently on the strength of green gates; green means the code works, not that it is the
-code that was agreed.
-
-Then **execute the next stage yourself** if the verdict routes onward — never hand the user a
-command to type. But a stage COMPLETING is not the same as the issue ADVANCING, and several
-verdicts deliberately go nowhere:
-
-| verdict                                              | where it goes                                                                                                                                 |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `needs-info`                                         | **stops.** The pipeline cannot proceed without the reporter; nothing downstream can invent the missing facts.                                 |
-| `fold` / `not-necessary`                             | **stops, and it is a RESULT, not a failure** — the cheapest fix is the one nobody implements. Report it; closing the issue stays the human's. |
-| solution `WRONG`                                     | back to **triage**, not forward to implement — the cause itself was wrong, and building on it builds the wrong thing.                         |
-| `qa:blocked` · `review:changes` · pre-pr `not-ready` | back to **implement**, with the findings as the fix list.                                                                                     |
-
-And the ones that DO advance. Each stage's success has its own name, so "did it pass" is the wrong
-question to ask generically — `REFINED` and `QUICK-PASS` are successes, and treating them as
-anything else strands finished work:
-
-| stage    | success verdict                                                     | goes to                                                  |
-| -------- | ------------------------------------------------------------------- | -------------------------------------------------------- |
-| triage   | `necessary`                                                         | solution                                                 |
-| solution | `CONFIRMED` **or `REFINED`** — a refined cause is a good one, found | implement                                                |
-| sweep    | `QUICK-PASS`                                                        | qa                                                       |
-| qa       | `PASS`                                                              | audit (reviewer choice per §5)                           |
-| audit    | `pass`                                                              | pre-pr on a full-gate change, otherwise the commit stage |
-| pre-pr   | `ready`                                                             | the commit stage                                         |
-| commit   | recorded                                                            | the push stage (`senior-analyst` + `push-method`)        |
-
-Bounded: **3 loop-backs per issue.** Still red after three → stop looping and surface the open
-findings to the human. A fourth attempt at the same wall is not persistence.
-
-## 4b. UAT is dispatched, but it is not a stage
-
-`uat-runner` takes a **scenario**, not an issue — default `poc`, the minimal proof. It runs on its
-own cadence against whatever is deployed or running, so it has no queue, no place in the chain, and
-no verdict that advances anything.
-
-**It gates nothing.** A `uat:fail` files a NEW issue through intake and enters the pipeline like any
-other bug; it does not reopen a closed issue and does not turn a green commit red. A `uat:blocked`
-files nothing at all — it is a setup problem, and the report says which precondition failed.
-
-Brief it with the scenario and the target (base URL, device — ask rather than assume). The lane
-skill comes from the installed pack.
-
-## 5. Reviewers: choosing, and reconciling
-
-This is the part no agent can do, because it is about how many opinions to buy and what to do when
-they disagree.
-
-**Codex does not replace the internal senior.** Codex is an external reviewer with no stake in how
-the fix was designed; the internal `senior-analyst` knows this project's conventions. They see
-different things:
-
-- **auth · money · data scoping · migrations · anything irreversible** → both
-- **ordinary product code** → the internal senior; add Codex when the change is large
-- **trivial glue, cosmetic, sev:low** → the sweep may be enough; say so rather than performing
-  ceremony
-
-Propose the choice and let the human decide when it is not obvious — Codex spends their money, and
-skipping review spends their trust.
-
-**Which kind, once Codex is chosen.** The kinds are calibrated differently, and using the wrong
-one is how a live project got one finding per round for ten rounds:
-
-- `review` — the native diff review, a mergeability headline. Cheapest; ignores focus text.
-- `adversarial-review` — a high-precision challenge to the approach: one strong objection **by
-  design** (its template prefers one strong finding — that is a feature, not a drip). For "is
-  this change sound?".
-- `audit` — exhaustive adversarial enumeration: every defect, severity-laddered, ending in a
-  `TOTAL:` count. Slowest and priciest. For "list everything wrong" — never re-run it expecting
-  a verdict; it produces the list.
-
-**Run Codex through the `mcp__ui__codex` tool**, never your own Bash: the full review then stays
-out of your context and you get a receipt back (verdict, findings as one-liners, next steps, and the
-path to the full review on disk). (This replaced first a background Bash, then a `codex-review`
-sub-agent — one route, so the raw output cannot leak into the router's context, and no Claude turn
-is spent formatting what the companion already emits as JSON. If the tool is not available in a
-given install, that is a setup problem to report, not a reason to shell out.) When the lane runs
-in a git worktree, pass `cwd` — without it the review judges the main checkout and the receipt is
-about the wrong code (the receipt's `tree:` line says which was reviewed). Its vocabulary is not
-the lane's — map
-`approve` → `pass` and `needs-attention` → `changes` when you record it. Never paste its verdict
-wording into the lane raw; a live project did, and the gate read `## 🔎 REVIEW — approve` as a block.
-
-**A receipt that opens `PARTIAL —` is not a verdict.** A long native review comes back as its
-structure only (headings + finding leads), with the full text parked on disk. Do not map a lane
-verdict off a partial receipt and do not read the file into your own context: dispatch
-`xenomoon:handoff-summarizer` on the named path — haiku, ≤5 lines, `verdict`/`blocking`/`minor`/
-`open` — and map from THAT. A `verdict:` line (the adversarial pass) or a short native review is
-already complete; summarizing those only loses detail. (An audit receipt is normally PARTIAL by
-design — its finding leads ARE the enumeration and its `TOTAL:` headline the count; the verdict
-still comes from the summarizer on the parked path.)
-
-**A receipt that opens `DEGRADED —` is not evidence.** The companion exited nonzero; a partial
-result is not a partial verdict. Do not post it under a reviewer's evidence heading, do not map a
-lane verdict from it, and do not loop back on it. Report the exit code and stderr to the human,
-and re-run only after the cause is fixed.
-
-### Audit with no number: query, THEN inspect
-
-"Needs review" is not a label question, so the sweep is two steps and the order matters:
-
-```bash
-# candidates: QA-passed and not already blocked. review:pass is NOT excluded — a pass at a stale
-# SHA wears exactly that label, and excluding it hides the case being swept for.
-gh issue list -R <repo> --state open --label "qa:pass" \
-  --search "-label:review:changes" --json number,title,updatedAt --limit 100
-```
-
-Then read each candidate's newest lane verdict and evidence comments, and keep it only if it is
-**unreviewed** (no lane verdict) or **unreconciled** (evidence newer than the lane verdict). Drop
-anything already passed — re-reviewing it burns an opus run to reprint a verdict.
-
-**Staleness is NOT a sweep question.** A `review-verified:` marker that differs from your HEAD means
-"reviewed on other code", which is the normal state of every issue whose change is not in your
-working tree right now. Treating that as stale would dispatch billed reviews against a diff those
-issues have nothing to do with. Judge staleness only for the issue whose change is actually in this
-tree — the commit gate does exactly that, at commit time, for exactly that issue. List the others as
-`reviewed at <short sha> — not this checkout`.
-
-Run what survives, oldest first. If more than ~10 survive, do those and **say how many you left** —
-a silent cap reads as "swept everything". An empty sweep is a result: say `nothing awaiting review`,
-never invent work.
-
-**When two reviewers ran, NEITHER writes the lane verdict.** Each posts evidence under its own
-header (`## 🔎 CODEX REVIEW`, `## 🔎 INTERNAL REVIEW`) with no marker and no label. Then **you write
-exactly one `## 🔎 REVIEW`**, and:
-
-- **either reviewer says `changes` → the verdict is `changes`.** No averaging, no "the other one was
-  happy". Both readings go in the comment, attributed — disagreement is a result, not a problem to
-  resolve into a summary nobody can audit.
-- **both pass → `pass`**, and say in the PROBED line that both ran.
-
-The reason for the header discipline is mechanical: the gate and the review skill both treat the
-**newest** `## 🔎 REVIEW` as authoritative, so two reviewers posting there means the later erases the
-earlier — a Codex block overwritten by an internal pass, on exactly the change that earned two
-reviewers.
-
-**If a run dies after the evidence but before the reconciliation**, the commit gate will ask about
-it. Re-running `audit` fixes it — say in the brief that evidence is already on the issue awaiting
-reconciliation, or the reviewer's skip gate will report "already reviewed" and the ask stays
-unanswerable.
-
-## 6. Two targets that are not issue numbers
-
-- **`pre-pr` given a PR number** → resolve it to its issue first
-  (`gh pr view <N> --json number,title,body,baseRefName,headRefName`), because the design it judges
-  against lives on the issue. Pass both, and the base branch so it diffs against the right thing. A
-  PR referencing no issue is worth saying out loud: the lane can still read it, but with nothing
-  agreed to judge against, its answers are opinion — label them as such.
-- **`pre-pr` before QA has passed** → there is nothing settled to judge. Send the issue to `qa`
-  first, or say that plainly. This lane deliberately does not re-run gates, so running it early
-  produces a readiness verdict about work that may still move.
-- **`sweep` with no number** → the uncommitted working tree. The gates and diff hygiene run the
-  same; only "does this file belong to THIS change" loses its reference, so the agent reports scope
-  doubts instead of asserting them.
-
-**Language: the project's, not yours by default.** Where the project's own instructions state a
-language for what it writes to its tracker, write the PROSE in that language. Absent any such
-statement, English.
-
-**The structure is never translated**: the reconciled `## 🔎 REVIEW` heading, its verdict word, the `review-verified:` / `review-changes-at:` markers and the `review:*` labels stay exactly as written — as do the EVIDENCE headings `## 🔎 CODEX REVIEW` / `## 🔎 INTERNAL REVIEW` when you post a reviewer's findings under one. The gate detects unreconciled evidence by matching those exactly; translated, a newer finding is invisible and a stale pass stays authoritative. The same holds for **every verdict value in the two routing tables above** — the ones that stop (`needs-info`, `fold` / `not-necessary`, `WRONG`, `qa:blocked`, `review:changes`, `not-ready`) and the ones that advance (`necessary`, `CONFIRMED` / `REFINED`, `QUICK-PASS`, `PASS`, `pass`, `ready`), plus `FIX LIST` and `uat:pass` / `uat:fail` / `uat:blocked`. Those tables ARE the list — do not maintain a second one here, and if a verdict value ever changes there it is protected here by that fact alone. You read every one of them as a literal, never as prose: a translated verdict does not fail loudly, it routes nowhere, and a stage that routes nowhere looks exactly like a stage still in progress. A translated heading or label is a record the
-gates and queues cannot see — literal matching is how every stage after this one finds your work.
+Write tracker prose in the project's language (English when it states none). Code reads these as
+written, so they are never translated: `## 🔎 REVIEW — pass|changes`, `## 🧪 QA — PASS`, the
+`review-verified:` / `review-changes-at:` / `qa-verified:` markers, the evidence headings
+`## 🔎 CODEX REVIEW` / `## 🔎 INTERNAL REVIEW`, and every `qa:*` / `review:*` / `uat:*` label.

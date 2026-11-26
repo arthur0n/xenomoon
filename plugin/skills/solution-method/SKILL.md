@@ -2,93 +2,71 @@
 name: solution-method
 agents: [senior-analyst]
 domain: universal
-description: The solution stage's own method — verify the triage cause against real code (CONFIRMED/REFINED/WRONG), design the minimal fix, decide testability concretely, decide ship impact (deploy / migration), verify the scoping, then post the `## 🔬 ANALYSIS` implementation spec + the solution-ready label. Load when designing a fix from a triage record.
+description: The method of the Design and Plan steps of the flow — verify the facts against real code (what Triage left is a starting guess), design the minimal change, name how it is proved, the path to production and the rollback, post the `## 🔬 ANALYSIS` spec, then cut the confirmed design into pieces on the board and the issue. Load for Design or Plan.
 ---
 
-# Solution — the method
+# Design and Plan — the method
 
-The triage record is your **starting hypothesis, not truth**. Investigation discipline lives in
-`code-investigation`; intent rules live in `intent-guardrails`; this skill is the design stage:
-verify, design, decide testability and ship impact, hand off.
+The route, the stops and the counters come from the flow checklist named in the brief
+(`plugin/docs/flow/design.md` or `plugin/docs/flow/plan.md`). This skill is the method. When the
+two disagree on route or stops, the checklist decides.
 
-## 0. Gate
+Investigation discipline lives in `code-investigation`; intent rules live in `intent-guardrails`.
 
-Issue already carries `solution-ready` and this is not a forced re-run → post nothing, report
-`already designed — skipped`. Read the labels only to decide that.
+## Design
 
-No triage record on the issue → stop and say so. Designing a fix for an unproven cause is the
-failure this stage exists to catch, so do not silently do triage's job as well.
+### 1. Verify the facts
 
-## 1. Verify the cause — the second read that stops reverted fixes
+Read the contract, the thread, and what Triage left if it ran. What Triage left is a starting
+guess: open the cited files yourself and falsify per `code-investigation` (if the cause were true,
+what else must hold, and does the known-good code share the pattern?). State one VERDICT on it:
 
-Open the cited files yourself. Falsify per `code-investigation`: if the triage cause were true,
-what else must hold, and does the known-good code share the same pattern? Then state one of:
+- **CONFIRMED** — Triage was right.
+- **REFINED** — roughly right; the precise cause or location differs. State the correction.
+- **WRONG** — state the real cause with `path:line` evidence, in the design.
+- **NONE** — Triage did not run; the facts below are yours.
 
-- **CONFIRMED** — triage nailed it.
-- **REFINED** — roughly right, precise cause or location differs. State the correction.
-- **WRONG** — misdiagnosed. State the real cause with `path:line` evidence.
+Records before code. Cite only lines you opened. Read only what settles the design.
 
-Triage can be confidently wrong. This pass is where that gets caught — before anyone writes code
-against it. Inspect only what settles the cause and the design; do not wander the codebase.
+### 2. The change — concrete and minimal
 
-## 2. Design the fix — concrete and minimal
+Exact files and functions, the change to make, and why. **No code patch**: precise enough that
+the build is mechanical. Keep logic where the project keeps it. Name the edge cases (who may see
+what, swallowed errors, login, enum/label drift). Run `graphify affected "<file>"` on every file
+you change before you settle.
 
-Exact files and functions to change, the change to make, and why. **No code patch** — describe it
-precisely enough that implementation is mechanical.
+### 3. How it is proved — two parts
 
-Keep logic where this project keeps it: if the convention says a handler calls a shared pure
-function, do not inline the formula. Name the edge cases and risks explicitly — scoping leaks,
-enum/label drift, swallowed errors, auth boundaries.
+- **The test that fails without the change.** A hermetic unit test for isolatable logic (name the
+  function and the assertion); a smoke or integration test for a data path (name what it
+  exercises, with the project's command); a small helper or extract-to-pure-function refactor
+  when nothing fits yet. "Not automatable" only for pure visual or animation work, with the reason:
+  this field is where quality is lost.
+- **The check in production** that Proof will run: a command or scripted check that can be run
+  again, not an agent's word. "Cannot be automated" needs a reason.
 
-Check the blast radius before you commit to it: `graphify affected "<file>"` names what depends on
-the code you are about to change, which turns "small fix" into a checkable claim.
+### 4. The path to production and the rollback
 
-## 3. Decide testability — concretely, no dodging
+- **Deploy:** what gets deployed (back end, front end, both), from the project's `CLAUDE.md`
+  targets, through its CI only.
+- **Migration:** yes or no. Yes → made with the project's own command, SQL read, shipped with the
+  code; a scope entry for any new user-owned table. For a native or mobile project, say whether
+  testing needs a native rebuild.
+- **Rollback:** how the change is undone, and whether that is safe without the owner (a change
+  that cannot be undone is not).
+- **Contract:** a technical fact that breaks a line of the contract → quote the line and the fact.
 
-Can this bug be guarded by an automated regression test, and with what?
+### 5. Write-back — the spec
 
-- **Hermetic unit test** — the bug is isolatable logic (a calculation, a parser, a wrong
-  condition, a mapping). Name the function and what it must assert, following the project's test
-  pattern.
-- **Smoke / integration** — a data path needing the real dependency (scoping, transactions). Name
-  what the flow exercises, using the project's integration command.
-- **New fixture or helper** — no existing test fits but the path _is_ automatable. Describe the
-  small helper to build, or the extract-to-pure-function refactor that makes a test possible. The
-  developer implements whatever you specify here.
-- **Not automatable** — only when genuinely pure visual/animation with no isolatable logic. Say so
-  and why. **Do not default here to dodge work** — this field is where quality is quietly lost.
-
-## 4. Decide ship impact — two separate questions
-
-- **Deploy:** does shipping require one, and of what? Back-end change, front-end change, or both,
-  using this project's actual deploy targets from its `CLAUDE.md`. Deploy is CI-only, never manual.
-  A shared change ships with whichever side imports it.
-- **Migration:** does the fix change the schema? If yes, say so — produce it with the project's
-  migrate command, review the SQL, commit alongside, add a scope entry for any new user-owned
-  table. Never hand-apply SQL.
-
-For a native/mobile project the second question is _local testability_: does testing this need a
-native rebuild (new native dep, native config change), or does it hot-reload? Say which — it sets
-everyone's expectations for the next hour.
-
-## 5. Verify the scoping triage proposed
-
-Triage sized the work as a session-sized unit. Confirm it against the real design: if the fix you
-just specified cannot land in one session, say so now and propose the split — the pipeline's cost
-of discovering that during implementation is far higher.
-
-## 6. Write-back — the implementation spec
-
-Terse, scannable, one line per field, verbatim values, omit empty fields. Write to a temp file and
-post it (avoids shell-quoting problems).
+Terse, one line per field, verbatim values, omit empty fields. Write to a temp file and post it.
 
 ```
 ## 🔬 ANALYSIS — <one-line summary>
 
-**SEVERITY:** sev:<level> · **AREA:** area:<area> · **CONFIDENCE:** <high|medium|low>
-**VERDICT:** CONFIRMED | REFINED | WRONG (reframed) — <one line>
-**REAL CAUSE:** <only if REFINED/WRONG — corrected cause + `path:line` evidence>
-
+**VERDICT:** CONFIRMED | REFINED | WRONG | NONE — <one line on what Triage left>
+**REAL CAUSE:** <REFINED/WRONG/NONE — the cause + `path:line` evidence>
+**FACTS:**
+- `path:line` — <what it shows>
 **SYMPTOM:** <what the reporter saw>
 
 **FIX:**
@@ -97,35 +75,44 @@ post it (avoids shell-quoting problems).
 **STEPS:**
 1. <terse imperative>
 
-**WATCH:** <edge cases, risks — scoping leaks, enum/label drift, auth boundary, swallowed errors>
-**TEST:** <how to confirm fixed — manual steps>
-**TESTABILITY:** <kind + where + what it asserts; or "not automatable: <why>". Note any
-extract-to-shared refactor needed to make it testable.>
+**WATCH:** <edge cases and risks>
+**TEST:** <manual steps to confirm>
+**TESTABILITY:** <kind + where + what it asserts, failing without the change; or "not automatable: <why>">
+**PROOF:** <the production check Proof runs; or "cannot be automated: <why>">
 **SHIP:** <deploy target(s) or no> · <migration yes|no> — <one line why>
-**SCOPING:** <session-sized as triaged, or the proposed split>
-
-**NEEDS FROM REPORTER:** <needs-info only: exact steps, account, screenshot, env…>
+**ROLLBACK:** <how> · safe without the owner: <yes|no> — <why>
+**CONTRACT:** <none | the contract line a technical fact breaks — the fact>
+**NEEDS FROM REPORTER:** <exact items>
 
 ---
 *solution · senior-analyst · <output of: git rev-parse --short HEAD>*
 ```
 
-Then label: add `solution-ready`, plus the ship labels this project uses (deploy needed, migration
-needed, `needs-info` when blocked on the reporter). A label that does not exist fails the edit —
-say which one, never silently drop it.
+FIX / STEPS / WATCH / TESTABILITY / SHIP are what Build, QA and review read. If a developer would
+have to guess anything material, the spec is not finished.
 
-**The FIX / STEPS / WATCH / TEST / TESTABILITY / SHIP block IS the spec** the implement stage
-builds from. If a developer would have to guess anything material, the spec is not finished.
+Labels, as a record: `solution-ready`, the project's ship labels, `needs-info` when facts are
+missing from the author. A label that does not exist fails the edit: say which, never drop it.
 
-## Routing back
+## Plan
 
-Intent conflict → the product owner, not a deeper trace. `needs-info` → waits on the reporter.
-Cause turned out WRONG and the real one is a different area → say so plainly; a re-triage is
-cheaper than a fix built on a corrected-in-passing hypothesis.
+After the owner confirmed the design.
 
-**Language: the project's, not yours by default.** Where the project's own instructions state a
-language for what it writes to its tracker, write the PROSE in that language. Absent any such
-statement, English.
+- One piece = one builder, one task, one way to verify it. Coupled work stays together (a shared
+  change and the places that call it). Each piece leaves the checks green.
+- Each piece names what it changes, what must be finished before it, and how it is verified.
+- One board task per piece through `mcp__ui__tasks`. The board drops finished tasks, so post the
+  same list on the issue:
 
-**The structure is never translated**: the `## 🔬 ANALYSIS` heading, EVERY field name in the template above (SEVERITY, AREA, CONFIDENCE, VERDICT, REAL CAUSE, SYMPTOM, FIX, STEPS, WATCH, TEST, TESTABILITY, SHIP, SCOPING, NEEDS FROM REPORTER), the signature footer, and EVERY label this stage adds — `solution-ready`, `needs-info`, and the project's ship labels — stay exactly as written. The VERDICT values are structure — `CONFIRMED` / `REFINED` / `WRONG` decide whether the issue advances to implement or goes back to triage. `needs-info` in particular is a routing verdict the dispatcher reads to stop the queue; translated, a blocked issue is neither stopped nor findable. A translated heading or label is a record the
-gates and queues cannot see — literal matching is how every stage after this one finds your work.
+```
+## 📋 PLAN
+1. [ ] <what it changes> — after: <piece n | none> — verify: <command or test>
+```
+
+- A piece that needs a new issue, or work bigger than the contract → say so; it waits for the
+  owner.
+
+**Language: the project's.** Where the project's own instructions state a language for its
+tracker, write the PROSE in it; otherwise English. The structure is never translated: the
+`## 🔬 ANALYSIS` and `## 📋 PLAN` headings, every field name above, the VERDICT values, the
+footer and every label stay as written, because code and the next steps find them by literal match.

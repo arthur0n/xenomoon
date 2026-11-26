@@ -2,10 +2,13 @@
 name: commit-method
 agents: [orchestrator]
 domain: universal
-description: How the pipeline records a finished fix — what a commit must contain and must not, why the message carries `(#N)` and never `Closes #N`, what to do when the gate refuses, and why the design doc graduates in its own commit. Load when an issue is green and about to be committed, or when a commit was refused.
+description: The method of the Commit step — compare the content fingerprint with the two pass comments, what a commit must contain and must not, why the message carries `(#N)` and never `Closes #N`, what to do when the gate refuses, and why the design doc stays out of the fix commit. Load when an issue has its pass and is about to be committed, or when a commit was refused.
 ---
 
-# The commit stage — recording a fix, once, honestly
+# The Commit step — recording a change, once, honestly
+
+The route and the stops come from `plugin/docs/flow/commit.md`. This skill is the method. When the
+two disagree on route or stops, the checklist decides.
 
 Three things own this stage, and none replaces the others:
 
@@ -22,9 +25,14 @@ is recording it.
 
 ## 1. A commit is earned, not asserted
 
-Commit when the issue's own stages say so — QA passed, review passed, and both verdicts recorded the
-SHA you are committing on. You do not need to re-run them: that is what the gate re-checks, at the
-moment the commit runs, from the issue itself.
+Commit when QA and review passed and both verdicts recorded the SHA you are committing on. You do
+not re-run them: the gate re-checks them, at the moment the commit runs, from the issue itself.
+
+The gate checks the SHA, and HEAD does not move during Build and Fix, so check the content yourself:
+run `git diff HEAD | shasum` and compare it with the **CONTENT** line of the `## 🧪 QA — PASS` and
+`## 🔎 REVIEW — pass` comments. Different → the pass is cancelled; back to Fix.
+
+In a terminal session, the owner's word before the commit. In a project session, none.
 
 **Do not pre-judge the gate by reading labels.** A label is a cache of a verdict; the verdict is the
 comment. Ask the tool and read what it says.
@@ -46,8 +54,7 @@ Verified: <the project's gates> · regression test <name> · QA pass · review p
 ```
 
 **`(#N)`, never `Closes #N`.** The reference is what the gate reads and what the label stamp keys
-on. `Closes` hands closing to GitHub's merge, which is wrong here: an issue closes when the fix
-**deploys**, not when it merges — that is what `fixed-pending-deploy` is for.
+on. `Closes` hands closing to GitHub's merge; only the Proof step closes an issue.
 
 Follow the project's own message convention where it has one (`CLAUDE.md`); the `(#N)` rule is the
 part that is not negotiable, because machinery depends on it.
@@ -56,15 +63,14 @@ part that is not negotiable, because machinery depends on it.
 
 The refusal names the failing condition. Route on it rather than working around it:
 
-- **a stale verdict** (`qa-verified` at a different SHA) → the code moved; re-run that stage
-- **a newer blocking verdict** → back to the implement stage with its findings
-- **unreconciled reviewer evidence** → `audit` again, so one reconciled verdict exists
+- **a stale verdict** (`qa-verified` at a different SHA) → the code moved; back to Fix for a re-check
+- **a newer blocking verdict** → back to Fix with its findings
 - **no pipeline state** → the gate is asking whether this project runs this pipeline at all. That
   is a question about the PROJECT, and it is not yours to answer. **Stop and put it to the human**,
   with what you found (which labels and verdicts exist, which do not). Do not retry the commit until
   they have answered.
 
-**Every refusal ends one of two ways: you route to the named upstream stage, or you stop and hand it
+**Every refusal ends one of two ways: you go to the step it names, or you stop and hand it
 to the human. There is no third way.** Not rephrasing the command, not staging differently, not
 committing without the reference so the gate stops matching. A gate you talked your way past
 protects nothing, and the next person cannot tell it was bypassed.
@@ -73,30 +79,27 @@ protects nothing, and the next person cannot tell it was bypassed.
 a written reason that is posted to the issue before the commit lands — so an override is a decision
 someone signed, findable later. Reach for it when the human has told you to; not to get unstuck.
 
-## 4. The commit stage does not publish
+## 4. The Commit step does not publish
 
-Publishing is the `push` stage's — `senior-analyst` running `push-method`, adversarial to the
-author, gated by the branch model and `policy.push`. The commit is automatic once green; this
-stage's job ends with the commit recorded, and the route onward is the push stage, dispatched by
-the orchestrator.
+Publishing is the Publish step's: `senior-analyst` running `push-method`, never the author. Never
+commit while a builder works on the same tree.
 
-## 5. The design doc graduates separately
+## 5. The design doc is not part of the path of an issue
 
-If the issue carried a PRD, move its durable facts into the project's own library and archive the
-doc **in its own commit, after the fix's** — human-gated, since it changes what the project treats
-as settled. Keeping it out of the fix commit is the same "nothing unrelated" rule: the fix must
-stay revertable on its own.
+If the issue carried a PRD, nothing is archived here and no second commit follows. Moving its
+durable facts into the project's library is separate work, done only when the owner asks for it.
+Note it as one line on the owner's list. It never goes into the fix commit: the fix must stay
+revertable on its own.
 
 ## 6. Report
 
-The sha, the subject, the labels applied, and — explicitly — that nothing was pushed YET (the
-push stage is next). If the labels
-did not land, say so loudly: the deploy workflow closes issues on `fixed-pending-deploy`, so a fix
-that ships without it stays open forever, and someone will eventually re-fix it.
+The sha, the subject, the labels applied, and that nothing was pushed. If a label did not land, say
+so loudly: the stamp (`committed`, `fixed-pending-deploy`) is what the project's deploy workflow and
+the next reader key on, and a missing one leaves the issue looking unfixed.
 
 **Language: the project's, not yours by default.** Where the project's own instructions state a
 language for what it writes to its tracker, write the PROSE in that language. Absent any such
 statement, English.
 
-**The structure is never translated**: every label this stage stamps (`committed`, `fixed-pending-deploy`, and the deploy-gate labels) stays exactly as written, and so does the `(#N)` issue reference in the commit message — the commit gate and the label stamp both parse it to find the issue at all. A translated heading or label is a record the
-gates and queues cannot see — literal matching is how every stage after this one finds your work.
+**The structure is never translated**: every label this step stamps (`committed`, `fixed-pending-deploy`, and the deploy-gate labels) stays exactly as written, and so does the `(#N)` issue reference in the commit message — the commit gate and the label stamp both parse it to find the issue at all. A translated heading or label is a record the
+gates and queues cannot see — literal matching is how every step after this one finds your work.

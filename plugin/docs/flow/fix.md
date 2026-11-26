@@ -4,7 +4,7 @@ Agents: `developer`, then the same reviewer as in Review. Job: close the finding
 
 ## The budget
 
-- `[code, not built]` Three rounds per issue. Write the round number on the issue at the start of each round.
+- `[code, not built]` Three rounds per issue. The orchestrator raises the round on the issue's flow task (tasks tool, op `flow`) at the start of each round and names the round in the brief.
 - Rounds one and two are fixes.
 - Round three is not a fix. It is a diagnosis.
 
@@ -12,7 +12,7 @@ Agents: `developer`, then the same reviewer as in Review. Job: close the finding
 
 - `[judgment]` The developer fixes the open findings. The Build rules hold: no weakened check, no new dependency, no growth of the change.
 - `[check]` The tester runs the project's checks again for every package touched.
-- `[judgment]` The reviewer reads only the fix and the code it affects (the callers of what changed), not the whole change again. It answers two questions: is the finding closed, and did the fix break something?
+- `[code]` The reviewer reads only the fix and the code it affects (the callers of what changed), not the whole change again. With Codex this is the `only` field of the tool. It answers two questions: is the finding closed, and did the fix break something?
 - `[judgment]` The earlier pass or block comment does not count for the new content. Run the re-check even when a skill says "already done": tell it to run again.
 - All closed and nothing broken → write the pass, as in Review, with the new content fingerprint. → Commit.
 

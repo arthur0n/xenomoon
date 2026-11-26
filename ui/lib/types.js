@@ -110,7 +110,7 @@
  * @property {"pending" | "in_progress" | "done"} status
  * @property {string} [note] - optional one-line detail
  * @property {string} [agent] - internal: creating agent ("main" | "background" | a subagent_type), used to close a sub-agent's tasks when it finishes
- * @property {"question" | "objective"} [kind] - "question": filed via mcp__ui__ask (async human-gate), renders an answer input; "objective": the human's standing ask for this session, pinned first on the board and echoed first in every tasks-tool result (at most one open)
+ * @property {"question" | "objective" | "flow"} [kind] - "question": filed via mcp__ui__ask (async human-gate), renders an answer input; "objective": the human's standing ask for this session, pinned first on the board and echoed first in every tasks-tool result (at most one open); "flow": the state of one issue in the flow (`#84 · step · counters`), one open per issue, changed or closed only by the tasks tool's op "flow"
  * @property {string[]} [options] - question only: suggested answers the user can one-click
  * @property {string} [answer] - question only: the user's answer (set via task_update; the orchestrator relays it)
  * @property {string} created - ISO timestamp

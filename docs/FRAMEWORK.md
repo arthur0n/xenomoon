@@ -10,9 +10,10 @@ re-derive the whole map.
 
 Xenomoon is a framework built on the Claude Code SDK. Its goal: give **one human
 developer a full AI team** working on a software project — orchestrator + specialized
-subagents (Opus/Sonnet) driving a deliberate, human-gated pipeline
-(**triage → solution → implement → verify → human**) through a web UI, **without the
-human living in the terminal**.
+subagents (Opus/Sonnet) driving a deliberate, human-gated flow
+of twelve steps (Screening, Direction, Triage, Contract, Design, Plan, Build, Review, Fix, Commit, Publish, Proof) through a web UI, **without the
+human living in the terminal**. The flow, its states and its checklists are in
+`plugin/docs/flow/README.md`.
 
 It is a domain-focused fork of `arthur0n/xenodot-forge` ("xenodot"). Godot is the
 upstream's product, NOT ours: we fetch only curated, domain-agnostic improvements
@@ -32,20 +33,20 @@ palette. Never reintroduce upstream's green alien identity.
   descriptor into `.xenomoon.json`. **Nothing under `domains/` is read at runtime.**
 - **At runtime there is exactly ONE capability tree: `plugin/`.** Every session loads it
   (namespaced `xenomoon:<name>`).
-- **CORE owns the PIPELINE; a pack ships SKILLS.** The pipeline is what the framework IS
+- **CORE owns the FLOW; a pack ships SKILLS.** The flow is what the framework IS
   (see the goal above), so it cannot be an optional pack feature: trunk `plugin/` ships the
-  whole pipeline roster (`junior-analyst`, `senior-analyst`, `developer`, `tester`,
-  `uat-runner`) and the skills that hold each stage's method — there are NO shipped
-  command files: routing lives in the spine, a stage's method in its agent's skill, and
+  whole flow roster (`junior-analyst`, `senior-analyst`, `product-owner`, `developer`, `tester`,
+  `uat-runner`) and the skills that hold each step's method — there are NO shipped
+  command files: routing lives in the spine, a step's method in its agent's skill, and
   the dispatch layer in orchestrator skills, so each fact has exactly one home. Plus the
   cross-cutting agents
-  (product-owner, researcher, debrief, handoff-summarizer), the shared method skills
+  (researcher, debrief, handoff-summarizer), the shared method skills
   (`code-investigation`, `library-first`, `intent-guardrails`, the `*-method` skills), the
   meta skills (`quick`, `caveman-forge`, `tasks-mcp`, `agent-report`,
   `autonomous-main-goal`) and the safety hooks. **A domain pack adds only what is genuinely
   domain-specific — skills** (expoapp: simulator/emulator lanes; webapp: browser lanes) —
   plus its `orchestrator.md` routing and any domain-only command. One role, one definition,
-  every domain. Promoting a stage into CORE is a defined process:
+  every domain. Promoting an agent into CORE is a defined process:
   `plugin/docs/process/promote-agent-to-core.md`.
   _(History: the pack used to ship its own analyst/developer/reviewer/tester, which put the
   framework's own purpose behind a pack choice and drifted into one role per tree. That is
@@ -87,8 +88,8 @@ autonomous,pulse}/`. `ui/lib/` — shared JSDoc typedefs.
 
 ## Session model (how work flows in an install)
 
-- The **orchestrator runs the pipeline itself** — stages are its own actions; it
-  dispatches agents and never tells the human to run a command; it never implements.
+- The **orchestrator runs the flow itself** — Contract and Commit are its own steps; it
+  dispatches an agent for every other step and never tells the human to run a command; it never implements.
   Discovery belongs to the owning agent (no pre-dispatch scouting). Answer length
   matches the question.
 - **Project facts live project-side**: `<project>/.claude/library/` indexed by the
@@ -96,7 +97,7 @@ autonomous,pulse}/`. `ui/lib/` — shared JSDoc typedefs.
   index, follow pointers; project rules override framework defaults.
 - Routing doctrine (webapp pack): vague brief → the design path first; bug → issue-tracker
   search first (issuekit; never re-try `DO-NOT-RETRY` attempts); research → Hermes
-  worker first when enabled; every defect enters the pipeline.
+  worker first when enabled; every defect enters the flow at Screening.
 - Persistent task board via `mcp__ui__tasks` → `<project>/.xenomoon/tasks.json`.
 - **Pulse** (`ui/server/features/pulse/`) — the ambient landing sweep, and the answer to a
   structural gap: the session loop is _request-shaped_, so work that finished but never LANDED

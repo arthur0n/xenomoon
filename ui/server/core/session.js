@@ -163,8 +163,8 @@ function runSession({
             // one working tree. No per-agent git-worktree isolation, BY DESIGN: faster and simpler.
             // The trade-off: concurrent builders editing overlapping/adjacent files can race (one's
             // half-applied edit fails the other's verify gate, or clobbers its writes). We accept that
-            // residual and mitigate it in the orchestrator's dispatch rules (orchestrator.md →
-            // "Concurrent builders share one working tree"), not with isolation here.
+            // residual and mitigate it in the dispatch rules (the `pipeline-dispatch` skill → "One
+            // builder at a time", and the flow's build.md / plan.md), not with isolation here.
             cwd: PROJECT_DIR,
             env: SESSION_ENV, // lifts the 600s Bash timeout — see SESSION_ENV above
             // The framework's agents/skills/hooks come from the plugin (single source of truth),

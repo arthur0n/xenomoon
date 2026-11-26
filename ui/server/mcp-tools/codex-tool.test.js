@@ -8,7 +8,8 @@
 // the tool spawns one process and reads its stdout — so stubbing it covers the real path.
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -55,7 +56,7 @@ function makeSend() {
 
 /** Call the tool and return its text result. Optional keys are spread in explicitly because the
  * SDK's InferShape keeps them required-as-`| undefined` (same trick as hermes-tool.test.js).
- * @param {{ kind?: "review" | "adversarial-review" | "audit", base?: string, scope?: "auto" | "working-tree" | "branch", focus?: string, cwd?: string, effort?: "low" | "medium" | "high" | "xhigh" }} input
+ * @param {{ kind?: "review" | "adversarial-review" | "audit", base?: string, scope?: "auto" | "working-tree" | "branch", focus?: string, cwd?: string, effort?: "low" | "medium" | "high" | "xhigh", design?: string, only?: string }} input
  * @param {(o: OutMsg) => void} send @returns {Promise<string>} */
 async function run(input, send) {
   const t = makeCodexTool(send);
@@ -67,6 +68,8 @@ async function run(input, send) {
       focus: undefined,
       cwd: undefined,
       effort: undefined,
+      design: undefined,
+      only: undefined,
       ...input,
     },
     {},
@@ -362,4 +365,225 @@ test("Codex switched off returns a setup answer and spawns nothing", async () =>
   const text = await run({ kind: "review" }, send);
   assert.match(text, /Codex is off/);
   assert.equal(msgs.length, 0, "no feed rows for a call that never ran");
+});
+
+// ── design attack (adversarial-review + design) and restrictive re-check (audit + only) ──────
+// These need the EXACT argv array, not a space-joined echo, so this stub records it as JSON to a
+// marker file. The file's absence after a call is the proof that nothing spawned.
+const ARGV_FILE = path.join(TMP, "argv.json");
+
+/** Like installStub, but records argv (as a JSON array) to ARGV_FILE.
+ * @param {unknown} payload */
+function installRecorder(payload) {
+  rmSync(ARGV_FILE, { force: true });
+  writeFileSync(
+    STUB,
+    `import { writeFileSync } from "node:fs";\n` +
+      `writeFileSync(${JSON.stringify(ARGV_FILE)}, JSON.stringify(process.argv.slice(2)));\n` +
+      `process.stdout.write(${JSON.stringify(JSON.stringify(payload))});\n`,
+    "utf8",
+  );
+}
+
+/** The argv the last recorded spawn received. @returns {string[]} */
+function recorded() {
+  const v = /** @type {unknown} */ (JSON.parse(readFileSync(ARGV_FILE, "utf8")));
+  assert.ok(Array.isArray(v), "recorded argv is an array");
+  return v.map(String);
+}
+const sha = (/** @type {string} */ s) => createHash("sha256").update(s).digest("hex");
+const TASK_HEAD = ["task", "--cwd", PROJECT_DIR, "--effort", "high", "--json"];
+
+test("design: rides the task verb with the design rubric, never a review flag", async () => {
+  installRecorder({ status: "completed", rawOutput: "TOTAL: 0 findings (0 P0, 0 P1, 0 P2, 0 P3)" });
+  await run(
+    { kind: "adversarial-review", design: "Add a cache.", base: "main", scope: "branch" },
+    makeSend().send,
+  );
+  const argv = recorded();
+  assert.deepEqual(argv.slice(0, 6), TASK_HEAD, "exact verb and flags");
+  assert.equal(argv.length, 7, "the prompt is ONE argv string");
+  for (const f of ["--write", "--background", "--base", "--scope"])
+    assert.ok(!argv.includes(f), `no ${f}`);
+  const prompt = String(argv[6]);
+  assert.ok(prompt.startsWith("You are attacking a DESIGN"), "the rubric opens the prompt");
+  assert.match(prompt, /verify every fact it states/);
+  assert.match(prompt, /Never write, edit or create any file/);
+  assert.match(prompt, /\[P0\] data loss, a security hole/, "the shared ladder");
+  assert.match(prompt, /TOTAL: <n> findings/, "the shared trailer");
+  assert.ok(!prompt.includes("You are auditing code"), "not the audit opening");
+});
+
+test("design: the text arrives byte-for-byte — multibyte, quotes, newlines, leading dash", async () => {
+  installRecorder({ status: "completed", rawOutput: "ok" });
+  const design = `-x --write first line\nçãé 漢字 🚀 "double" 'single' \`tick\`\n\n  -- end\\n\n  \n`;
+  await run({ kind: "adversarial-review", design }, makeSend().send);
+  const prompt = String(recorded()[6]);
+  assert.ok(prompt.includes(`--- DESIGN ---\n${design}\n--- END DESIGN ---`), "design intact");
+});
+
+test("design: focus is appended; receipt and park come from the audit's prose path", async () => {
+  const prose =
+    '## [P1] Cache never expires\n- where: design: "keep forever"\n\nTOTAL: 1 findings (0 P0, 1 P1, 0 P2, 0 P3)';
+  installRecorder({ status: "completed", threadId: "th_d", rawOutput: prose });
+  const text = await run(
+    { kind: "adversarial-review", design: "keep forever", focus: "expiry" },
+    makeSend().send,
+  );
+  assert.match(
+    String(recorded()[6]),
+    /Weight these areas first, but attack the whole design: expiry\./,
+  );
+  assert.match(text, /^TOTAL: 1 findings \(0 P0, 1 P1, 0 P2, 0 P3\)$/m, "TOTAL headline");
+  assert.match(text, /Cache never expires/);
+  assert.ok(!/verdict:/.test(text), "not the structured receipt");
+  const file = String(/full review: (.+)$/m.exec(text)?.[1]);
+  assert.match(file, /-design\.md$/);
+  assert.match(readFileSync(file, "utf8"), /Cache never expires/);
+});
+
+test("design: over 64 KB in UTF-8 bytes is refused before any spawn; 64 KB exactly runs", async () => {
+  installRecorder({ status: "completed", rawOutput: "ok" });
+  const before = parked().length;
+  const { send, msgs } = makeSend();
+  // "é" is 2 bytes: 32769 chars = 65538 bytes — under the limit in chars, over it in bytes.
+  const text = await run({ kind: "adversarial-review", design: "é".repeat(32769) }, send);
+  assert.match(
+    text,
+    /design is 65538 bytes; the limit is 65536 bytes \(64 KB\)\. Nothing was run\./,
+  );
+  assert.ok(!existsSync(ARGV_FILE), "no spawn");
+  assert.equal(msgs.length, 0, "no feed rows");
+  assert.equal(parked().length, before, "no park file");
+
+  await run({ kind: "adversarial-review", design: "é".repeat(32768) }, makeSend().send);
+  assert.ok(existsSync(ARGV_FILE), "exactly 65536 bytes is allowed");
+});
+
+test("design: design + focus are bounded together — a small design with a huge focus is refused", async () => {
+  installRecorder({ status: "completed", rawOutput: "ok" });
+  const before = parked().length;
+  const { send, msgs } = makeSend();
+  const text = await run(
+    { kind: "adversarial-review", design: "x", focus: "x".repeat(500000) },
+    send,
+  );
+  assert.equal(
+    text,
+    "design + focus is 500001 bytes (design 1, focus 500000); the limit is 65536 bytes " +
+      "(64 KB) for both together. Nothing was run. Shorten the design text or the focus, or " +
+      "attack it in parts.",
+  );
+  assert.ok(!existsSync(ARGV_FILE), "no spawn");
+  assert.equal(msgs.length, 0, "no feed rows");
+  assert.equal(parked().length, before, "no park file");
+});
+
+test("design on another kind is refused, naming adversarial-review; nothing spawns", async () => {
+  for (const kind of /** @type {const} */ (["review", "audit"])) {
+    installRecorder({ status: "completed", rawOutput: "ok" });
+    const { send, msgs } = makeSend();
+    const text = await run({ kind, design: "a design" }, send);
+    assert.equal(
+      text,
+      `design is read only by kind:"adversarial-review" (a design attack); this call is ` +
+        `kind:"${kind}". Nothing was run. Call again with kind:"adversarial-review" and design.`,
+    );
+    assert.ok(!existsSync(ARGV_FILE), `no spawn for ${kind}`);
+    assert.equal(msgs.length, 0);
+  }
+});
+
+test("only on another kind is refused, naming audit; nothing spawns", async () => {
+  for (const kind of /** @type {const} */ (["review", "adversarial-review"])) {
+    installRecorder({ status: "completed", rawOutput: "ok" });
+    const { send, msgs } = makeSend();
+    const text = await run({ kind, only: "the fix" }, send);
+    assert.equal(
+      text,
+      `only is read only by kind:"audit" (a re-check after a fix); this call is ` +
+        `kind:"${kind}". Nothing was run. Call again with kind:"audit" and only.`,
+    );
+    assert.ok(!existsSync(ARGV_FILE), `no spawn for ${kind}`);
+    assert.equal(msgs.length, 0);
+  }
+});
+
+test("empty or whitespace design/only count as absent — old argv, no refusal", async () => {
+  installRecorder({ result: { verdict: "approve", findings: [] } });
+  await run({ kind: "adversarial-review", design: "  \n\t ", focus: "f" }, makeSend().send);
+  assert.deepEqual(recorded(), ["adversarial-review", "--cwd", PROJECT_DIR, "--json", "f"]);
+
+  installRecorder({ codex: { status: 0, stdout: "fine" } });
+  await run({ kind: "review", design: "", only: "   " }, makeSend().send);
+  assert.deepEqual(recorded(), ["review", "--cwd", PROJECT_DIR, "--json"]);
+
+  installRecorder({ status: "completed", rawOutput: "ok" });
+  await run({ kind: "audit", only: " " }, makeSend().send);
+  assert.equal(sha(String(recorded()[6])), AUDIT_DEFAULT_SHA, "whitespace only = plain audit");
+});
+
+test("audit + only: a restrictive scope, never 'audit everything in scope'", async () => {
+  installRecorder({ status: "completed", rawOutput: "ok" });
+  await run(
+    {
+      kind: "audit",
+      only: "the fix for finding 2 and the callers of what it changed",
+      focus: "the retry loop",
+      base: "main",
+    },
+    makeSend().send,
+  );
+  const argv = recorded();
+  assert.deepEqual(argv.slice(0, 6), TASK_HEAD);
+  const prompt = String(argv[6]);
+  assert.match(
+    prompt,
+    /Scope: ONLY the fix for finding 2 and the callers of what it changed\. Read and report only what is inside this scope; a finding outside it is not reported/,
+  );
+  assert.ok(!prompt.includes("audit everything in scope"), "the exhaustive sentence is gone");
+  assert.ok(!prompt.includes("relative to `main`"), "only replaces the scope sentence");
+  assert.match(prompt, /Weight these areas first: the retry loop\./);
+  assert.ok(prompt.startsWith("You are auditing code"), "still the audit rubric");
+});
+
+// sha256 of the audit prompt as the code at HEAD d0f480d builds it (before `design`/`only`):
+// with no input, and with { focus: "the auth boundary", base: "main" }.
+const AUDIT_DEFAULT_SHA = "467c24d832373cdcd9a07bad8839ea9af0fd3b807027219cbc8eff6133a169f2";
+const AUDIT_FOCUS_BASE_SHA = "4689298170a2aa1a9a95d0b1553db18774367207cc64013b12fb98621c7c6075";
+
+test("calls without the new fields build exactly the argv they built before", async () => {
+  installRecorder({ codex: { status: 0, stdout: "fine" } });
+  await run({ kind: "review", base: "main", scope: "branch" }, makeSend().send);
+  assert.deepEqual(recorded(), [
+    "review",
+    "--cwd",
+    PROJECT_DIR,
+    "--base",
+    "main",
+    "--scope",
+    "branch",
+    "--json",
+  ]);
+
+  installRecorder({ result: { verdict: "approve", findings: [] } });
+  await run({ kind: "adversarial-review", focus: "the save path", base: "main" }, makeSend().send);
+  assert.deepEqual(recorded(), [
+    "adversarial-review",
+    "--cwd",
+    PROJECT_DIR,
+    "--base",
+    "main",
+    "--json",
+    "the save path",
+  ]);
+
+  installRecorder({ status: "completed", rawOutput: "ok" });
+  await run({ kind: "audit" }, makeSend().send);
+  assert.deepEqual(recorded().slice(0, 6), TASK_HEAD);
+  assert.equal(sha(String(recorded()[6])), AUDIT_DEFAULT_SHA, "audit prompt byte-identical");
+
+  installRecorder({ status: "completed", rawOutput: "ok" });
+  await run({ kind: "audit", focus: "the auth boundary", base: "main" }, makeSend().send);
+  assert.equal(sha(String(recorded()[6])), AUDIT_FOCUS_BASE_SHA, "focus + base byte-identical");
 });

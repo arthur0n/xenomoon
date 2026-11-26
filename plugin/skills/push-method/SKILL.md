@@ -2,15 +2,26 @@
 name: push-method
 agents: [senior-analyst]
 domain: universal
-description: The pipeline's push STAGE — verify, then publish. Confirms the working tree is clean, the branch is fast-forward on the intended remote, the target fits the project's branch model, and the recorded verdicts and checks are still green; then runs exactly one `git push <remote> <branch>` and reports what went out. Any problem is FLAGGED and the stage stops — it never fixes, never force-pushes, never merges. Load when dispatched to push, or when a push was refused.
+description: The method of the Publish step — read how far the contract allows, verify, then publish. Confirms the working tree is clean, the branch is fast-forward on the intended remote, the target fits the project's branch model, and the recorded verdicts and checks are still green; then runs exactly one `git push <remote> <branch>` and reports what went out. Any problem is FLAGGED and the step stops — it never fixes, never force-pushes, never merges, never closes the issue. Load when dispatched to publish, or when a push was refused.
 ---
 
 # push-method — verify, then publish
 
+The route and the stops come from `plugin/docs/flow/publish.md`. This skill is the method. When the
+two disagree on route or stops, the checklist decides.
+
 You are the pusher precisely because you are NOT the author. This lane exists for adversarial
 separation: the developer wrote and committed; you judge whether it is safe to publish, and you
 publish only what passes. **A problem is a finding to FLAG in your report — never something you
-fix.** Fixing routes back through the pipeline's owning stage.
+fix.**
+
+## 0. How far
+
+Read the "How far" line of the contract (issue body): pull request opened, merged, or deployed. A
+move counts with what it sets off by itself: find out first whether a merge deploys in this project
+(its CI workflows, its `CLAUDE.md`); if it does, a merge is a deploy. The next move outside what the
+contract allows → stop, report the state **Ready, not published**, and write the comparison on the
+issue.
 
 ## 1. The gate — ONE call, then obey it
 
@@ -64,16 +75,28 @@ human answers it, and a refusal ends the stage with a flagged report.
 Framework work is not pushed with this command. `main` of an install with bound projects
 refuses it; framework fixes are published by `issuekit framework-fix submit`.
 
-## 3. The report — the receipt
+## 3. The pull request
+
+The orchestrator opens it (`issuekit pr <N>`); your report carries the lines its body needs: the
+before and after evidence, and what the Design said about undoing the change. It says `Refs #N`,
+never `Closes`. A merge is not yours:
+the code refuses merge and promote for every worker (`ui/lib/consequential.js` `mergeDecision`);
+report merge-ready, and the orchestrator merges under the project's `policy.merge` when the
+contract allows it.
+
+## 4. The report — the receipt
 
 - remote/branch and the SHA range published (`<old>..<new>`),
 - one line per issue number in the published commits,
 - the checks state you verified in step 6,
-- what happens next mechanically (CI run; on the deploy branch: the deploy and the
-  `fixed-pending-deploy` close path),
+- what happens next mechanically (CI run; on the deploy branch: the deploy). After a push to the
+  deploy branch, watch the run and name the step that failed, if one did; check the run that
+  finished is the one of this change,
+- the issue stays open: only the Proof step closes it. If the project closes issues by itself on
+  deploy (a workflow keyed on `fixed-pending-deploy`), say so before the push,
 - every STOP you hit, flagged with its owning stage.
 
-## 4. What this lane never does
+## 5. What this lane never does
 
-Force-push. Merge or promote. Deploy by hand. Commit, stage or edit anything. Push work it
-authored. Re-run the upstream gates it is checking. Fix what the gate finds — flag it, stop.
+Force-push. Merge or promote. Deploy by hand. Close the issue. Commit, stage or edit anything. Push
+work it authored. Re-run the upstream gates it is checking. Fix what the gate finds — flag it, stop.

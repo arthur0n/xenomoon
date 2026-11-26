@@ -87,7 +87,42 @@ function makeTask(list, spec, now) {
  * @returns {Task[]}
  */
 export function applyOp(op, now) {
+  return applyTaskOp(op, now).list;
+}
+
+/** An open flow task — the durable state of one issue in the flow (see setFlow).
+ * @param {Task | undefined} t @returns {boolean} */
+const isOpenFlow = (t) => t?.kind === "flow" && t.status !== "done";
+
+/** `#84 · Design · …` → "84". */
+const FLOW_TITLE = /^#(\d+)\s*·/;
+/** Canonical issue number: "08" and "8" are the same issue; the whole digit run is
+ * compared, so "8" never matches "84". @param {string | undefined} n @returns {string | undefined} */
+const issueKey = (n) => n?.replace(/^0+(?=\d)/, "");
+const FLOW_SHAPE =
+  '"#<issue> · <step> · <counters>", e.g. "#84 · Design · triage 1/2 · fix 0/3 · agents 5"';
+
+/**
+ * applyOp with the refusal reason. A refused op leaves the board unchanged and is not
+ * written; `error` says why. Every board mutation path (tasks tool, browser task_update)
+ * goes through here, so the flow-task guard lives here and nowhere else.
+ * @param {{ op: string, title?: string, owner?: string, note?: string, status?: string, id?: string, _by?: string, answer?: string, tasks?: Array<{ title?: string, owner?: string, note?: string }> }} op
+ * @param {string} now
+ * @returns {{ list: Task[], error?: string }}
+ */
+export function applyTaskOp(op, now) {
   let list = readTasks();
+  if (op.op === "flow") {
+    const res = setFlow(list, op, now);
+    if (!res.error) writeTasks(res.list);
+    return res;
+  }
+  if ((op.op === "update" || op.op === "remove") && isOpenFlow(list.find((t) => t.id === op.id))) {
+    return {
+      list,
+      error: `op "${op.op}" refused: ${op.id} is an open flow task; only op "flow" changes it (op "flow" with status "done" closes it).`,
+    };
+  }
   if (op.op === "objective") {
     list = setObjective(list, op, now);
   } else if (op.op === "add") {
@@ -125,7 +160,50 @@ export function applyOp(op, now) {
     list = list.filter((t) => t.id !== op.id);
   }
   writeTasks(list);
-  return list;
+  return { list };
+}
+
+/**
+ * The FLOW task of one issue: its step and counters (`#84 · Design · triage 1/2 · …`),
+ * durable across turns like the objective. One open per issue number: setting again
+ * REPLACES the title (same id); `status:"done"` with `#84` (or a full title) closes it.
+ * owner:"agent" so a closed one is pruned like any done agent task; while open, every
+ * other closer and generic update/remove skips or refuses it (isOpenFlow guards).
+ * @param {Task[]} list @param {{ title?: string, note?: string, status?: string, _by?: string }} op @param {string} now
+ * @returns {{ list: Task[], error?: string }} */
+function setFlow(list, op, now) {
+  const title = String(op.title ?? "")
+    .trim()
+    .slice(0, 200);
+  const done = op.status === "done";
+  const m = (done ? /^#(\d+)(?:\s*·|\s*$)/ : FLOW_TITLE).exec(title);
+  if (!m)
+    return {
+      list,
+      error: `op "flow" refused: title must start with "#<issue> ·" — expected ${FLOW_SHAPE}${done ? ' (or just "#84" with status "done")' : ""}.`,
+    };
+  const issue = issueKey(m[1]);
+  const open = list.find((t) => isOpenFlow(t) && issueKey(FLOW_TITLE.exec(t.title)?.[1]) === issue);
+  const note = op.note != null ? String(op.note).slice(0, 500) : undefined;
+  if (done) {
+    if (!open) return { list, error: `op "flow": no open flow task for #${issue}.` };
+    const retitle = FLOW_TITLE.test(title) ? { title } : {};
+    return {
+      list: list.map((t) =>
+        t.id === open.id ? { ...t, ...retitle, status: /** @type {const} */ ("done") } : t,
+      ),
+    };
+  }
+  if (open)
+    return {
+      list: list.map((t) => (t.id === open.id ? { ...t, title, ...(note ? { note } : {}) } : t)),
+    };
+  const task = makeTask(
+    list,
+    { title, note, owner: "agent", status: "in_progress", agent: op._by },
+    now,
+  );
+  return { list: [...list, { ...task, kind: "flow" }] };
 }
 
 /** The one open objective, if the session has one. @param {Task[]} list @returns {Task | undefined} */
@@ -260,8 +338,12 @@ export function addQuestion(question, options, agent, now) {
  * the new list so the caller can broadcast + summarize.
  * @param {string} [agent] @returns {Task[]} */
 export function closeOpenAgentTasks(agent) {
+  // An open flow task is closed only by op "flow" (setFlow), never by a run's close-out.
   const list = readTasks().map((t) =>
-    t.owner === "agent" && t.status !== "done" && (agent == null || t.agent === agent)
+    t.owner === "agent" &&
+    t.status !== "done" &&
+    t.kind !== "flow" &&
+    (agent == null || t.agent === agent)
       ? { ...t, status: /** @type {Task["status"]} */ ("done") }
       : t,
   );
@@ -297,7 +379,13 @@ export function closeStragglerTasks(running, anyBackgroundLive = true) {
   const list = readTasks();
   let changed = false;
   const next = list.map((t) => {
-    if (t.owner !== "agent" || t.status === "done" || t.agent == null || t.agent === "main")
+    if (
+      t.owner !== "agent" ||
+      t.status === "done" ||
+      t.kind === "flow" ||
+      t.agent == null ||
+      t.agent === "main"
+    )
       return t;
     const straggler = t.agent === "background" ? !anyBackgroundLive : !running.has(t.agent);
     if (!straggler) return t;

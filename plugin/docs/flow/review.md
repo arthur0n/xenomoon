@@ -39,7 +39,7 @@ The list is frozen while an issue is in the flow. Every attack is answered: a fi
 Nothing left to fix (no finding at all, or every finding went to the owner's list) → write the pass. The commit hook reads these lines exactly as written:
 
 - The tester posts a comment with the line `## 🧪 QA — PASS` and the line `qa-verified: <output of git rev-parse HEAD>`, and sets the label `qa:pass`.
-- The orchestrator posts the review as a comment with the line `## 🔎 REVIEW — pass` and the line `review-verified: <the same sha>`, and sets the label `review:pass`. Write `pass`, never the reviewer's own word.
+- The review comment carries the line `## 🔎 REVIEW — pass` and the line `review-verified: <the same sha>`, with the label `review:pass`. Write `pass`, never the reviewer's own word. Who posts it: the `senior-analyst`. When Codex did the review, the orchestrator hands it the receipt and it posts the receipt as given, without reviewing again (the orchestrator has no tool to comment on an issue).
 - `[code, not built]` The pass belongs to the exact content reviewed. Until code does it: write the output of `git diff HEAD | shasum` in both comments.
 
 ## Next

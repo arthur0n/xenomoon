@@ -1,6 +1,6 @@
 # Proof
 
-Agent: `uat-runner`. Job: confirm it works in production, the way the Design said. This is the only step that closes an issue.
+Agent: `uat-runner`. Job: confirm it works in production, the way the Design said. This is the only step after which an issue is closed.
 
 ## Do
 
@@ -15,6 +15,6 @@ Agent: `uat-runner`. Job: confirm it works in production, the way the Design sai
 
 ## The answer
 
-- Works → close the issue and show the owner's list of outside findings. DONE.
+- Works → the `uat-runner` reports it with the evidence and closes nothing. The orchestrator closes the issue and its flow task, and shows the owner's list of outside findings. DONE.
 - Does not work → state Proof failed, on the same issue. No new issue. If the Design marked the rollback as safe and the contract allows it, roll back. In every case tell the owner.
 - No proof can be run → the issue stays in Waiting for the proof. A generic check does not count.

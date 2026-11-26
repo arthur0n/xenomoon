@@ -8,4 +8,4 @@ The product-owner also **captures durable business rules**: standing product fac
 
 No code is designed or written here beyond the agreed slice — parked ideas live in each doc's "Later" section.
 
-**Lifecycle: these docs are temporary.** A design doc lives only while its work is in flight. After the slice lands, the orchestrator graduates it (separate, foreground, human-gated): durable facts → `.claude/library/` + index line, the doc → `design/archive/<slug>.md` (never deleted — issues link their PRDs), new path commented on the issue.
+**Lifecycle: these docs are temporary.** A design doc lives only while its work is in flight. Graduation is not a step of an issue. When the owner asks for it after the slice lands, the orchestrator graduates the doc (separate, foreground, human-gated): durable facts → `.claude/library/` + index line, the doc → `design/archive/<slug>.md` (never deleted — issues link their PRDs), new path commented on the issue.

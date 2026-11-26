@@ -23,7 +23,7 @@ One line per item: files, approach, proof, path to production, rollback. The pro
 
 ## The attack
 
-- `[code]` One attack by Codex on the confirmed design, before any code, through the Codex tool. A degraded result is not evidence: report it, do not use it.
+- `[code]` One attack by Codex on the confirmed design, before any code, through the Codex tool: the design text goes in its `design` field. A degraded result is not evidence: report it, do not use it.
 
 ## Stop 2: the owner reads the findings
 

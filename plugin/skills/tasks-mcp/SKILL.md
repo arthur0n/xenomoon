@@ -33,10 +33,15 @@ you need for `update`/`remove`.
 { "op": "update", "id": "t3", "status": "done" }
 { "op": "remove", "id": "t3" }                                               // step turned out unneeded
 { "op": "complete_open" }                                                    // close ALL your open tasks at once
+{ "op": "flow", "title": "#84 · Design · triage 1/2 · fix 0/3 · agents 5" }  // one issue's flow state
+{ "op": "flow", "title": "#84", "status": "done" }                           // close that issue's flow task
 ```
 
 - **`update`/`remove` target a task by `id`** (e.g. `t3`), NOT by title. The id comes from the
   add result / the OPEN list in every tool result. (Updating by title silently does nothing.)
+- **`flow` tasks** (`#<issue> · …`, one open per issue) are not part of your scratchpad:
+  `complete_open`, `update` and `remove` leave an open one untouched, so it may still show OPEN
+  after your self-gate. Only op `flow` changes it, and `flow` with `status: "done"` closes it.
 - `owner`: `"agent"` (default), or `"user"` only for things the human must supply (an asset, a
   decision) — `user` tasks surface in the task / Get Assets modal. `note` is free-text scratchpad.
 
@@ -49,7 +54,7 @@ verify pass above, never instead of it:
 { "op": "complete_open" } // marks every task you own done, in one call
 ```
 
-Then check the result: it must show **no OPEN tasks** of yours. `complete_open` is idempotent and
+Then check the result: it must show **no OPEN tasks** of yours (an open `flow` task excepted). `complete_open` is idempotent and
 needs no ids — one call closes your whole scratchpad, so closing can never be half-done. (The
 server also closes your tasks automatically when your run finishes, but call `complete_open`
 yourself so the board is clean the instant you hand off, not a moment later.) Prefer one

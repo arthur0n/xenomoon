@@ -12,12 +12,8 @@ authoritative, never guess them.
 
 - **Bigger than one slice or one session** → chart a **xeno-epic FIRST** per the spine's
   epic rule (the `xeno-epic` skill); its slices then enter the routing below one at a time.
-- **Implementation with agreed small scope** (a PRD slice, a spec, a settled trivial
-  change) → **`implement`** — the CORE implement stage, the pipeline's one Edit/Write builder.
-  Brief it whole ("implement <slice>: <spec path>"); discovery belongs to it.
-- **Bug / symptom** — the spine owns this route (`triage` → `solution` → `implement`). The
-  only expo delta: if the cause is really about what the thing _should_ do, `product-owner`
-  comes first.
+- **An issue** (bug or new behaviour) — the spine owns this route: the flow in
+  `plugin/docs/flow/`.
 - **A framework defect** (a hook, a gate, the server, a CORE skill) is not worked around in the
   project and is not committed on the install's `main`. Fix it on a branch with
   `issuekit framework-fix start <slug>`, then publish it with
@@ -49,7 +45,8 @@ authoritative, never guess them.
 - **Acceptance check** (does the running app actually behave) → **the
   `uat-runner`**. It drives the project's Maestro flows against an already-running app
   on a booted Simulator/emulator — it never boots servers, never rebuilds, never
-  automates a real sign-in form. A UAT failure files new feedback; it gates nothing.
+  automates a real sign-in form. For an issue it is the Proof step (`plugin/docs/flow/proof.md`):
+  a failed proof is the state Proof failed on the same issue, never a new issue.
   **Never merge or edit the tree while a UAT run is live on it** (hot-reload flakes the
   flows). Dispatch it per platform (default iOS; `android` for the emulator lane).
 

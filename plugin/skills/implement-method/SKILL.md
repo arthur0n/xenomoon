@@ -2,99 +2,86 @@
 name: implement-method
 agents: [developer]
 domain: universal
-description: The implement stage's method — read the ANALYSIS spec (and a PRD's Acceptance when one exists), build exactly that, PROVE it with the project's own validate/build/test plus the regression test the spec named, label `implemented`, and hand back uncommitted. Load when implementing a solution-ready issue.
+description: The method of the Build step and the fix rounds of the Fix step — read the confirmed Design (`## 🔬 ANALYSIS`) and the next piece of the Plan (in Fix, the open findings), build exactly that, PROVE it with the project's own commands plus the red-then-green test, mark the piece finished, and hand back uncommitted. Load for Build or a fix round.
 ---
 
-# Implement — the method
+# Build and fix rounds — the method
 
-The spec is the `## 🔬 ANALYSIS` comment the solution stage left: **FIX / STEPS / WATCH / TEST /
-TESTABILITY / SHIP**. Your job is to make exactly that true, prove it with the project's own
-commands, and hand back — uncommitted.
+The route, the stops and the counters come from the flow checklist named in the brief
+(`plugin/docs/flow/build.md` or `plugin/docs/flow/fix.md`). This skill is the method. When the two
+disagree on route or stops, the checklist decides.
 
-## 0. Gate
+## 0. The input
 
-No `solution-ready` label and no ANALYSIS on the issue → stop and say it needs `solution`
-first. Building from an unproven cause is what the stage before you exists to prevent; doing it
-anyway silently discards that protection.
+No `## 🔬 ANALYSIS` on the issue that the owner confirmed at Design → stop and say so: building
+from a design nobody confirmed discards the step before you.
 
-Already `implemented` and not a forced re-run → report that and stop.
-
-## 1. Read the spec — the LATEST analysis, not the whole thread
-
-Your spec is the issue body plus the **latest** ANALYSIS; everything older is prior-stage chatter.
-Trim deterministically and keep head+tail of long comments — the spec fields sit at the END of an
-analysis, so a head-only cap would delete exactly what you need:
+Read the issue body (the contract) and the **newest** ANALYSIS, trimmed head and tail because the
+spec fields sit at the end:
 
 ```bash
 issuekit show <N> --digest --lane analysis
 ```
 
-(`issuekit` = the shipped path your prompt names.) That prints labels, the body and the NEWEST
-`## 🔬 ANALYSIS`, capped head+tail at 8000 chars (2500 head / 4500 tail) with the elision named —
-the same trim this skill used to do by hand with jq. `--full` lifts the cap if the elision took
-a field you need.
+(`issuekit` = the shipped path your prompt names; `--full` lifts the cap if a field was elided.)
+Then the `## 📋 PLAN` comment: your work is its next unfinished piece. In a fix round the open
+findings of the review are the fix list, and nothing else is.
 
-**A linked PRD is also your spec.** If the issue carries a `**PRD:**` line, its **Acceptance**
-block is what you build to — unchanged, because the QA stage grades against that same text. Two
-readings of one Acceptance is how generator and judge drift apart.
+A linked PRD (`**PRD:**` line) is also your spec: build to its **Acceptance** unchanged, because QA
+grades against the same text.
 
-## 2. Build exactly that
+## 1. Build one piece
 
-In the right package, to the project's conventions, smallest diff that fully fixes it. Reuse the
-project's existing helpers rather than adding new ones.
+One piece at a time, in the Plan's order. In the right package, to the project's conventions, the
+smallest diff that does it, reusing the project's existing helpers.
 
-**If the spec is wrong or incomplete, do the CORRECT thing and flag the deviation loudly** in your
-report. Silent divergence is worse than a wrong spec: the next stage grades against a spec nobody
-updated. Never expand scope on your own authority — a bigger fix is a new slice.
+**If the design is wrong or incomplete, do the correct thing and flag the deviation first in your
+report**: it is the one part nobody reviewed. Work bigger than the contract → stop and say so; a
+new issue needs the owner's word.
 
-## 3. Prove it — with the project's own commands
+## 2. Prove it — with the project's own commands
 
-Not assumed ones: read the project's `CLAUDE.md` command list. All must be green.
+Read the project's `CLAUDE.md` command list; all must be green for every package you touched.
 
-- **validate** (type-check + lint at zero warnings + unit tests) — nothing is "done" while it fails.
-- **build**.
-- **The regression test the spec's TESTABILITY named**, including any small extract-to-pure-function
-  refactor it specified. It must **flip red → green**: a test that passes against the pre-fix code
-  guards nothing. Skip only when the spec explicitly marked the bug not-automatable.
-- **Schema change** → generate the migration with the project's tool, **read the SQL**, commit it
-  alongside, and add the scope entry for any new user-owned table. Never hand-apply SQL.
+- **validate** (type-check, lint at zero warnings, unit tests) and **build**.
+- **The test the spec's TESTABILITY named**, including any extract-to-pure-function refactor it
+  specified. It goes **red without the change and green with it**: a test that passes on the old
+  code guards nothing. Skip only when the spec marked it not automatable.
+- **Schema change** → generate the migration with the project's tool, read the SQL, ship it with
+  the code, add the scope entry for any new user-owned table. Never hand-apply SQL.
 
-**Never weaken a check to go green** — not a skipped test, not a disabled lint rule, not a widened
-type. The gate exists because green-by-weakening is indistinguishable from green-by-fixing at the
-moment it happens, and only one of them ships working code.
+**Never weaken a check to go green**: no skipped test, no disabled lint rule, no widened type.
+Green by weakening looks the same as green by fixing at the moment it happens.
 
-**Never add or remove a dependency** unless the spec names that exact package. A new dep is a
-design decision, it often crosses a rebuild/lockfile boundary, and a dirtied lockfile cannot be
-cleaned from inside the pipeline (destructive git is gated). Tests use the project's existing runner.
+**Never add or remove a dependency** unless the design names that exact package: a new dependency
+is a design decision and dirties a lockfile the pipeline cannot clean.
 
-## 4. Label and hand back
+No secrets, no `.env` values, no hand-edited generated files.
 
-Label `implemented` once validate + build + test are green and the regression test is in place —
-that label is what the QA sweep looks for. If the edit fails on a missing label, say which one;
-never silently drop it.
+Red after the piece → fix once. Still red → stop with the red check, and count the one fix on the
+issue.
 
-**Do not commit, push, or open a PR.** The pipeline's commit stage commits (after QA and review
-pass, the commit gate enforces it) and the push stage publishes — never the author. Leave the
-change in the working tree.
+## 3. Record and hand back
 
-## 5. Report
+Mark the piece finished on the issue (tick it in `## 📋 PLAN`) and on the board (`mcp__ui__tasks`).
+When the last piece is green, label `implemented` as a record; a label that does not exist fails
+the edit, so say which.
 
-- **Files changed** — one line each — and a 2–3 line summary of the fix.
-- **Verification** — the validate/build result, the test added and its red→green status.
-- **Ship path** — what deploy it needs, whether a migration rides along.
-- **Any deviation** from the spec, any security/scoping surface touched, follow-ups, issue URL.
+**Do not commit, push, or open a PR.** Leave the change in the working tree.
 
-**Definition of done is DEPLOY-GATED.** You produce an implemented change awaiting QA → review →
-commit → deploy. Never report an issue as "fixed" or "done": deploy-gated issues have silently
-stayed open for weeks when this was treated as a footnote.
+## 4. Report
 
-**Backgrounded?** Your last action is the `agent-report` protocol — write the full report to
+- **Files changed**, one line each, and a 2–3 line summary.
+- **Verification**: the commands and their result, the test added and its red-then-green status.
+- **Ship path**: what deploy it needs, whether a migration rides along.
+- **Any deviation** from the design, any security or scoping surface touched, follow-ups, issue URL.
+
+Never report the issue as fixed or done: done is the Proof step.
+
+**Backgrounded?** Your last action is the `agent-report` protocol: write the full report to
 `.xenomoon/handoffs/<slug>.md` with the gate line FIRST, then files, done, caveats, blocked. Write
-it last so it reflects final state; the relayed result is just `<path> — gate PASS|FAIL`.
+it last so it reflects the final state; the relayed result is just `<path> — gate PASS|FAIL`.
 
-**Language: the project's, not yours by default.** Where the project's own instructions state a
-language for what it writes to its tracker, write the PROSE in that language. Absent any such
-statement, English.
-
-**The structure is never translated**: the `implemented` label stays exactly as written — pipeline-dispatch queues on it BOTH ways (implement takes `solution-ready` and not `implemented`; QA takes `implemented` with no `qa:*`), so a translated one leaves the issue invisible to QA and permanently re-offered for implementation. The upstream `## 🔬 ANALYSIS` field names you are building against are structure too. A translated heading or label is a record the
-gates and queues cannot see — literal matching is how every stage after this one finds your work.
+**Language: the project's.** Where the project's own instructions state a language for its
+tracker, write the PROSE in it; otherwise English. The `implemented` label, the `## 🔬 ANALYSIS`
+and `## 📋 PLAN` headings and their field names stay as written: code finds them by literal match.

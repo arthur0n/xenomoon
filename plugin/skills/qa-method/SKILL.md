@@ -2,54 +2,46 @@
 name: qa-method
 agents: [tester]
 domain: universal
-description: The QA gate's method — re-run the project's own gates for every package the diff touches, assert the regression test the spec named EXISTS and actually guards the bug, and post a SHA-bound PASS/BLOCKED verdict. Load when QA-ing an implemented issue.
+description: The tester's method in the Build, Review and Fix steps — re-run the project's own checks for every package the change touches, judge the test the design named (it exists, runs the bug's path, would be red before the change), and, when the brief asks for the pass, post the SHA-bound `## 🧪 QA — PASS | BLOCKED` comment with the content fingerprint. Load for a per-piece check, the pass at Review, or a re-check after a fix round.
 ---
 
 # QA — the method
 
-You are the gate, not a second opinion. A green build is not a pass: the load-bearing check is
-whether the bug can come back unnoticed.
+The route, the stops and the counters come from the flow checklist named in the brief
+(`plugin/docs/flow/build.md`, `review.md` or `fix.md`). This skill is the method. When the two
+disagree on route or stops, the checklist decides.
 
-## 0. Gate — the NEWEST verdict decides, and it is a comment, not a label
+A green build is not a pass: the load-bearing check is whether the bug can come back unnoticed.
 
-Capture `git rev-parse HEAD`, then read **the newest comment in the QA lane** — the last one whose
-header is `## 🧪 QA —`. That comment is the verdict; labels are a summary of it that can go stale
-(a comment posts, its label edit fails, and the issue reads green while the verdict says otherwise).
+## 0. Which moment
 
-```bash
-issuekit show <N> --digest --lane qa
-```
+- **After a piece in Build** → §2 and §3 for the packages the piece touched, then mark the piece
+  finished. No comment, no label: report the result to your caller.
+- **The pass at Review, or a re-check after a fix round** → the whole method, ending in §5. Run it
+  whenever the brief asks, even when an earlier comment says PASS at the same HEAD: after a fix HEAD
+  does not move, and the earlier verdict covers other content.
 
-- Newest verdict is **PASS** and its `qa-verified: <sha>` equals HEAD → post nothing, report
-  `already QA'd at <short sha> — skipped`.
-- Newest verdict is **BLOCKED** → route back to the implement stage, unforced, **whatever the
-  labels say**. A `qa:pass` label sitting next to a newer block means an edit failed, not that the
-  fix recovered — and treating the label as truth is how a blocked fix gets nudged forward.
-- Newest verdict is a **PASS at a different SHA**, or there is no verdict → **QA it now**,
-  unforced. The code moved under the pass; a pass earned on other code is not a pass on this one.
-- `--force` re-runs regardless.
+Read the newest QA comment for context (`issuekit show <N> --digest --lane qa`); it is the verdict,
+the labels are a summary of it that can go stale.
 
-No `implemented` label → stop and say the issue needs implementing first.
+## 1. What the pass does
 
-## 1. What your verdict does — read this once
+The commit gate allows a commit only on `qa:pass` plus a `qa-verified:` marker at HEAD in the newest
+QA comment, and projects wire their deploy to `qa:pass`. A pass on a red check or a missing test
+ships it.
 
-**Your label is the deploy switch.** Projects wire their deploy workflow to refuse any commit
-referencing `(#N)` unless issue N is `qa:pass` and not `qa:blocked`. So `qa:pass` on a red gate, or
-on a missing regression test, doesn't just misreport — it ships. Treat the label as the act it is.
+## 2. Read the design and find the change
 
-## 2. Read the spec and find the change
+Read the issue, the `## 🔬 ANALYSIS` design (its **TESTABILITY** field names the test that must
+exist), the Plan piece, and the developer's report. Then the change itself: `git status --porcelain`,
+`git diff --stat`, `git diff`; separate changed **source** from changed **tests**.
 
-Read the issue, the `## 🔬 ANALYSIS` spec (its **TESTABILITY** field names the test that must
-exist), and the implementer's report. Then find the change itself — `git status --porcelain`,
-`git diff --stat`, `git diff` — and separate changed **source** from changed **tests**.
+The change is the **uncommitted working tree**. A clean tree, or one holding nothing related, is a
+BLOCK: say the Build step left no change.
 
-QA runs against the **uncommitted working tree** the implement stage left. A clean tree, or one
-holding nothing related, is a BLOCK: say the implement stage left no change.
+For what else the change can break, `graphify affected "<changed-file>"`, not a text search.
 
-For blast radius, ask the graph rather than grepping: `graphify affected "<changed-file>"` names
-what else the change can break, which is where a missing regression test usually hides.
-
-## 3. Re-run the project's gates — every package the diff touches
+## 3. Re-run the project's checks — every package the change touches
 
 Use **this project's own commands** (its `CLAUDE.md` command list), never assumed ones, and never a
 bare compiler binary. Do not skip a touched package because another one passed.
@@ -57,79 +49,66 @@ bare compiler binary. Do not skip a touched package because another one passed.
 - **validate** (type-check + lint at zero warnings + unit tests)
 - **build**
 - **test**, when the project separates it from validate
-- **smoke / integration** — required when the fix touches a data path (scoping, transactions, a
-  read/write). Skip only when the spec's SHIP/TESTABILITY make clear there is no data path.
+- **smoke / integration** — required when the change touches a data path (scoping, transactions, a
+  read/write). Skip only when the design's SHIP/TESTABILITY make clear there is no data path.
 
-Any red → BLOCKED. Do not weaken, skip, or `--if-present`-dodge a failing gate to reach a pass, and
-never report a run you did not execute.
+Any red → BLOCKED. Do not weaken, skip, or `--if-present`-dodge a failing check, and never report a
+run you did not execute.
 
-## 4. Assert the regression test EXISTS and GUARDS the bug
+## 4. Judge the test the design named
 
-This is why the stage exists; everything above is table stakes.
-
-- It must **exist** — find the file and the test name the spec's TESTABILITY field promised.
-- It must **exercise the bug's path** — read it, don't count it. A test that passes without
-  touching the fixed code guards nothing.
-- Sanity it against the cause: would it have been **red before the fix**? Reason it through from
-  the spec's REAL CAUSE. If you cannot establish that statically, say so rather than implying it.
-- The only allowed absence is a spec that **explicitly** marked the bug not-automatable.
+- It must **exist**: find the file and the test name TESTABILITY promised.
+- It must **exercise the bug's path**: read it, don't count it. A test that passes without touching
+  the changed code guards nothing.
+- It would have been **red before the change**: reason it through from the design's cause. If you
+  cannot establish that statically, say so rather than implying it.
+- The only allowed absence is a design that **explicitly** marked it not automatable.
 
 Missing test, or a test that guards nothing → **BLOCKED**, however green the commands were.
 
-**When the issue links a PRD**, its **Acceptance** block is your rubric — consumed UNCHANGED, the
-same text the implementer built against. Re-interpreting it is how the judge and the generator
-drift apart.
+**When the issue links a PRD**, its **Acceptance** block is your rubric, unchanged: the developer
+built against the same text.
 
-## 5. Write-back
+## 5. The comment
 
-Terse, scannable, one line per field. Write to a temp file and post it.
+Terse, one line per field. Write to a temp file and post it.
 
 ```
 ## 🧪 QA — PASS | BLOCKED
 
 **GATES:** validate <ok/fail> · build <ok/fail> · test <ok/fail> · smoke <ok/fail/n-a>
 **REGRESSION TEST:** <path::name> — <guards the bug: yes/no + one line how> | not-automatable per spec
-**TREE:** <holds the fix / clean / unrelated changes>
-**BLOCKERS:** <only when BLOCKED — each failing gate or the missing/weak test, one line each>
+**TREE:** <holds the change / clean / unrelated changes>
+**CONTENT:** <output of: git diff HEAD | shasum>
+**BLOCKERS:** <only when BLOCKED — each failing check or the missing/weak test, one line each>
 
 ---
 *QA gate · tester · <output of: git rev-parse --short HEAD>*
 qa-verified: <output of: git rev-parse HEAD>      ← PASS ONLY
 ```
 
-**The marker depends on the verdict, and this is a safety property, not bookkeeping:**
+**The marker depends on the verdict:**
 
 - **PASS** → last line is `qa-verified: <full sha>`.
 - **BLOCKED** → last line is `qa-blocked-at: <full sha>` instead. **Never emit `qa-verified:` on a
   BLOCKED verdict.**
 
-`qa-verified:` is what the commit gate reads as proof this code passed. If a BLOCKED comment also
-carried it, one partial failure would be enough to ship a blocked fix: the comment posts, the label
-edit then fails (a missing label, a `gh` hiccup) leaving a stale `qa:pass` from an earlier run, and
-the gate would see `qa:pass` + a matching newest `qa-verified` at HEAD and allow the commit QA had
-just refused. Distinct markers make that impossible rather than unlikely.
+The commit gate reads `qa-verified:` as proof this code passed. If a BLOCKED comment carried it, a
+failed label edit beside a stale `qa:pass` would let a blocked change commit. `qa-blocked-at:`
+records which code you judged and carries no authority at the gate.
 
-`qa-blocked-at:` still records which code you judged, so a re-run at the same SHA is recognisable —
-it simply carries no authority at the gate.
+**CONTENT** is the fingerprint the Commit step compares before staging: HEAD does not move during
+Build and Fix, the content does.
 
 **Label BEFORE you post when the verdict is BLOCKED.** The label is the block; the comment is the
-explanation. Doing it in that order means an interrupted run leaves the issue blocked-without-detail
-rather than explained-but-unblocked.
-
-**Race backstop:** re-check the labels immediately before writing. If a verdict appeared while you
-were running and this is not a forced run, post nothing and say so — only the first finisher writes.
+explanation, so an interrupted run leaves the issue blocked, not explained-but-unblocked.
 
 Then label: exactly one of `qa:pass` / `qa:blocked`, removing the twin. A label that does not exist
 fails the edit — say which one; never silently drop it.
 
-**Language: the project's, not yours by default.** Where the project's own instructions state a
-language for what it writes to its tracker, write the PROSE in that language — a tracker read by
-people who work in Portuguese should not fill up with English because the framework's skills happen
-to be written in it. Absent any such statement, English.
+**Language: the project's.** Where the project's own instructions state a language for its tracker,
+write the PROSE in it; otherwise English. The `## 🧪 QA` heading, the verdict word (PASS / BLOCKED),
+the field names, the `qa-verified:` / `qa-blocked-at:` markers and the `qa:*` labels stay as
+written: the commit gate matches them literally, and a translated heading is a verdict it cannot see.
 
-**The structure is not prose and is never translated**: the `## 🧪 QA` heading, the verdict word (PASS / BLOCKED), its field names (GATES, REGRESSION TEST, TREE, BLOCKERS), the `qa-verified:` / `qa-blocked-at:` markers and the `qa:*` labels stay exactly as written. `PASS` and `BLOCKED` are the values the dispatcher routes on, read literally. The commit gate MATCHES those literally — a translated heading is a verdict the gate cannot see, which is the failure SHA-binding exists to prevent, reintroduced through the front door.
-
-## 6. BLOCKED routes back
-
-A `qa:blocked` verdict sends the issue back to the implement stage, and your blockers are the fix
-list. Say that in your return so the caller knows the next move without re-reading the thread.
+On BLOCKED, your blockers are the fix list; say so in your return.

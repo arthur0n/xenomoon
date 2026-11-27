@@ -18,7 +18,8 @@ Agents: `developer`, then the same reviewer as in Review. Job: close the finding
 
 ## Round three: the diagnosis
 
-- `[judgment]` Is this a gap in the design (it missed a case), or a bad design?
+- `[judgment]` Which of three is it: the code is still wrong and the design holds, a gap in the design (it missed a case), or a bad design?
+  - The code is still wrong, the design holds → state Waiting for the owner, with the open findings. The design is not opened again.
   - A gap → back to Design, for that line only. The budget does not start again: after the new build, a finding that is still open waits for the owner.
   - A bad design → state Waiting for the owner, with the open findings.
 - `[judgment]` Write one lesson line: what would have caught this earlier. Name where it goes: a mechanical mistake → a check; a judgment call → one line in the standards the reviewer reads. It goes to the project's lessons queue. It becomes an issue only on the owner's word.

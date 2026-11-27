@@ -33,15 +33,20 @@ you need for `update`/`remove`.
 { "op": "update", "id": "t3", "status": "done" }
 { "op": "remove", "id": "t3" }                                               // step turned out unneeded
 { "op": "complete_open" }                                                    // close ALL your open tasks at once
-{ "op": "flow", "title": "#84 · Design · triage 1/2 · fix 0/3 · agents 5" }  // one issue's flow state
-{ "op": "flow", "title": "#84", "status": "done" }                           // close that issue's flow task
+{ "op": "flow", "issue": 84 }                                                // issue enters the flow at Screening
+{ "op": "flow", "issue": 84, "to": "design" }                                // one call per step change
+{ "op": "flow", "issue": 84, "to": "done" }                                  // from proof only: closes it
 ```
 
 - **`update`/`remove` target a task by `id`** (e.g. `t3`), NOT by title. The id comes from the
   add result / the OPEN list in every tool result. (Updating by title silently does nothing.)
-- **`flow` tasks** (`#<issue> · …`, one open per issue) are not part of your scratchpad:
+- **`flow` tasks** (one open per issue) are not part of your scratchpad:
   `complete_open`, `update` and `remove` leave an open one untouched, so it may still show OPEN
-  after your self-gate. Only op `flow` changes it, and `flow` with `status: "done"` closes it.
+  after your self-gate. Only op `flow` changes it: send `issue` and `to` (a step or waiting-state
+  id), never a title or status (refused). The tool keeps the step and counts the triage and fix
+  budgets; it refuses a move the flow does not have and names the allowed ones, and each result
+  starts with where the issue is and its allowed next moves. A first call may name a later step
+  (`to: "review"`) to place an issue already in progress. Only `to: "done"` from proof closes it.
 - `owner`: `"agent"` (default), or `"user"` only for things the human must supply (an asset, a
   decision) — `user` tasks surface in the task / Get Assets modal. `note` is free-text scratchpad.
 

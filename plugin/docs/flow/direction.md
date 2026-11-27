@@ -7,7 +7,7 @@ Facts are your job. Decisions are the owner's.
 
 - `[judgment]` Read first: the issue and its comments, the project's `CLAUDE.md` index, its business rules, what Screening left. Never ask what the repo can answer.
 - `[judgment]` Is enough known to ask good product questions? No → Triage, then come back.
-- `[code, not built]` At most two visits to Triage. After that → state Needs information.
+- `[code]` At most two visits to Triage. The flow task counts them; a third is refused and the issue goes to the state Needs information.
 - `[judgment]` Ask only what the owner alone can decide. One question per round, your recommendation first, options checked against the code, and a free answer.
 - `[judgment]` No technical questions to the owner (tables, modules, routes). Those belong to Design.
 - `[code]` Every question goes through a tool, never plain chat. One decision, one channel.

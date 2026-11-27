@@ -2745,6 +2745,13 @@ input.cmd::placeholder {
   border-color: color-mix(in oklab, var(--blue) 30%, transparent);
 }
 
+/* A flow task — one issue's flow state, stamped in the Moon-Gold identity token. */
+.owner-chip.owner-flow {
+  color: var(--green);
+  background: color-mix(in oklab, var(--green) 12%, transparent);
+  border-color: color-mix(in oklab, var(--green) 30%, transparent);
+}
+
 /* An identified agent task — tinted by its Xenomoon's color. */
 .owner-chip.identified {
   color: var(--agent-color, var(--accent));

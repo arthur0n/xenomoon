@@ -5,10 +5,13 @@
 process.env.XENOMOON_DOMAIN ??= "webapp";
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
+import { rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-// A project dir that does not exist, so the task store reads an empty board and never writes.
-process.env.GAME_DIR = path.join(os.tmpdir(), `xenomoon-no-project-${process.pid}-${Date.now()}`);
+// A project dir that does not exist, so the task store reads an empty board and never writes
+// (only the board task_update tests below seed it, and they remove it again).
+const NO_PROJECT = path.join(os.tmpdir(), `xenomoon-no-project-${process.pid}-${Date.now()}`);
+process.env.GAME_DIR = NO_PROJECT;
 const { handleClientMessage } = await import("./session-client-messages.js");
 const { createChatWindow } = await import("./chat-window.js");
 
@@ -148,4 +151,51 @@ test("validCid accepts 1-64 characters of [A-Za-z0-9_-] and nothing else", () =>
     [{}, undefined],
   ];
   for (const [input, want] of table) assert.equal(validCid(input), want, String(input));
+});
+
+// Board task_update (#108): the browser is the owner's path. It may remove an open flow task,
+// never edit it, and it accepts only the ops the board really sends (update, remove).
+const store = await import("../features/tasks/tasks-store.js");
+
+/** Seed one open flow task (#84, id t1) in the scratch project, run `fn`, then wipe the board.
+ * @param {() => void} fn */
+function withFlowTask(fn) {
+  try {
+    store.applyTaskOp({ op: "flow", issue: 84, _by: "main" }, "now");
+    fn();
+  } finally {
+    rmSync(NO_PROJECT, { recursive: true, force: true });
+  }
+}
+
+test("task_update remove from the browser removes an open flow task (the owner's origin)", () => {
+  withFlowTask(() => {
+    const { deps } = makeDeps();
+    assert.equal(store.readTasks()[0]?.kind, "flow");
+    handleClientMessage(raw({ type: "task_update", op: "remove", id: "t1" }), deps);
+    assert.deepEqual(store.readTasks(), []);
+  });
+});
+
+test("task_update update from the browser leaves an open flow task unchanged (status, title, note)", () => {
+  withFlowTask(() => {
+    const { deps } = makeDeps();
+    const before = JSON.stringify(store.readTasks());
+    for (const extra of [{ status: "done" }, { title: "renamed" }, { note: "n" }]) {
+      handleClientMessage(raw({ type: "task_update", op: "update", id: "t1", ...extra }), deps);
+    }
+    assert.equal(JSON.stringify(store.readTasks()), before);
+  });
+});
+
+test("task_update with an op the browser never sends (flow, add, objective, complete_open) is ignored", () => {
+  withFlowTask(() => {
+    const { deps } = makeDeps();
+    const before = JSON.stringify(store.readTasks());
+    handleClientMessage(raw({ type: "task_update", op: "flow", issue: 84, to: "direction" }), deps);
+    handleClientMessage(raw({ type: "task_update", op: "add", title: "forged" }), deps);
+    handleClientMessage(raw({ type: "task_update", op: "objective", title: "aim" }), deps);
+    handleClientMessage(raw({ type: "task_update", op: "complete_open" }), deps);
+    assert.equal(JSON.stringify(store.readTasks()), before);
+  });
 });

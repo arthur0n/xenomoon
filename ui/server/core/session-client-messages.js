@@ -69,6 +69,10 @@ function answerTurn(task) {
   };
 }
 
+/** The task_update ops the browser board really sends (tasks.js: a status toggle or an
+ * answer is "update", the × button is "remove"). Any other op is ignored on this path. */
+const BROWSER_TASK_OPS = new Set(["update", "remove"]);
+
 /** Board mutations that simply mutate a store and rebroadcast: a task status/removal
  * (task_update), a promotion approve/reject (promotion_decide), or running an
  * approved promotion (promotion_run). Split out of handleClientMessage to keep its
@@ -76,12 +80,15 @@ function answerTurn(task) {
  * @param {ClientMsg} msg @param {Send} send @param {InboxLike} inbox @returns {boolean} */
 function handleBoardMessage(msg, send, inbox) {
   if (msg.type === "task_update") {
+    // A hand-made op (flow, add, objective, complete_open…) never reaches the store from here.
+    if (!BROWSER_TASK_OPS.has(msg.op)) return true;
     // Removing a Kimi run's board task IS its interrupt — cancel the ACP run first
     // (no-op for every other task id).
     if (msg.op === "remove" && cancelKimiBoardTask(msg.id)) {
       send({ type: "status", text: "cancelling the Kimi run tied to that task…" });
     }
-    const list = applyOp(msg, new Date().toISOString());
+    // The owner's own click: the one origin allowed to remove an open flow task.
+    const list = applyOp(msg, new Date().toISOString(), { by: "owner" });
     send({ type: "tasks", tasks: list });
     // Push the answer to the orchestrator instead of relying on it to scan the
     // board. Only on an actual answer submission, and only for async questions,

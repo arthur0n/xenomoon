@@ -46,7 +46,8 @@ Only Proof moves an issue to DONE. Done means deployed and confirmed that it is 
 
 - `[judgment]` A blocker that makes the result unusable → state Waiting for the owner. Do not build around it.
 - `[judgment]` A new issue is created only on the owner's word. Something you notice on the way is one line on the owner's list.
-- `[code, not built]` The step, the state, the visits to Triage, the fix rounds and the files of the change are kept by code. The first piece exists: the tasks tool's op `flow` keeps one task on the board per issue that cleanup never closes. The orchestrator still writes its title by hand, `#N · <step or state> · triage n/2 · fix n/3 · agents n`, at every step change. The comment each agent leaves on the issue is the record of its step.
+- `[code]` The step, the state, the visits to Triage and the fix rounds are kept by the tasks tool's op `flow`: one task on the board per issue, moved once at every step change. The tool refuses a move this flow does not have and a round over a budget, and names where the issue goes. Only the owner removes that task. The comment each agent leaves on the issue is the record of its step.
+- `[code, not built]` The files of the change are kept by code. Until then the Design names them and the review reads the real diff.
 - `[judgment]` An issue runs under one flow. For an issue on this flow, older routing text does not apply.
 - `[judgment]` Write to the tracker in the project's language. Headings, markers and label names are never translated: code reads them as written.
 

@@ -4,7 +4,7 @@ Agents: `developer`, then the same reviewer as in Review. Job: close the finding
 
 ## The budget
 
-- `[code, not built]` Three rounds per issue. The orchestrator raises the round on the issue's flow task (tasks tool, op `flow`) at the start of each round and names the round in the brief.
+- `[code]` Three rounds per issue. The flow task counts them: the move into Fix starts round one, and a move from Fix to Fix starts the next. A fourth is refused and the issue goes to Waiting for the owner. Name the round in the brief.
 - Rounds one and two are fixes.
 - Round three is not a fix. It is a diagnosis.
 

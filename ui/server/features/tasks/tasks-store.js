@@ -7,8 +7,20 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { parseJSON } from "../../../lib/json.js";
 import { PROJECT_DIR } from "../../core/config.js";
+import {
+  DISPLAY_NAMES,
+  FIX_LIMIT,
+  TRIAGE_LIMIT,
+  allowedMoves,
+  canonicalIssue,
+  fromLegacyTitle,
+  move,
+  start,
+  title as flowTitle,
+} from "./flow-machine.js";
 
 /** @typedef {import("../../../lib/types.js").Task} Task */
+/** @typedef {import("../../../lib/types.js").FlowState} FlowState */
 
 const OWNERS = new Set(["agent", "user"]);
 const STATUSES = new Set(["pending", "in_progress", "done"]);
@@ -79,50 +91,71 @@ function makeTask(list, spec, now) {
   };
 }
 
+/** Who asked for a board mutation. `by: "owner"` is passed ONLY by the browser board handler
+ * (session-client-messages.js): the owner's click is the one path allowed to remove an open
+ * flow task. Every other caller passes nothing and is treated as not the owner.
+ * @typedef {{ by?: "owner" }} OpOrigin */
+
 /**
  * Apply one mutation and persist. Returns the new list (caller broadcasts it).
  * Unknown ids are ignored so a stale UI click can't throw.
  * @param {{ op: string, title?: string, owner?: string, note?: string, status?: string, id?: string, _by?: string, answer?: string, tasks?: Array<{ title?: string, owner?: string, note?: string }> }} op
  * @param {string} now ISO timestamp (the caller stamps it — keeps this testable)
+ * @param {OpOrigin} [origin] default: not the owner
  * @returns {Task[]}
  */
-export function applyOp(op, now) {
-  return applyTaskOp(op, now).list;
+export function applyOp(op, now, origin = {}) {
+  return applyTaskOp(op, now, origin).list;
 }
 
 /** An open flow task — the durable state of one issue in the flow (see setFlow).
  * @param {Task | undefined} t @returns {boolean} */
 const isOpenFlow = (t) => t?.kind === "flow" && t.status !== "done";
 
-/** `#84 · Design · …` → "84". */
+/** `#84 · Design · …` → "84": how a title-only flow task (written before FlowState) is found. */
 const FLOW_TITLE = /^#(\d+)\s*·/;
-/** Canonical issue number: "08" and "8" are the same issue; the whole digit run is
- * compared, so "8" never matches "84". @param {string | undefined} n @returns {string | undefined} */
-const issueKey = (n) => n?.replace(/^0+(?=\d)/, "");
-const FLOW_SHAPE =
-  '"#<issue> · <step> · <counters>", e.g. "#84 · Design · triage 1/2 · fix 0/3 · agents 5"';
+/** The canonical issue of a flow task: its FlowState, else its `#N ·` title prefix.
+ * @param {Task} t @returns {string | undefined} */
+const flowIssueOf = (t) => t.flow?.issue ?? canonicalIssue(FLOW_TITLE.exec(t.title)?.[1]);
+const FLOW_CALL = '{op:"flow", issue:84, to:"design"}';
+
+/** Why a generic op on a flow task is refused, or undefined. Nobody updates a flow task, open
+ * or done (a done one reopened would duplicate its issue). Only the owner (browser board)
+ * removes an open one; a done one is a finished row anyone may drop.
+ * @param {Task[]} list @param {{ op: string, id?: string }} op @param {OpOrigin} origin
+ * @returns {string | undefined} */
+function flowGuard(list, op, origin) {
+  const target = list.find((t) => t.id === op.id);
+  if (
+    (op.op === "update" && target?.kind === "flow") ||
+    (op.op === "remove" && origin.by !== "owner" && isOpenFlow(target))
+  ) {
+    const what = isOpenFlow(target) ? "an open flow task" : "a flow task";
+    return `op "${op.op}" refused: ${op.id} is ${what}; only op "flow" changes it (op "flow" with to "done", from proof, closes it), and only the owner can remove an open one from the board.`;
+  }
+  return undefined;
+}
 
 /**
  * applyOp with the refusal reason. A refused op leaves the board unchanged and is not
- * written; `error` says why. Every board mutation path (tasks tool, browser task_update)
- * goes through here, so the flow-task guard lives here and nowhere else.
- * @param {{ op: string, title?: string, owner?: string, note?: string, status?: string, id?: string, _by?: string, answer?: string, tasks?: Array<{ title?: string, owner?: string, note?: string }> }} op
+ * written; `error` says why (a flow budget refusal is the one exception: its forced
+ * waiting state IS written). `info` is op "flow"'s status line. Every board mutation
+ * path (tasks tool, browser task_update) goes through here, so the flow-task guard
+ * lives here and nowhere else.
+ * @param {{ op: string, title?: string, owner?: string, note?: string, status?: string, id?: string, _by?: string, answer?: string, issue?: string | number, to?: string, tasks?: Array<{ title?: string, owner?: string, note?: string }> }} op
  * @param {string} now
- * @returns {{ list: Task[], error?: string }}
+ * @param {OpOrigin} [origin] default: not the owner
+ * @returns {{ list: Task[], error?: string, info?: string }}
  */
-export function applyTaskOp(op, now) {
+export function applyTaskOp(op, now, origin = {}) {
   let list = readTasks();
   if (op.op === "flow") {
     const res = setFlow(list, op, now);
-    if (!res.error) writeTasks(res.list);
+    if (res.list !== list) writeTasks(res.list);
     return res;
   }
-  if ((op.op === "update" || op.op === "remove") && isOpenFlow(list.find((t) => t.id === op.id))) {
-    return {
-      list,
-      error: `op "${op.op}" refused: ${op.id} is an open flow task; only op "flow" changes it (op "flow" with status "done" closes it).`,
-    };
-  }
+  const refused = flowGuard(list, op, origin);
+  if (refused) return { list, error: refused };
   if (op.op === "objective") {
     list = setObjective(list, op, now);
   } else if (op.op === "add") {
@@ -163,47 +196,74 @@ export function applyTaskOp(op, now) {
   return { list };
 }
 
+/** The status line of op "flow": where the issue is now and the ids it may move to.
+ * @param {FlowState} s @param {boolean} placed @param {boolean} done @returns {string} */
+function flowLine(s, placed, done) {
+  if (done) return `#${s.issue} is Done; its flow task is closed.`;
+  const name = DISPLAY_NAMES[s.at] ?? s.at;
+  const from = s.from ? ` (from ${DISPLAY_NAMES[s.from] ?? s.from})` : "";
+  const where = placed ? `placed at ${name}` : `is at ${name}${from}`;
+  return `#${s.issue} ${where} (triage ${s.triage}/${TRIAGE_LIMIT}, fix ${s.fix}/${FIX_LIMIT}). Allowed next: ${allowedMoves(s).join(", ") || "none"}.`;
+}
+
+/** The move asked of an open flow task, or why there is none (title-only task upgraded first).
+ * @param {Task} open @param {string} issue @param {string | undefined} to
+ * @returns {{ state?: FlowState, error?: string, done?: boolean }} */
+function moveOpen(open, issue, to) {
+  const current = open.flow ?? fromLegacyTitle(open.title);
+  if (!current)
+    return {
+      error: `op "flow" refused: the open flow task ${open.id} "${open.title}" cannot be read as a flow state; the owner must remove that task before #${issue} can move.`,
+    };
+  if (to == null)
+    return {
+      error: `op "flow" refused: "to" is required once #${issue} is in the flow; it is at ${DISPLAY_NAMES[current.at] ?? current.at}. Allowed: ${allowedMoves(current).join(", ") || "none"}.`,
+    };
+  return move(current, to);
+}
+
 /**
- * The FLOW task of one issue: its step and counters (`#84 · Design · triage 1/2 · …`),
- * durable across turns like the objective. One open per issue number: setting again
- * REPLACES the title (same id); `status:"done"` with `#84` (or a full title) closes it.
- * owner:"agent" so a closed one is pruned like any done agent task; while open, every
- * other closer and generic update/remove skips or refuses it (isOpenFlow guards).
- * @param {Task[]} list @param {{ title?: string, note?: string, status?: string, _by?: string }} op @param {string} now
- * @returns {{ list: Task[], error?: string }} */
+ * The FLOW task of one issue, driven by the flow machine (flow-machine.js): the caller
+ * names the issue and the move (`to`); the machine decides, and the task stores the
+ * FlowState with `title(state)` as its title. One open per canonical issue (found by
+ * `flow.issue`, or by the `#N ·` prefix of a title-only task, which is upgraded on this
+ * first touch). Only `to:"done"` from proof closes it. owner:"agent" so a closed one is
+ * pruned like any done agent task; while open, every other closer and generic
+ * update/remove skips or refuses it (isOpenFlow guards). A refusal returns the same
+ * `list` (not written), except a budget refusal, whose forced waiting state is saved.
+ * @param {Task[]} list @param {{ title?: string, note?: string, status?: string, _by?: string, issue?: string | number, to?: string }} op @param {string} now
+ * @returns {{ list: Task[], error?: string, info?: string }} */
 function setFlow(list, op, now) {
-  const title = String(op.title ?? "")
-    .trim()
-    .slice(0, 200);
-  const done = op.status === "done";
-  const m = (done ? /^#(\d+)(?:\s*·|\s*$)/ : FLOW_TITLE).exec(title);
-  if (!m)
+  if (op.title != null || op.status != null)
     return {
       list,
-      error: `op "flow" refused: title must start with "#<issue> ·" — expected ${FLOW_SHAPE}${done ? ' (or just "#84" with status "done")' : ""}.`,
+      error: `op "flow" refused: it takes no "title" or "status" — the tool keeps the step and counters. Send ${FLOW_CALL}.`,
     };
-  const issue = issueKey(m[1]);
-  const open = list.find((t) => isOpenFlow(t) && issueKey(FLOW_TITLE.exec(t.title)?.[1]) === issue);
-  const note = op.note != null ? String(op.note).slice(0, 500) : undefined;
-  if (done) {
-    if (!open) return { list, error: `op "flow": no open flow task for #${issue}.` };
-    const retitle = FLOW_TITLE.test(title) ? { title } : {};
+  const issue = canonicalIssue(op.issue);
+  if (!issue)
     return {
-      list: list.map((t) =>
-        t.id === open.id ? { ...t, ...retitle, status: /** @type {const} */ ("done") } : t,
-      ),
+      list,
+      error: `op "flow" refused: issue "${op.issue}" is not a number. Send ${FLOW_CALL}.`,
     };
-  }
+  const open = list.find((t) => isOpenFlow(t) && flowIssueOf(t) === issue);
+  const res = open ? moveOpen(open, issue, op.to) : start(issue, op.to);
+  if (!res.state) return { list, error: res.error };
+  const state = res.state;
+  const fields = {
+    flow: state,
+    title: flowTitle(state),
+    ...(op.note != null ? { note: String(op.note).slice(0, 500) } : {}),
+    ...(res.done ? { status: /** @type {Task["status"]} */ ("done") } : {}),
+  };
+  const info = flowLine(state, !open && !!state.placed, !!res.done);
   if (open)
     return {
-      list: list.map((t) => (t.id === open.id ? { ...t, title, ...(note ? { note } : {}) } : t)),
+      list: list.map((t) => (t.id === open.id ? { ...t, ...fields } : t)),
+      error: res.error,
+      info,
     };
-  const task = makeTask(
-    list,
-    { title, note, owner: "agent", status: "in_progress", agent: op._by },
-    now,
-  );
-  return { list: [...list, { ...task, kind: "flow" }] };
+  const task = makeTask(list, { owner: "agent", status: "in_progress", agent: op._by }, now);
+  return { list: [...list, { ...task, ...fields, kind: "flow" }], info };
 }
 
 /** The one open objective, if the session has one. @param {Task[]} list @returns {Task | undefined} */

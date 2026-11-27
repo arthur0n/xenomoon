@@ -102,6 +102,19 @@
 
 // ---------- Tasks (persistent orchestrator to-do board) ----------
 /**
+ * The flow of one issue (plugin/docs/flow/README.md), kept by
+ * ui/server/features/tasks/flow-machine.js. Counters never decrease.
+ * @typedef {object} FlowState
+ * @property {string} issue - canonical issue number, no leading zeros ("8", never "08")
+ * @property {string} at - the step or waiting state the issue is in, or "done"
+ * @property {string} [from] - waiting-owner / needs-information only: where it was entered from
+ * @property {number} triage - visits to Triage (limit 2)
+ * @property {number} fix - fix rounds (limit 3)
+ * @property {boolean} [redesigned] - fix → design was used (allowed once, at round 3)
+ * @property {string} [placed] - the step the issue entered the flow at, when not Screening
+ */
+
+/**
  * A task in the right-rail board, persisted to <project>/.xenomoon/tasks.json.
  * @typedef {object} Task
  * @property {string} id - short slug, e.g. "t3"
@@ -111,6 +124,7 @@
  * @property {string} [note] - optional one-line detail
  * @property {string} [agent] - internal: creating agent ("main" | "background" | a subagent_type), used to close a sub-agent's tasks when it finishes
  * @property {"question" | "objective" | "flow"} [kind] - "question": filed via mcp__ui__ask (async human-gate), renders an answer input; "objective": the human's standing ask for this session, pinned first on the board and echoed first in every tasks-tool result (at most one open); "flow": the state of one issue in the flow (`#84 · step · counters`), one open per issue, changed or closed only by the tasks tool's op "flow"
+ * @property {FlowState} [flow] - flow only: the issue's step, waiting state and counters (ui/server/features/tasks/flow-machine.js)
  * @property {string[]} [options] - question only: suggested answers the user can one-click
  * @property {string} [answer] - question only: the user's answer (set via task_update; the orchestrator relays it)
  * @property {string} created - ISO timestamp

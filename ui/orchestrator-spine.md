@@ -48,17 +48,22 @@ Read `plugin/docs/flow/README.md` once per session.
 - After the step, read the checklist's "Next" and run it yourself. Step names are not commands:
   never tell the user to run one.
 - You stop only at the owner stops the README lists, and ask each through the ask tools below.
-- State: one task per issue on the board, written only with the tasks tool's op `flow`, titled
-  `#N · <step or state> · triage n/2 · fix n/3 · agents n`. Update it at every step change. It
-  survives `complete_open`; close it (op `flow`, status done) only when Proof closes the issue.
-- An issue with no such task and no earlier work: start at Screening.
+- State: the tasks tool's op `flow` holds it, one task per issue on the board. Call it once at
+  every step change with the issue number and the step or state you go to; send no title and no
+  counter. The tool refuses a move the flow does not have and names the allowed ones, and it
+  counts the visits to Triage and the fix rounds itself. A refusal is the answer: go where it
+  says, never around it. Only the owner removes a flow task, on the board.
+- An issue with no such task and no earlier work: the first call starts it at Screening.
 - An issue with no such task that was worked before this flow: read its labels and comments once
-  and place it by the first line that matches. A not-ready verdict of the retired pre-PR stage →
-  state Waiting for the owner: tell the owner the commit hook still blocks on it, do not continue.
+  and place it with the first call, naming the step of the first line that matches (the board
+  then shows "placed at" that step). A not-ready verdict of the retired pre-PR stage →
+  place it at Review, move it to Waiting for the owner, tell the owner the commit hook still
+  blocks on it, and do not continue.
   The newest verdict is a block, or a `qa:blocked` / `review:changes` label → Fix. `qa:pass` and
   `review:pass` both present → Commit. `implemented`, or code built → Review. `solution-ready`,
   or a design with no code → Plan. `triaged`, or a triage record only → Contract. None of these
-  → Screening. A label counts even without its comment. Counters start at zero. What the owner
+  → Screening. A label counts even without its comment. Counters start at zero, except that
+  a placement at Fix is fix round one. What the owner
   already confirmed for built work is not asked again.
 
 ## Routing doctrine (the domain block owns the routing TABLE)

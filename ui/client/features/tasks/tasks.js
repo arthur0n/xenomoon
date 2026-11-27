@@ -109,18 +109,50 @@ function buildAnswerBox(t) {
   return box;
 }
 
-/** @param {Task} t @returns {HTMLElement} */
-function createRow(t) {
-  const row = el("div", "task-row");
+/** The confirm text for removing a flow task, naming the issue as its title shows it
+ * (`#84 · Design · …` → `#84`). @param {Task} t @returns {string} */
+export function flowRemoveText(t) {
+  const issue = /^#\d+/.exec(t.title)?.[0] ?? `"${t.title}"`;
+  return `Remove the flow state of ${issue}? The issue then starts again from zero.`;
+}
+
+/** What a click on a row's × does: a flow task asks first and is removed only on accept;
+ * every other task is removed at once. The server lets only this browser path remove a flow task.
+ * @param {Task} t @param {(text: string) => boolean} ask @param {(msg: object) => void} out */
+export function removeClick(t, ask, out) {
+  if (t.kind === "flow" && !ask(flowRemoveText(t))) return;
+  out({ type: "task_update", op: "remove", id: t.id });
+}
+
+/** The task each row shows NOW. The reconciler reuses a row when a server id comes back, so the
+ * handlers read this at click time, never the task the row was created for.
+ * @type {WeakMap<HTMLElement, Task>} */
+const rowTask = new WeakMap();
+
+/** The row's first cell. A flow task has no status toggle (only the tasks tool's op "flow" moves
+ * it): an empty slot keeps the three-column grid. Others get the tick that cycles the status.
+ * @param {HTMLElement} row @param {boolean} flow @returns {HTMLElement} */
+function makeTick(row, flow) {
+  if (flow) return el("span", "task-tick-slot");
   const tick = el("button", "task-tick");
   tick.onclick = () => {
+    const cur = rowTask.get(row);
+    if (!cur || cur.kind === "flow") return;
     send({
       type: "task_update",
       op: "update",
-      id: t.id,
+      id: cur.id,
       status: NEXT_STATUS[row.dataset.status ?? "pending"],
     });
   };
+  return tick;
+}
+
+/** @param {Task} t @returns {HTMLElement} */
+export function createRow(t) {
+  const row = el("div", "task-row");
+  rowTask.set(row, t);
+  const tick = makeTick(row, t.kind === "flow");
   const body = el("div", "task-body");
   const titleRow = el("div", "task-title-row");
   titleRow.append(el("span", "owner-chip"), el("span", "task-title"));
@@ -130,7 +162,7 @@ function createRow(t) {
   const remove = el("button", "task-remove", "×");
   remove.title = "remove task";
   remove.onclick = () => {
-    send({ type: "task_update", op: "remove", id: t.id });
+    removeClick(rowTask.get(row) ?? t, (text) => window.confirm(text), send);
   };
   row.append(tick, body, remove);
   updateRow(row, t);
@@ -147,7 +179,13 @@ function createRow(t) {
 function updateOwnerChip(row, chip, t) {
   const agent = t.owner === "agent" ? t.agent : undefined;
   chip.replaceChildren();
-  if (t.owner === "agent") {
+  if (t.kind === "flow") {
+    // One issue's flow state, not anyone's to-do: a plain "Flow" stamp, no sigil.
+    row.style.removeProperty("--agent-color");
+    chip.className = "owner-chip owner-flow";
+    chip.title = "";
+    chip.append(el("span", "owner-label", "Flow"));
+  } else if (t.owner === "agent") {
     // Always a stamped tag (sigil + label). A known creator names its Xenomoon —
     // role, identity color, and a matching row accent. An unattributed agent task
     // (e.g. a legacy entry) gets a generic "Agent" stamp in the default accent.
@@ -170,7 +208,7 @@ function updateOwnerChip(row, chip, t) {
 }
 
 /** @param {HTMLElement} row @param {Task} t */
-function updateRow(row, t) {
+export function updateRow(row, t) {
   row.classList.remove(
     "status-pending",
     "status-in_progress",
@@ -179,9 +217,16 @@ function updateRow(row, t) {
     "owner-user",
     "identified",
   );
+  rowTask.set(row, t);
+  // A reused id may change kind: swap the first cell between the tick and the flow slot.
+  const first = /** @type {HTMLElement | null} */ (row.firstElementChild);
+  const isFlow = t.kind === "flow";
+  if (first && first.classList.contains("task-tick-slot") !== isFlow)
+    first.replaceWith(makeTick(row, isFlow));
   const prevStatus = row.dataset.status;
   row.classList.add(`status-${t.status}`, `owner-${t.owner}`);
   row.classList.toggle("kind-objective", t.kind === "objective");
+  row.classList.toggle("kind-flow", t.kind === "flow");
   row.dataset.status = t.status;
   const tick = /** @type {HTMLElement | null} */ (row.querySelector(".task-tick"));
   if (tick) {

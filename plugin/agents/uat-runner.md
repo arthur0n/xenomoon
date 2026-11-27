@@ -74,8 +74,8 @@ as ad-hoc flags to a permissive config is not your call.
 
 Check them first, and report a missing one as BLOCKED rather than guessing:
 
-- **Where is the app?** Ask via `mcp__ui__ask` if no base URL or target was given. Never assume a
-  default port.
+- **Where is the app?** The brief, the proof line of the Design or the project's `CLAUDE.md` names
+  it. None does → BLOCKED, naming the missing address. Never assume a default port.
 - **Is the session valid?** The lane reuses saved state. Missing or expired → stop and report the
   exact refresh step; rotating it is the human's.
 - **Is the target actually up?** A device not booted, a bundler not serving, a URL not answering —

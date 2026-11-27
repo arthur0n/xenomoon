@@ -23,7 +23,7 @@ The list is frozen while an issue is in the flow. Every attack is answered: a fi
 6. Try to get past the login check, or find login logic outside its one place.
 7. Try to make an error vanish, or raw input reach the database or a page.
 8. Try to make the new test pass on the code from before the change.
-9. Try to find a migration that loses data, lands out of order, or arrives without its code.
+9. Try to find a migration that loses data, lands out of order, or arrives without its code, or code that reaches production before its migration is applied.
 10. Try to show the change is not one story that can be reverted alone.
 11. Try to show the rollback in the design cannot undo this change as built.
 

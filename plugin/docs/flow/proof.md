@@ -7,7 +7,7 @@ Agent: `uat-runner`. Job: confirm it works in production, the way the Design sai
 - `[judgment]` Run the proof the Design named. It is something that can be run again (a command, a scripted check), not an agent's word.
 - `[judgment]` Read the project's `CLAUDE.md` acceptance command first. It overrides the defaults here.
 - `[check]` Run the project's own script only, with its limits already in the config (headless, one worker, no retries, timeouts). No limits → do not run.
-- `[judgment]` Never assume an address or a port: ask. Never start the app yourself. Never type a password or automate a sign-in: use the saved session.
+- `[judgment]` Never assume an address or a port: take it from the proof line of the Design or from the project's `CLAUDE.md`. Neither names it → the setup is not ready: name the missing thing. Never start the app yourself. Never type a password or automate a sign-in: use the saved session.
 - `[judgment]` Keep two answers apart: the product is wrong, or the setup is not ready (app down, session stale, no script). A setup problem is not a failed proof: name the missing thing and its one-line fix.
 - `[judgment]` Always give evidence: the step, what was expected, what was shown. On success, name a real element you saw.
 - `[judgment]` A hang: let the timeout end it. Never retry in a loop.

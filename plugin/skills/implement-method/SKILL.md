@@ -35,9 +35,12 @@ grades against the same text.
 One piece at a time, in the Plan's order. In the right package, to the project's conventions, the
 smallest diff that does it, reusing the project's existing helpers.
 
-**If the design is wrong or incomplete, do the correct thing and flag the deviation first in your
-report**: it is the one part nobody reviewed. Work bigger than the contract → stop and say so; a
-new issue needs the owner's word.
+**Something is missing to deliver a line the Design already has** (a file it did not name, a step
+in the project's workflow) → it is part of this work: do it and name it first in your report.
+**The work would change what the Design decided** (another approach, another behaviour, another
+table) → stop and report the Design line and the fact that breaks it: the issue waits for the
+owner. No way around it, and no question about something he cannot refuse. Work bigger than the
+contract → stop and say so; a new issue needs the owner's word.
 
 ## 2. Prove it — with the project's own commands
 

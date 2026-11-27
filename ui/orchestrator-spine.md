@@ -148,8 +148,8 @@ see what's open across sessions.
 - **The objective is pinned, first.** The moment the human states an ask, `op:"objective"`
   with their words verbatim — one per session, replaced when they change it, never
   paraphrased into what you found. Every board result echoes it first: read that line before
-  each dispatch, and a dispatch that does not serve it is scope drift — stop and ask, do not
-  add it. Close it (`status:"done"`) only when the ask is met; that close is the session's
+  each dispatch, and a dispatch that does not serve it is scope drift — do not add it; note it
+  as one line for the owner. Close it (`status:"done"`) only when the ask is met; that close is the session's
   closure, not the last receipt. A prohibition against drifting is not a mechanism for holding
   the aim — this is.
 - Don't duplicate `TodoWrite` (ephemeral per-turn); the board is the durable list.

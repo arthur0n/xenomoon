@@ -35,7 +35,7 @@ Every line carries one mark:
 An issue is in one step or in one of these states, never in two. A state is saved with the exact thing it waits for.
 
 - **Needs information**: facts are missing from the author. Fixed shape: "What we established so far" and "What we still need from you", with specific questions. When the author answers, the work goes on from where it stopped. Nothing is asked twice and no counter starts again.
-- **Waiting for the owner**: one named decision is pending. Silence is never a yes.
+- **Waiting for the owner**: the work cannot go on without him. Either one named decision he can really take (he could say no, and the work would differ), or one named thing that is missing and only he can give. A missing thing is stated, never dressed as a question. Silence is never a yes.
 - **Ready, not published**: built and reviewed. Publishing waits for an approval.
 - **Waiting for the proof**: published, not yet confirmed in production.
 - **Proof failed**: published and not working.
@@ -44,7 +44,8 @@ Only Proof moves an issue to DONE. Done means deployed and confirmed that it is 
 
 ## Rules that hold in every step
 
-- `[judgment]` A blocker that makes the result unusable → state Waiting for the owner. Do not build around it.
+- `[judgment]` A blocker that makes the result unusable → state Waiting for the owner, naming the one missing thing. Do not build around it.
+- `[judgment]` Outside the owner stops below there is no question to the owner. Work inside what the confirmed Design approved: do it. Work that cannot go on: the blocker rule above. Never ask him to confirm something he cannot refuse.
 - `[judgment]` A new issue is created only on the owner's word. Something you notice on the way is one line on the owner's list.
 - `[code]` The step, the state, the visits to Triage and the fix rounds are kept by the tasks tool's op `flow`: one task on the board per issue, moved once at every step change. The tool refuses a move this flow does not have and a round over a budget, and names where the issue goes. Only the owner removes that task. The comment each agent leaves on the issue is the record of its step.
 - `[code, not built]` The files of the change are kept by code. Until then the Design names them and the review reads the real diff.

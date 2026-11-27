@@ -13,6 +13,7 @@ Agent: `senior-analyst` with the push skill. Never the agent that wrote the code
 - `[judgment]` A problem is flagged, never fixed here. A dirty tree is flagged and not touched.
 - `[judgment]` The pull request carries the before and after evidence, and what the Design said about undoing the change. It says `Refs #N`, never Closes.
 - `[judgment]` Never deploy by hand. Deploy is the project's CI after the push.
+- `[check]` The change has a migration → it reaches production the way the confirmed Design said, with no new question to the owner. Check that the run applied it before the code. Not applied → a blocker: state Waiting for the owner, with the step that is missing. Never a question about what to do.
 - `[check]` After a push to the deploy branch, watch the run and report which step failed, if one did. "Merged" is not "shipped": check that the run that finished is the one of this change.
 - `[judgment]` Keep the issue open. If the project closes issues automatically on deploy, say so before the push: only Proof may close it.
 

@@ -50,7 +50,10 @@ you change before you settle.
 - **Deploy:** what gets deployed (back end, front end, both), from the project's `CLAUDE.md`
   targets, through its CI only.
 - **Migration:** yes or no. Yes → made with the project's own command, SQL read, shipped with the
-  code; a scope entry for any new user-owned table. For a native or mobile project, say whether
+  code; a scope entry for any new user-owned table. Say what happens to the rows that exist, and
+  which step of the project's CI applies it in production before the code (read the deploy
+  workflow; a migrations folder that only triggers a deploy applies nothing). No such step → adding
+  it is a piece of this design. The owner's yes to the design covers this; nothing asks him again. For a native or mobile project, say whether
   testing needs a native rebuild.
 - **Rollback:** how the change is undone, and whether that is safe without the owner (a change
   that cannot be undone is not).
@@ -80,6 +83,7 @@ Terse, one line per field, verbatim values, omit empty fields. Write to a temp f
 **TESTABILITY:** <kind + where + what it asserts, failing without the change; or "not automatable: <why>">
 **PROOF:** <the production check Proof runs; or "cannot be automated: <why>">
 **SHIP:** <deploy target(s) or no> · <migration yes|no> — <one line why>
+**DATABASE:** <none | what changes, what happens to existing rows · applied in production by: <the CI step, or the step this design adds>>
 **ROLLBACK:** <how> · safe without the owner: <yes|no> — <why>
 **CONTRACT:** <none | the contract line a technical fact breaks — the fact>
 **NEEDS FROM REPORTER:** <exact items>

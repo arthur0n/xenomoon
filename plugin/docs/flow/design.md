@@ -13,13 +13,17 @@ The Design owns: the facts read, the files of the change, the path to production
 - `[judgment]` Keep logic where the project keeps it. Name the edge cases this change meets (who may see what, errors that get swallowed, login).
 - `[check]` Check what else depends on the files you change (`graphify affected "<file>"`) before you settle.
 - `[judgment]` How it is proved: a test that fails without the change, and the check in production that Proof will run. "Cannot be automated" needs a reason.
-- `[judgment]` The path to production: what gets deployed, through the project's CI only. A migration is made with the project's own command, never by hand.
+- `[judgment]` The path to production: what gets deployed, through the project's CI only.
+- `[judgment]` A database change is part of the design, in three lines: what changes in the schema and what happens to the rows that exist; which step of the project's CI applies the migration in production, before the code that needs it; how it is undone. Read the project's deploy workflow to answer, do not assume.
+- `[judgment]` No step of the project's CI applies a migration → that is a line of this design: add the step to the project's workflow as a piece of this issue. If that step cannot be added, it is a blocker now, before any code: state Waiting for the owner, naming what is missing.
+- `[judgment]` A change the old code cannot survive (a column removed or renamed, a meaning changed) does not go out in one deploy. The design cuts it into deploys where each migration works with the code already in production: add first, switch the code, remove last. Each deploy is named in the design.
+- `[judgment]` The owner's yes to the design covers the database change and the way it reaches production. No later step asks him again about it.
 - `[judgment]` How it is rolled back, and whether that is safe to do without the owner.
 - `[judgment]` Does a technical fact break a line of the contract (for example a change that cannot be undone, when he approved "deployed")? → ask the owner again, on that line only.
 
 ## Stop 1: the owner confirms the design
 
-One line per item: files, approach, proof, path to production, rollback. The project's settings cannot confirm this stop.
+One line per item: files, approach, database change, proof, path to production, rollback. The project's settings cannot confirm this stop.
 
 ## The attack
 

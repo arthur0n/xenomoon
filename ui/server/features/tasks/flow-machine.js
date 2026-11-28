@@ -82,6 +82,7 @@ const W = "waiting-owner";
 /**
  * Every allowed move. A string is a plain move; `count` raises that counter (refused
  * over its limit); `redesign` is fix → design, allowed only at round FIX_LIMIT and once.
+ * RETURN goes back to `from`; from waiting-owner, RETURN_EXTRA[from] is also open.
  * @type {Readonly<Record<string, ReadonlyArray<Edge>>>}
  */
 export const FLOW_TABLE = Object.freeze({
@@ -104,6 +105,12 @@ export const FLOW_TABLE = Object.freeze({
   "proof-failed": [{ to: "fix", count: "fix" }, W],
   done: [],
 });
+
+/** From waiting-owner, the plain moves open besides the return to `from` (build.md:13:
+ * the work no longer fits the Design, so on the owner's word it goes back to Design). */
+const RETURN_EXTRA = Object.freeze(
+  /** @type {Record<string, readonly string[]>} */ ({ build: Object.freeze(["design"]) }),
+);
 
 /** Entering one of these records `from`; leaving any state clears it. */
 const HOLDS_FROM = new Set(["needs-information", "waiting-owner"]);
@@ -130,9 +137,9 @@ function movesOf(state) {
     // A state read from a hand-written title (fromLegacyTitle) has no `from`: the origin
     // was never recorded, so any step is accepted as the return target, once. An origin
     // that could never enter a waiting state (e.g. "done") counts as not recorded.
-    return state.from && ORIGINS.has(state.from)
-      ? [{ to: state.from }]
-      : STEP_IDS.map((to) => ({ to }));
+    if (!state.from || !ORIGINS.has(state.from)) return STEP_IDS.map((to) => ({ to }));
+    const extra = state.at === W ? (RETURN_EXTRA[state.from] ?? []) : [];
+    return [state.from, ...extra].map((to) => ({ to }));
   });
 }
 

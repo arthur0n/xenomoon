@@ -11,6 +11,7 @@ Agents: `developer` writes the code and its test. `tester` runs the checks and j
 - `[judgment]` Take the next piece of the Plan, in its order. Build exactly what the Design says: the smallest change, reusing what exists.
 - `[judgment]` Something is missing to deliver a line the Design already has (a file it did not name, a step in the project's workflow) → it is part of this work: do it, and name it first in your report.
 - `[judgment]` The work would change what the Design decided (another approach, another behaviour, another table) → stop. State Waiting for the owner, with the Design line and the fact that breaks it. There is no third way: no way around it, and no question about something he cannot refuse.
+- `[code]` From that stop the owner has two answers: on with Build, or back to Design. The tasks tool allows the move to Design only from Waiting for the owner entered from Build, and never from Build directly. The fix rounds and the visits to Triage keep their count.
 - `[check]` The test for the piece goes red without the code and green with it. A test that passes on the old code guards nothing.
 - `[judgment]` Never weaken a check to go green: no skipped test, no disabled lint rule, no wider type.
 - `[code]` No new or removed dependency unless the Design names it. The policy refuses it for workers.

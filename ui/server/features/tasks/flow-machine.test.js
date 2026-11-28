@@ -299,3 +299,39 @@ test("counters never decrease along a full run", () => {
   assert.deepEqual(last, { triage: 1, fix: 2 });
   assert.equal(move(s, "done").done, true);
 });
+
+test("waiting for the owner from build: the moves are build and design, each once", () => {
+  assert.deepEqual(allowedMoves(at({ at: WAIT, from: "build" })), ["build", "design"]);
+});
+
+test("waiting for the owner from build → design keeps the counters, drops `from`, no redesign flag", () => {
+  const wait = at({ at: WAIT, from: "build", triage: 1, fix: 2 });
+  const s = ok(move(wait, "design"));
+  assert.equal(s.at, "design");
+  assert.equal(s.from, undefined);
+  assert.equal(s.triage, 1);
+  assert.equal(s.fix, 2);
+  assert.equal(s.redesigned, undefined);
+  const back = ok(move(wait, "build"));
+  assert.equal(back.at, "build");
+  assert.equal(back.from, undefined);
+  assert.equal(back.fix, 2);
+});
+
+test("the move to design is not opened from other origins or from Needs information", () => {
+  const others = [...STEP_IDS.filter((s) => s !== "build"), "proof-failed"];
+  for (const from of others) {
+    assert.deepEqual(allowedMoves(at({ at: WAIT, from })), [from], from);
+    if (from !== "design")
+      assert.equal(move(at({ at: WAIT, from }), "design").state, undefined, from);
+  }
+  assert.deepEqual(allowedMoves(at({ at: "needs-information", from: "build" })), ["build"]);
+});
+
+test("build → design directly is still refused, naming the allowed moves", () => {
+  assertRefused(move(at({ at: "build" }), "design"), ["review", WAIT]);
+});
+
+test("a waiting state with no recorded origin still lists every step", () => {
+  assert.deepEqual(allowedMoves(at({ at: WAIT })), [...STEP_IDS]);
+});

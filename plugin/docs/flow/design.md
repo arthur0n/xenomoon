@@ -35,7 +35,7 @@ Same step, same stop. No other route and no command: the analyst offers it, the 
 - `[judgment]` It ends with one task. That task is the whole plan.
 - `[judgment]` At Stop 1 the first line says "Short design, because:" and the five answers. The owner can answer "no, the full design": it is his decision what is small.
 - `[judgment]` One yes confirms it. No attack and no Stop 2.
-- `[judgment]` The change stops being small during the work → the rule of Build applies: stop, state Waiting for the owner, with the fact that made it bigger. He decides how it goes on. The flow has no move from Build back to Design.
+- `[judgment]` The change stops being small during the work → the rule of Build applies: stop, state Waiting for the owner, with the fact that made it bigger. He decides: on with Build, or back to Design, where the full form is written.
 
 ## Stop 1: the owner confirms the design
 

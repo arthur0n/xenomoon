@@ -4,7 +4,9 @@
 // server config loads it.
 import {
   DISPLAY_NAMES,
+  DONE,
   FIX_LIMIT,
+  OWNER_STOPS,
   TRIAGE_LIMIT,
   allowedMoves,
   canonicalIssue,
@@ -74,6 +76,46 @@ export function flowLine(s, placed, done) {
   const from = s.from ? ` (from ${DISPLAY_NAMES[s.from] ?? s.from})` : "";
   const where = placed ? `placed at ${name}` : `is at ${name}${from}`;
   return `#${s.issue} ${where} (triage ${s.triage}/${TRIAGE_LIMIT}, fix ${s.fix}/${FIX_LIMIT}). Allowed next: ${allowedMoves(s).join(", ") || "none"}.`;
+}
+
+/**
+ * May a question go to the owner about `issue` now? Only at an OWNER_STOPS state. No
+ * issue, no open flow task, or a flow task that cannot be read → it passes.
+ * @param {Task[]} list @param {string | number | null | undefined} issue
+ * @returns {{ ok: true } | { ok: false, message: string, at?: string }} */
+export function questionGate(list, issue) {
+  if (issue == null || String(issue).trim() === "") return { ok: true };
+  const key = canonicalIssue(issue);
+  if (!key)
+    return {
+      ok: false,
+      message: `question refused: issue "${issue}" is not a number. Send the issue as a number, e.g. 84.`,
+    };
+  const open = list.find((t) => isOpenFlow(t) && flowIssueOf(t) === key);
+  const state = open && (open.flow ?? fromLegacyTitle(open.title));
+  const at = state?.at;
+  if (!state || !at || OWNER_STOPS.includes(at)) return { ok: true };
+  const allowed = allowedMoves(state);
+  // Done is no active flow; and a refusal never goes out with an empty way out.
+  if (at === DONE || !allowed.length) return { ok: true };
+  const stops = OWNER_STOPS.map((id) => DISPLAY_NAMES[id] ?? id).join("; ");
+  // The way out names only moves the machine accepts from the current state.
+  const wayOut = allowed.includes("waiting-owner")
+    ? `move the issue to waiting-owner with the tasks tool ` +
+      `({op:"flow", issue:${key}, to:"waiting-owner"}), name the one missing thing, then ask. `
+    : `the flow does not allow waiting-owner from here; it allows only: ${allowed.join(", ")}. ` +
+      `Move to that step first with the tasks tool ` +
+      `(${allowed.map((to) => `{op:"flow", issue:${key}, to:"${to}"}`).join(" or ")}); ` +
+      `from there waiting-owner is reachable. Then move to waiting-owner, name the one missing thing, then ask. `;
+  return {
+    ok: false,
+    at,
+    message:
+      `question refused: #${key} is at ${DISPLAY_NAMES[at] ?? at}, which is not an owner stop. ` +
+      `The owner stops are: ${stops}. Work inside the confirmed Design is done without asking. ` +
+      `Work that cannot go on: ${wayOut}` +
+      `Write in your report what you did instead of asking.`,
+  };
 }
 
 /** The move asked of an open flow task, or why there is none (title-only task upgraded first).

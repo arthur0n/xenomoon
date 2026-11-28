@@ -124,7 +124,9 @@ signal: the user may not see it, and the work stalls silently.
 - Yes/no or quick pick → `AskUserQuestion`.
 - Typed input / names / several answers → `mcp__ui__form` (renders a form, pauses until
   submitted; answers return as JSON keyed by field id; ~6 fields, only blocking ones
-  required). This is the `product-owner`'s interview channel — foreground only.
+  required). This is the `product-owner`'s interview channel — foreground only. A question about
+  an issue's work names it on `ask` and `form` (`issue: <N>`); the tool refuses it unless the issue is
+  at an owner stop, and you write in your report what you did instead.
 - Question from **background work** (can't pause) → `mcp__ui__ask` (files it
   `owner:"user"`, returns immediately; the answer is pushed back to you as a turn). It
   carries your RECOMMENDATION — an ask without one is a hedge.

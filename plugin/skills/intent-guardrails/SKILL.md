@@ -28,11 +28,16 @@ trace was competent; the target was never the point.
 
 If **no** rule covers this area **and** your root cause genuinely depends on what the feature is
 supposed to do, ask before hypothesising. Use the background ask channel (`mcp__ui__ask`,
-`owner:"user"`) — it returns immediately and the answer comes back as its own turn, so asking
+`owner:"user"`, `issue: <N>`) — it returns immediately and the answer comes back as its own turn, so asking
 costs you nothing but a round trip.
 
 This closes the first-encounter hole: a project with no captured rules yet is exactly where
 invented intent does the most damage, because there is nothing to contradict it.
+
+The tool refuses the ask while the issue is not at an owner stop (Triage is not one). Unknown intent
+is a missing thing only the owner can give: move the issue to waiting-owner with the tasks tool
+(`{op:"flow", issue:<N>, to:"waiting-owner"}`), name the intent that is missing, then ask. Write in
+your report what you did.
 
 **One decision, one channel.** Having filed the ask, do not also raise it in chat.
 

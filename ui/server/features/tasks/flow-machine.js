@@ -34,6 +34,15 @@ export const WAITING_IDS = Object.freeze([
 ]);
 export const DONE = "done";
 export const FLOW_IDS = Object.freeze([...STEP_IDS, ...WAITING_IDS, DONE]);
+/** The only states where a question to the owner is allowed (README.md, "The owner stops, and nothing else"). */
+export const OWNER_STOPS = Object.freeze([
+  "direction",
+  "design",
+  "needs-information",
+  "waiting-owner",
+  "ready-not-published",
+  "proof-failed",
+]);
 
 /** @type {Readonly<Record<string, string>>} */
 export const DISPLAY_NAMES = Object.freeze({

@@ -9,9 +9,13 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { addQuestion } from "../features/tasks/tasks-store.js";
+import { refuseQuestion } from "./question-gate.js";
 
-/** @param {(obj: import("../../lib/types.js").OutMsg) => void} send */
-export function makeAskTool(send) {
+/**
+ * @param {(obj: import("../../lib/types.js").OutMsg) => void} send
+ * @param {import("../core/connection.js").LiveSession["log"]} log
+ */
+export function makeAskTool(send, log) {
   return tool(
     "ask",
     "The BACKGROUND counterpart to mcp__ui__form. Ask the user a question WITHOUT blocking — " +
@@ -20,7 +24,8 @@ export function makeAskTool(send) {
       "background/autonomous/headless work where you can't pause for a reply; the orchestrator " +
       "relays the answer on a later turn. Do NOT wait on it — file the question, then " +
       "continue with your best judgment or wrap up. (Foreground agents that can pause " +
-      "should use mcp__ui__form instead.)",
+      "should use mcp__ui__form instead.) A question that names an issue is refused when that " +
+      "issue is not at an owner stop.",
     {
       question: z.string().describe("The single question to put to the user."),
       // Ask-shape contract (D9): three bands — human GATES (commit/ship/promote/scope)
@@ -44,6 +49,12 @@ export function makeAskTool(send) {
         .array(z.string())
         .optional()
         .describe("Optional suggested answers the user can pick with one click."),
+      issue: z
+        .union([z.number(), z.string()])
+        .optional()
+        .describe(
+          "The issue this question is about; a question about an issue's work must name it.",
+        ),
       // Internal: the creating agent, set by the server (canUseTool) — do not set it yourself.
       _by: z.string().optional().describe("internal — server-set; ignore"),
     },
@@ -51,6 +62,14 @@ export function makeAskTool(send) {
       // canUseTool stamps `_by` for foreground callers; a backgrounded sub-agent is
       // granted by the allow-subagent-ui-control hook (which bypasses canUseTool), so
       // `_by` is absent here — attribute it to "background" (the bridge's own label).
+      const refused = refuseQuestion({
+        issue: input.issue,
+        toolName: "mcp__ui__ask",
+        agent: input._by ?? "background",
+        question: input.question,
+        log,
+      });
+      if (refused) return refused;
       const text =
         input.question +
         `\n→ recommend: ${input.recommendation}` +

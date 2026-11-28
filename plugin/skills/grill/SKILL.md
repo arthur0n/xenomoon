@@ -21,7 +21,7 @@ than the extra round-trips — the user asked for rigor, or the slice is high-st
    the next. An answer may reshape the tree — re-derive the remaining branches after
    every answer, and drop branches the answer just closed.
 3. **One question per round-trip.** Exactly ONE decision per `mcp__ui__form` (or per
-   message outside the UI). Batched questions bewilder, and an early answer
+   message outside the UI). When the slice is an issue, the call names it (`issue: <N>`). A refusal means the issue is not at an owner stop: write in your report what you did instead. Batched questions bewilder, and an early answer
    contaminates the later ones you already asked.
 
 ## Facts vs decisions

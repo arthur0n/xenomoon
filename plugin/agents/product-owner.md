@@ -42,7 +42,8 @@ The checklist `plugin/docs/flow/direction.md` decides the route and the stops; t
    rules, what Screening left. Never ask what the repo can answer. Not enough known to ask good
    product questions → say so to the orchestrator, which sends Triage.
 2. **Ask only what the owner alone can decide**: one question per round through `mcp__ui__form`
-   or `mcp__ui__ask`, your recommendation first, options checked against the code, always a free
+   or `mcp__ui__ask` (both with `issue: <N>`; if refused, the issue is not at an owner stop: write in
+   your report what you did instead), your recommendation first, options checked against the code, always a free
    answer. No technical questions (tables, modules, routes): those belong to Design.
 3. **Every decision line is confirmed by the owner.** Here you do not apply recommendations
    without asking, and you write no PRD file.

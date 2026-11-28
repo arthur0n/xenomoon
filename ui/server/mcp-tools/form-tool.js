@@ -3,6 +3,7 @@
 // renders it; the submitted values return as the tool result.
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
+import { refuseQuestion } from "./question-gate.js";
 
 const FIELD = z.object({
   id: z.string().describe("Result key for this field (snake_case)"),
@@ -27,8 +28,12 @@ const FIELD = z.object({
     .describe("Pre-filled value; array of option labels for multiselect; body text for a note"),
 });
 
-/** @param {import("../../lib/types.js").WaitFor} waitFor @param {string[]} formAgentQueue */
-export function makeFormTool(waitFor, formAgentQueue) {
+/**
+ * @param {import("../../lib/types.js").WaitFor} waitFor
+ * @param {string[]} formAgentQueue
+ * @param {import("../core/connection.js").LiveSession["log"]} log
+ */
+export function makeFormTool(waitFor, formAgentQueue, log) {
   return tool(
     "form",
     "FOREGROUND ONLY. Show the user a form and BLOCK until they submit — so a backgrounded / " +
@@ -42,16 +47,32 @@ export function makeFormTool(waitFor, formAgentQueue) {
       "decision, put a read-only `note` field before each decision field: its label is the " +
       "heading and its value the body (the problem and the proposed change), so the user sees " +
       "what they are deciding before they answer. A `note` returns no value and never blocks " +
-      "submission.",
+      "submission. A question that names an issue is refused when that issue is not at an " +
+      "owner stop.",
     {
       title: z.string().describe("Card header, a few words"),
       description: z.string().optional().describe("One line of context under the title"),
       fields: z.array(FIELD).min(1).max(10).describe("Fields in display order"),
       submitLabel: z.string().optional().describe('Submit button label, default "Submit"'),
+      issue: z
+        .union([z.number(), z.string()])
+        .optional()
+        .describe(
+          "The issue this question is about; a question about an issue's work must name it.",
+        ),
     },
-    async (input) => {
-      // canUseTool pushed this call's agent just before the handler ran (FIFO).
+    async ({ issue, ...input }) => {
+      // canUseTool pushed this call's agent just before the handler ran (FIFO). Shifted before
+      // the gate so a refused form still consumes its entry and the queue stays in step.
       const agent = formAgentQueue.shift() ?? "main";
+      const refused = refuseQuestion({
+        issue,
+        toolName: "mcp__ui__form",
+        agent,
+        question: input.title,
+        log,
+      });
+      if (refused) return refused;
       // Deterministic escape hatch: EVERY form carries a trailing free-text
       // feedback field so the user can always enter input that fits no option.
       // Enforced here at the tool level — not left to each agent to remember.

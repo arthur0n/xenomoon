@@ -27,16 +27,17 @@ import { makePulseTool } from "./pulse-tool.js";
  *   send: Parameters<typeof makeTaskTool>[0],
  *   hermesPush: Parameters<typeof makeHermesTool>[1],
  *   disarm: Parameters<typeof makeAutonomousTool>[1],
+ *   log: import("../core/connection.js").LiveSession["log"],
  * }} deps
  */
-export function buildUiServer({ waitFor, formAgentQueue, send, hermesPush, disarm }) {
+export function buildUiServer({ waitFor, formAgentQueue, send, hermesPush, disarm, log }) {
   return createSdkMcpServer({
     name: "ui",
     version: "0.1.0",
     tools: [
-      makeFormTool(waitFor, formAgentQueue),
+      makeFormTool(waitFor, formAgentQueue, log),
       makeTaskTool(send),
-      makeAskTool(send),
+      makeAskTool(send, log),
       makePromoteTool(send),
       makeHermesTool(send, hermesPush),
       makeHermesFeedbackTool(send),

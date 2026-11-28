@@ -217,6 +217,7 @@ function runSession({
                 send,
                 hermesPush: inbox.push,
                 disarm: checkLoop.disarm,
+                log: ls.log,
               }),
             },
             // `--chrome` when the baked descriptor says browser: "chrome"; {} otherwise, which is the

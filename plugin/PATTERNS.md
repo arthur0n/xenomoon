@@ -40,7 +40,7 @@ A standing Main Goal the hive self-drives toward across cycles (off by default).
 Questions render as UI prompts, never plain chat:
 
 - `AskUserQuestion` — yes/no or a quick pick.
-- `mcp__ui__form` — typed / multi-field input; pauses until submitted.
+- `mcp__ui__form` — typed / multi-field input; pauses until submitted. A question about an issue's work names it (`issue: <N>`).
 - `mcp__ui__ask` — a question from background work; files it `owner:"user"`, returns immediately, and
   the answer is pushed back to the orchestrator as a turn.
 - **One decision, one channel** — surface each decision exactly once.

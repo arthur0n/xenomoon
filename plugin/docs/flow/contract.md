@@ -16,6 +16,7 @@ Business rules: <the owner's words, quoted>
 
 ## Do
 
+- `[code]` The "How far" value is written exactly as one of the three: `pull request opened`, `merged`, `deployed`. Code reads it. A line that differs, an unknown value, or an unfilled template cannot be read, and that stops the push.
 - `[judgment]` Write only what the owner confirmed. No line of yours becomes his decision here.
 - `[judgment]` No file list and no technical path. Those belong to Design.
 - `[judgment]` "Done when" is written so it can be checked. Mark `[human check]` where only a person can judge.

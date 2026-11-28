@@ -21,6 +21,7 @@ import { readBranchModel, deployReaching } from "../../lib/branch-doctrine.js";
 import { run, gh, git, resolveRepo, maybeSwitchUser, mark, str } from "./issuekit-lib.js";
 import { prGateFacts } from "./issuekit-plumb.js";
 import { findWorkspace, repoFor } from "../../lib/workspace.js";
+import { readHowFar, howFarStop, HOW_FAR_LABELS } from "./how-far.js";
 
 /** @typedef {import("./issuekit-lib.js").Flags} Flags */
 /** @typedef {import("./issuekit-lib.js").GhNode} GhNode */
@@ -31,8 +32,10 @@ import { findWorkspace, repoFor } from "../../lib/workspace.js";
  * @typedef {{ state: "pass" | "blocked" | "unknown" | "none", sha: string, heading: string }} LaneVerdict
  */
 /**
- * One published issue's pipeline state.
- * @typedef {{ num: string, readable: boolean, labels: string[], qa: LaneVerdict, review: LaneVerdict }} IssueState
+ * One published issue's pipeline state. `howFar` is the body's "How far" line (readHowFar);
+ * `pipeline` = a `qa:`/`review:` lane label, or a lane verdict other than "none".
+ * @typedef {{ num: string, readable: boolean, labels: string[], qa: LaneVerdict, review: LaneVerdict,
+ *   howFar: import("./how-far.js").HowFar, pipeline: boolean }} IssueState
  */
 /**
  * Where the commit a check rollup belongs to sits relative to the tip being published.
@@ -54,7 +57,8 @@ import { findWorkspace, repoFor } from "../../lib/workspace.js";
  * @typedef {{
  *   branch: string, current: string, remote: string, upstream: string | null, setUpstream: boolean,
  *   dirty: string[], ahead: number | null, behind: number | null, tip: string,
- *   commits: { sha: string, subject: string }[], issues: IssueState[], checks: Checks,
+ *   commits: { sha: string, subject: string }[], rangeError: string | null,
+ *   issues: IssueState[], checks: Checks,
  *   doctrine: Doctrine, reaches: boolean | null,
  * }} PushFacts
  */
@@ -140,11 +144,12 @@ function judgeTree(f, stops, flags) {
     stops.push(
       `no upstream for ${f.branch} — would run \`git push -u ${f.remote} ${f.branch}\`; only a brief that NAMES remote+branch may set one (re-run with --set-upstream)`,
     );
+  if (f.rangeError) stops.push(`cannot list the commits this push would publish (${f.rangeError})`);
   if (f.behind !== null && f.behind > 0)
     stops.push(
-      `behind ${f.upstream} by ${f.behind} — not fast-forward; the sync/rebase belongs to \`issuekit branch sync\` or the developer in an isolated worktree, never to the push lane`,
+      `behind ${f.remote}/${f.branch} by ${f.behind} — not fast-forward; the sync/rebase belongs to \`issuekit branch sync\` or the developer in an isolated worktree, never to the push lane`,
     );
-  if (f.ahead === 0) flags.push(`nothing to publish — ${f.upstream} already has HEAD`);
+  if (f.ahead === 0) flags.push(`nothing to publish — ${f.remote}/${f.branch} already has HEAD`);
 }
 
 /** Step 5: is the judgement that let each commit land still standing?
@@ -168,14 +173,34 @@ function judgeIssue(i, stops, flags) {
         `#${i.num} ${lane.toUpperCase()} verdict word not recognised: "${v.heading}" — a human reads it`,
       );
   }
-  const pipelineState =
-    i.labels.some((l) => /^(qa|review):/.test(l)) ||
-    i.qa.state !== "none" ||
-    i.review.state !== "none";
-  if (!pipelineState)
+  if (!i.pipeline)
     flags.push(
       `#${i.num} shows NO pipeline state (no lane label, no verdict) — not this pipeline's issue?`,
     );
+}
+
+/** Does the issue show pipeline state: a lane label, or a lane verdict other than "none"?
+ * @param {string[]} labels @param {LaneVerdict} qa @param {LaneVerdict} review */
+const showsPipeline = (labels, qa, review) =>
+  labels.some((l) => /^(qa|review):/.test(l)) || qa.state !== "none" || review.state !== "none";
+
+/** The contract's "How far" line, checked only when the push is a deploy move (it reaches the
+ * deploy branch, or the line cannot be drawn). No line: a STOP when the issue shows pipeline
+ * state, else a FLAG (no contract to check against).
+ * @param {PushFacts} f @param {string[]} stops @param {string[]} flags */
+function judgeHowFar(f, stops, flags) {
+  if (f.reaches === false) return;
+  for (const i of f.issues) {
+    if (!i.readable) continue;
+    if (i.howFar === "none" && !i.pipeline) {
+      flags.push(
+        `#${i.num} has no "How far" line and no pipeline state — not checked against a contract`,
+      );
+      continue;
+    }
+    const stop = howFarStop(i.howFar, "deploy", i.num);
+    if (stop) stops.push(stop);
+  }
 }
 
 /** 7 chars of a SHA, the length every receipt line already prints. @param {string} sha */
@@ -223,6 +248,7 @@ export function pushGateVerdict(f) {
   /** @type {string[]} */ const flags = [];
   judgeTree(f, stops, flags);
   for (const i of f.issues) judgeIssue(i, stops, flags);
+  judgeHowFar(f, stops, flags);
   if (!f.issues.length && f.commits.length)
     flags.push("no (#N) in the published commits — nothing to verify against an issue");
   judgeChecks(f, stops, flags);
@@ -331,8 +357,10 @@ function collectIssue(repo, num) {
     labels: [],
     qa: laneVerdict("qa", []),
     review: laneVerdict("review", []),
+    howFar: /** @type {const} */ ("none"),
+    pipeline: false,
   });
-  const r = gh(["issue", "view", num, "-R", repo, "--json", "labels,comments"], {
+  const r = gh(["issue", "view", num, "-R", repo, "--json", "labels,comments,body"], {
     allowFail: true,
   });
   if (r.status !== 0 || !r.out) return unreadable();
@@ -348,12 +376,16 @@ function collectIssue(repo, num) {
     .map((l) => (typeof l === "string" ? l : (l.name ?? "")))
     .filter(Boolean);
   const comments = (node.comments ?? []).map((c) => c.body ?? "");
+  const qa = laneVerdict("qa", comments);
+  const review = laneVerdict("review", comments);
   return {
     num,
     readable: true,
     labels,
-    qa: laneVerdict("qa", comments),
-    review: laneVerdict("review", comments),
+    qa,
+    review,
+    howFar: readHowFar(node.body),
+    pipeline: showsPipeline(labels, qa, review),
   };
 }
 
@@ -366,6 +398,81 @@ export function branchDoctrine(top) {
   if (own || !top) return own;
   const ws = findWorkspace(top);
   return ws && repoFor(ws, top) ? readBranchModel(ws.root) : null;
+}
+
+/** Git runner for `publishRange`, injectable so the range is testable without a repo.
+ * @param {string[]} args @returns {{ status: number, out: string, err: string }} */
+export const GIT_RUN = (args) => run("git", args, { allowFail: true });
+
+/** Is the destination ref there? `absent` (the remote has no such branch) answers "no" without
+ * reading the local ref, and names it for `--exclude` so a stale copy hides no commit.
+ * @param {string} ref @param {typeof GIT_RUN} git_ @param {boolean} absent
+ * @returns {{ status: number, err: string, exclude: string[] }} */
+function probeDest(ref, git_, absent) {
+  if (absent) return { status: 1, err: "", exclude: [`--exclude=${ref.slice("refs/remotes/".length)}`] }; // prettier-ignore
+  return { ...git_(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]), exclude: [] };
+}
+
+/**
+ * The commits this push would publish: exactly the ones not yet on the destination
+ * `<remote>/<branch>` (the ref the printed `git push` updates). Destination present → its
+ * `..HEAD` range, with ahead/behind counted against it. Absent (first push of the branch) →
+ * every commit of HEAD on no branch of that remote. No count cut. A git failure other than
+ * "the ref does not exist" is returned as `error` — the verdict STOPs on it, never guesses.
+ * `absent` (the remote said it has no such branch) skips the local ref, which is then stale, and
+ * keeps it out of the `--remotes` exclusion so its commits are listed.
+ * @param {string} remote @param {string} branch @param {typeof GIT_RUN} [git_]
+ * @param {{ absent?: boolean }} [opts]
+ * @returns {{ dest: string | null, commits: { sha: string, subject: string }[],
+ *   ahead: number | null, behind: number | null, error: string | null }} */
+export function publishRange(remote, branch, git_ = GIT_RUN, opts = {}) {
+  const ref = `refs/remotes/${remote}/${branch}`;
+  const none = { dest: null, commits: [], ahead: null, behind: null };
+  const probe = probeDest(ref, git_, opts.absent === true);
+  if (probe.status !== 0 && probe.status !== 1)
+    return { ...none, error: `git rev-parse ${ref}: ${probe.err || `exit ${probe.status}`}` };
+  const dest = probe.status === 0 ? `${remote}/${branch}` : null;
+  const args = dest
+    ? ["log", `${ref}..HEAD`, "--format=%h\t%s"]
+    : ["log", "HEAD", "--not", ...probe.exclude, `--remotes=${remote}`, "--format=%h\t%s"];
+  const log = git_(args);
+  if (log.status !== 0)
+    return { ...none, dest, error: `git ${args.slice(0, -1).join(" ")}: ${log.err || `exit ${log.status}`}` }; // prettier-ignore
+  const commits = log.out
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => {
+      const [sha, ...rest] = l.split("\t");
+      return { sha: sha ?? "", subject: rest.join("\t") };
+    });
+  if (!dest) return { ...none, commits, error: null };
+  const counts = git_(["rev-list", "--left-right", "--count", `${ref}...HEAD`]);
+  if (counts.status !== 0)
+    return { ...none, dest, error: `git rev-list ${ref}...HEAD: ${counts.err || `exit ${counts.status}`}` }; // prettier-ignore
+  const [b, a] = counts.out.split(/\s+/);
+  return { dest, commits, ahead: Number(a ?? 0), behind: Number(b ?? 0), error: null };
+}
+
+/**
+ * Fetch `<remote> <branch>`, then list the range. A failed fetch is a STOP (a stale remote ref
+ * would hide commits), except when the remote answers that it has no such branch (first push):
+ * `git ls-remote --exit-code --heads` exits 2 for that, 0 when the branch exists, 128 when the
+ * remote cannot be reached — measured, so no localized stderr is parsed.
+ * @param {string} remote @param {string} branch @param {typeof GIT_RUN} [git_]
+ * @returns {ReturnType<typeof publishRange>} */
+export function fetchedRange(remote, branch, git_ = GIT_RUN) {
+  const fetch = git_(["fetch", remote, branch]);
+  if (fetch.status === 0) return publishRange(remote, branch, git_);
+  const ls = git_(["ls-remote", "--exit-code", "--heads", remote, branch]);
+  if (ls.status === 2) return publishRange(remote, branch, git_, { absent: true });
+  const reason = fetch.err.split("\n").find((l) => l.trim()) ?? `exit ${fetch.status}`;
+  return {
+    dest: null,
+    commits: [],
+    ahead: null,
+    behind: null,
+    error: `could not fetch ${remote}/${branch} (${reason.trim()}), so the commits this push would publish cannot be listed`, // prettier-ignore
+  };
 }
 
 /** Gather every fact the verdict reads, in the order push-method lists them.
@@ -381,24 +488,12 @@ function collectFacts(askedBranch, flags) {
   const setUpstream = flags["set-upstream"] === true;
   const dirty = git(["status", "--porcelain"]).split("\n").filter(Boolean);
 
-  run("git", ["fetch", remote, branch], { allowFail: true });
-  let ahead = null;
-  let behind = null;
-  if (upstream) {
-    const [b, a] = git(["rev-list", "--left-right", "--count", "@{u}...HEAD"]).split(/\s+/);
-    behind = Number(b ?? 0);
-    ahead = Number(a ?? 0);
-  }
-  // No upstream = nothing to diff against; the last 20 subjects are what a `-u` push would publish.
-  const commits = git(
-    upstream ? ["log", "@{u}..HEAD", "--format=%h\t%s"] : ["log", "-n", "20", "--format=%h\t%s"],
-  )
-    .split("\n")
-    .filter(Boolean)
-    .map((l) => {
-      const [sha, ...rest] = l.split("\t");
-      return { sha: sha ?? "", subject: rest.join("\t") };
-    });
+  const range = fetchedRange(remote, branch);
+  const commits = range.commits;
+  // No upstream keeps ahead/behind null, as before: the `upstream NONE` / `--set-upstream` judgement
+  // is unchanged. With one, they are counted against the destination, so they agree with the range.
+  const ahead = upstream ? range.ahead : null;
+  const behind = upstream ? range.behind : null;
 
   const doctrine = branchDoctrine(git(["rev-parse", "--show-toplevel"]));
   const reaches = deployReaching(branch, doctrine);
@@ -421,6 +516,7 @@ function collectFacts(askedBranch, flags) {
       behind,
       tip,
       commits,
+      rangeError: range.error,
       issues,
       checks,
       doctrine,
@@ -438,7 +534,8 @@ function issueLine(i) {
     return `${l.toUpperCase()} ${v.state}${v.sha ? ` @${v.sha.slice(0, 7)}` : ""}`;
   };
   const labels = i.labels.filter((l) => /^(qa|review):/.test(l)).join(" ") || "no lane labels";
-  return `issue      #${i.num}: ${labels} · ${lane("qa")} · ${lane("review")}`;
+  const far = i.howFar === "none" || i.howFar === "unclear" ? i.howFar : HOW_FAR_LABELS[i.howFar];
+  return `issue      #${i.num}: ${labels} · ${lane("qa")} · ${lane("review")} · how far ${far}`;
 }
 
 const REL_NOTE = {

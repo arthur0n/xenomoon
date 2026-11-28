@@ -2,7 +2,14 @@
 // parser is checked against the same verdict shapes commit-gate.sh was taught by live issues.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { laneVerdict, citedIssues, pushGateVerdict, relateHead } from "./issuekit-push.js";
+import {
+  laneVerdict,
+  citedIssues,
+  pushGateVerdict,
+  relateHead,
+  publishRange,
+  fetchedRange,
+} from "./issuekit-push.js";
 
 /** @typedef {import("./issuekit-push.js").PushFacts} PushFacts */
 /** @typedef {import("./issuekit-push.js").LaneVerdict} LaneVerdict */
@@ -17,6 +24,8 @@ const ISSUE = () => ({
   labels: ["qa:pass", "review:pass"],
   qa: lane("pass", "abc1234", "## 🧪 QA — PASS"),
   review: lane("pass", "abc1234", "## 🔎 REVIEW — pass"),
+  howFar: "deployed",
+  pipeline: true,
 });
 
 /** @param {Partial<PushFacts>} over @returns {PushFacts} */
@@ -31,6 +40,7 @@ const facts = (over = {}) => ({
   behind: 0,
   tip: "c86e464875ff1954ab987c0a60c7b45455c9f471",
   commits: [{ sha: "abc1234", subject: "fix: thing (#42)" }],
+  rangeError: null,
   issues: [ISSUE()],
   checks: {
     kind: "pr",
@@ -242,4 +252,209 @@ test("citedIssues collects each (#N) once, in commit order", () => {
     citedIssues([{ subject: "a (#5)" }, { subject: "b (#7) and (#5)" }, { subject: "c" }]),
     ["5", "7"],
   );
+});
+
+/** A fake git runner: records every call, answers by the verb. `over` replaces one verb's answer.
+ * @param {{ probe?: number, log?: string, counts?: string, fail?: "log" | "counts" | "probe" }} [o] */
+const fakeGit = (o = {}) => {
+  /** @type {string[][]} */ const calls = [];
+  /** @param {string[]} args */
+  const run = (args) => {
+    calls.push(args);
+    const verb = args[0];
+    if (verb === "rev-parse") {
+      if (o.fail === "probe") return { status: 128, out: "", err: "fatal: boom" };
+      return { status: o.probe ?? 0, out: "", err: "" };
+    }
+    if (verb === "log") {
+      if (o.fail === "log") return { status: 128, out: "", err: "fatal: bad range" };
+      return { status: 0, out: o.log ?? "", err: "" };
+    }
+    if (o.fail === "counts") return { status: 1, out: "", err: "count failed" };
+    return { status: 0, out: o.counts ?? "0\t0", err: "" };
+  };
+  return { run, calls };
+};
+
+test("publishRange: destination present lists <remote>/<branch>..HEAD and counts against it", () => {
+  const g = fakeGit({ probe: 0, log: "a1\tfix: one (#1)\nb2\tfix: two (#2)\n", counts: "3\t2" });
+  const r = publishRange("origin", "main", g.run);
+  assert.deepEqual(g.calls[1], ["log", "refs/remotes/origin/main..HEAD", "--format=%h\t%s"]);
+  assert.deepEqual(g.calls[2], ["rev-list", "--left-right", "--count", "refs/remotes/origin/main...HEAD"]); // prettier-ignore
+  assert.equal(r.dest, "origin/main");
+  assert.deepEqual(r.commits, [
+    { sha: "a1", subject: "fix: one (#1)" },
+    { sha: "b2", subject: "fix: two (#2)" },
+  ]);
+  assert.equal(r.behind, 3);
+  assert.equal(r.ahead, 2);
+  assert.equal(r.error, null);
+});
+
+test("publishRange: destination missing lists every commit on no branch of the remote, uncut", () => {
+  const log = Array.from({ length: 25 }, (_, i) => `s${i}\tcommit ${i}`).join("\n");
+  const g = fakeGit({ probe: 1, log });
+  const r = publishRange("origin", "new-branch", g.run);
+  assert.deepEqual(g.calls[1], ["log", "HEAD", "--not", "--remotes=origin", "--format=%h\t%s"]);
+  assert.ok(!g.calls[1]?.includes("-n"), "no count cut");
+  assert.equal(r.commits.length, 25);
+  assert.equal(r.dest, null);
+  assert.equal(r.ahead, null);
+  assert.equal(r.behind, null);
+  assert.equal(r.error, null);
+  assert.equal(g.calls.length, 2, "no ahead/behind count without a destination");
+});
+
+test("publishRange: a git failure comes back as error, never as an empty range", () => {
+  for (const fail of /** @type {const} */ (["probe", "log", "counts"])) {
+    const r = publishRange("origin", "main", fakeGit({ probe: 0, fail }).run);
+    assert.ok(r.error, `${fail}: error set`);
+    assert.deepEqual(r.commits, [], `${fail}: no commits claimed`);
+  }
+  assert.match(publishRange("origin", "main", fakeGit({ fail: "probe" }).run).error ?? "", /boom/);
+});
+
+test("a range that cannot be listed STOPs and says so", () => {
+  const v = pushGateVerdict(facts({ rangeError: "git log: fatal: bad range" }));
+  assert.equal(v.stops.length, 1);
+  assert.match(
+    v.stops[0] ?? "",
+    /cannot list the commits this push would publish \(git log: fatal: bad range\)/,
+  );
+});
+
+/** `fakeGit` plus the fetch and the ls-remote answers. @param {{ fetch?: number,
+ * ls?: number, probe?: number, log?: string, counts?: string }} [o] */
+const fetchGit = (o = {}) => {
+  const g = fakeGit(o);
+  /** @param {string[]} args */
+  const run = (args) => {
+    if (args[0] === "fetch") {
+      g.calls.push(args);
+      return o.fetch ? { status: o.fetch, out: "", err: "fatal: unable to access\nmore" } : { status: 0, out: "", err: "" }; // prettier-ignore
+    }
+    if (args[0] === "ls-remote") {
+      g.calls.push(args);
+      return { status: o.ls ?? 0, out: "", err: "" };
+    }
+    return g.run(args);
+  };
+  return { run, calls: g.calls };
+};
+
+test("fetchedRange: a good fetch lists the range exactly as before", () => {
+  const g = fetchGit({ probe: 0, log: "a1\tfix: one (#1)\n", counts: "0\t1" });
+  const r = fetchedRange("origin", "main", g.run);
+  assert.deepEqual(g.calls[0], ["fetch", "origin", "main"]);
+  assert.deepEqual(g.calls[2], ["log", "refs/remotes/origin/main..HEAD", "--format=%h\t%s"]);
+  assert.ok(!g.calls.some((c) => c[0] === "ls-remote"), "no ls-remote after a good fetch");
+  assert.equal(r.dest, "origin/main");
+  assert.deepEqual(r.commits, [{ sha: "a1", subject: "fix: one (#1)" }]);
+  assert.equal(r.error, null);
+});
+
+test("fetchedRange: a failed fetch of a branch the remote does not have is a first push", () => {
+  const g = fetchGit({ fetch: 128, ls: 2, probe: 1, log: "s1\tone\n" });
+  const r = fetchedRange("origin", "new-branch", g.run);
+  assert.deepEqual(g.calls[1], ["ls-remote", "--exit-code", "--heads", "origin", "new-branch"]);
+  assert.equal(r.error, null);
+  assert.equal(r.dest, null);
+  assert.deepEqual(r.commits, [{ sha: "s1", subject: "one" }]);
+});
+
+test("fetchedRange: a failed fetch of an unreachable remote is an error and STOPs", () => {
+  const r = fetchedRange("origin", "main", fetchGit({ fetch: 128, ls: 128, probe: 0 }).run);
+  assert.equal(
+    r.error,
+    "could not fetch origin/main (fatal: unable to access), so the commits this push would publish cannot be listed", // prettier-ignore
+  );
+  assert.deepEqual(r.commits, []);
+  const v = pushGateVerdict(facts({ rangeError: r.error }));
+  assert.equal(v.stops.length, 1);
+  assert.match(v.stops[0] ?? "", /could not fetch origin\/main/);
+});
+
+test("fetchedRange: a failed fetch of a branch the remote has is an error, never the stale ref", () => {
+  const g = fetchGit({ fetch: 128, ls: 0, probe: 0, log: "a1\tstale\n" });
+  const r = fetchedRange("origin", "main", g.run);
+  assert.ok(r.error, "error set");
+  assert.deepEqual(r.commits, []);
+  assert.ok(!g.calls.some((c) => c[0] === "log"), "the stale ref is not read");
+});
+
+test("fetchedRange: a stale local ref of a deleted remote branch is not used for the range", () => {
+  const g = fetchGit({ fetch: 128, ls: 2, probe: 0, log: "c3\tnew\nb2\tonly on the stale ref\n" });
+  const r = fetchedRange("origin", "gone", g.run);
+  assert.ok(!g.calls.some((c) => c[0] === "rev-parse"), "the stale ref is not probed");
+  const log = g.calls.find((c) => c[0] === "log");
+  assert.deepEqual(log, ["log", "HEAD", "--not", "--exclude=origin/gone", "--remotes=origin", "--format=%h\t%s"]); // prettier-ignore
+  assert.equal(r.dest, null);
+  assert.equal(r.commits.length, 2);
+  assert.equal(r.error, null);
+});
+
+const DEPLOY = /** @type {const} */ ({ reaches: true });
+
+test("how far: a deploy push passes only on deployed", () => {
+  const v = pushGateVerdict(facts({ ...DEPLOY, issues: [{ ...ISSUE(), howFar: "deployed" }] }));
+  assert.deepEqual(v.stops, []);
+  assert.deepEqual(v.flags, []);
+});
+
+test("how far: merged, pr and unclear STOP a deploy push, naming the issue", () => {
+  for (const howFar of /** @type {const} */ (["merged", "pr", "unclear"])) {
+    const v = pushGateVerdict(facts({ ...DEPLOY, issues: [{ ...ISSUE(), howFar }] }));
+    assert.equal(v.stops.length, 1, howFar);
+    assert.match(
+      v.stops[0] ?? "",
+      /^Issue #42 .*so deploy is past what the owner allowed: the issue stays at state Ready/,
+      howFar,
+    );
+  }
+});
+
+test("how far: no line STOPs when the issue shows pipeline state, FLAGs when it does not", () => {
+  const stopped = pushGateVerdict(
+    facts({ ...DEPLOY, issues: [{ ...ISSUE(), howFar: "none", pipeline: true }] }),
+  );
+  assert.equal(stopped.stops.length, 1);
+  assert.match(stopped.stops[0] ?? "", /Issue #42 has no "How far" line, so deploy is past/);
+  const flagged = pushGateVerdict(
+    facts({ ...DEPLOY, issues: [{ ...ISSUE(), howFar: "none", pipeline: false }] }),
+  );
+  assert.deepEqual(flagged.stops, []);
+  assert.match(flagged.flags.join("\n"), /#42 has no "How far" line and no pipeline state/);
+});
+
+test("how far: a target that cannot be told gates as deploy; a work branch is not checked", () => {
+  const merged = [{ ...ISSUE(), howFar: /** @type {const} */ ("merged") }];
+  const unsure = pushGateVerdict(facts({ reaches: null, issues: merged }));
+  assert.equal(unsure.stops.length, 1);
+  assert.match(unsure.stops[0] ?? "", /Issue #42 has "How far: merged", so deploy is past/);
+  const work = pushGateVerdict(facts({ reaches: false, issues: merged }));
+  assert.deepEqual(work.stops, []);
+  assert.deepEqual(work.flags, []);
+});
+
+test("how far: of two issues only the one short of deployed STOPs, and an unreadable one keeps its own stop", () => {
+  const two = pushGateVerdict(
+    facts({
+      ...DEPLOY,
+      issues: [
+        { ...ISSUE(), num: "1", howFar: "deployed" },
+        { ...ISSUE(), num: "2", howFar: "merged" },
+      ],
+    }),
+  );
+  assert.equal(two.stops.length, 1);
+  assert.match(two.stops[0] ?? "", /^Issue #2 has "How far: merged"/);
+  const unreadable = pushGateVerdict(
+    facts({
+      ...DEPLOY,
+      issues: [{ ...ISSUE(), readable: false, howFar: "none", pipeline: false }],
+    }),
+  );
+  assert.equal(unreadable.stops.length, 1, "only the fail-closed stop, none from the contract");
+  assert.match(unreadable.stops[0] ?? "", /#42 could not be read/);
+  assert.deepEqual(unreadable.flags, []);
 });

@@ -35,7 +35,7 @@ Run the project's own commands, and know which is which:
   work, and a manual `sam deploy` / `wrangler deploy` is forbidden (shared cloud account, OIDC
   role). Watch the run with `gh run list -R <repo> --branch <main> --limit 5` then
   `gh run watch -R <repo> <id>`; a run that died before the credentials step made no cloud
-  change. A project can gate the deploy on the flow's verdicts: `plugin/docs/process/ci-qa-gate.md`.
+  change. `issuekit push-check`, `issuekit pr merge` and `issuekit promote` stop a move past the contract's "How far" line. A project can gate the deploy on the flow's verdicts: `plugin/docs/process/ci-qa-gate.md`.
 
 ## Review and Codex — the webapp deltas
 

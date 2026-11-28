@@ -23,6 +23,18 @@ move counts with what it sets off by itself: find out first whether a merge depl
 contract allows → stop, report the state **Ready, not published**, and write the comparison on the
 issue.
 
+Code compares the move with that line. `issuekit push-check`: a push that reaches the deploy branch
+(or where that cannot be told) is a deploy, so every issue the commits cite must say `deployed`.
+`merged` or `pull request opened` → STOP. An issue with no "How far" line → STOP when it shows
+pipeline state (a QA or review label or verdict), a FLAG otherwise. A push to a work branch is not
+checked. `issuekit pr merge <PR#>` checks the issues the pull request cites: a merge into a branch
+that reaches the deploy branch needs `deployed`; into any other branch, `merged` or `deployed`.
+`issuekit promote` is a deploy for the issues its commits cite. A STOP of this kind means the move
+is past what the owner allowed: state **Ready, not published**. Only the owner changes the line;
+nobody edits it to get past the STOP. A merge into another branch that deploys by itself is not
+known to code: the judgment above decides. A `git push` or merge typed by hand is held by
+`policy.push` and `policy.merge`, not by the contract, so use these commands.
+
 ## 1. The gate — ONE call, then obey it
 
 ```

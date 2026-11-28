@@ -15,6 +15,9 @@ import {
   slugify,
   str,
 } from "./issuekit-lib.js";
+import { branchDoctrine, citedIssues } from "./issuekit-push.js";
+import { deployReaching } from "../../lib/branch-doctrine.js";
+import { readHowFar, howFarStop } from "./how-far.js";
 
 /** @typedef {import("./issuekit-lib.js").Flags} Flags */
 /** @typedef {import("./issuekit-lib.js").GhNode} GhNode */
@@ -262,6 +265,109 @@ export function prGreenGate(repo, num) {
   return prGateFacts(repo, num).blockers;
 }
 
+/**
+ * The contract decision for a merge or a promote, from facts already read: each cited issue's
+ * "How far" line against the move. Pure, so a test drives it without `gh`.
+ * @param {{ move: import("./how-far.js").HowFarMove,
+ *   issues: { num: string | number, readable: boolean, howFar: import("./how-far.js").HowFar }[],
+ *   what?: string }} input `what` names the change in the no-issue flag (default "the change")
+ * @returns {{ stops: string[], flags: string[] }} */
+export function contractStops({ move, issues, what = "the change" }) {
+  /** @type {string[]} */ const stops = [];
+  /** @type {string[]} */ const flags = [];
+  if (!issues.length) flags.push(`${what} cites no issue — nothing to check against a contract`);
+  for (const i of issues) {
+    const ref = `#${String(i.num).replace(/^#/, "")}`;
+    if (!i.readable) stops.push(`could not read ${ref}, so the contract cannot be checked`);
+    // An issue's pipeline state is not read here: only its "How far" line gates the move.
+    else if (i.howFar === "none")
+      flags.push(`${ref} has no "How far" line — not checked against a contract`);
+    else {
+      const stop = howFarStop(i.howFar, move, ref);
+      if (stop) stops.push(stop);
+    }
+  }
+  return { stops, flags };
+}
+
+/** Each issue's "How far" line, read from its body. @param {string} repo @param {string[]} nums */
+function readContracts(repo, nums) {
+  return nums.map((num) => {
+    const r = gh(["issue", "view", num, "-R", repo, "--json", "body"], { allowFail: true });
+    const node = r.status === 0 ? parseObject(r.out) : null;
+    return node
+      ? { num, readable: true, howFar: readHowFar(node.body) }
+      : { num, readable: false, howFar: /** @type {const} */ ("none") };
+  });
+}
+
+/** Print the flags; on any stop print the refusal on stderr and exit 1 — before any merge call.
+ * @param {{ stops: string[], flags: string[] }} verdict */
+function refuseOnStops({ stops, flags }) {
+  for (const f of flags) console.log(`FLAG — ${f}`);
+  if (!stops.length) return;
+  console.error(`STOP ✗ — ${stops.length} blocker(s); not merged:`);
+  for (const s of stops) console.error(`  • ${s}`);
+  process.exit(1);
+}
+
+/** The deploy reading of push-check: true or cannot-be-told gates as deploy. @param {string} target */
+function moveInto(target) {
+  const top = run("git", ["rev-parse", "--show-toplevel"], { allowFail: true }).out;
+  return deployReaching(target, branchDoctrine(top)) !== false ? "deploy" : "merge";
+}
+
+/** Issues a pull request cites: `Refs #N` (any case, several) in the body, `(#N)` in the title.
+ * @param {string} title @param {string} body @returns {string[]} */
+export function prCitedIssues(title, body) {
+  const out = citedIssues([{ subject: title }]);
+  for (const m of body.matchAll(/\brefs\b((?:[\s,]*(?:and\s+)?#\d+)+)/gi))
+    for (const n of (m[1] ?? "").matchAll(/#(\d+)/g))
+      if (n[1] && !out.includes(n[1])) out.push(n[1]);
+  return out;
+}
+
+/** The contract check of `pr merge`; exits 1 on a stop. @param {string} repo @param {string | number} num */
+function checkPrContract(repo, num) {
+  const pr = ghNode(["pr", "view", String(num), "-R", repo, "--json", "title,body,baseRefName"]);
+  const nums = prCitedIssues(pr.title ?? "", pr.body ?? "");
+  const move = moveInto(pr.baseRefName ?? "");
+  refuseOnStops(contractStops({ move, issues: readContracts(repo, nums), what: `PR #${num}` }));
+}
+
+/** The contract check of `promote` (always a deploy move); exits 1 on a stop.
+ * @param {string} repo @param {string} from @param {string} to */
+function checkPromoteContract(repo, from, to) {
+  const r = gh(["api", `repos/${repo}/compare/${to}...${from}`], { allowFail: true });
+  const cmp = r.status === 0 ? parseObject(r.out) : null;
+  const commits = Array.isArray(cmp?.commits)
+    ? /** @type {{ commit?: { message?: unknown } }[]} */ (cmp.commits)
+    : null;
+  if (!cmp || !commits) {
+    refuseOnStops({
+      stops: [`could not list the commits ${from} brings to ${to} (${r.err || r.out || "no commits list"})`], // prettier-ignore
+      flags: [],
+    });
+    return;
+  }
+  // The compare API lists at most 250 commits; an issue cited past that cut would go unchecked.
+  if (typeof cmp.total_commits === "number" && cmp.total_commits > commits.length) {
+    refuseOnStops({
+      stops: [`the compare lists ${commits.length} of ${cmp.total_commits} commits ${from} brings to ${to}, so the contracts cannot all be checked`], // prettier-ignore
+      flags: [],
+    });
+    return;
+  }
+  const subjects = commits.map((c) => {
+    const message = c?.commit?.message;
+    return { subject: (typeof message === "string" ? message : "").split("\n")[0] ?? "" };
+  });
+  const what = `${from} → ${to}`;
+  refuseOnStops(
+    contractStops({ move: "deploy", issues: readContracts(repo, citedIssues(subjects)), what }),
+  );
+}
+
 /** @param {string | number} num @param {Flags} flags */
 export function cmdPrMerge(num, flags) {
   const repo = resolveRepo(flags);
@@ -269,6 +375,7 @@ export function cmdPrMerge(num, flags) {
   const method = str(flags.method) ?? cfgOf().mergeMethod ?? "squash";
   if (!["squash", "merge", "rebase"].includes(method))
     throw new Error("--method must be squash|merge|rebase");
+  checkPrContract(repo, num);
   if (flags["when-green"]) {
     const blockers = prGreenGate(repo, num);
     if (blockers.length) {
@@ -304,6 +411,7 @@ export function cmdPromote(flags) {
     throw new Error(
       `promote: bad lane from=${from} to=${to || "?"} (set prodBranch in .issuekit.json or pass --to)`,
     );
+  checkPromoteContract(repo, from, to);
   const r = gh(["api", `repos/${repo}/merges`, "-f", `base=${to}`, "-f", `head=${from}`], {
     allowFail: true,
   });

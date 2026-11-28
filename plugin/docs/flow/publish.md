@@ -6,7 +6,8 @@ Agent: `senior-analyst` with the push skill. Never the agent that wrote the code
 
 - `[judgment]` Read the "How far" line of the contract: pull request opened, merged, or deployed.
 - `[judgment]` A move counts with what it sets off by itself. Find out first whether a merge deploys in this project. If it does, a merge is a deploy and needs the approval of a deploy.
-- `[code, not built]` Does the next move stay inside what the contract allows? No → state Ready, not published. Until code does it: compare by hand and write the answer on the issue.
+- `[code]` `issuekit push-check`, `issuekit pr merge` and `issuekit promote` compare the move with the "How far" line. A STOP → state Ready, not published. Only the owner changes the line.
+- `[judgment]` A `git push` or a merge typed by hand is held by the project's approvals (`policy.push`, `policy.merge`), not by the contract. Use these commands.
 - `[check]` One call to `issuekit push-check`, then obey it. Exit 1 → stop and quote its STOP lines. Exit 0 → run the one command it prints, exactly.
 - `[code]` The push is a bare `git push <remote> <branch>`. No force, no tags, no chained commands.
 - `[code]` A push that reaches the deploy branch follows the project's push setting (ask, or allow).

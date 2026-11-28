@@ -21,6 +21,7 @@ import {
   hasProjectSetting,
   normalizeActionPolicy,
   readActionPolicy,
+  readBrowserSettings,
   readProjectSettings,
   resolveProjectDir,
   writeProjectSettings,
@@ -351,5 +352,29 @@ test("writeProjectSettings on a failed rename: false, old content intact, temp r
     }
     assert.equal(readFileSync(projectSettingsFile(dir), "utf8"), old);
     assert.deepEqual(readdirSync(path.join(dir, ".xenomoon")), ["settings.json"]);
+  });
+});
+
+test("readBrowserSettings returns the project's browser.deviceId", () => {
+  withTmp((dir) => {
+    writeSettings(dir, JSON.stringify({ browser: { deviceId: "id-1" } }));
+    assert.deepEqual(readBrowserSettings(dir), { deviceId: "id-1" });
+  });
+});
+
+test("readBrowserSettings reads empty for a missing file, block, key, empty string or non-string", () => {
+  withTmp((dir) => {
+    assert.deepEqual(readBrowserSettings(dir), { deviceId: "" });
+    for (const settings of [
+      {},
+      { browser: {} },
+      { browser: { deviceId: "" } },
+      { browser: { deviceId: 5 } },
+      { browser: { deviceId: ["id-1"] } },
+      { browser: "id-1" },
+    ]) {
+      writeSettings(dir, JSON.stringify(settings));
+      assert.deepEqual(readBrowserSettings(dir), { deviceId: "" }, JSON.stringify(settings));
+    }
   });
 });

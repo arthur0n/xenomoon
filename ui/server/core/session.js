@@ -33,6 +33,7 @@ import { trackMessage, settleAllBackground } from "./session-stream-tracker.js";
 import { makeCanUseTool } from "./session-permissions.js";
 import { handleClientMessage } from "./session-client-messages.js";
 import { resolveSessionPlugins } from "./session-plugins.js";
+import { browserExtraArgs } from "./session-browser.js";
 
 import {
   DEFAULT_POLICY,
@@ -52,6 +53,7 @@ import {
   CODEX_PLUGIN_DIR,
   getCodexConfig,
   AUTO_ALLOW_TOOLS,
+  DOMAIN,
 } from "./config.js";
 
 /** @typedef {import("../../lib/types.js").OutMsg} OutMsg */
@@ -217,6 +219,9 @@ function runSession({
                 disarm: checkLoop.disarm,
               }),
             },
+            // `--chrome` when the baked descriptor says browser: "chrome"; {} otherwise, which is the
+            // SDK's own default for extraArgs (see session-browser.js).
+            extraArgs: browserExtraArgs(DOMAIN.browser),
           },
         });
       // Stream the session, auto-retrying a sustained API 529 every 5 min (resume, self-

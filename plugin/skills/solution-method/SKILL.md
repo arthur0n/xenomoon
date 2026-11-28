@@ -2,7 +2,7 @@
 name: solution-method
 agents: [senior-analyst]
 domain: universal
-description: The method of the Design and Plan steps of the flow — verify the facts against real code (what Triage left is a starting guess), design the minimal change, name how it is proved, the path to production and the rollback, post the `## 🔬 ANALYSIS` spec, then cut the confirmed design into pieces on the board and the issue. Load for Design or Plan.
+description: The method of the Design and Plan steps of the flow — verify the facts against real code (what Triage left is a starting guess), design the minimal change, name the technical part of the proof, the path to production and the rollback, post the `## 🔬 ANALYSIS` spec, then cut the confirmed design into pieces on the board and the issue. Load for Design or Plan.
 ---
 
 # Design and Plan — the method
@@ -35,15 +35,19 @@ the build is mechanical. Keep logic where the project keeps it. Name the edge ca
 what, swallowed errors, login, enum/label drift). Run `graphify affected "<file>"` on every file
 you change before you settle.
 
-### 3. How it is proved — two parts
+### 3. The technical part of the proof — two parts
+
+What proves the issue, and whether a proof is needed, is the `Proof:` line of the contract, the
+owner's. The Design does not decide it.
 
 - **The test that fails without the change.** A hermetic unit test for isolatable logic (name the
   function and the assertion); a smoke or integration test for a data path (name what it
   exercises, with the project's command); a small helper or extract-to-pure-function refactor
   when nothing fits yet. "Not automatable" only for pure visual or animation work, with the reason:
   this field is where quality is lost.
-- **The check in production** that Proof will run: a command or scripted check that can be run
-  again, not an agent's word. "Cannot be automated" needs a reason.
+- **What is needed to run what the `Proof:` line asks**: the exact address or page for a look
+  through the browser, or the exact command for the project's script. A `Proof:` line that cannot
+  be done → ask the owner again, on that line only.
 
 ### 4. The path to production and the rollback
 

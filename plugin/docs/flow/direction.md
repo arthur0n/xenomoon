@@ -23,6 +23,7 @@ One message, one line per item, his words quoted beside each:
 2. Each product decision.
 3. What done is.
 4. How far the work may go without him: pull request opened, merged, or deployed. The default comes from the project's settings.
+5. The proof: whether this issue needs a proof in production, and how it is done (for example a look at a named page through the browser, or the project's own test script). Bring your recommendation, grounded in what you read. Ask what must be seen and where, not how it is built.
 
 A line he did not confirm is not a decision: ask again or drop it. The project's settings cannot confirm this stop.
 Owner away → state Waiting for the owner, with the lines to confirm.

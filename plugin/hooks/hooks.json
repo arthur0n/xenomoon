@@ -71,6 +71,15 @@
         ]
       },
       {
+        "matcher": "mcp__claude-in-chrome__select_browser|mcp__claude-in-chrome__switch_browser",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/chrome-profile-gate.mjs\""
+          }
+        ]
+      },
+      {
         "matcher": "*",
         "hooks": [
           {

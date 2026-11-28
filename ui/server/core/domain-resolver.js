@@ -49,10 +49,12 @@ const SELF_FRAMEWORK_DIR = path.join(SELF_DIR, "..", "..", "..");
  *           resolves to (skill-scope registry). Empty for domains that declare none.
  * @property {string} orchestrator routing-prompt file, relative to the framework dir
  * @property {Record<string,string>} commands build/verify commands written into the manifest
+ * @property {"chrome"} [browser] optional: the browser the domain drives. Only "chrome" is
+ *           accepted; absent when the pack does not declare one.
  */
 
 /** Raw parsed domain.json — every leaf is `unknown` until validated. */
-/** @typedef {{ name?: unknown, label?: unknown, populated?: unknown, engine?: { name?: unknown, projectFile?: unknown }, inventory?: { scenes?: unknown, scripts?: unknown, ignore?: unknown }, materializeIntoProject?: unknown, formerNames?: unknown, starter?: unknown, plugin?: unknown, builders?: unknown, orchestrator?: unknown, commands?: unknown }} RawDomain */
+/** @typedef {{ name?: unknown, label?: unknown, populated?: unknown, engine?: { name?: unknown, projectFile?: unknown }, inventory?: { scenes?: unknown, scripts?: unknown, ignore?: unknown }, materializeIntoProject?: unknown, formerNames?: unknown, starter?: unknown, plugin?: unknown, builders?: unknown, orchestrator?: unknown, commands?: unknown, browser?: unknown }} RawDomain */
 
 /** @param {unknown} v @returns {boolean} */
 const isNonEmptyString = (v) => typeof v === "string" && v.length > 0;
@@ -63,6 +65,12 @@ const isObjectOrAbsent = (v) => v == null || (typeof v === "object" && !Array.is
 /** An optional string[] domain field, normalized to an array (empty if absent/invalid).
  *  @param {unknown} v @returns {string[]} */
 const strArrayOr = (v) => (Array.isArray(v) ? /** @type {string[]} */ (v) : []);
+/** The optional `browser` field: absent, or the one accepted value "chrome".
+ *  @param {unknown} v @returns {boolean} */
+const isBrowserOrAbsent = (v) => v === undefined || v === "chrome";
+/** The `browser` entry to spread into the descriptor: `{ browser: "chrome" }`, or nothing when
+ *  absent (no key at all). @param {unknown} v @returns {{ browser?: "chrome" }} */
+const browserEntry = (v) => (v === "chrome" ? { browser: "chrome" } : {});
 
 /** Read a `domain` string from a JSON file, or null if the file/key is absent or invalid.
  *  @param {string} file @returns {string|null} */
@@ -102,6 +110,7 @@ function normalizeDescriptor(raw, name) {
   if (!isNonEmptyString(plugin)) errs.push("plugin");
   if (!isNonEmptyString(orchestrator)) errs.push("orchestrator");
   if (!isObjectOrAbsent(commands)) errs.push("commands (object)");
+  if (!isBrowserOrAbsent(raw.browser)) errs.push('browser ("chrome")');
   if (errs.length) {
     throw new Error(`domain "${name}": domain.json missing/invalid fields: ${errs.join(", ")}`);
   }
@@ -134,6 +143,9 @@ function normalizeDescriptor(raw, name) {
     // Optional: write framework working files INTO the project tree? Default false (agnostic) — only
     // a domain that needs real files at a fixed in-project path (a deferred seam) opts in with true.
     materializeIntoProject: raw.materializeIntoProject === true,
+    // Optional: the browser the domain drives. Absent stays absent (no key), so a pack that does not
+    // declare one bakes exactly the descriptor it baked before.
+    ...browserEntry(raw.browser),
   };
 }
 

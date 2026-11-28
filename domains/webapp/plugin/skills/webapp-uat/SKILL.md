@@ -2,7 +2,7 @@
 name: webapp-uat
 agents: [uat-runner]
 domain: webapp
-description: The browser acceptance lane — run the project's own capped e2e script against a running app with a saved auth session, or drive the browser directly when the project has no suite. Covers the caps that must already live in the config, the saved-session ritual, and what the minimal proof scenario asserts. Load for the Proof step, or any UAT run, on a web app.
+description: The browser acceptance lane — prove an issue by the project's own capped e2e script, or by looking at the page through Chrome in the project's profile, as the `Proof:` line of the contract says. Covers the caps that must already live in the config, the saved-session ritual, the Chrome profile, and what the minimal proof scenario asserts. Load for the Proof step, or any UAT run, on a web app.
 ---
 
 # The browser lane
@@ -10,9 +10,9 @@ description: The browser acceptance lane — run the project's own capped e2e sc
 The app is already running — locally or deployed. You drive it, assert what a user would see, and
 report. You never boot it and never write test code.
 
-## 1. Prefer the project's own suite
+## 1. The project's own suite
 
-If the project has an e2e/UAT script, **that is the lane**. Run it, and only it:
+If the `Proof:` line of the contract asks for the suite, run the project's own e2e/UAT script, and only it:
 
 - take the command from `CLAUDE.md`'s command list (`npm run e2e`, `npm run uat`, whatever the
   project defines — pnpm, yarn, others);
@@ -37,7 +37,7 @@ the run lands on a sign-in page, or the post-login element never appears: **BLOC
 refresh instruction verbatim. Rotating it is the human's job, and a UAT agent that logs itself in is
 a UAT agent that can be phished by its own test fixture.
 
-## 3. The minimal proof, first
+## 3. The minimal proof of the suite, first
 
 Default scenario is `poc`, and it is deliberately small — run it before investing in anything
 larger:
@@ -51,33 +51,24 @@ larger:
 A `poc` that passes says the app is up, authenticated, and reading. That is the floor everything
 else builds on; if it fails, nothing bigger is worth running yet.
 
-## 4. No suite? Drive the browser directly — basically
+## 4. The browser look
 
-A project without an e2e suite still deserves acceptance. Use the browser capability available in
-your session to do exactly what `poc` describes: open the URL, confirm the post-login element, read
-one user-scoped path. Nothing more.
+A look at the page through Chrome counts as the proof, equal to the suite. The `Proof:` line of the
+issue's contract says which one, and what must be seen. The Design gives the exact page.
 
-**If you have no browser capability, that is BLOCKED — say so and stop.** A browser lane without a
-browser is not a lane, and reporting anything else would put a verdict on a run that never happened.
-Say plainly that the direct path needs a browser tool the run did not have, so the gap reads as a
-missing capability rather than as a flaky lane.
-
-**Keep it deliberately small**, because this path has none of the protections the suite has: no
-config caps, no saved-state discipline, no artefacts unless you capture them. So:
-
-- **one page, a handful of assertions, then stop.** No crawling, no exploratory clicking.
-- **capture what you saw** — a screenshot or the text you asserted on — because without the suite's
-  artefacts your report is the only evidence.
-- **never sign in — and prove WHOSE session you are using.** The saved state is the identity
-  boundary, and the direct path does not get to skip it: load the same documented saved session the
-  suite uses. **A signed-in browser profile is not that.** Without the documented state, the run is
-  BLOCKED, not a PASS — a stale profile or the wrong account satisfies "a post-login element
-  rendered" perfectly while reading someone else's data, or the wrong environment's.
-- **name the identity in the verdict**: which user or tenant, and where the state came from. "It
-  looked logged in" is not evidence of anything.
-- **say in the verdict that you used the direct path**, not the project's suite. They are not equally
-  trustworthy, and a reader deciding whether to believe a PASS needs to know which one ran.
-
-This is a fallback, not a destination. When a project starts relying on it, the finding to report is
-that the project needs a capped suite. In the Proof step it does not count as the proof, which must
-be something that can be run again: report that no proof can be run.
+- what you may do in the browser depends on what the `Proof:` line asks.
+- the Chrome profile is the project's: its id is `browser.deviceId` in the project's
+  `.xenomoon/settings.json`. Before opening any page, call `mcp__claude-in-chrome__select_browser`
+  with that id. Names of browsers are not reliable; only the id is used. Never pick another browser
+  and never call `switch_browser`.
+- setup not ready, each with its one-line fix, never a failed proof and never a guess:
+  - no `browser.deviceId` in the settings → add the id of the project's Chrome profile to
+    `.xenomoon/settings.json` as `browser.deviceId`;
+  - the id is not among the connected browsers → open Chrome in that profile with the Claude
+    extension running;
+  - the page shows a sign-in instead of the app → sign in once in that profile.
+- **never sign in.** Never type credentials.
+- **capture evidence**: the step, what was expected, what was shown.
+- **name the identity in the verdict**: which user or tenant, and which profile. "It looked logged
+  in" is not evidence of anything.
+- **say in the verdict which way ran**: the suite or the browser look.

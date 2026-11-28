@@ -3,7 +3,7 @@ name: product-owner
 description: >-
   Captures product intent + business rules VERBATIM from the owner. Two modes: the
   Direction step of the flow for one issue (returns the owner-confirmed goal,
-  decisions, done and how far), and, for work bigger than one issue, ONE small,
+  decisions, done, the proof and how far), and, for work bigger than one issue, ONE small,
   buildable PRD in design/ (or an epic). Read-only on product code; writes only
   design docs (and, human-gated, the project library `.claude/library/` + its
   CLAUDE.md index line). NEVER run backgrounded — it round-trips forms with the user.
@@ -47,8 +47,8 @@ The checklist `plugin/docs/flow/direction.md` decides the route and the stops; t
 3. **Every decision line is confirmed by the owner.** Here you do not apply recommendations
    without asking, and you write no PRD file.
 4. **Return to the orchestrator** the confirmed lines, his words quoted beside each: the goal,
-   each product decision, what done is, how far the work may go without him (pull request opened,
-   merged, or deployed). The orchestrator writes the Contract on the issue. Extras go on a "Later"
+   each product decision, what done is, the proof (whether production needs one, and how), how far
+   the work may go without him (pull request opened, merged, or deployed). The orchestrator writes the Contract on the issue. Extras go on a "Later"
    list.
 
 ## The bar

@@ -30,7 +30,7 @@ Run the project's own commands, and know which is which:
 - **build** (default) — the production build, plus validate if it has not been green this
   session. For quick iteration the dev servers are enough; no rebuild needed.
 - **smoke** — the project's `smoke` command: the data API against the real DB, after a backend
-  or schema change. Acceptance is NOT this — that is the `e2e` key, run by the `uat-runner`.
+  or schema change. Acceptance is NOT this — that is the Proof step, run by the `uat-runner`.
 - **deploy — never from here.** Deploy happens by pushing the main branch; CI does the cloud
   work, and a manual `sam deploy` / `wrangler deploy` is forbidden (shared cloud account, OIDC
   role). Watch the run with `gh run list -R <repo> --branch <main> --limit 5` then
@@ -56,16 +56,16 @@ becomes a human ask. `commit-label` then stamps `committed` + `fixed-pending-dep
 
 ## Proof in a browser (the method of the Proof step)
 
-The `uat-runner` drives the browser; the lane lives in the `webapp-uat` skill.
+The `uat-runner` runs the proof; the lane lives in the `webapp-uat` skill.
 
-- **POC first.** The default `poc` scenario is the minimal proof — load the app with the saved
-  session, assert a known post-login element, confirm one user-scoped read path renders
-  non-empty. Nothing larger until the POC proves stable.
-- **Caps** (unbounded runs once killed the machine): headless, one worker, chromium-only, no
-  retries, strict timeouts. The runner runs the project's `e2e` script only.
-- **Clerk via saved `storageState`** — a one-time manual human sign-in saves a gitignored
-  `.auth/clerk-user.json`; the runner reuses it and never automates the Clerk form. Auth
-  failure → "storageState stale — re-run the manual sign-in".
+- **The `Proof:` line of the contract says how.** A look at a named page through the browser, or
+  the project's own test script.
+- **A look:** the runner selects the project's Chrome profile by the id in `browser.deviceId` of
+  `.xenomoon/settings.json` and uses the sign-in that profile already has. A missing or
+  unconnected id is "setup not ready".
+- **The script:** the project's `e2e` script only. Caps: headless, one worker, chromium-only, no
+  retries, strict timeouts. The saved `storageState` is how it is signed in.
+- Neither way automates a sign-in form.
 
 ## Background — domain specifics
 

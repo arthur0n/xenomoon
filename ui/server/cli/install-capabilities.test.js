@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { installCapabilities } from "./install-capabilities.js";
+import { parseJSON } from "../../lib/json.js";
 import { isInstallOutput } from "../core/install-output.js";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -126,6 +127,20 @@ test("an empty .xenomoon.json refuses the install by name, before any generated 
   assert.equal(fs.statSync(path.join(dir, ".xenomoon.json")).size, 0);
   for (const g of ["framework-root.generated", "issuekit-path.generated"])
     assert.ok(!fs.existsSync(path.join(dir, "plugin/hooks", g)), `${g} was written`);
+});
+
+test("the baked domainDescriptor carries the pack's browser", () => {
+  const dir = framework("browser-bake");
+  const file = path.join(dir, "domains/t/domain.json");
+  fs.writeFileSync(
+    file,
+    JSON.stringify({ ...JSON.parse(read(dir, "domains/t/domain.json")), browser: "chrome" }),
+  );
+  installCapabilities(dir, "t");
+  const baked = /** @type {{ domainDescriptor: { browser?: string } }} */ (
+    parseJSON(read(dir, ".xenomoon.json"))
+  );
+  assert.equal(baked.domainDescriptor.browser, "chrome");
 });
 
 test("isInstallOutput reads the manifest the installer wrote; no manifest means nothing is", () => {

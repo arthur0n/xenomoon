@@ -162,6 +162,17 @@ export function readActionPolicy(projectDir) {
 }
 
 /**
+ * The project's Chrome profile: `browser.deviceId`, written by hand by the owner. "" when the
+ * file, the block or the key is missing, or the value is not a non-empty string.
+ * @param {string} projectDir @returns {{ deviceId: string }}
+ */
+export function readBrowserSettings(projectDir) {
+  const b = readRaw(projectDir).browser;
+  const id = isPlainObject(b) ? b.deviceId : undefined;
+  return { deviceId: typeof id === "string" && id.length > 0 ? id : "" };
+}
+
+/**
  * Merge `patch` (top-level keys) into the settings file, keeping every other key. Creates
  * `.xenomoon/` when absent, never the project dir itself. Replaces the file atomically (temp
  * file + rename). False, nothing written, when the settings path is unsafe (see

@@ -16,6 +16,7 @@
   "plugin": "domains/webapp/plugin",
   "orchestrator": "domains/webapp/orchestrator.md",
   "builders": ["developer"],
+  "browser": "chrome",
   "commands": {
     "build": "npm run build --if-present",
     "lint": "npm run lint --if-present",

@@ -40,7 +40,7 @@ An issue is in one step or in one of these states, never in two. A state is save
 - **Waiting for the proof**: published, not yet confirmed in production.
 - **Proof failed**: published and not working.
 
-Only Proof moves an issue to DONE. Done means deployed and confirmed that it is working.
+Only Proof moves an issue to DONE. Done is deployed and confirmed working, or deployed when the owner decided no proof is needed.
 
 ## Rules that hold in every step
 

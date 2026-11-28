@@ -60,18 +60,19 @@ attacks"). Answer every one: a finding, or "tried, nothing".
 - `path:line` — <concrete hole + consequence> | none
 **OWNER'S LIST:** <findings this change did not cause, one line each> | none
 **TEST GUARDS BUG:** yes | no — <one line>
-**CONTENT:** <output of: git diff HEAD | shasum>
 
 ---
 *adversarial review · senior-analyst · <output of: git rev-parse --short HEAD>*
 review-verified: <output of: git rev-parse HEAD>      ← PASS ONLY
+review-content: <output of: issuekit fingerprint>      ← PASS ONLY
 ```
 
 `pass` when no finding is left to fix; `changes` otherwise. Write `pass`, never another word: the
 gate reads an unknown verdict word as unreadable and asks.
 
-**The marker depends on the verdict:** a `pass` ends with `review-verified: <full sha>`; a `changes`
-ends with `review-changes-at: <full sha>` and **never** carries `review-verified:`. The commit gate
+**The marker depends on the verdict:** a `pass` ends with `review-verified: <full sha>` and
+`review-content: <fingerprint>`; a `changes` ends with `review-changes-at: <full sha>` and **never**
+carries `review-verified:` or `review-content:`. The commit gate
 reads `review-verified:` as proof this code was reviewed; on a blocking verdict it would let one
 failed label edit beside a stale `review:pass` commit a rejected change.
 

@@ -20,6 +20,14 @@
 # allowed only on the code those verdicts actually saw. Pre-binding issues carry no marker at
 # all; those ASK rather than deny, so an old green still commits with one human approval.
 #
+# CONTENT BINDING (#110). A sha says which commit the pass sat on, not what was in the working tree
+# when it ran: an edit made after the pass would ride on it. So the pass comments also carry
+# `qa-content: <id>` / `review-content: <id>` (written with `issuekit fingerprint`), and after the
+# sha checks the gate runs tree-fingerprint.sh on the commit's repo. A different id → DENY, the pass
+# is cancelled and flow-reject.mjs moves the flow task to Fix (one counted round per content). No
+# content mark, or content the commit would not record (unstaged / untracked, or a staged file in
+# `.xenomoon/` the id leaves out) → ASK. ONE folder is the commit's repo for all of it.
+#
 # CAPABILITY DETECTION. This gate encodes ONE pipeline: GitHub issues carrying lane labels and
 # SHA-marked verdict comments. A project that does not run that pipeline must not be judged by it —
 # so when the cited issue shows NO pipeline state at all (no lane label, no verdict comment), the
@@ -27,7 +35,19 @@
 #
 # Loads for ALL callers — orchestrator and sub-agents alike. Reads the PreToolUse payload on stdin;
 # emits a decision only when it matches.
-cmd="$(jq -r '.tool_input.command // empty' 2>/dev/null)"
+payload="$(cat)"
+cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null)"
+jq_rc=$?
+# jq missing, or jq failing on the payload, used to leave `cmd` empty and exit 0 with no decision —
+# the gate gone for every commit. The ask below is STATIC (printf only): `decision` quotes with jq.
+if [ "$jq_rc" -ne 0 ]; then
+  if printf '%s' "$payload" | grep -Eq '(^|[^[:alnum:]_])git[^&|;]*[[:space:]]commit([[:space:]]|$)'; then
+    printf '%s' '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"The commit gate could not read the command (jq missing or failed), so it cannot judge this command. Install jq, or approve only if you know this commit is green."}}'
+  fi
+  exit 0
+fi
+payload_cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)"
+hook_dir="$(dirname "$0")"
 
 decision() { # $1 = allow|deny|ask, $2 = reason
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"%s","permissionDecisionReason":%s}}' \
@@ -61,6 +81,13 @@ if [ "$(commit_count "$cmd")" -gt 1 ]; then
   exit 0
 fi
 
+# ONE repo per commit. git applies every `-C` in sequence, while commit_dir returns only the last, so a
+# command with two `-C` folders cannot be tied to one repo here.
+if [ "$(commit_dir_count "$cmd")" -gt 1 ]; then
+  decision ask "This command names more than one -C folder, so the gate cannot tell which repo the commit records. Give the commit with one -C, or run it from inside the repo."
+  exit 0
+fi
+
 # The issue must come from the COMMIT's own message — commit-parse.sh explains the narrowings.
 n="$(commit_issue "$cmd")"
 if [ -z "$n" ]; then
@@ -72,11 +99,17 @@ fi
 # there, so its issue lives there too — reading the issue here while comparing SHAs against ../sib
 # would judge one repo's commit by another repo's pipeline state, and issue numbers collide freely
 # across repos.
+# ONE folder is that repo: the `-C` dir (a relative one resolved against the payload's cwd), else the
+# payload's cwd, else the hook's own working folder. The sha, the issue, the fingerprint and the
+# rejection all use it.
 cdir="$(commit_dir "$cmd")"
-issue="$(
-  [ -n "$cdir" ] && cd "$cdir" 2>/dev/null
-  gh issue view "$n" --json labels,comments 2>/dev/null
-)"
+base="${payload_cwd:-$PWD}"
+case "$cdir" in
+  "") repo_dir="$base" ;;
+  /*) repo_dir="$cdir" ;;
+  *) repo_dir="$base/$cdir" ;;
+esac
+issue="$(cd "$repo_dir" 2>/dev/null && gh issue view "$n" --json labels,comments 2>/dev/null)"
 # "Could not READ the issue" and "the issue has no labels" are different facts. Conflating them —
 # by testing the label list for emptiness — meant an issue whose labels were removed, or whose
 # label write failed after a BLOCKING verdict was posted, never reached the deny branches at all:
@@ -88,11 +121,7 @@ fi
 labels="$(printf '%s' "$issue" | jq -r '.labels[]?.name' 2>/dev/null)"
 
 # The code this commit will actually record: its parent is HEAD — of that same repo.
-if [ -n "$cdir" ]; then
-  head_sha="$(git -C "$cdir" rev-parse HEAD 2>/dev/null)"
-else
-  head_sha="$(git rev-parse HEAD 2>/dev/null)"
-fi
+head_sha="$(git -C "$repo_dir" rev-parse HEAD 2>/dev/null)"
 if [ -z "$head_sha" ]; then
   decision ask "Commit cites (#$n) but HEAD could not be resolved (unborn branch or not a git repo), so the recorded QA/review SHAs cannot be checked. Fail-closed: human approval required."
   exit 0
@@ -159,19 +188,22 @@ latest_verdict() { # $1 lane rx, $2 pass rx, $3 marker key, $4 block rx → "BLO
 # A block, by contrast, matches on the leading word alone. Blocks should bite widely, and anything
 # that escapes both patterns lands in UNKNOWN, which asks rather than allows.
 PASS_NOTE='( \((re-?QA|re-?review|re-?run|round [0-9]+)\))?[ \t]*(\n|$)'
-qa_verdict="$(latest_verdict \
-  '(^|\n)## (🧪 )?QA( \([^)\n]*\))? —' \
-  "(?i)(^|\n)## (🧪 )?QA( \([^)\n]*\))? — PASS$PASS_NOTE" \
-  'qa-verified' \
-  '(?i)(^|\n)## (🧪 )?QA( \([^)\n]*\))? — (blocked|fail)')"
-review_verdict="$(latest_verdict \
-  '(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? —' \
-  "(?i)(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? — pass$PASS_NOTE" \
-  'review-verified' \
-  '(?i)(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? — (changes|needs-attention|blocked|reject)')"
+QA_LANE='(^|\n)## (🧪 )?QA( \([^)\n]*\))? —'
+QA_PASS="(?i)(^|\n)## (🧪 )?QA( \([^)\n]*\))? — PASS$PASS_NOTE"
+QA_BLOCK='(?i)(^|\n)## (🧪 )?QA( \([^)\n]*\))? — (blocked|fail)'
+REVIEW_LANE='(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? —'
+REVIEW_PASS="(?i)(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? — pass$PASS_NOTE"
+REVIEW_BLOCK='(?i)(^|\n)## (🔎 )?REVIEW( \([^)\n]*\))? — (changes|needs-attention|blocked|reject)'
+qa_verdict="$(latest_verdict "$QA_LANE" "$QA_PASS" 'qa-verified' "$QA_BLOCK")"
+review_verdict="$(latest_verdict "$REVIEW_LANE" "$REVIEW_PASS" 'review-verified' "$REVIEW_BLOCK")"
+# The content marks, read by the SAME rules: only from the lane's newest verdict, when it is a pass.
+# A content id is a full 40-hex tree id; anything shorter is treated as no mark (it cannot be compared).
+content_mark() { printf '%s' "$1" | grep -E ': [0-9a-f]{40}$' | awk '{print $2}'; }
+qa_content="$(content_mark "$(latest_verdict "$QA_LANE" "$QA_PASS" 'qa-content' "$QA_BLOCK")")"
+review_content="$(content_mark "$(latest_verdict "$REVIEW_LANE" "$REVIEW_PASS" 'review-content' "$REVIEW_BLOCK")")"
 
 # When TWO reviewers ran, NEITHER writes the lane verdict: each posts EVIDENCE under its own header
-# (`## 🔎 CODEX REVIEW`, `## 🔎 INTERNAL REVIEW`) with no marker and no label, and the audit stage folds
+# (`## 🔎 CODEX REVIEW`, `## 🔎 INTERNAL REVIEW`) with no marker and no label, and the Review step folds
 # both into the single `## 🔎 REVIEW` verdict where any block wins. So evidence newer than the lane
 # verdict means the reconciliation never happened — an interrupted run — and the standing verdict
 # predates a reviewer nobody folded in. Comparing against the LANE verdict (not against "any review
@@ -202,6 +234,47 @@ short() { printf '%s' "${1:0:7}"; }
 # The flow step a missing pass goes back to: Review when no QA or review verdict was ever written,
 # Fix otherwise. It only picks the words of a refusal, never the decision.
 if [ -z "$qa_verdict" ] && [ -z "$review_verdict" ]; then back_step="Review"; else back_step="Fix"; fi
+
+# Up to five names from stdin, then the count of the rest.
+name_files() {
+  awk 'NF { n++; if (n <= 5) l = l (n > 1 ? ", " : "") $0 } END { if (n > 5) l = l " and " (n - 5) " more"; print l }'
+}
+
+# The last step, once both shas are HEAD: is the content being committed the content that passed?
+content_check() {
+  local fp rc diff_lanes line top unstaged staged_xm
+  fp="$(bash "$hook_dir/tree-fingerprint.sh" "$repo_dir" 2>&1)"
+  rc=$?
+  if [ "$rc" -ne 0 ] || ! printf '%s' "$fp" | grep -Eqx '[0-9a-f]{40}'; then
+    decision ask "Issue #$n is green at HEAD $(short "$head_sha"), but the content fingerprint of $repo_dir could not be computed (${fp:-no output, exit $rc}), so the pass cannot be tied to the content being committed. Approve only if you know nothing changed since the pass."
+    return
+  fi
+  diff_lanes=""
+  [ "$qa_content" != "$fp" ] && diff_lanes="QA's mark qa-content $(short "$qa_content")"
+  if [ "$review_content" != "$fp" ]; then
+    [ -n "$diff_lanes" ] && diff_lanes="$diff_lanes and "
+    diff_lanes="${diff_lanes}review's mark review-content $(short "$review_content")"
+  fi
+  if [ -n "$diff_lanes" ]; then
+    line="$(node "$hook_dir/flow-reject.mjs" "$repo_dir" "$n" "$fp" 2>/dev/null)"
+    [ -n "$line" ] || line="The flow task could not be moved (node or flow-reject.mjs could not run)."
+    decision deny "Gate: the content of #$n changed after the pass — $diff_lanes, the content being committed is $(short "$fp"). The pass is cancelled; a refused content counts as one fix round, once per content. $line Go back to the flow's Fix step for a new pass on this content."
+    return
+  fi
+  top="$(git -C "$repo_dir" rev-parse --show-toplevel 2>/dev/null)"
+  unstaged="$({
+    git -C "$top" diff --name-only -- . ':(exclude,top).xenomoon'
+    git -C "$top" ls-files --others --exclude-standard -- . ':(exclude,top).xenomoon'
+  } 2>/dev/null | sort -u)"
+  staged_xm="$(git -C "$top" diff --cached --name-only -- ':(top).xenomoon' 2>/dev/null)"
+  if [ -n "$unstaged" ]; then
+    decision ask "Issue #$n matches the pass, but content is not staged: $(printf '%s\n' "$unstaged" | name_files). The commit would record less than the pass saw. Stage it first in a command of its own, or approve if those files are not part of this change."
+  elif [ -n "$staged_xm" ]; then
+    decision ask "Issue #$n matches the pass, but a staged file is under .xenomoon/ ($(printf '%s\n' "$staged_xm" | name_files)), and the content fingerprint does not cover that folder. Approve only if that file belongs in this commit."
+  else
+    decision allow "Gate green for #$n: qa:pass + review:pass, no blocks, both verdicts verified at HEAD $(short "$head_sha"), and the content matches the pass ($(short "$fp")). Deterministic auto-commit permitted (publishing is the flow's Publish step, gated by policy.push)."
+  fi
+}
 
 has() { printf '%s\n' "$labels" | grep -qxF "$1"; }
 if [ -z "$pipeline_state" ]; then
@@ -235,7 +308,11 @@ elif [ "$qa_sha" != "$head_sha" ]; then
   decision deny "Gate: QA verified #$n at $(short "$qa_sha") — committing on $(short "$head_sha"). The pass belongs to code that is no longer HEAD (a label is a sticker, the SHA is the artifact). Go back to the flow's Fix step for a new pass at HEAD."
 elif [ "$review_sha" != "$head_sha" ]; then
   decision deny "Gate: review verified #$n at $(short "$review_sha") — committing on $(short "$head_sha"). The pass belongs to code that is no longer HEAD. Go back to the flow's Fix step for a new pass at HEAD."
+# The content marks sit BELOW the sha denies on purpose: a pass at the wrong sha is a deny whatever
+# its content marks say, and asking about a missing mark first would downgrade that deny to a prompt.
+elif [ -z "$qa_content" ] || [ -z "$review_content" ]; then
+  decision ask "Issue #$n is green at HEAD $(short "$head_sha") but its pass carries no content mark (no $([ -z "$qa_content" ] && printf 'qa-content')$([ -z "$qa_content" ] && [ -z "$review_content" ] && printf ' / ')$([ -z "$review_content" ] && printf 'review-content') mark), so the pass cannot be tied to the content being committed. Approve only if you know nothing changed since the pass; otherwise go back to the flow's Fix step for a new pass (the tester and reviewer write the mark with \`issuekit fingerprint\`)."
 else
-  decision allow "Gate green for #$n: qa:pass + review:pass, no blocks, both verdicts verified at HEAD $(short "$head_sha"). Deterministic auto-commit permitted (publishing is the flow's Publish step, gated by policy.push)."
+  content_check
 fi
 exit 0

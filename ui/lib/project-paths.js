@@ -20,3 +20,12 @@ export function projectLogDir(projectDir) {
 export function projectSettingsFile(projectDir) {
   return path.join(projectDir, ".xenomoon", "settings.json");
 }
+
+/**
+ * The project's task board file: `<project>/.xenomoon/tasks.json`. Joined, never resolved.
+ * @param {string} projectDir
+ * @returns {string}
+ */
+export function projectTasksFile(projectDir) {
+  return path.join(projectDir, ".xenomoon", "tasks.json");
+}

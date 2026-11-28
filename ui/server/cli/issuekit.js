@@ -25,7 +25,7 @@ import {
   nowIso,
 } from "./issuekit-lib.js";
 import { cmdBranch, cmdPr, cmdPromote, cmdDeployCheck } from "./issuekit-plumb.js";
-import { cmdCommit } from "./issuekit-commit.js";
+import { cmdCommit, cmdFingerprint } from "./issuekit-commit.js";
 import { cmdPushCheck } from "./issuekit-push.js";
 import { cmdFrameworkFix } from "./issuekit-framework.js";
 import { cmdShow, printAttempts, ATTEMPT_RE } from "./issuekit-show.js";
@@ -412,6 +412,7 @@ const HELP = `issuekit — searchable, deterministic GitHub-issue attempt log (s
       with the (#N) reference, then stamps committed + fixed-pending-deploy (dropping
       needs-deploy). Never pushes — the push stage does. --force overrides a gate ASK only,
       never a DENY.
+  issuekit fingerprint                   the content fingerprint the QA and review pass comments carry (\`qa-content:\` / \`review-content:\`)
 
   issuekit resolve <#> --cause "…" [--fix "…"] [--close] [--label fixed-pending-deploy] [--repo R]
   issuekit new --title "…" [--body-file f|-] [--symptom-file f|-] [--label a,b] [--force] [--repo R]
@@ -499,6 +500,9 @@ const COMMANDS = {
   },
   commit: (pos, flags) => {
     cmdCommit(pos[0] ?? "", flags);
+  },
+  fingerprint: () => {
+    cmdFingerprint();
   },
   search: (pos, flags) => {
     cmdSearch(pos, flags);

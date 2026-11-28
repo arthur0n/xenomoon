@@ -2,7 +2,7 @@
 name: commit-method
 agents: [orchestrator]
 domain: universal
-description: The method of the Commit step — compare the content fingerprint with the two pass comments, what a commit must contain and must not, why the message carries `(#N)` and never `Closes #N`, what to do when the gate refuses, and why the design doc stays out of the fix commit. Load when an issue has its pass and is about to be committed, or when a commit was refused.
+description: The method of the Commit step — the hook compares the content fingerprint with the two pass comments, stage first, what a commit must contain and must not, why the message carries `(#N)` and never `Closes #N`, what to do when the gate refuses, and why the design doc stays out of the fix commit. Load when an issue has its pass and is about to be committed, or when a commit was refused.
 ---
 
 # The Commit step — recording a change, once, honestly
@@ -28,9 +28,14 @@ is recording it.
 Commit when QA and review passed and both verdicts recorded the SHA you are committing on. You do
 not re-run them: the gate re-checks them, at the moment the commit runs, from the issue itself.
 
-The gate checks the SHA, and HEAD does not move during Build and Fix, so check the content yourself:
-run `git diff HEAD | shasum` and compare it with the **CONTENT** line of the `## 🧪 QA — PASS` and
-`## 🔎 REVIEW — pass` comments. Different → the pass is cancelled; back to Fix.
+HEAD does not move during Build and Fix, so the gate also compares the content. The hook compares the
+fingerprint of the working tree (`issuekit fingerprint`) with the `qa-content:` and `review-content:`
+marks of the two pass comments. Different → the hook denies the commit, cancels the pass and moves
+the issue to Fix. Equal but something is not staged → the hook asks the human, because the commit
+would not record what the pass saw.
+
+Stage everything first, then give the commit in a command of its own. The hook compares when the
+command is given, not at the end of it; what a project's own pre-commit hooks change is not compared.
 
 In a terminal session, the owner's word before the commit. In a project session, none.
 
@@ -64,6 +69,8 @@ part that is not negotiable, because machinery depends on it.
 The refusal names the failing condition. Route on it rather than working around it:
 
 - **a stale verdict** (`qa-verified` at a different SHA) → the code moved; back to Fix for a re-check
+- **a content mark that differs from the working tree** → the pass is cancelled and the hook has
+  already moved the issue to Fix; the round is counted by the hook (once per refused content)
 - **a newer blocking verdict** → back to Fix with its findings
 - **no pipeline state** → the gate is asking whether this project runs this pipeline at all. That
   is a question about the PROJECT, and it is not yours to answer. **Stop and put it to the human**,

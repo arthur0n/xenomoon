@@ -2,7 +2,7 @@
 name: qa-method
 agents: [tester]
 domain: universal
-description: The tester's method in the Build, Review and Fix steps — re-run the project's own checks for every package the change touches, judge the test the design named (it exists, runs the bug's path, would be red before the change), and, when the brief asks for the pass, post the SHA-bound `## 🧪 QA — PASS | BLOCKED` comment with the content fingerprint. Load for a per-piece check, the pass at Review, or a re-check after a fix round.
+description: The tester's method in the Build, Review and Fix steps — re-run the project's own checks for every package the change touches, judge the test the design named (it exists, runs the bug's path, would be red before the change), and, when the brief asks for the pass, post the SHA-bound `## 🧪 QA — PASS | BLOCKED` comment with the content fingerprint (`qa-content:`). Load for a per-piece check, the pass at Review, or a re-check after a fix round.
 ---
 
 # QA — the method
@@ -79,26 +79,27 @@ Terse, one line per field. Write to a temp file and post it.
 **GATES:** validate <ok/fail> · build <ok/fail> · test <ok/fail> · smoke <ok/fail/n-a>
 **REGRESSION TEST:** <path::name> — <guards the bug: yes/no + one line how> | not-automatable per spec
 **TREE:** <holds the change / clean / unrelated changes>
-**CONTENT:** <output of: git diff HEAD | shasum>
 **BLOCKERS:** <only when BLOCKED — each failing check or the missing/weak test, one line each>
 
 ---
 *QA gate · tester · <output of: git rev-parse --short HEAD>*
 qa-verified: <output of: git rev-parse HEAD>      ← PASS ONLY
+qa-content: <output of: issuekit fingerprint>      ← PASS ONLY
 ```
 
 **The marker depends on the verdict:**
 
-- **PASS** → last line is `qa-verified: <full sha>`.
-- **BLOCKED** → last line is `qa-blocked-at: <full sha>` instead. **Never emit `qa-verified:` on a
-  BLOCKED verdict.**
+- **PASS** → the last two lines are `qa-verified: <full sha>` and `qa-content: <fingerprint>`.
+- **BLOCKED** → last line is `qa-blocked-at: <full sha>` instead. **Never emit `qa-verified:` or
+  `qa-content:` on a BLOCKED verdict.**
 
 The commit gate reads `qa-verified:` as proof this code passed. If a BLOCKED comment carried it, a
 failed label edit beside a stale `qa:pass` would let a blocked change commit. `qa-blocked-at:`
 records which code you judged and carries no authority at the gate.
 
-**CONTENT** is the fingerprint the Commit step compares before staging: HEAD does not move during
-Build and Fix, the content does.
+`qa-content:` is the fingerprint of the whole working tree (`issuekit fingerprint`). Write it last,
+after the final check, so it matches what you judged. HEAD does not move during Build and Fix, the
+content does, so the commit hook compares it with the working tree at the commit.
 
 **Label BEFORE you post when the verdict is BLOCKED.** The label is the block; the comment is the
 explanation, so an interrupted run leaves the issue blocked, not explained-but-unblocked.

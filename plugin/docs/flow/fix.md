@@ -14,7 +14,7 @@ Agents: `developer`, then the same reviewer as in Review. Job: close the finding
 - `[check]` The tester runs the project's checks again for every package touched.
 - `[code]` The reviewer reads only the fix and the code it affects (the callers of what changed), not the whole change again. With Codex this is the `only` field of the tool. It answers two questions: is the finding closed, and did the fix break something?
 - `[judgment]` The earlier pass or block comment does not count for the new content. Run the re-check even when a skill says "already done": tell it to run again.
-- All closed and nothing broken → write the pass, as in Review, with the new content fingerprint. → Commit.
+- All closed and nothing broken → write the pass, as in Review, with new `qa-verified` / `qa-content` and `review-verified` / `review-content` marks (the content mark is the output of `issuekit fingerprint`). → Commit.
 
 ## Round three: the diagnosis
 

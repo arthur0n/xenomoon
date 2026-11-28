@@ -8,6 +8,7 @@ require `qa:pass` and `review:pass`, and the absence of `qa:blocked` and `review
 deploy if any referenced issue misses the gate, or if the labels cannot be read. A missing signal
 blocks; it never ships.
 
-Check the SHA, not just the label. Each verdict comment ends with `qa-verified: <sha>` or
-`review-verified: <sha>`. Require those to match the commit being deployed: a label says an issue
+Check the SHA, not just the label. A pass comment carries `qa-verified: <sha>` or
+`review-verified: <sha>`, and `qa-content:` / `review-content:`. A blocking comment carries
+`qa-blocked-at:` or `review-changes-at:` and never ships. Require the `-verified` marks to match the commit being deployed: a label says an issue
 passed once, never that this code passed.

@@ -72,7 +72,7 @@ on the named path and map from its answer, never read the file yourself. One tha
 **Mapping.** Codex says `approve` / `needs-attention`; the lane says `pass` / `changes`. You cannot
 comment on an issue: dispatch `senior-analyst` with the receipt ("post this Codex receipt as the
 review comment, do not review") and it posts ONE comment `## 🔎 REVIEW — pass|changes` with the
-`review-verified: <sha>` marker and the label. Never the reviewer's own word, which the gate cannot
+`review-verified: <sha>` and `review-content: <fingerprint>` markers and the label. Never the reviewer's own word, which the gate cannot
 read.
 
 ## 5. Report
@@ -85,5 +85,5 @@ apply is reported**, never swallowed.
 
 Write tracker prose in the project's language (English when it states none). Code reads these as
 written, so they are never translated: `## 🔎 REVIEW — pass|changes`, `## 🧪 QA — PASS`, the
-`review-verified:` / `review-changes-at:` / `qa-verified:` markers, the evidence headings
+`review-verified:` / `review-content:` / `review-changes-at:` / `qa-verified:` / `qa-content:` markers, the evidence headings
 `## 🔎 CODEX REVIEW` / `## 🔎 INTERNAL REVIEW`, and every `qa:*` / `review:*` / `uat:*` label.

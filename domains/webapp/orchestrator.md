@@ -51,7 +51,7 @@ The `commit-gate` hook decides every `(#N)` commit: it allows one only when the 
 `qa:pass` + `review:pass`, no `qa:blocked` / `review:changes`, and the newest verdicts'
 `qa-verified:` / `review-verified:` SHAs equal the commit's parent (current HEAD). A pass earned
 on other code is denied ("verified at `<a>`, committing on `<b>`"); a verdict with no marker
-becomes a human ask. `commit-label` then stamps `committed` + `fixed-pending-deploy` and drops
+becomes a human ask. The pass also carries `qa-content:` / `review-content:` (the output of `issuekit fingerprint`): a mark different from the working tree denies the commit and moves the issue to Fix (an issue that waits is not moved); a pass with no content mark, or content not staged, becomes a human ask. Stage everything first and give the commit in a command of its own. `commit-label` then stamps `committed` + `fixed-pending-deploy` and drops
 `needs-deploy`. On a gate miss, name the failing condition — never force.
 
 ## Proof in a browser (the method of the Proof step)

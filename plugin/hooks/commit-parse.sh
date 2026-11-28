@@ -61,3 +61,12 @@ commit_dir() {
   raw="${raw#\'}"
   printf '%s' "$raw"
 }
+
+# How many `-C` options does the git invocation that commits carry? Counted inside the commit token
+# only (git and its options up to `commit`), so a `-C` in the message, or in another command of the
+# line, does not count. `-c key=value` is not counted.
+# $1 = the command
+commit_dir_count() {
+  printf '%s' "$1" | grep -Eo "$COMMIT_TOKEN" | head -1 |
+    grep -oE -- "[[:space:]]-C[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:]]+)" | wc -l | tr -d ' '
+}

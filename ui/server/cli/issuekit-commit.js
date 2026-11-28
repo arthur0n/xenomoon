@@ -15,15 +15,20 @@ import { run, gh, git, resolveRepo, maybeSwitchUser, str } from "./issuekit-lib.
 
 /** @typedef {import("./issuekit-lib.js").Flags} Flags */
 
-const GATE = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "..",
-  "plugin",
-  "hooks",
-  "commit-gate.sh",
-);
+/** Path of a script in plugin/hooks, built from this file's own location. @param {string} name */
+const hookScript = (name) =>
+  path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "..",
+    "..",
+    "plugin",
+    "hooks",
+    name,
+  );
+
+const GATE = hookScript("commit-gate.sh");
+const FINGERPRINT = hookScript("tree-fingerprint.sh");
 
 /**
  * Ask the commit gate about a command, exactly as the hook would.
@@ -31,7 +36,8 @@ const GATE = path.join(
  */
 function askGate(command) {
   if (!existsSync(GATE)) return { decision: "missing", reason: `no commit gate at ${GATE}` };
-  const payload = JSON.stringify({ tool_input: { command } });
+  // The hook finds the repo of the commit from the payload's cwd, as it does for a real tool call.
+  const payload = JSON.stringify({ tool_input: { command }, cwd: process.cwd() });
   const r = run("bash", [GATE], { input: payload, allowFail: true });
   // A gate that could not run is not a gate that said yes. Every command this function is asked
   // about IS a commit (cmdCommit built it), so silence means the gate broke — bash missing, jq
@@ -55,6 +61,17 @@ function askGate(command) {
   } catch {
     return { decision: "ask", reason: `gate output was unreadable: ${r.out.slice(0, 200)}` };
   }
+}
+
+/**
+ * `issuekit fingerprint` — print the content fingerprint of the current folder's repo, the id the
+ * QA and review pass comments carry. Local only: no repo resolution, no gh, no network.
+ */
+export function cmdFingerprint() {
+  const r = run("bash", [FINGERPRINT, process.cwd()], { allowFail: true });
+  if (r.status !== 0 || !r.out)
+    throw new Error(r.err || r.out || `tree-fingerprint.sh failed (exit ${r.status})`);
+  console.log(r.out);
 }
 
 /**

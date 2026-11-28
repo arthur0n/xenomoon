@@ -112,6 +112,7 @@
  * @property {number} fix - fix rounds (limit 3)
  * @property {boolean} [redesigned] - fix → design was used (allowed once, at round 3)
  * @property {string} [placed] - the step the issue entered the flow at, when not Screening
+ * @property {string} [rejected] - the content fingerprint the commit hook last refused (one fix round per refused content)
  */
 
 /**

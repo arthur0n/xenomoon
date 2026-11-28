@@ -63,6 +63,7 @@ which was reviewed).
   callers of what it changed. `only` is a restrictive scope: nothing outside it is read or reported.
 - **The attack on the design** → `kind:"adversarial-review"` with `design`: the text of the
   confirmed design, as the `senior-analyst` wrote it on the issue. No file in the tree is needed.
+  Not run for a design in the short form (`design.md`).
 - `kind:"review"` ignores `focus`: not used by the flow.
 
 **Receipts.** One that opens `PARTIAL —` is not a verdict yet: dispatch `xenomoon:handoff-summarizer`

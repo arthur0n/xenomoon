@@ -40,7 +40,7 @@ framework loads into every project session.
 ## Layout
 
 - `plugin/` — the framework's **ONE capability tree** (the only one loaded at runtime): agents,
-  skills, commands, hooks, `orchestrator.md`, plus the meta skills (`caveman`, `quick`, `agent-report`,
+  skills, commands, hooks, `orchestrator.md`, plus the meta skills (`caveman`, `agent-report`,
   `tasks-mcp`, `autonomous-main-goal`), safety hooks, `handoff-summarizer`, and the researcher learning
   loop. `forge new --domain X` installs the picked pack's capabilities INTO this tree; after install
   there is no "domain" at runtime — it is just the framework, one tree. Capabilities namespace as

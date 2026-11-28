@@ -21,11 +21,29 @@ The Design owns: the facts read, the files of the change, the path to production
 - `[judgment]` How it is rolled back, and whether that is safe to do without the owner.
 - `[judgment]` Does a technical fact break a line of the contract (for example a change that cannot be undone, when he approved "deployed", or a `Proof:` line that cannot be done)? → ask the owner again, on that line only.
 
+## The short form, for a small change
+
+Same step, same stop. No other route and no command: the analyst offers it, the owner's yes confirms it.
+
+- `[judgment]` The change is small only when all of these hold. Any doubt → the full form.
+  1. It changes one file of code, its test, and at most the lines that call it. The block lists every file.
+  2. Everything it needs already exists in the project's rules or code: no new dependency, folder or convention.
+  3. No database change. No change to the project's CI or to the way to production.
+  4. Nothing about who may see what, login, money or secrets.
+  5. The project's own checks and one test show that it works.
+- `[judgment]` The short design is one block of five lines: the files, the approach with what gets deployed (through the project's way to production as it is today, named), the test that fails without the change, what is needed to run what the `Proof:` line asks, how to undo. Every line of "Do" above still holds for what it writes.
+- `[judgment]` It ends with one task. That task is the whole plan.
+- `[judgment]` At Stop 1 the first line says "Short design, because:" and the five answers. The owner can answer "no, the full design": it is his decision what is small.
+- `[judgment]` One yes confirms it. No attack and no Stop 2.
+- `[judgment]` The change stops being small during the work → the rule of Build applies: stop, state Waiting for the owner, with the fact that made it bigger. He decides how it goes on. The flow has no move from Build back to Design.
+
 ## Stop 1: the owner confirms the design
 
 One line per item: files, approach, database change, the technical part of the proof, path to production, rollback. The project's settings cannot confirm this stop.
 
 ## The attack
+
+Not run for a design in the short form: go to Plan.
 
 - `[code]` One attack by Codex on the confirmed design, before any code, through the Codex tool: the design text goes in its `design` field. A degraded result is not evidence: report it, do not use it.
 

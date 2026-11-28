@@ -194,7 +194,7 @@ function runSession({
             // own `effort:` frontmatter while active.
             effort: EFFORT,
             // Skill index = a tight allowlist (resolveSessionSkills): the framework meta floor
-            // (caveman, quick) + the built-ins the user enabled via the skill wizard
+            // (caveman and the like) + the built-ins the user enabled via the skill wizard
             // (skillOverrides). DOMAIN skills are excluded — both the framework's domain-specific skills
             // and the project's own `.claude/skills` — because the orchestrator only routes; those
             // belong to the implementer agents. A context filter, not a sandbox: unlisted skills

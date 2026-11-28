@@ -6,20 +6,20 @@ One issue moves through twelve steps. Each step has one job, its agent and one c
 Screening → Direction ⇄ Triage → Contract → Design → Plan → Build → Review ⇄ Fix → Commit → Publish → Proof → DONE
 ```
 
-| Step      | Agent                      | Job                                                     | Checklist      |
-| --------- | -------------------------- | ------------------------------------------------------- | -------------- |
-| Screening | `junior-analyst`           | Can this issue enter the flow?                          | `screening.md` |
-| Direction | `product-owner`            | The goal from the business side, confirmed by the owner | `direction.md` |
-| Triage    | `junior-analyst`           | Read the code and bring the facts                       | `triage.md`    |
-| Contract  | orchestrator               | Write the issue once, product side only                 | `contract.md`  |
-| Design    | `senior-analyst`           | The technical shape, attacked once before any code      | `design.md`    |
-| Plan      | `senior-analyst`           | Cut the work into small pieces                          | `plan.md`      |
-| Build     | `developer`, `tester`      | The code and its tests, piece by piece                  | `build.md`     |
-| Review    | Codex                      | One full review of the whole change                     | `review.md`    |
-| Fix       | `developer`, same reviewer | Close the findings of the review                        | `fix.md`       |
-| Commit    | orchestrator               | Record the change                                       | `commit.md`    |
-| Publish   | `senior-analyst`           | Send it as far as the contract allows                   | `publish.md`   |
-| Proof     | `uat-runner`               | Confirm it works in production                          | `proof.md`     |
+| Step      | Agent                      | Job                                                                                        | Checklist      |
+| --------- | -------------------------- | ------------------------------------------------------------------------------------------ | -------------- |
+| Screening | `junior-analyst`           | Can this issue enter the flow?                                                             | `screening.md` |
+| Direction | `product-owner`            | The goal from the business side, confirmed by the owner                                    | `direction.md` |
+| Triage    | `junior-analyst`           | Read the code and bring the facts                                                          | `triage.md`    |
+| Contract  | orchestrator               | Write the issue once, product side only                                                    | `contract.md`  |
+| Design    | `senior-analyst`           | The technical shape, attacked once before any code (a small change: short form, no attack) | `design.md`    |
+| Plan      | `senior-analyst`           | Cut the work into small pieces                                                             | `plan.md`      |
+| Build     | `developer`, `tester`      | The code and its tests, piece by piece                                                     | `build.md`     |
+| Review    | Codex                      | One full review of the whole change                                                        | `review.md`    |
+| Fix       | `developer`, same reviewer | Close the findings of the review                                                           | `fix.md`       |
+| Commit    | orchestrator               | Record the change                                                                          | `commit.md`    |
+| Publish   | `senior-analyst`           | Send it as far as the contract allows                                                      | `publish.md`   |
+| Proof     | `uat-runner`               | Confirm it works in production                                                             | `proof.md`     |
 
 ## How to read a checklist
 
@@ -55,4 +55,4 @@ Only Proof moves an issue to DONE. Done is deployed and confirmed working, or de
 
 ## The owner stops, and nothing else
 
-Direction (he confirms the goal and the decisions), Design (twice: the design, then the findings of the attack), the fix budget used up, a publishing move past what he allowed, and a failed proof. The project's settings may approve only the publishing moves. Everywhere else the work goes on without asking.
+Direction (he confirms the goal and the decisions), Design (twice: the design, then the findings of the attack; once for a small change, in the short form of `design.md`), the fix budget used up, a publishing move past what he allowed, and a failed proof. The project's settings may approve only the publishing moves. Everywhere else the work goes on without asking.

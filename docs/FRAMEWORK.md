@@ -42,7 +42,7 @@ palette. Never reintroduce upstream's green alien identity.
   cross-cutting agents
   (researcher, debrief, handoff-summarizer), the shared method skills
   (`code-investigation`, `library-first`, `intent-guardrails`, the `*-method` skills), the
-  meta skills (`quick`, `caveman-forge`, `tasks-mcp`, `agent-report`,
+  meta skills (`caveman-forge`, `tasks-mcp`, `agent-report`,
   `autonomous-main-goal`) and the safety hooks. **A domain pack adds only what is genuinely
   domain-specific — skills** (expoapp: simulator/emulator lanes; webapp: browser lanes) —
   plus its `orchestrator.md` routing and any domain-only command. One role, one definition,

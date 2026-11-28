@@ -39,7 +39,6 @@ export const LANES = /** @type {const} */ ([
     cap: 4000,
   },
   { id: "qa", title: "🧪 QA", re: /(^|\n)## (🧪 )?QA( \([^)\n]*\))? —/, cap: 4000 },
-  { id: "prepr", title: "🚦 PRE-PR", re: /(^|\n)## (🚦 )?PRE-PR/, cap: 4000 },
 ]);
 
 /** The overview (`--digest` with no `--lane`) answers "where is this issue" — labels and each
@@ -49,7 +48,7 @@ export const LANES = /** @type {const} */ ([
 const OVERVIEW_CAP = 1500;
 
 /** @typedef {(typeof LANES)[number]["id"] | "attempts" | "all"} LaneId */
-export const LANE_IDS = ["all", "triage", "analysis", "review", "qa", "prepr", "attempts"];
+export const LANE_IDS = ["all", "triage", "analysis", "review", "qa", "attempts"];
 
 /**
  * Head+tail cap. Long comments keep their opening (the verdict header, the summary) and their

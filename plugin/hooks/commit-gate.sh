@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 # PreToolUse(Bash) — DETERMINISTIC commit gate. CORE: every project gets it, because "commit only
-# when green" is the pipeline's promise, and a promise enforced by memory is not enforced. This
-# hook re-derives the verdict from the issue itself at the moment `git commit` runs:
+# when green" is the flow's promise (plugin/docs/flow/commit.md), and a promise enforced by memory
+# is not enforced. This hook re-derives the verdict from the issue itself at the moment `git commit`
+# runs:
 #
 #   commit references (#N)  → gh labels MUST show qa:pass + review:pass and NO qa:blocked /
 #                             review:changes, AND the SHA each verdict recorded must be the
 #                             PARENT of this commit (current HEAD) → explicit ALLOW (no prompt;
-#                             the pipeline earned it). Any gate miss → DENY naming the exact
-#                             failing condition.
+#                             the flow's Review or Fix step earned it). Any gate miss → DENY
+#                             naming the exact failing condition and the flow step to go back to.
 #   no (#N) in the message  → ASK (a non-pipeline commit is the human's call, not blocked).
 #   gh unreachable / error  → ASK (fail-closed to the human, never fail-open).
 #
 # The SHA binding is the point: a label is a STICKER anyone can move, so a label-only gate
 # passes the second, third and fourth commit citing the same issue without re-verifying any of
 # them — the guarantee decays with every commit. The tester/reviewer therefore stamp
-# `qa-verified: <sha>` / `review-verified: <sha>` in their verdict comment, and a commit is
+# `qa-verified: <sha>` / `review-verified: <sha>` in the pass comments the flow's Review or Fix
+# step writes (plugin/docs/flow/review.md), and a commit is
 # allowed only on the code those verdicts actually saw. Pre-binding issues carry no marker at
 # all; those ASK rather than deny, so an old green still commits with one human approval.
 #
@@ -62,7 +64,7 @@ fi
 # The issue must come from the COMMIT's own message — commit-parse.sh explains the narrowings.
 n="$(commit_issue "$cmd")"
 if [ -z "$n" ]; then
-  decision ask "No (#N) issue reference — an issue-less commit bypasses the whole pipeline gate. Approve ONLY a true chore/docs commit. A code/CI/infra change belongs to an issue: deny this, file it (feedback), and let the pipeline commit it with (#N)."
+  decision ask "No (#N) issue reference — an issue-less commit bypasses the whole commit gate. Approve ONLY a true chore/docs commit. A code/CI/infra change belongs to an issue: deny this, file it (feedback), and let the flow commit it with (#N) at its Commit step."
   exit 0
 fi
 
@@ -134,7 +136,7 @@ latest_verdict() { # $1 lane rx, $2 pass rx, $3 marker key, $4 block rx → "BLO
 # the label alone then decides — which is the failure the SHA binding exists to prevent. But the
 # HEADING is STRUCTURE. Both patterns anchor to the start of a
 # line (`(^|\n)## `), so a comment QUOTING a verdict ("> ## QA — PASS") or mentioning one inline
-# cannot supersede a real blocking one — the rule the PRE-PR parser already used.
+# cannot supersede a real blocking one.
 #
 # The EMOJI, though, is decoration: a live project wrote `## QA — PASS` without it in 6 of 10
 # sampled issues. A verdict this gate cannot see is a verdict that silently does not count, and the
@@ -180,74 +182,60 @@ evidence_unreconciled="$(printf '%s' "$issue" | jq -r '
   | (([$all[] | select(.value | test("(^|\n)## (🔎 )?(CODEX|INTERNAL) REVIEW")) | .key] | last) // -1) as $ev
   | (([$all[] | select(.value | test("(^|\n)## (🔎 )?REVIEW( \\([^)\\n]*\\))? —")) | .key] | last) // -1) as $rv
   | if $ev > $rv then "yes" else "" end' 2>/dev/null)"
-# The pre-PR stage sets NO label — deliberately: it adds judgement, not another sticker to collect, and the
-# gate-depth rules let a sev:low change skip it. So this gate does NOT require a `ready` verdict.
-# But a `not-ready` that was WRITTEN must still bite: an unanswered "this does not deliver what was
-# agreed" is not advisory, and leaving it advisory means the one stage that reads the design against
-# the finished work is the one stage anybody can ignore. Blocking-only, and asymmetric on purpose.
-#
-# Only STRUCTURALLY VALID lane reports count, both to set the block and to clear it: the header at
-# the start of a line AND the lane's own signature footer. This lane has no SHA marker to
-# cross-check, so without that, quoting a verdict in a discussion comment — or typing
-# "## 🚦 PRE-PR — ready" — would clear a real not-ready. Anchoring at line start also means a
-# markdown-quoted ("> ## 🚦 …") copy of an old verdict does not count as a new one.
 # Does this issue show any sign of THIS pipeline? The evidence must be pipeline-SPECIFIC: a `qa:` /
 # `review:` lane label, or a verdict heading at the start of a line. Generic lifecycle labels
 # (`triaged`, `implemented`, `committed`) are ordinary GitHub vocabulary — counting them would flip
 # an unrelated project into enforcement and deny every commit it makes for missing labels nobody
 # there writes.
+# An old PRE-PR comment (a retired stage, it vetoes nothing now) still counts as such evidence.
 pipeline_state="$(printf '%s' "$issue" | jq -r '
   ([ .labels[]?.name // "" | select(test("^(qa|review)[:]")) ] | length) as $l
   | ([ .comments[]?.body // "" | select(test("(^|\n)## (🧪 )?QA( \\([^)\\n]*\\))? —|(^|\n)## (🔎 )?REVIEW( \\([^)\\n]*\\))? —|(^|\n)## (🚦 )?PRE-PR —")) ] | length) as $c
   | if ($l + $c) > 0 then "yes" else "" end' 2>/dev/null)"
 
-prepr_blocked="$(printf '%s' "$issue" | jq -r '
-  def lane_report: test("(^|\n)## (🚦 )?PRE-PR — (ready|not-ready)")
-                   and test("(^|\n)\\*pre-PR review · senior-analyst");
-  ([ .comments[]?.body // "" | select(lane_report) ] | last) as $c
-  | if ($c != null and ($c | test("(^|\n)## (🚦 )?PRE-PR — not-ready"))) then "yes" else "" end' 2>/dev/null)"
 # A non-sha state must never be mistaken for one: field 2 of `UNKNOWN ## 🔎 REVIEW — approve` is a
 # heading fragment, not a marker, and letting it through would compare it to HEAD and deny with a
 # nonsense sha.
 qa_sha="$(printf '%s' "$qa_verdict" | grep -vE 'BLOCKED|UNKNOWN' | awk '{print $2}')"
 review_sha="$(printf '%s' "$review_verdict" | grep -vE 'BLOCKED|UNKNOWN' | awk '{print $2}')"
 short() { printf '%s' "${1:0:7}"; }
+# The flow step a missing pass goes back to: Review when no QA or review verdict was ever written,
+# Fix otherwise. It only picks the words of a refusal, never the decision.
+if [ -z "$qa_verdict" ] && [ -z "$review_verdict" ]; then back_step="Review"; else back_step="Fix"; fi
 
 has() { printf '%s\n' "$labels" | grep -qxF "$1"; }
 if [ -z "$pipeline_state" ]; then
-  decision ask "Commit cites (#$n), but that issue carries no pipeline state at all — no qa:/review: label, no QA or review verdict comment. This gate judges ONE pipeline (labelled stages + SHA-bound verdicts); a project that does not run it should not be denied by it. Approve if this project commits without the staged pipeline; otherwise run the stages first."
+  decision ask "Commit cites (#$n), but that issue carries no pipeline state at all — no qa:/review: label, no QA or review verdict comment. This gate judges ONE pipeline (labelled stages + SHA-bound verdicts); a project that does not run it should not be denied by it. Approve if this project commits without that pipeline; otherwise place the issue in the flow (a new issue starts at Screening) and commit it at the flow's Commit step."
 elif [ "$qa_verdict" = "BLOCKED" ]; then
   # The newest QA verdict blocks, whatever the labels say. A stale `qa:pass` next to a newer block
   # is precisely the partial-failure this ordering exists to catch — the comment is the verdict.
-  decision deny "Gate: the NEWEST QA verdict on #$n is BLOCKED (the labels may still say qa:pass — a label edit that failed does not unblock a fix). Route back to implement, then re-run qa $n."
+  decision deny "Gate: the NEWEST QA verdict on #$n is BLOCKED (the labels may still say qa:pass — a label edit that failed does not unblock a fix). Go back to the flow's Fix step; its new pass at HEAD is what lets this commit through."
 elif [ "$review_verdict" = "BLOCKED" ]; then
-  decision deny "Gate: the NEWEST review verdict on #$n demanded changes (whatever the labels say). Route back to implement, then re-run audit $n."
-elif [ -n "$prepr_blocked" ]; then
-  decision deny "Gate: the NEWEST pre-PR verdict on #$n is not-ready — the delivery does not match what was agreed (dropped scope, unasked additions, or not one coherent PR). It carries no label by design, but an unanswered not-ready still blocks. Address its findings via implement, then re-run pre-pr $n."
+  decision deny "Gate: the NEWEST review verdict on #$n demanded changes (whatever the labels say). Go back to the flow's Fix step; its new pass at HEAD is what lets this commit through."
 elif has "qa:blocked"; then
-  decision deny "Gate: issue #$n carries qa:blocked — QA blocked this fix. Route back to implement; a stale block outranks a pass."
+  decision deny "Gate: issue #$n carries qa:blocked — QA blocked this fix, and a stale block outranks a pass. Go back to the flow's Fix step."
 elif has "review:changes"; then
-  decision deny "Gate: issue #$n carries review:changes — review demanded changes. Route back to the implement stage."
+  decision deny "Gate: issue #$n carries review:changes — review demanded changes. Go back to the flow's Fix step."
 # The label denies sit ABOVE the unreadable-verdict asks on purpose. An unrecognised heading beside a
 # blocking LABEL is not an open question — it is a block whose wording drifted, and asking about it
 # would let the one case this change was written for downgrade a hard deny to a prompt.
 elif [ "${qa_verdict%% *}" = "UNKNOWN" ]; then
-  decision ask "The newest QA verdict on #$n uses a word this gate does not know, so it cannot tell a pass from a block: \"${qa_verdict#UNKNOWN }\". The canonical QA verdict is PASS or BLOCKED. Re-run qa $n so the lane carries a verdict the gate can read; approve only if you have read that comment yourself and it is a genuine pass."
+  decision ask "The newest QA verdict on #$n uses a word this gate does not know, so it cannot tell a pass from a block: \"${qa_verdict#UNKNOWN }\". The canonical QA verdict is PASS or BLOCKED. Go back to the flow's Fix step so the pass is written in words the gate can read; approve only if you have read that comment yourself and it is a genuine pass."
 elif [ "${review_verdict%% *}" = "UNKNOWN" ]; then
-  decision ask "The newest review verdict on #$n uses a word this gate does not know, so it cannot tell a pass from a block: \"${review_verdict#UNKNOWN }\". The canonical review verdict is pass or changes — an external reviewer's own vocabulary (approve / needs-attention) must be MAPPED when it is folded into the lane, never pasted raw. Re-run audit $n; approve only if you have read that comment yourself and it is a genuine pass."
+  decision ask "The newest review verdict on #$n uses a word this gate does not know, so it cannot tell a pass from a block: \"${review_verdict#UNKNOWN }\". The canonical review verdict is pass or changes — an external reviewer's own vocabulary (approve / needs-attention) must be MAPPED when it is folded into the lane, never pasted raw. Go back to the flow's Fix step so the pass is written in words the gate can read; approve only if you have read that comment yourself and it is a genuine pass."
 elif [ -n "$evidence_unreconciled" ]; then
-  decision ask "A reviewer's findings on #$n (a '## 🔎 CODEX REVIEW' / '## 🔎 INTERNAL REVIEW' comment) landed AFTER the lane's own verdict, and no reconciled '## 🔎 REVIEW' followed — so the standing verdict predates a reviewer nobody folded in. Re-run audit $n; it folds every reviewer into ONE verdict where any block wins. Approve only if you have read those findings yourself and they raise nothing."
+  decision ask "A reviewer's findings on #$n (a '## 🔎 CODEX REVIEW' / '## 🔎 INTERNAL REVIEW' comment) landed AFTER the lane's own verdict, and no reconciled '## 🔎 REVIEW' followed — so the standing verdict predates a reviewer nobody folded in. Go back to the flow's Fix step; its reviewer writes ONE verdict that folds in every finding, where any block wins. Approve only if you have read those findings yourself and they raise nothing."
 elif ! has "qa:pass"; then
-  decision deny "Gate: issue #$n lacks qa:pass — run qa $n first. Commit is earned, not asserted."
+  decision deny "Gate: issue #$n lacks qa:pass. Go back to the flow's $back_step step; it writes the pass this commit needs."
 elif ! has "review:pass"; then
-  decision deny "Gate: issue #$n lacks review:pass — run audit $n first."
+  decision deny "Gate: issue #$n lacks review:pass. Go back to the flow's $back_step step; it writes the pass this commit needs."
 elif [ -z "$qa_sha" ] || [ -z "$review_sha" ]; then
-  decision ask "Issue #$n is label-green but carries no PASS-verdict SHA marker — either its verdicts predate SHA binding, or the newest verdict was a BLOCK/changes whose marker carries no authority (no $([ -z "$qa_sha" ] && printf 'qa-verified')$([ -z "$qa_sha" ] && [ -z "$review_sha" ] && printf ' / ')$([ -z "$review_sha" ] && printf 'review-verified') marker), so the pass cannot be tied to the code being committed. Approve only if you know this green covers HEAD $(short "$head_sha"); otherwise re-run qa $n and audit $n."
+  decision ask "Issue #$n is label-green but carries no PASS-verdict SHA marker — either its verdicts predate SHA binding, or the newest verdict was a BLOCK/changes whose marker carries no authority (no $([ -z "$qa_sha" ] && printf 'qa-verified')$([ -z "$qa_sha" ] && [ -z "$review_sha" ] && printf ' / ')$([ -z "$review_sha" ] && printf 'review-verified') marker), so the pass cannot be tied to the code being committed. Approve only if you know this green covers HEAD $(short "$head_sha"); otherwise go back to the flow's Fix step for a new pass at HEAD."
 elif [ "$qa_sha" != "$head_sha" ]; then
-  decision deny "Gate: QA verified #$n at $(short "$qa_sha") — committing on $(short "$head_sha"). The pass belongs to code that is no longer HEAD; re-run qa $n (a label is a sticker, the SHA is the artifact)."
+  decision deny "Gate: QA verified #$n at $(short "$qa_sha") — committing on $(short "$head_sha"). The pass belongs to code that is no longer HEAD (a label is a sticker, the SHA is the artifact). Go back to the flow's Fix step for a new pass at HEAD."
 elif [ "$review_sha" != "$head_sha" ]; then
-  decision deny "Gate: review verified #$n at $(short "$review_sha") — committing on $(short "$head_sha"). The pass belongs to code that is no longer HEAD; re-run audit $n."
+  decision deny "Gate: review verified #$n at $(short "$review_sha") — committing on $(short "$head_sha"). The pass belongs to code that is no longer HEAD. Go back to the flow's Fix step for a new pass at HEAD."
 else
-  decision allow "Gate green for #$n: qa:pass + review:pass, no blocks, both verdicts verified at HEAD $(short "$head_sha"). Deterministic auto-commit permitted (publishing is the push stage's, gated by policy.push)."
+  decision allow "Gate green for #$n: qa:pass + review:pass, no blocks, both verdicts verified at HEAD $(short "$head_sha"). Deterministic auto-commit permitted (publishing is the flow's Publish step, gated by policy.push)."
 fi
 exit 0

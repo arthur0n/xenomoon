@@ -37,7 +37,7 @@ test("digest shows labels, body, the NEWEST comment per lane, both review lanes,
   assert.doesNotMatch(d, /qa-blocked-at/);
   assert.match(d, /🔎 REVIEW \(newest/);
   assert.match(d, /🔎 EXTERNAL REVIEW \(newest/);
-  assert.match(d, /🚦 PRE-PR — none/);
+  assert.doesNotMatch(d, /PRE-PR/);
   assert.match(d, /issuekit attempts \(1\) ──\n {2}⚠ DO-NOT-RETRY @bot/);
   assert.match(
     d,

@@ -417,7 +417,7 @@ const HELP = `issuekit — searchable, deterministic GitHub-issue attempt log (s
   issuekit new --title "…" [--body-file f|-] [--symptom-file f|-] [--label a,b] [--force] [--repo R]
   issuekit show <#> [--repo R] [--digest [--lane L] [--cap N] [--full]]
       --digest = the thread as a stage reads it, ONE deterministic shape: labels, body, the
-      NEWEST comment per lane (triage/analysis/review+external review/qa/prepr), attempts
+      NEWEST comment per lane (triage/analysis/review+external review/qa), attempts
       flagged — each capped head+tail (spec fields sit at the END). --lane picks one lane.
       Use it instead of raw \`gh issue view … --json comments\` dumps (token-audit issue-digest).
   issuekit patch <#> [--title ..] [--body-file f|-] [--add-label a,b] [--remove-label a,b]

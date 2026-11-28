@@ -56,9 +56,7 @@ Read `plugin/docs/flow/README.md` once per session.
 - An issue with no such task and no earlier work: the first call starts it at Screening.
 - An issue with no such task that was worked before this flow: read its labels and comments once
   and place it with the first call, naming the step of the first line that matches (the board
-  then shows "placed at" that step). A not-ready verdict of the retired pre-PR stage →
-  place it at Review, move it to Waiting for the owner, tell the owner the commit hook still
-  blocks on it, and do not continue.
+  then shows "placed at" that step).
   The newest verdict is a block, or a `qa:blocked` / `review:changes` label → Fix. `qa:pass` and
   `review:pass` both present → Commit. `implemented`, or code built → Review. `solution-ready`,
   or a design with no code → Plan. `triaged`, or a triage record only → Contract. None of these

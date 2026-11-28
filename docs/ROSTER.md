@@ -42,7 +42,7 @@ Two rules hold the roster at this shape:
 
 - **Triage and Design stay separate steps.** Fusing them costs the independent second read —
   the pass that catches a confidently wrong root cause before any code is written.
-- **A lane is not an agent.** The adversarial review and the gate sweep are checklists on the
+- **A lane is not an agent.** The adversarial review and the triage are checklists on the
   two analysts. Same model, same read-only contract, same tools, differing only in what they read
   is a lane, and it belongs in a skill.
 

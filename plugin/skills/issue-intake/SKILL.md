@@ -108,7 +108,7 @@ to be written in it. Absent any such statement, English.
 
 **The structure is not prose and is never translated**: every LABEL (`bug`, `feedback`, `design`) stays exactly as written, because labels are what the later stages QUERY on — a translated label is an issue no queue can find — and so do the body template's field names (What happened, Expected, Steps to reproduce, Account / area, Env). Translate what you write INTO those fields, never the fields themselves.
 
-**The PRD linkage is structure too** — the `**PRD:** design/<slug>.md` line and the inlined `**Acceptance**` block keep those exact words. They are not decoration: the implement stage FINDS the design spec by that literal `**PRD:**` line, and pre-PR grades the delivery against that Acceptance. Translate either and the agreed design silently stops being anybody's spec — implement builds from the issue prose alone and nobody notices the scope that went missing.
+**The PRD linkage is structure too** — the `**PRD:** design/<slug>.md` line and the inlined `**Acceptance**` block keep those exact words. They are not decoration: the implement stage FINDS the design spec by that literal `**PRD:**` line, and the Review step reads that Acceptance as part of the contract. Translate either and the agreed design silently stops being anybody's spec — implement builds from the issue prose alone and nobody notices the scope that went missing.
 
 ## 5. Then keep going
 

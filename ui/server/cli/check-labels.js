@@ -129,10 +129,8 @@ const STAGE_NAMES = [
   "triage",
   "solution",
   "implement",
-  "sweep",
   "qa",
   "audit",
-  "pre-pr",
   "commit",
   "feedback",
   "design",
@@ -146,13 +144,18 @@ const STAGE_NAMES = [
   "sync-framework",
   "build",
 ];
+// Stages the flow does not have. A slash form of one points at a surface that is gone, so it is
+// refused like any other.
+const OLD_STAGE_NAMES = ["sweep", "pre-pr"];
 // Format-agnostic on purpose: the first version required a backtick, so it passed a tree that
 // still said `run /triage` in prose, listed `/design` in a state diagram, advertised the whole set
 // in domain.json, and generated one in a project template. The lookbehind excludes paths and URLs
 // (`design/<slug>`, `docs/qa`, `https://x/build`) and the trailing guard excludes filenames
 // that merely START with a stage name (`$(dirname "$0")/commit-parse.sh`) — only a bare `/stage`
 // counts.
-const SLASH_STAGE_RE = new RegExp("(?<![\\w/.])/(" + STAGE_NAMES.join("|") + ")(?![\\w./-])");
+const SLASH_STAGE_RE = new RegExp(
+  "(?<![\\w/.])/(" + [...STAGE_NAMES, ...OLD_STAGE_NAMES].join("|") + ")(?![\\w./-])",
+);
 
 /** @param {string} dir @returns {string[]} */
 function walk(dir) {
